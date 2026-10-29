@@ -1,0 +1,71 @@
+# YOLO11m baseline training settings (checklist M1-7, M1-8).
+# Used by scripts/train_detector.py; CLI flags override fold, epochs, seed and
+# the GPR augmentation strength.
+
+# Architecture yaml only -> the network is built from scratch (no pretrained
+# weights, M1 decision 2026-10-29).
+model: yolo11m.yaml
+
+# Folder made by scripts/build_yolo_dataset.py. The script copies
+# fold{k}.yaml (or test.yaml) to runs/detect/_data/ and adds "channels: 1".
+dataset_dir: data/aihub_yolo_v1
+fold: 0
+
+# Passed to the Ultralytics trainer unchanged.
+ultralytics:
+  task: detect
+  pretrained: false
+  imgsz: 256            # AIHub B-scans are 256 x 256 (dataset_spec_m1)
+  epochs: 3             # placeholder; per-fold budget is decided after M1-9 smoke
+  batch: 32
+  workers: 2            # Windows: start with 2, fall back to 0 on DataLoader errors
+  seed: 0
+  deterministic: true
+  cache: false
+  plots: true
+  # Augmentation policy for GPR B-scans (docs/experiments/augmentation_policy.md)
+  fliplr: 0.5
+  flipud: 0.0           # never flip the time axis
+  degrees: 0.0          # no rotation (tilts the hyperbola axis)
+  shear: 0.0
+  perspective: 0.0
+  translate: 0.1
+  scale: 0.2            # isotropic 0.8-1.2, keeps the aspect ratio
+  mosaic: 0.0           # baseline; mosaic=0.5 only as a separate ablation
+  close_mosaic: 0
+  mixup: 0.0
+  cutmix: 0.0
+  copy_paste: 0.0
+  hsv_h: 0.0            # grayscale input
+  hsv_s: 0.0
+  hsv_v: 0.3            # NOTE: no effect with channels 1 (RandomHSV skips 1-channel)
+  bgr: 0.0
+  multi_scale: 0.0
+  rect: false
+
+# Project augmentations (src/gpr_detection/augment.py), applied to the decoded
+# B-scan before Ultralytics' affine step. "strength" multiplies every intensity
+# (noise sigma, contrast/gamma delta, ringing amplitude, dropped column share);
+# probabilities stay fixed. strength 0 switches all four off.
+gpr_augment:
+  strength: 1.0
+  gaussian_noise:
+    probability: 0.3
+    sigma_min: 0.02     # fraction of 255
+    sigma_max: 0.05
+  contrast_gamma:
+    probability: 0.3
+    contrast_max_delta: 0.15
+    gamma_max_delta: 0.15
+  ringing:
+    # Low amplitude on purpose: strong stripes resemble pipe_band (lpipe).
+    probability: 0.2
+    amplitude_min: 0.01  # fraction of 255
+    amplitude_max: 0.03
+    period_min_px: 6.0
+    period_max_px: 24.0
+  trace_dropout:
+    probability: 0.3
+    fraction_min: 0.01   # share of columns
+    fraction_max: 0.05
+    fill: mean           # mean | zero

@@ -1,7 +1,7 @@
 # gpr_detection 아키텍처 개요
 
 - 작성: add-architect (ADD 3.0 design 모드), 2026-10-29 — 체크리스트 M0-12
-- 설계 목적: **greenfield**. 2026-10-29 기준 `src/`에는 M1-1·M1-2 구현분(`io/radargram.py`, `io/classes.py`, `io/annotated.py`, `io/paths.py`, `io/_common.py`, 로더 5종 `io/{aihub,morocco,fourtu,guangzhou,gprsd}.py`, `io/_vendor/`, `cli.py` 스텁)만 있다. `GridBox`·`DetectorOutput`·`InputTransform` 등은 아직 코드에 없는 **제안**이다. 이 문서는 M1–M2 구현 전에 모듈 경계와 두 갈래(검출·깊이)의 좌표 계약을 고정한다.
+- 설계 목적: **greenfield**. 2026-10-29 기준 `src/`에는 M1-1·M1-2 구현분(`io/radargram.py`, `io/classes.py`, `io/annotated.py`, `io/paths.py`, `io/_common.py`, 로더 5종 `io/{aihub,morocco,fourtu,guangzhou,gprsd}.py`, `io/_vendor/`, `cli.py` 스텁)만 있다. M1-7·M1-8(2026-10-29)로 §2-3 스케치의 타입(`GridBox`·`PixelBox`·`Detection`·`DetectorOutput`·`InputTransform`·`ImageGridMap`), `pipeline.py` 역변환, `augment.py`가 코드에 들어갔다. 스케치는 구현에 맞춰 고쳤다. 이 문서는 M1–M2 구현 전에 모듈 경계와 두 갈래(검출·깊이)의 좌표 계약을 고정한다.
 - 결정 기록: [ADR-001 검출기 이전](ADR-001-detector-migration.md), [ADR-002 물리 기반 깊이](ADR-002-physics-based-depth.md), [ADR-003 데이터 분할·클래스](ADR-003-data-split-and-classes.md)
 - 근거 표기: 사용자·문서가 준 사실은 그대로, 문서에서 추론한 것은 `[추정]`, 이 문서에서 채운 값은 `[가정]`.
 
@@ -101,6 +101,7 @@ flowchart LR
   detMod -.->|"M4 이후"| rfdetr
   pipeMod --> prepMod
   pipeMod --> detMod
+  detMod -->|"증강 어댑터"| augMod["augment<br/>B-scan 광도 증강(numpy)"]
   pipeMod --> depthMod
   pipeMod --> ioMod
   cliMod --> pipeMod
@@ -113,7 +114,8 @@ flowchart LR
 |---|---|---|
 | `io` | `Radargram`(spec §1-1)과 데이터셋별 로더, 원본 격자 박스 `GridBox`. 메타 t0 샘플 → ns 변환. 스케일 없는 입력은 `dt_ns=None` | FR-2, FR-3, QA-4, CON-4 |
 | `preprocess` | `filters`(DC·dewow·bandpass·median 배경 제거·AGC), `timezero`(영점 사건 검출·선택), `to_image`(검출 갈래 영상화와 `ImageGridMap`) | QA-2, QA-8 |
-| `detect` | `Detector` 프로토콜, 백엔드 래퍼(`yolo.py`, M4에 `rfdetr.py`), 사용자 정의 증강(잡음·대비). **ultralytics·rfdetr import는 여기에만** | QA-1, QA-7, CRN-4 |
+| `detect` | `Detector` 프로토콜, 백엔드 래퍼(`yolo.py`, M4에 `rfdetr.py`), 증강 어댑터(`yolo_train.py`, 증강 본체는 최상위 `augment.py`). **ultralytics·rfdetr import는 여기에만** | QA-1, QA-7, CRN-4 |
+| `augment` | 백엔드 공통 B-scan 광도 증강 4종(가우시안 잡음·대비/감마·수평 띠 잡음·트레이스 누락). numpy만 사용(torch·cv2·ultralytics·rfdetr 금지) | QA-1, M1-7 |
 | `depth` | 점 추출·RANSAC·least_squares(R 고정)·굴절 모델·v 결정표·불확도 → `DepthResult` | FR-2, QA-2, QA-3 |
 | `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`만)와 좌표 변환을 적용 | FR-4, QA-8 |
 | `cli` | `gpr-detect infer` | FR-4 |
@@ -124,6 +126,7 @@ flowchart LR
 2. `io`는 패키지 안 다른 모듈을 import하지 않는다.
 3. `ultralytics`·`rfdetr` import는 `src/gpr_detection/detect/` 아래 백엔드 파일에만, 함수 안 지연 import로 둔다(`gpr-detr` env에 ultralytics가 없다, CON-1).
 4. `src/`는 `scripts/`를 import하지 않는다(spec §6-1: `ray_geometry` 알고리즘은 `depth/refraction.py`로 옮겨 구현).
+5. `augment`는 torch·cv2·ultralytics·rfdetr를 import하지 않는다(시험: `tests/test_architecture_rules.py`). `detect` → `augment` 의존은 허용(어댑터).
 
 ### 2-3. 두 갈래 데이터 흐름과 좌표 계약
 
@@ -178,9 +181,13 @@ class InputTransform:     # detect/base.py — 백엔드가 L1 → L2에 적용�
     input_w: int; input_h: int       # L2 크기(검증용)
 
 @dataclass(frozen=True)
+class PixelBox:           # detect/base.py — 연속 픽셀 좌표(픽셀 j는 [j, j+1))
+    x1: float; y1: float; x2: float; y2: float
+
+@dataclass(frozen=True)
 class Detection:          # detect/base.py
     class_id: int; class_name: str; score: float
-    x1: float; y1: float; x2: float; y2: float   # L2 픽셀(모델 입력 좌표 그대로)
+    box: PixelBox                                # L2 픽셀(모델 입력 좌표 그대로)
 
 @dataclass(frozen=True)
 class DetectorOutput:
@@ -191,8 +198,10 @@ class DetectorOutput:
 class ImageGridMap:       # preprocess/to_image.py
     trace_offset: int; sample_offset: int        # 타일 원점(L0)
     traces_per_px: float; samples_per_px: float  # 리사이즈 배율
+    n_traces: int; n_samples: int                # 격자 크기(자르기용)
     # pipeline: u = (x − pad_x) / scale_x  (L2→L1),  i = trace_offset + u · traces_per_px  (L1→L0)
-    #           바깥쪽으로 내림/올림, 격자 범위로 자른다
+    #           셀 j는 [j, j+1). 박스 [t1,t2]는 닫힌 인덱스 floor(t1+1e-6) .. ceil(t2−1e-6)−1,
+    #           영폭은 1셀, 격자 범위로 자르고 격자 밖이면 버린다(None). 이 규칙은 pipeline.py 한 곳에만 둔다
 
 @dataclass(frozen=True)
 class GridBox:            # io/radargram.py
@@ -209,7 +218,7 @@ class GridBox:            # io/radargram.py
 - 세로축은 항상 시간 증가 방향이 아래다. 상하 반전은 어느 층에서도 없다(augmentation_policy §1).
 - `ImageGridMap`은 등방 여부와 무관하게 축별 배율을 따로 가진다(4TU 512×N 측선은 가로세로 배율이 다를 수 있음).
 - 스케일 없는 입력(AIHub·모로코)도 L0가 정의된다(이미지 픽셀 = 격자). `dt_ns=None`이라 깊이는 `no_scale`(QA-4). 라벨 박스 `io/annotated.py`의 `Box`(원본 이미지 px)는 이 경우 L0 좌표다.
-- `GridBox`는 아직 코드에 없다(제안). `io/radargram.py`에 `Radargram`과 함께 두면 `detect`·`depth`가 서로 import하지 않고 같은 타입을 쓴다.
+- `GridBox`는 `io/radargram.py`에 구현됨(M1-8, 닫힌 구간 `i0..i1`·`k0..k1`). `detect`·`depth`가 서로 import하지 않고 같은 타입을 쓴다.
 - `depth`는 `Detection`을 모른다. `pipeline`이 `class_name == "pipe_hyperbola"`인 것만 `GridBox`로 바꿔 넘긴다(ADR-002·ADR-003). `pipe_band` 깊이는 M2-6 명세 뒤에 같은 계약으로 추가한다.
 
 ## 3. 결정 요약

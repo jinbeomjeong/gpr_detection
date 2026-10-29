@@ -31,3 +31,6 @@ src/gpr_detection/io/_vendor/ids_dt.py
 docs/datasets/figures/*montage*.png
 analysis/data/out/phash_pairs_le8.csv
 analysis/data/out/*_out.txt
+
+# Ultralytics AMP 검사가 받는 가중치(AGPL) 위치
+/weights/

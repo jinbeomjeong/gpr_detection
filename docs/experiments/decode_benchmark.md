@@ -149,7 +149,7 @@ CPU 디코더는 모두 libjpeg-turbo 계열이라 비트 단위로 같다. nvjp
 
 - CPU에서는 **cv2 IMREAD_GRAYSCALE이 가장 빠르고**, simplejpeg와 같다. torchvision +15–18 %, cv2 IMREAD_COLOR +20 %(모로코 +24 %), PIL +32 %(모로코 +56 %).
 - PIL `draft('L', 원크기)`는 효과가 없다. 원본이 이미 그레이이고 축소도 하지 않으므로 바꿀 것이 없다.
-- Ultralytics는 IMREAD_COLOR로 3채널을 만든다. 그레이로 읽어 채널을 복제하는 것보다 20 % 느리지만 장당 0.085 ms 차이라 epoch당 AIHub 전체 기준 6 s 수준이다.
+- Ultralytics는 IMREAD_COLOR로 3채널을 만든다. 그레이로 읽어 채널을 복제하는 것보다 20 % 느리지만 장당 0.085 ms 차이라 epoch당 AIHub 전체 기준 6 s 수준이다. 단, 이 프로젝트 학습은 data yaml `channels: 1`이라 Ultralytics가 IMREAD_GRAYSCALE로 직접 읽는다(M1-7) — 판정 재측정(M1-0b)은 그레이 직접 읽기를 기준으로 한다.
 
 ### 3.4 GPU 디코딩(nvjpeg)
 

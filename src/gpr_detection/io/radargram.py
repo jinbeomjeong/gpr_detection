@@ -83,6 +83,54 @@ class Radargram:
         return self.data.shape[1]
 
 
+@dataclass(frozen=True)
+class GridBox:
+    """Box on the original radargram grid (coordinate layer L0).
+
+    Closed integer intervals: the box covers traces ``i0..i1`` and samples
+    ``k0..k1`` inclusive, i.e. ``radargram.data[k0:k1 + 1, i0:i1 + 1]``. Depth
+    estimation only receives boxes in this layer
+    (``docs/architecture/README.md`` section 2-3).
+
+    Attributes:
+        i0: First trace index.
+        i1: Last trace index (inclusive).
+        k0: First sample index (earliest time).
+        k1: Last sample index (inclusive).
+    """
+
+    i0: int
+    i1: int
+    k0: int
+    k1: int
+
+    def __post_init__(self) -> None:
+        if min(self.i0, self.k0) < 0:
+            raise ValueError(f"indices must be >= 0, got {self}")
+        if self.i1 < self.i0 or self.k1 < self.k0:
+            raise ValueError(f"need i0 <= i1 and k0 <= k1, got {self}")
+
+    @property
+    def n_traces(self) -> int:
+        """Number of traces covered."""
+        return self.i1 - self.i0 + 1
+
+    @property
+    def n_samples(self) -> int:
+        """Number of samples covered."""
+        return self.k1 - self.k0 + 1
+
+    @property
+    def trace_slice(self) -> slice:
+        """Column slice for ``data[:, trace_slice]``."""
+        return slice(self.i0, self.i1 + 1)
+
+    @property
+    def sample_slice(self) -> slice:
+        """Row slice for ``data[sample_slice, :]``."""
+        return slice(self.k0, self.k1 + 1)
+
+
 def sample_to_ns(sample_index: float, dt_ns: float) -> float:
     """Convert a sample index from metadata to a time in ns."""
     return float(sample_index) * dt_ns

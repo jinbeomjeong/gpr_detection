@@ -15,7 +15,7 @@ B-scan의 세로축은 **시간(깊이)**, 가로축은 **주사 거리**다. �
 | 금지 | 상하 반전 | 시간축 역전. 쌍곡선이 아래로 볼록해지고 지표 반사가 바닥으로 간다 |
 | 금지 | 큰 회전, 전단, 원근 | 쌍곡선 대칭축이 기울어져 실제로 나올 수 없는 형태가 된다 |
 | 금지 | 세로 비율을 크게 바꾸는 리사이즈 | 곡률(속도) 단서가 왜곡된다. 입력은 비율 유지 letterbox |
-| 무의미 | 색상(hue)·채도(saturation)·채널 교환 | GPR 영상은 1채널 그레이(3채널 복제로 로드됨) |
+| 무의미 | 색상(hue)·채도(saturation)·채널 교환 | GPR 영상은 1채널 그레이이며 학습은 data yaml `channels: 1`로 1채널로 읽는다(M1-7 결정) |
 
 ## 2. Ultralytics 기본값과 권장값
 
@@ -35,11 +35,11 @@ B-scan의 세로축은 **시간(깊이)**, 가로축은 **주사 거리**다. �
 | `copy_paste` | 0.0 | 0.0 | 유지 | detect 작업에는 적용되지 않음(세그먼트 전용) |
 | `hsv_h` | 0.015 | **0.0** | 끔 | 그레이 영상에서 무의미. 색상 맵 영상이 섞일 경우 가짜 색 변화 방지 |
 | `hsv_s` | 0.7 | **0.0** | 끔 | 위와 같음 |
-| `hsv_v` | 0.4 | **0.3** | 축소 | 밝기(곱셈 이득) 증강. AIHub는 gain 0.25/0.5/1.0 사본이 이미 강도 변화를 주므로 약하게 |
+| `hsv_v` | 0.4 | **0.3** | 축소 | **1채널에서는 무효** — Ultralytics 8.4.192 `RandomHSV`가 3채널이 아니면 건너뜀(`augment.py:1512`). 밝기 변화는 사용자 정의 대비·감마 증강이 맡는다. 설정에는 0.3을 남기되 무효임을 주석으로 표시 |
 | `bgr` | 0.0 | 0.0 | 유지 | 그레이 영상에서 무의미 |
 | `auto_augment` | randaugment | (무관) | 해당 없음 | 분류 작업 전용. detect 학습에는 쓰이지 않는다 |
 | `erasing` | 0.4 | (무관) | 해당 없음 | 분류 작업 전용 |
-| `imgsz` | 640 | 640 | 유지 | 학습 시 letterbox(비율 유지 + 패딩). 정사각 강제 늘리기 없음 |
+| `imgsz` | 640 | **256** | 변경 | AIHub 원본 256×256을 업스케일하지 않음(M1 결정, dataset_spec_m1). 학습 시 letterbox(비율 유지 + 패딩) |
 | `rect` | False | False(학습), 검증은 Ultralytics가 rect 사용 | 유지 | 둘 다 비율 유지 |
 | `multi_scale` | 0.0 | 0.0 | 유지 | 켜도 등방이지만 비교 실험의 입력 크기 통일을 위해 끈다 |
 | `seed` / `deterministic` | 0 / True | fold별 고정·기록 / True | 5-fold | AIHub 세션 그룹 5-fold(ADR-003), 비교는 fold 평균±표준편차 |
@@ -49,8 +49,8 @@ B-scan의 세로축은 **시간(깊이)**, 가로축은 **주사 거리**다. �
 
 | 증강 | 상태 | 조치 |
 |---|---|---|
-| 대비(contrast) | Ultralytics 기본 증강에 없음(`hsv_v`는 곱셈 이득이라 밝기·대비가 함께 변함) | 필요하면 사용자 정의 변환으로 추가 |
-| 가우시안 잡음 | 없음. Albumentations 연동 블록(`augment.py` 2150행: Blur·MedianBlur·ToGray·CLAHE, 각 p=0.01)은 albumentations가 설치돼 있지 않아 **비활성**(gpr-dev에 미설치 확인) | albumentations는 이 프로젝트에서 쓰지 않는다. 잡음·대비 변환은 `src/gpr_detection/detect/` 안의 사용자 정의 변환으로 구현(python-expert 위임) |
+| 대비(contrast) | Ultralytics 기본 증강에 없음(`hsv_v`는 곱셈 이득이라 밝기·대비가 함께 변함) | 사용자 정의 대비·감마 증강으로 구현됨(`src/gpr_detection/augment.py`, M1-7) |
+| 가우시안 잡음 | 없음. Albumentations 연동 블록(`augment.py` 2150행: Blur·MedianBlur·ToGray·CLAHE, 각 p=0.01)은 albumentations가 설치돼 있지 않아 **비활성**(gpr-dev에 미설치 확인) | albumentations는 이 프로젝트에서 쓰지 않는다. 증강 4종(가우시안 잡음·대비/감마·수평 띠 잡음·트레이스 누락)은 백엔드 공통 `src/gpr_detection/augment.py`와 Ultralytics 어댑터 `detect/yolo_train.py`로 구현됨(M1-7) |
 
 ## 3. 설정 파일에 넣을 블록 (영문, `configs/train_yolo11m_<실험>.yaml`)
 
@@ -73,7 +73,7 @@ hsv_s: 0.0
 hsv_v: 0.3
 bgr: 0.0
 multi_scale: 0.0
-imgsz: 640
+imgsz: 256
 rect: false
 deterministic: true
 ```

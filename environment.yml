@@ -54,3 +54,7 @@ dependencies:
       # - transformers>=5.0       # RT-DETRv2 / D-FINE(COCO 가중치)
       # - segyio>=1.9.14          # 4TU 원본 SEG-Y가 필요할 때 (기본은 vendored read_sgy)
       # - ridal>=0.11             # GSSI .dzt가 실제로 들어올 때
+
+# env 활성화·conda run 시 자동 적용(2026-10-29): MKL 백엔드 numpy와 torch의 OpenMP 충돌로 학습·matmul이 죽는 문제 회피
+variables:
+  MKL_THREADING_LAYER: TBB

@@ -56,7 +56,8 @@
 - 백엔드가 `InputTransform`을 잘못 노출하면 깊이 박스가 어긋난다 → 백엔드 래퍼 시험에 L1 → L2 → L1 왕복 오차 ≤ 0.5 px를 넣는다.
 
 후속 과제
-- M1-8: 프로토콜(`DetectorOutput`·`InputTransform`)·YOLO 래퍼 구현, "`detect/` 밖 ultralytics import 0건" 정적 시험, `InputTransform` 왕복 시험(python-expert).
+- (완료 2026-10-29) M1-8: 프로토콜(`DetectorOutput`·`InputTransform`)·YOLO 래퍼 구현, "`detect/` 밖 ultralytics import 0건" 정적 시험, `InputTransform` 왕복 시험(python-expert).
+- M4-4: 학습 진입점 `scripts/train_detector.py`는 YOLO 전용(`detect/yolo_train.py` 직접 사용)이고 설정에 `detector.backend` 키·추론 팩토리가 아직 없다. RF-DETR 추가 때 백엔드 선택 설정·팩토리와 백엔드별 학습 디스패처를 `detect/` 안에 두어야 QA-1의 "detect/·configs/ 밖 0줄" 척도를 지킨다(학습 스크립트는 이 척도에서 예외로 본다).
 - M4-3: 결정 4의 기준(전체 mAP50 −5 %p 이내, k-fold 평균)으로 판정(cv-detection-expert).
 - M4-5: 비교 결과로 이 ADR을 갱신(상태를 "대체됨" 또는 결과 절 추가).
 
