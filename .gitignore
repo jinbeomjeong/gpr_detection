@@ -1,0 +1,33 @@
+# 파생 데이터·학습 결과
+/data/
+/runs/
+*.pt
+*.onnx
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# 편집기·OS
+.vscode/
+.idea/
+Thumbs.db
+
+# Claude Code 실행 중 생기는 파일
+.claude/*.lock
+.claude/settings.local.json
+
+# 데이터 가공본 리더(가공본 제공처 작성, 라이선스 미표기) — 공개 저장소 제외, 로컬에서 복사해 사용
+src/gpr_detection/io/_vendor/sgy_radarmap.py
+src/gpr_detection/io/_vendor/ids_dt.py
+
+# AIHub 원본 이미지가 들어간 그림·감사 중간 산출물 — 공개 저장소 제외(aihub_71327.md 라이선스 절)
+docs/datasets/figures/*montage*.png
+analysis/data/out/phash_pairs_le8.csv
+analysis/data/out/*_out.txt

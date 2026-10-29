@@ -1,0 +1,3 @@
+a,b,sub_a,sub_b,split_a,split_b,dist
+U_156_aug_6.jpg,U_195_aug_6.jpg,utilities,utilities,test,train,8
+U_233_aug_6.jpg,U_239_aug_6.jpg,utilities,utilities,val,train,6

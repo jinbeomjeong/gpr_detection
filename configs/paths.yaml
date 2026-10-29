@@ -1,0 +1,9 @@
+# Dataset roots (read-only). Relative entries are resolved against gpr_data_root.
+# Override this file location with the environment variable GPR_PATHS_CONFIG.
+gpr_data_root: C:/workspace/GPR_Data
+datasets:
+  aihub: 261.3D 지표투과레이더 탐사 데이터/01-1.정식개방데이터
+  morocco: 모로코_관로공동GPR영상_가공본_261016
+  fourtu: 4TU_네덜란드_매설관GPR_가공본_261015
+  guangzhou: 광저우대_중국_관로GPR_가공본_261016
+  gprsd: GPR-SD_중국USTC_도로GPR_가공본_261016

@@ -1,0 +1,2 @@
+- [4TU zero band facts](fourtu-zero-band.md) — single merged band, meta t0 = +/- lobes, hyperbola shape says h <~ 0.1 m, eps meta = header default
+- [Zero/apex picking pitfalls](zero-and-apex-pitfalls.md) — h=0.1 merged events, argmax|mean| picks direct wave, first-peak apex seed, median bg, curvature RMS hides air-gap failure

@@ -1,0 +1,194 @@
+# 이미지 디코딩 방식별 처리 시간 비교 (상대 비교, 1차)
+
+- 작성: 2026-10-29, python-expert
+- 스크립트: `scripts/bench/decode_bench.py`
+- 결과: `runs/bench/decode_20261029_163931/` (gpr-dev, 전체), `runs/bench/decode_20261029_164741/` (gpr-detr, simplejpeg 포함 CPU만)
+  - 각 폴더에 `results.csv`(행 = 데이터셋·단계·방법), `results.json`(조건·부하·정확성·nvjpeg 초기화·DataLoader), `summary.md`(전체 표)
+- **이 측정은 상대 비교다.** 다른 프로젝트가 CPU를 쓰는 중에 쟀으므로 절대값은 부풀려져 있다. CPU가 빌 때 아래 "재측정 명령"으로 판정 측정을 다시 한다.
+
+## 1. 측정 조건
+
+| 항목 | 값 |
+|---|---|
+| CPU / GPU | i7-14700 (P 8코어 = 논리 0–15, E 12코어 = 논리 16–27) / RTX 4070 SUPER 12 GB |
+| env | gpr-dev: OpenCV 4.14.0, Pillow 13.0.0(libjpeg-turbo 8.0), torch 2.14.1+cu130, torchvision 0.29.1, numpy 2.5.4 · gpr-detr: 같은 버전 + simplejpeg 1.9.0 |
+| 코어 고정 | 프로세스 시작 직후 psutil로 affinity `0x0FFF0000`(E코어 12개) 적용. DataLoader worker도 같은 12코어를 물려받음을 확인(`results.json`의 `worker_affinities`) |
+| 스레드 | `cv2.setNumThreads(1)`, `torch.set_num_threads(1)` — 단일 스레드 기준값 |
+| 반복 | 워밍업 1회(시간은 따로 `warmup ms/img`로 기록) + 측정 5회. 이미지마다 `perf_counter_ns`로 재고, 5×N개 값의 중앙값·p5·p95를 낸다. img/s = N ÷ (5회 중 중앙값 패스 시간) |
+| 표본 (seed 0) | AIHub: Training `TS_B scan_*.zip` 6개에서 크기 비례 무작위 500장(zip 안에서 읽고, 디스크 단계용으로 `runs/bench/.../samples/aihub/`에 복사) · 모로코: `images/train` 1,598장 중 500장(원위치에서 읽기만) · 4TU: `03_radargrams_png_raw`↔`05_radargrams_npy` 상대경로가 같은 쌍 200개 |
+| GPU | `decode_jpeg(device="cuda")` 매 호출 뒤 `torch.cuda.synchronize()`. CUDA 컨텍스트·nvjpeg 첫 호출은 따로 잼 |
+| OS 캐시 | 모든 읽기는 **OS 파일 캐시가 데워진 상태**다(표본을 고를 때 이미 한 번 읽음). 콜드 디스크 I/O는 재지 않았다(캐시 비우기에 관리자 권한 필요) |
+| 소요 | gpr-dev 전체 470 s(이 중 DataLoader worker 기동이 약 4분), gpr-detr CPU만 79 s |
+
+### 부하 상태 (오염 정도)
+
+| 시점 | 전체 CPU | 고정한 E코어 평균 | GPU 사용률 / 메모리 |
+|---|---:|---:|---|
+| gpr-dev 시작 | 93.5 % | 100.0 % | 2 % / 127 MiB |
+| gpr-dev 측정 중 (2 s 간격 222회) | 평균 93.8 % (92.7–97.2) | 평균 100.0 % (99.9–100) | 평균 2.3 % (최대 46 %, 우리 nvjpeg 구간) |
+| gpr-dev 끝 | 93.6 % | 100.0 % | 2 % / 340 MiB |
+| gpr-detr 측정 중 (36회) | 평균 93.3 % | 평균 100.0 % | 1.3 % |
+
+- CPU 상위 프로세스는 다른 프로젝트의 python.exe 5개(각각 논리코어 2.5–4개분)였다. 요청 시점의 평균 ~73 %보다 높은 **~94 %**였고, **E코어는 측정 내내 100 %로 포화**됐다. "고정한 E코어 평균"에는 이 벤치마크 자신의 사용분도 들어 있다.
+- 따라서 단일 스레드 값은 다른 프로세스와 시분할한 결과이고, 빈 CPU에서는 더 빠를 것이다. 방법 간 **비율**은 두 env 사이에서 1 % 안팎으로 재현됐다(아래 §2.4).
+
+## 2. 결과
+
+### 2.1 AIHub B-scan JPG (256×256 그레이, 평균 28.9 KB, zip 저장 방식 deflate)
+
+| 단계 | 방법 | 중앙값 ms | p5 | p95 | img/s | cv2_gray 대비 |
+|---|---|---:|---:|---:|---:|---:|
+| (a) zip 읽기 | `ZipFile.read` (핸들 유지, inflate 포함) | 0.198 | 0.150 | 0.323 | 4,736 | — |
+| (b) 메모리 디코딩 | cv2 IMREAD_GRAYSCALE | **0.425** | 0.298 | 0.580 | 2,311 | 1.00 |
+| | simplejpeg GRAY (gpr-detr) | 0.428 | — | — | 2,301 | 1.00 |
+| | tv decode_image GRAY | 0.490 | 0.361 | 0.654 | 2,016 | 1.15 |
+| | tv decode_jpeg GRAY | 0.503 | 0.373 | 0.670 | 1,960 | 1.18 |
+| | cv2 IMREAD_COLOR (BGR 3채널, Ultralytics 기본) | 0.510 | 0.383 | 0.663 | 1,935 | 1.20 |
+| | PIL convert('L') | 0.562 | 0.428 | 0.725 | 1,766 | 1.32 |
+| | cv2 IMREAD_COLOR → 그레이 변환 | 0.565 | 0.438 | 0.718 | 1,742 | 1.33 |
+| | PIL draft('L', 원크기) + convert('L') | 0.568 | 0.437 | 0.732 | 1,742 | 1.34 |
+| (c) 디스크 파일 | 파일 읽기만 (`read_bytes`) | 0.258 | 0.237 | 0.327 | 3,747 | — |
+| | 읽기 + cv2 gray | 0.761 | 0.626 | 0.941 | 1,289 | — |
+| | 읽기 + cv2 color BGR (Ultralytics 경로) | 0.816 | 0.679 | 0.986 | 1,204 | — |
+| 사전 디코딩 캐시 | uint8 평면 memmap, 무작위 순서 | **0.015** | 0.015 | 0.017 | 63,291 | 0.04 |
+| | 이미지별 uint8 .npy (`np.load`) | 0.370 | 0.340 | 0.455 | 2,641 | 0.87 |
+| GPU (nvjpeg) | 한 장씩, 출력 GPU 유지 | 0.650 | 0.491 | 0.868 | 1,515 | 1.53 |
+| | 한 장씩 + D2H | 0.729 | 0.568 | 0.970 | 1,350 | 1.72 |
+| | 배치 32, 출력 GPU 유지 | 0.498 | 0.468 | 0.542 | 2,013 | 1.17 |
+| | 배치 128, 출력 GPU 유지 | 0.486 | 0.476 | 0.506 | 2,041 | 1.14 |
+| | 배치 128 + D2H | 0.582 | 0.565 | 0.604 | 1,727 | 1.37 |
+| | 비교: CPU cv2 gray + H2D(pageable) | 0.548 | 0.418 | 0.712 | 1,787 | 1.29 |
+
+- zip 열기(central directory 파싱) 1회 비용: 횡배관 7 ms, 종배관 20 ms, 공동_대칭형 112 ms, 맨홀 158 ms(엔트리 27,384개).
+- nvjpeg 초기화: CUDA 컨텍스트 0.111 s, 첫 단일 호출 0.014 s, 첫 배치(32) 호출 0.016 s — 정상 상태 값에서 뺐다.
+
+### 2.2 모로코 JPG (평균 18.9 KB)
+
+표본 500장의 크기는 **224×224 463장, 268×268 18장, 336×336 19장**이다(224×224만 있다고 가정하면 안 된다).
+
+| 단계 | 방법 | 중앙값 ms | p95 | img/s | cv2_gray 대비 |
+|---|---|---:|---:|---:|---:|
+| 메모리 디코딩 | cv2 gray | **0.262** | 0.477 | 3,356 | 1.00 |
+| | simplejpeg GRAY (gpr-detr) | 0.262 | — | 3,369 | 1.00 |
+| | cv2 color BGR | 0.325 | 0.545 | 2,749 | 1.24 |
+| | tv decode_jpeg / decode_image | 0.337 | 0.57 | 2,644–2,673 | 1.29 |
+| | PIL / PIL draft | 0.409 / 0.419 | 0.64 | 2,266 / 2,203 | 1.56 / 1.60 |
+| 디스크 (원위치) | 읽기만 | 0.256 | 0.316 | 3,794 | — |
+| | 읽기 + cv2 gray / color BGR | 0.601 / 0.652 | 0.84 / 0.90 | 1,593 / 1,459 | — |
+| 캐시 | uint8 memmap / 이미지별 .npy | 0.015 / 0.389 | 0.021 / 0.501 | 62,658 / 2,486 | — |
+| GPU | nvjpeg 한 장씩 / 배치 128 / 배치 128 + D2H | 0.626 / 0.358 / 0.446 | 0.92 / 0.37 / 0.49 | 1,480 / 2,776 / 2,257 | 2.39 / 1.37 / 1.70 |
+| | CPU cv2 gray + H2D | 0.450 | 0.688 | 2,027 | 1.72 |
+
+### 2.3 4TU radargram (raw PNG 평균 87 KB, npy int16 [512, traces] 평균 605 KB)
+
+raw PNG는 RGBA(R=G=B, A=255)라서 모든 디코더가 그레이로 줄인다. PNG는 int16 원자료를 8비트로 줄인 것이므로 정보량이 npy와 다르다.
+
+| 단계 | 방법 | 중앙값 ms | p5 | p95 | img/s |
+|---|---|---:|---:|---:|---:|
+| 메모리 디코딩 (PNG) | cv2 IMREAD_UNCHANGED → 채널 0 | 1.849 | 0.773 | 20.5 | 223 |
+| | cv2 IMREAD_GRAYSCALE | 1.969 | 0.809 | 19.4 | 232 |
+| | tv decode_image GRAY | 2.029 | 0.874 | 19.0 | 229 |
+| | PIL convert('L') | 2.479 | 1.081 | 23.7 | 190 |
+| 메모리 (npy) | `np.load(BytesIO)` | 0.155 | 0.105 | 1.37 | 3,005 |
+| 디스크 | PNG 읽기 + cv2 gray | 2.336 | 1.199 | 20.0 | 211 |
+| | **`np.load`** | **0.455** | 0.389 | 1.93 | 1,503 |
+| | `np.load(mmap_mode="r")` 열기만(픽셀 안 읽음) | 1.258 | 1.141 | 1.46 | 788 |
+| | `np.load(mmap_mode="r")` + `np.array` 복사 | 1.600 | 1.360 | 3.71 | 513 |
+
+PNG의 p95가 중앙값의 10배인 것은 폭이 넓은 radargram(수천 trace) 때문이다. Windows에서는 파일마다 메모리 맵을 만드는 비용(~1.2 ms)이 600 KB를 통째로 읽는 것보다 크다.
+
+### 2.4 반복성
+
+같은 부하에서 두 env로 따로 실행한 cv2_gray 중앙값: AIHub 0.425 / 0.430 ms, 모로코 0.262 / 0.261 ms(차이 ≤ 1.2 %). 다른 방법들도 같은 범위로 맞았다.
+
+### 2.5 DataLoader 처리량 (참고, batch 32, `persistent_workers`, 표본 목록을 epoch마다 4번 순회)
+
+| 데이터 | 경로 | workers 0 | 2 | 4 | 첫 epoch(기동 포함) w=2 / w=4 |
+|---|---|---:|---:|---:|---|
+| AIHub | zip(worker별 핸들) + cv2 gray | 1,447 img/s | 2,457 | 4,261 | 16.2 s / 30.3 s |
+| AIHub | 디스크 JPG + cv2 gray | 1,267 | 2,188 | 3,850 | 15.6 s / 30.3 s |
+| 모로코 | 디스크 JPG + cv2 gray | 1,518 | 2,495 | 4,312 | 15.8 s / 29.8 s |
+| 4TU | 디스크 PNG + cv2 gray | 210 | 395 | 725 | 17.2 s / 30.7 s |
+| 4TU | 디스크 npy + `np.load` | 1,389 | 1,726 | 2,430 | 15.1 s / 29.9 s |
+
+- 첫 epoch의 15–30 s는 Windows spawn으로 worker마다 torch·cv2를 import하는 시간이다(E코어 포화 상태라 길다). 짧은 실험을 반복하면 이 비용이 디코딩보다 크다.
+
+### 2.6 정확성 (cv2 IMREAD_GRAYSCALE 대비)
+
+| 데이터 | 방법 | 최대 절대차 | 다른 픽셀 비율 |
+|---|---|---:|---:|
+| AIHub / 모로코 | cv2 color(→gray, 채널 0), PIL, PIL draft, tv decode_jpeg, tv decode_image, simplejpeg(gpr-detr) | 0 | 0 |
+| AIHub | nvjpeg (GPU) | **1** | 1.88 % |
+| 모로코 | nvjpeg (GPU) | **1** | 1.63 % |
+| 4TU PNG | cv2 unchanged 채널 0, PIL, tv decode_image | 0 | 0 |
+| 4TU npy | mmap + 복사 vs `np.load` | 0 | 0 |
+
+CPU 디코더는 모두 libjpeg-turbo 계열이라 비트 단위로 같다. nvjpeg는 IDCT 구현 차이로 픽셀의 약 2 %가 ±1 다르다. 학습과 추론에 서로 다른 디코더를 쓰면 이만큼 입력이 어긋난다.
+
+## 3. 해석
+
+### 3.1 1 epoch 디코딩 시간 추정 (이번 부하 기준, OS 캐시 warm)
+
+| 데이터 (이미지 수) | zip 읽기 + cv2 gray, 1스레드 | 디스크 + cv2 color(Ultralytics), 1스레드 | DataLoader zip+cv2, w=4 | uint8 memmap, 1스레드 |
+|---|---:|---:|---:|---:|
+| AIHub 관로 (~5,600) | 3.5 s | 4.6 s | 1.3 s | 0.08 s |
+| AIHub B-scan 전체 (74,838) | 46.7 s | 61.1 s | 17.6 s | 1.1 s |
+| 모로코 전체 (2,239) | 디스크+cv2 gray 1.3 s | 1.5 s | 0.5 s (디스크 경로) | 0.03 s |
+| 4TU 전체 (759) | PNG 1.8 s / npy 0.35 s | — | PNG 1.0 s / npy 0.3 s | — |
+
+계산: 이미지당 중앙값 × 이미지 수(1스레드), 또는 이미지 수 ÷ 측정 img/s(DataLoader).
+
+### 3.2 병목은 zip I/O인가 디코딩인가
+
+- **디코딩이 크다.** AIHub zip 경로 0.623 ms 중 디코딩이 0.425 ms(68 %), zip 읽기+inflate가 0.198 ms(32 %)다.
+- 핸들을 열어 둔 zip 읽기(0.198 ms)가 낱개 파일 읽기(0.258 ms)보다 빨랐다. Windows에서는 파일을 열 때마다 드는 비용(NTFS open, 백신 검사)이 deflate 해제보다 크다. 다만 zip을 **항목마다 다시 열면** 7–158 ms가 들어 디코딩의 수백 배가 된다. zip을 직접 읽는 로더는 worker마다 핸들을 한 번만 열어야 한다.
+- 콜드 캐시(첫 디스크 읽기)는 재지 않았다. B-scan Training zip은 약 1.9 GB라 첫 epoch만 디스크 속도의 영향을 받고, 이후는 RAM 캐시에 남는다(메모리 여유가 있을 때).
+- 단일 스레드 디코딩 ~0.4–0.8 ms/장이면 4 worker로 4,000 img/s 이상이다. YOLO11m 학습 스텝(GPU)과 Ultralytics 증강(mosaic 등)이 장당 이보다 훨씬 오래 걸릴 것으로 보이므로 **학습 전체에서 디코딩은 병목이 아닐 가능성이 높다**(추정: 학습 스텝과 증강 시간은 이번에 재지 않았다).
+
+### 3.3 디코더 선택
+
+- CPU에서는 **cv2 IMREAD_GRAYSCALE이 가장 빠르고**, simplejpeg와 같다. torchvision +15–18 %, cv2 IMREAD_COLOR +20 %(모로코 +24 %), PIL +32 %(모로코 +56 %).
+- PIL `draft('L', 원크기)`는 효과가 없다. 원본이 이미 그레이이고 축소도 하지 않으므로 바꿀 것이 없다.
+- Ultralytics는 IMREAD_COLOR로 3채널을 만든다. 그레이로 읽어 채널을 복제하는 것보다 20 % 느리지만 장당 0.085 ms 차이라 epoch당 AIHub 전체 기준 6 s 수준이다.
+
+### 3.4 GPU 디코딩(nvjpeg)
+
+- 이 크기(256/224 px, 20–30 KB)에서는 **CPU보다 빠르지 않다.** 배치 128로 GPU에 출력을 남겨도 0.486 ms로 cv2 gray(0.425 ms)보다 14 % 느리고, CPU 디코딩 후 H2D 복사(0.548 ms)와 비슷하다. GPU 사용률은 측정 중 최대 46 %였다.
+- 이유(추정): RTX 4070 SUPER에는 A100/H100 같은 하드웨어 JPEG 디코더가 없고, 작은 이미지는 nvjpeg가 Huffman 단계를 CPU에서 처리하는 hybrid 경로를 쓴다. 그래서 CPU 경합의 영향도 그대로 받는다.
+- Ultralytics 증강은 CPU(numpy)에서 하므로 GPU 디코딩 결과를 다시 내려야 한다(+D2H: 배치 128에서 0.582 ms, cv2보다 37 % 느림). 출력도 libjpeg-turbo와 ±1 다르다.
+
+## 4. 학습 파이프라인 권고
+
+| 선택지 | 판정 | 근거 |
+|---|---|---|
+| **그대로 JPG + cv2 (Ultralytics 기본)** | **기본값으로 권장** | AIHub 관로 5.6k는 1스레드에서도 epoch당 4.6 s, 4 worker면 1–2 s. 디코딩이 학습 병목일 가능성이 낮다. 추가 저장 공간과 변환 단계가 없다 |
+| AIHub zip을 직접 읽는 로더 | Ultralytics 쓰는 동안은 비권장 | Ultralytics는 파일 경로를 요구하므로 학습용 JPG는 `data/` 아래로 풀어야 한다. 자체 로더를 쓸 때 zip 직접 읽기는 빠르다(핸들 유지 시 낱개 파일보다 23 % 빠름) |
+| **사전 디코딩 uint8 memmap 캐시** | B-scan 전체(74,838장)로 반복 실험할 때 권장 | 0.015 ms/장(디코딩 대비 약 30배 빠름). 그레이 uint8 기준 크기는 74,838 × 65,536 B ≈ 4.9 GB(디스크), 관로 5.6k는 약 370 MB. 모로코처럼 크기가 섞이면 평면 배열 + (offset, H, W) 색인으로 저장해야 한다. Ultralytics `cache="ram"`은 3채널 BGR로 저장하므로 B-scan 전체면 약 14.7 GB가 필요하다(계산값) |
+| 이미지별 .npy 캐시 (Ultralytics `cache="disk"` 방식) | 이득 작음 | 0.37 ms/장으로 cv2 디스크 경로(0.76–0.82 ms)의 절반이지만, 파일 열기 비용이 남아 memmap보다 25배 느리다 |
+| GPU 디코딩 (nvjpeg) | 비권장 | §3.4 — 이 크기·이 GPU에서 이득이 없고, 출력이 ±1 다르며, CPU 증강과 맞지 않는다 |
+| 4TU | **npy를 `np.load`(mmap 없이)로 읽기** | PNG 디코딩보다 5배 빠르고(0.455 vs 2.336 ms, p95 1.9 vs 20 ms) int16 원자료를 보존한다. 깊이 피팅에는 어차피 npy가 필요하다. 파일별 mmap은 Windows에서 오히려 느리다 |
+
+DataLoader worker 기동(Windows spawn)에 15–30 s가 들므로 `persistent_workers=True`를 유지하고, 짧은 검증 실행이 잦으면 worker 수를 줄이는 편이 낫다.
+
+## 5. 재측정 명령 (CPU가 빌 때 판정 측정)
+
+PowerShell, 프로젝트 루트에서. 실행 전 `nvidia-smi`와 작업 관리자로 다른 무거운 작업이 없는지 확인한다(측정 시작·끝·중간 부하는 스크립트가 `results.json`에 남긴다).
+
+```powershell
+# 전체 (약 8분: 디코딩 ~3분 + DataLoader worker 기동 ~4분)
+conda run --no-capture-output -n gpr-dev python -I scripts/bench/decode_bench.py
+
+# simplejpeg 비교 (CPU만, 약 1.5분)
+conda run --no-capture-output -n gpr-detr python -I scripts/bench/decode_bench.py --dataset aihub,morocco --no-gpu --threads 0
+```
+
+주요 옵션: `--dataset all|aihub,morocco,4tu`, `--n`(데이터셋별 표본 수, 기본 500/500/200), `--repeats 5`, `--warmup 1`, `--threads 2,4`(DataLoader worker 수, `0`이면 생략), `--out <폴더>`, `--affinity 0x0FFF0000|none`, `--no-gpu`, `--seed 0`. 결과 폴더 하나는 표본 복사본과 캐시를 포함해 약 130 MB다.
+
+판정 측정에서는 P코어(`--affinity 0x0000FFFF`)로도 한 번 더 재서 E코어 값과 함께 적는 것을 권한다. 학습 worker가 실제로 어느 코어에서 돌지에 따라 기준이 달라진다.
+
+## 6. 한계
+
+- 부하 ~94 %, 고정한 E코어 100 % 포화 상태의 값이다. 절대값은 판정 측정으로 대체한다.
+- 모든 읽기는 OS 캐시가 데워진 상태다. 콜드 디스크 I/O와 백신 실시간 검사의 첫 접근 비용은 따로 재지 않았다.
+- YOLO11m 학습 스텝과 Ultralytics 증강 시간은 재지 않았으므로 §3.2의 "디코딩은 병목이 아닐 가능성이 높다"는 추정이다.
+- nvjpeg 측정은 torchvision 0.29.1 API 기준이다. NVIDIA DALI 같은 다른 GPU 파이프라인은 gpr-dev에 없어 재지 않았다.

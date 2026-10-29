@@ -1,0 +1,16 @@
+#title: M17 background pvc_air D=0.2 d_top=0.3 eps=16.0 f=400MHz h=0.0
+#domain_mode: TM
+#domain: 3.0 1.15 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 42.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 16.0 0.001 1 0 soil
+
+#waveform: ricker 1 4e+08 src_wave
+#hertzian_dipole: z 0.35 0.9 inf src_wave
+#rx: 0.45 0.9 inf rx1 Ez
+#src_steps: 1.1 0 0
+#rx_steps: 1.1 0 0
+
+#box: 0 0 0 3.0 0.9 inf soil

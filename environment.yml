@@ -1,0 +1,56 @@
+# gpr-dev 재현용 env (근거: docs/research/packages.md, 2026-10-29)
+# 생성: conda env create -f environment.yml
+# 순서: conda 패키지 → pip(torch cu130 + 나머지 한 번에 해석). 같은 패키지를 conda와 pip 양쪽에 두지 않는다.
+name: gpr-dev
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.13
+  - pip
+  # 수치·IO
+  - numpy>=2.2,<2.6               # numba 0.68 상한
+  - scipy>=1.15
+  # 신호처리 (gpr-processing-expert)
+  - pywavelets>=1.10
+  - numba>=0.68
+  # 데이터 품질 (gpr-dataset-curator)
+  - pillow>=12.3
+  - imagehash>=4.3.2
+  - cleanlab>=2.8                 # 2.8부터 Apache-2.0 (2.7.1 이하는 AGPL)
+  - scikit-learn>=1.6
+  - scikit-image>=0.25
+  - h5py>=3.12
+  - pandas>=2.2
+  - pyarrow>=18
+  - lxml
+  # 설정·로그
+  - pyyaml>=6.0.2
+  - omegaconf>=2.3
+  - tqdm>=4.66
+  - rich>=13.9
+  - tensorboard>=2.21
+  # 시각화·시험·품질
+  - matplotlib>=3.9
+  - pytest>=8.3
+  - pytest-cov>=7.1               # 2026-10-29 추가(python-expert 커버리지)
+  - hypothesis>=6.120
+  - ruff>=0.8
+  - mypy>=1.13
+  - pip:
+      # torch는 cu130 빌드로 고정한다(+cu130 로컬 버전이 PyPI CPU판 설치를 막는다)
+      - --extra-index-url https://download.pytorch.org/whl/cu130
+      - torch==2.14.1+cu130
+      - torchvision==0.29.1+cu130
+      - opencv-python>=4.10,<5    # cv2는 이것 하나만 (headless·conda opencv 금지)
+      - ultralytics>=8.3.0        # YOLO11 (AGPL-3.0, 초안 전용 — detect/ 아래에서만 import)
+      - torchmetrics>=1.6
+      - pycocotools>=2.0.8
+      - faster-coco-eval>=1.8     # extra 없이 ([extra]는 opencv-headless를 끌어옴)
+      - globox>=2.9               # COCO·YOLO·VOC 상호 변환
+      # 나중 단계(필요할 때 추가):
+      # - onnx>=1.17 / onnxslim>=0.1.80 / onnxruntime-gpu>=1.27   # 배포 단계, CPU판 onnxruntime 제거
+      # - rfdetr>=1.11            # Apache 이전 1순위 (N/S/M/L만)
+      # - transformers>=5.0       # RT-DETRv2 / D-FINE(COCO 가중치)
+      # - segyio>=1.9.14          # 4TU 원본 SEG-Y가 필요할 때 (기본은 vendored read_sgy)
+      # - ridal>=0.11             # GSSI .dzt가 실제로 들어올 때

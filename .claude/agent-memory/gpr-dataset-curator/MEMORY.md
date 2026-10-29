@@ -1,0 +1,1 @@
+- [AIHub XML 함정](aihub_xml_pitfalls.md) — filename/source 불일치, Val 세션 100% 중복, lpipe 수평·tpipe 쌍곡선

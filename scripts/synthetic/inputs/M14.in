@@ -1,0 +1,20 @@
+#title: M14 pipe pvc_water D=0.05 d_top=0.3 eps=16.0 f=500MHz h=0.0
+#domain_mode: TM
+#domain: 3.0 0.9 inf
+#dx_dy_dz: 0.0025 0.0025 0.0025
+#time_window: 42.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 16.0 0.001 1 0 soil
+#material: 3.0 0 1 0 pvc
+#material: 80.0 0.01 1 0 water
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.35 0.7 inf src_wave
+#rx: 0.45 0.7 inf rx1 Ez
+#src_steps: 0.02 0 0
+#rx_steps: 0.02 0 0
+
+#box: 0 0 0 3.0 0.7 inf soil
+#cylinder: 1.5 0.375 0 1.5 0.375 inf 0.025 pvc
+#cylinder: 1.5 0.375 0 1.5 0.375 inf 0.02 water

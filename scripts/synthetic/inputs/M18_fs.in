@@ -1,0 +1,15 @@
+#title: M18 free-space reference pvc_water D=0.4 d_top=1.0 eps=9.0 f=400MHz h=0.1
+#domain_mode: TM
+#domain: 3.0 2.05 inf
+#dx_dy_dz: 0.0025 0.0025 0.0025
+#time_window: 57.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.001 1 0 soil
+
+#waveform: ricker 1 4e+08 src_wave
+#hertzian_dipole: z 1.45 1.85 inf src_wave
+#rx: 1.55 1.85 inf rx1 Ez
+#src_steps: 1.1 0 0
+#rx_steps: 1.1 0 0
+

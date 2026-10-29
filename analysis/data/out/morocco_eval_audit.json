@@ -1,0 +1,428 @@
+{
+ "index_rows": 2524,
+ "index_kinds": {
+  "증강(YOLO 포함)": 2239,
+  "원본(라벨 없음, YOLO 미포함)": 285
+ },
+ "yolo_images": 2524,
+ "yolo_by_subset": {
+  "intact": 975,
+  "utilities": 917,
+  "cavities": 632
+ },
+ "aug_transform_counts": [
+  [
+   "cavities",
+   "가로 이동 +20px",
+   79
+  ],
+  [
+   "cavities",
+   "가우시안 잡음",
+   79
+  ],
+  [
+   "cavities",
+   "좌우 반전",
+   79
+  ],
+  [
+   "cavities",
+   "주파수 이동(원본과 거의 동일)",
+   79
+  ],
+  [
+   "cavities",
+   "중앙 1.5배 확대",
+   79
+  ],
+  [
+   "cavities",
+   "탄성 변형(elastic)",
+   79
+  ],
+  [
+   "cavities",
+   "회전 +15°",
+   79
+  ],
+  [
+   "intact",
+   "268×268 리사이즈",
+   75
+  ],
+  [
+   "intact",
+   "336×336 리사이즈",
+   75
+  ],
+  [
+   "intact",
+   "가로 이동 +10px",
+   75
+  ],
+  [
+   "intact",
+   "가로 이동 +20px",
+   75
+  ],
+  [
+   "intact",
+   "강한 잡음",
+   75
+  ],
+  [
+   "intact",
+   "원본과 거의 동일",
+   75
+  ],
+  [
+   "intact",
+   "잡음",
+   75
+  ],
+  [
+   "intact",
+   "좌우 반전",
+   75
+  ],
+  [
+   "intact",
+   "탄성 변형",
+   150
+  ],
+  [
+   "intact",
+   "회전 +15°",
+   75
+  ],
+  [
+   "intact",
+   "회전 -15°",
+   75
+  ],
+  [
+   "utilities",
+   "가로 이동 +20px",
+   131
+  ],
+  [
+   "utilities",
+   "가우시안 잡음",
+   131
+  ],
+  [
+   "utilities",
+   "좌우 반전",
+   131
+  ],
+  [
+   "utilities",
+   "주파수 이동(원본과 거의 동일)",
+   131
+  ],
+  [
+   "utilities",
+   "탄성 변형(elastic)",
+   131
+  ],
+  [
+   "utilities",
+   "회전 +15°",
+   131
+  ]
+ ],
+ "rot_elastic_in_index": 720,
+ "rot_elastic_by_subset_aug": [
+  [
+   "cavities",
+   10.0,
+   79
+  ],
+  [
+   "cavities",
+   12.0,
+   79
+  ],
+  [
+   "intact",
+   4.0,
+   75
+  ],
+  [
+   "intact",
+   6.0,
+   75
+  ],
+  [
+   "intact",
+   10.0,
+   75
+  ],
+  [
+   "intact",
+   11.0,
+   75
+  ],
+  [
+   "utilities",
+   3.0,
+   131
+  ],
+  [
+   "utilities",
+   5.0,
+   131
+  ]
+ ],
+ "rot_elastic_numbers": {
+  "utilities": [
+   3.0,
+   5.0
+  ],
+  "cavities": [
+   10.0,
+   12.0
+  ],
+  "intact": [
+   4.0,
+   6.0,
+   10.0,
+   11.0
+  ]
+ },
+ "manifest_rows": 233,
+ "manifest_unique_groups": 233,
+ "manifest_unique_files": 233,
+ "manifest_rot_elastic": 0,
+ "merge_rows": 233,
+ "sel_aug_by_subset": [
+  [
+   "cavities",
+   13,
+   75
+  ],
+  [
+   "intact",
+   12,
+   38
+  ],
+  [
+   "utilities",
+   6,
+   120
+  ]
+ ],
+ "sel_transform_by_subset": [
+  [
+   "cavities",
+   "주파수 이동(원본과 거의 동일)",
+   75
+  ],
+  [
+   "intact",
+   "원본과 거의 동일",
+   38
+  ],
+  [
+   "utilities",
+   "주파수 이동(원본과 거의 동일)",
+   120
+  ]
+ ],
+ "idx_vs_manifest_mismatch": {
+  "aug_transform": 0,
+  "aug_number": 0,
+  "group": 0,
+  "split": 0,
+  "size": 0
+ },
+ "almost_identical_by_subset": {
+  "cavities": 79,
+  "intact": 75,
+  "utilities": 131
+ },
+ "almost_identical_aug_k": {
+  "cavities": [
+   13
+  ],
+  "intact": [
+   12
+  ],
+  "utilities": [
+   6
+  ]
+ },
+ "split_groups_rows": 233,
+ "split_groups_by_subset": {
+  "utilities": 120,
+  "cavities": 75,
+  "intact": 38
+ },
+ "groups_missing_in_manifest": [],
+ "groups_extra_in_manifest": [],
+ "index_groups": 233,
+ "multi_stem_groups": 46,
+ "multi_stem_by_subset": {
+  "intact": 37,
+  "utilities": 5,
+  "cavities": 4
+ },
+ "multi_stem_sample": [
+  [
+   "C_18",
+   "18 | 23",
+   "18"
+  ],
+  [
+   "C_32",
+   "32 | 79",
+   "32"
+  ],
+  [
+   "C_42",
+   "42 | 77",
+   "42"
+  ],
+  [
+   "C_43",
+   "43 | 78",
+   "43"
+  ],
+  [
+   "I_1",
+   "1 | 1 (2)",
+   "1"
+  ],
+  [
+   "I_10",
+   "10 | 10 (2)",
+   "10"
+  ]
+ ],
+ "multi_stem_chosen_not_first": [],
+ "group_stems_format_examples": [
+  "18 | 23",
+  "32 | 79",
+  "42 | 77",
+  "43 | 78",
+  "1 | 1 (2)"
+ ],
+ "multi_stem_groups_where_first_stem_lacks_preferred": [],
+ "multi_stem_candidate_counts": {
+  "2": 45,
+  "8": 1
+ },
+ "multi_stem_chosen_not_numeric_min": [],
+ "multi_stem_chosen_not_numeric_min_n": 0,
+ "sha_mismatch": [],
+ "sizes": {
+  "(224, 224, 'L')": 233
+ },
+ "label_box_count_mismatch": [],
+ "label_issues": [],
+ "classes_by_subset": {
+  "cavities": {
+   "2": 81
+  },
+  "utilities": {
+   "0": 158
+  }
+ },
+ "boxes_total": 239,
+ "degenerate_lt3px": 0,
+ "out_of_range": 0,
+ "box_px_stats": {
+  "cavities": {
+   "w_min": 37.7,
+   "w_med": 120.3,
+   "h_min": 18.8,
+   "h_med": 109.5
+  },
+  "utilities": {
+   "w_min": 18.2,
+   "w_med": 72.3,
+   "h_min": 26.9,
+   "h_med": 76.1
+  }
+ },
+ "files_in_dirs": {
+  "images": 233,
+  "labels": 233
+ },
+ "eval_list_lines": 233,
+ "eval_list_all_exist": true,
+ "eval_yaml": "# Morocco cross-domain EVALUATION set (checklist M1-4). Never train on it:\n# 'train' points at the eval list only because Ultralytics requires the key.\npath: C:\\workspace\\gpr_detection\\data\\morocco_eval_v1\ntrain: eval_images.txt\nval: eval_images.txt\ntest: eval_images.txt\nnames:\n  0: pipe_hyperbola\n  1: pipe_band\n  2: cavity\n  3: manhole\n",
+ "dup_stem_in_group_files": 0,
+ "internal_phash_pairs": {
+  "le0": 0,
+  "le2": 0,
+  "le4": 0,
+  "le6": 1,
+  "le8": 2
+ },
+ "internal_phash_cross_split_le4": 0,
+ "aihub_images_hashed": 16887,
+ "vs_aihub_min_dist_overall": 6,
+ "vs_aihub_min_dist_hist": {
+  "le0": 0,
+  "le2": 0,
+  "le4": 0,
+  "le6": 2,
+  "le8": 5,
+  "le10": 20,
+  "le12": 53
+ },
+ "vs_aihub_min_dist_median": 14.0,
+ "vs_aihub_closest5": [
+  [
+   "C_68_aug_13.jpg",
+   "cavities",
+   6,
+   "RA_20210503(085636)_N00_B12_g0.5_x(3739-3995).jpg",
+   "test"
+  ],
+  [
+   "C_70_aug_13.jpg",
+   "cavities",
+   6,
+   "RA_20210526(132229)_N00_B17_g0.5_x(6545-6801).jpg",
+   "trainpool"
+  ],
+  [
+   "C_42_aug_13.jpg",
+   "cavities",
+   8,
+   "RA_20210507(151417)_N00_B3_g0.25_x(17508-17764).jpg",
+   "trainpool"
+  ],
+  [
+   "C_54_aug_13.jpg",
+   "cavities",
+   8,
+   "RA_20210503(090509)_N00_B7_g0.5_x(3602-3858).jpg",
+   "trainpool"
+  ],
+  [
+   "C_67_aug_13.jpg",
+   "cavities",
+   8,
+   "DS_20170112(115223)_N00_B11_g1.0_x(5489-5745).jpg",
+   "trainpool"
+  ]
+ ],
+ "vs_aihub_by_subset_min": {
+  "cavities": {
+   "min": 6,
+   "median": 16.0
+  },
+  "intact": {
+   "min": 10,
+   "median": 16.0
+  },
+  "utilities": {
+   "min": 10,
+   "median": 14.0
+  }
+ }
+}

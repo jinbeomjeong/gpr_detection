@@ -1,0 +1,1 @@
+- [Framework aug defaults](framework-aug-defaults.md) — Ultralytics mosaic/hsv on by default; rfdetr square stretch resize + vflip presets

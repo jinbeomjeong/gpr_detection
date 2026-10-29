@@ -1,0 +1,16 @@
+#title: M09 background pec D=0.2 d_top=0.6 eps=4.0 f=400MHz h=0.0
+#domain_mode: TM
+#domain: 3.0 1.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 29.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 4.0 0.001 1 0 soil
+
+#waveform: ricker 1 4e+08 src_wave
+#hertzian_dipole: z 0.35 1.2 inf src_wave
+#rx: 0.45 1.2 inf rx1 Ez
+#src_steps: 1.1 0 0
+#rx_steps: 1.1 0 0
+
+#box: 0 0 0 3.0 1.2 inf soil

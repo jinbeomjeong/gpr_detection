@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpr-detection"
+version = "0.1.0"
+description = "Buried pipe detection and depth estimation from GPR B-scans"
+requires-python = ">=3.13"
+# Runtime dependencies are provided by the conda env `gpr-dev` (environment.yml).
+# They are listed here for documentation; install the package with
+# `pip install -e . --no-deps --no-build-isolation` inside that env.
+dependencies = [
+    "numpy>=2.2",
+    "opencv-python>=4.10,<5",
+    "pandas>=2.2",
+    "pyyaml>=6.0",
+    "scikit-learn>=1.6",
+]
+
+[project.scripts]
+gpr-detect = "gpr_detection.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+src = ["src", "tests"]
+# Third-party readers copied verbatim from the dataset packages (see their headers).
+extend-exclude = ["src/gpr_detection/io/_vendor"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PTH", "RUF", "BLE"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["gpr_detection"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "data: needs the read-only datasets under configs/paths.yaml (skipped when absent)",
+]

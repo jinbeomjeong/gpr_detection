@@ -1,0 +1,8 @@
+model,air_gap_m,zero,fit,n_picks,v_fit,v_ratio,eps_fit,d_top_m,d_err_cm,rms_ns,x0_m
+M02,0.0,direct_wave,"straight-ray R=0 free(x0,t0,v)",101,0.10969,1.0977,7.469,0.6184,1.84,0.0975,1.5
+M02,0.0,direct_wave,"straight-ray R=0.1 free(x0,t0,v)",101,0.10331,1.0338,8.422,0.5839,-1.61,0.0689,1.5
+M02,0.0,direct_wave,"v fixed (meta eps), apex only",1,0.09993,1.0,9.0,0.5674,-3.26,,1.5
+M20,0.3,late_event(surface refl.),"straight-ray R=0 free(x0,t0,v)",85,0.18144,1.8157,2.73,1.0782,47.82,0.0436,1.5
+M20,0.3,late_event(surface refl.),"straight-ray R=0.1 free(x0,t0,v)",85,0.17405,1.7417,2.967,1.0345,43.45,0.046,1.5
+M20,0.3,late_event(surface refl.),"v fixed (meta eps), apex only",1,0.09993,1.0,9.0,0.5912,-0.88,,1.5
+M20,0.3,late_event(surface refl.),"refraction grid eps 6-14 (h_est=0.330 m, R=0.1, s=0.1)",43,0.09993,1.0,9.0,0.5917,-0.83,0.0099,1.5
