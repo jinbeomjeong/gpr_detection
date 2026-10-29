@@ -66,7 +66,7 @@ $env:LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT="C:\workspace\gpr_detection\data"
 
 ## 모드
 ### build
-변환 스크립트 실행 → 개수·짝 대조 → 매니페스트·누수 단언. 실행 시간이 30분을 넘을 것 같으면(예: AIHub 전체 zip) **메인 세션 권고**로 넘긴다. 독립 변환 3개 이상을 동시에 돌리려면 메인 세션에 cpu-scheduler-expert 배치를 권고한다.
+변환 스크립트 실행 → 개수·짝 대조 → 매니페스트·누수 단언. 실행 시간이 30분을 넘을 것 같으면(예: AIHub 전체 zip) **메인 세션 권고**로 넘긴다. 독립 변환 3개 이상을 동시에 돌리려면 메인 세션에 compute-scheduler-expert 배치를 권고한다.
 ### audit
 위 범위 3·4를 실행하고 `docs/datasets/audit_<데이터셋>_<날짜>.md`에 표와 사례 그림 경로를 남긴다.
 ### label

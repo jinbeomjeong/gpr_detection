@@ -32,7 +32,7 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 
 ## 작업 운영
 - 로드맵 단계나 체크리스트 단위 작업이 끝나면 먼저 **integrity-checker로 무결성 점검**(그 작업이 바꾼 파일 ↔ 관련 문서·코드·체크리스트)을 하고 지적을 반영한다. 그다음 git 커밋하고 바로 `origin`(**공개** 저장소, 주소는 git 설정에만 둔다)에 push한다(메시지: 한국어 요약 + 단계/항목). push 전에 비밀 정보·데이터 파일이 섞이지 않았는지 확인한다.
-- 작업을 띄우기 전에 CPU·GPU·메모리 현황을 확인해 배치한다. 무거운 작업이 겹치면 cpu-scheduler-expert 배치표를 따른다. GPU는 한 번에 한 계열 작업만.
+- 작업을 띄우기 전에 CPU·GPU·메모리 현황을 확인해 배치한다. 무거운 작업이 겹치거나 GPU 작업(학습 등)을 띄울 때는 compute-scheduler-expert 배치표(CPU 묶음 + GPU 순서·batch·worker 권고)를 따른다. GPU는 한 번에 한 계열 작업만.
 - 사용자 대상 답변은 한국어.
 
 ## 프로젝트 전용 에이전트 (`.claude/agents/`, 2026-10-29)
@@ -61,5 +61,5 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 - 선행 조사는 **web-research-expert**(모드는 전역 규칙대로 묻는다), 결과는 `docs/research/`에 둔다.
 - .docx/.pdf/.hwp 원문은 docx-document-expert / pdf-document-export / hwp-document-expert로 추출한다.
 - 여러 파일을 바꾼 뒤에는 **integrity-checker**로 문서↔코드 정합성을 감사한다.
-- 30분 넘는 학습은 long-running-task-monitor 규칙을 따른다. 독립 CPU 작업을 3개 이상 동시에 돌릴 때는 cpu-scheduler-expert로 배치표를 먼저 받는다.
+- 30분 넘는 학습은 long-running-task-monitor 규칙을 따른다. 독립 CPU 작업을 3개 이상 동시에 돌릴 때는 compute-scheduler-expert로 배치표를 먼저 받는다.
 - Python을 실행하는 에이전트를 부를 때는 매번 넣는다: "셸 heredoc과 `python -` 금지. 스크립트는 Write로 파일에 쓰고 `conda run -n gpr-dev python -I <파일>`로 실행. Python·pytest는 PowerShell 도구로 실행."
