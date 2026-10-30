@@ -13,11 +13,12 @@
 | 2026-10-30 | v1.1 | M2-1·M2-2 구현 review 반영: dewow 커널을 상자형에서 가우스($\sigma=1/f_c$)로 바꿈(상자형 유령 엽 ±$T_w/2$, §3), 스케일 없음·`f_c` 없음·배경 창 끝·AGC 기본값 명시(§3, §4-1), 창별 영점 QC를 선택 사건 추적으로 바꿈(§4-1), `air_single_event` 분리 한계·편향 상한 식 수정과 메타 영점 라벨 규칙(`merged`, 지면결합 `direct_wave`만) 보완(§4-2·§4-3), `air_gap="unknown"`·$\Delta_\text{dw}$ 적용 범위(§4-2), R2 허용폭(§11-2), `select_zero`→`ZeroResult`와 필드 정본(§13-1) |
 | 2026-10-30 | v1.2 | 공기결합 지표 반사 영점 지연 원인 조사 반영(사용자 결정 2026-10-30, 권고 (b) 수정안). 지연은 처리 편향이 아니라 **직접파 간섭 편향**이다(단독 지표 반사는 (1)–(3) 뒤 ≤0.003 ns). `air_surface_late` 편향 문구(§4-2)와 $\sigma_z$ 0.2→0.3 ns(§9), Z1 꼬리 진폭 0.6→0.8·Z6(단독 무편향)·Z7(두 사건 간섭 창, 기존 두 사건·UB14 마스크 시험의 시각 기준 대체) 추가(§11-1), R2 근거값 분해·R6 근거값 v1.1 처리 기준 −1.42 cm(§11-2). 근거: `analysis/processing/surface_zero_shift.py` → [`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv), [`surface_zero_shift_z1.csv`](surface_zero_shift_z1.csv)(Z1 꼬리 0.6 한 조건뿐. 꼬리 0.8 판별은 시험 Z1(a·b), §11-1), [`surface_zero_shift.png`](surface_zero_shift.png) |
 | 2026-10-30 | v1.2 (M2-2 대조) | M2-2 구현 확인 반영: Z1 상자형 판별 대조를 상시 시험으로(사용자 결정), Z3·Z5 얕은 반사 값($\tau$ 3.5 ns, 진폭 −1.5, 반대 극성)과 분리 한계 근거, Z6 잡음 없음 명시(§11-1), `ZeroEvents` 필드(§13-2), `classify_meta_t0` 시그니처·`ZeroConfig`·$\Delta_\text{dw}$ 범위 상수(§13-3) |
-| 2026-10-30 | v1.3 (M2-3 대조) | M2-3 구현 판정 반영:<br>- 스케일 없는 입력에 픽셀 단위 밴드패스 `bandpass_px` 추가(§3, 씨앗 잡음 대책)<br>- 씨앗·추적 탐색 범위와 뮤트 규칙(§5-4)<br>- RANSAC 거부는 초기값 대체 후 계속 + `ransac_rejected`(§6-2·§10, v1 §10 "메타 v로 §6-4" 행과의 충돌 해소)<br>- $t_\text{max}=\max\tau$·경계 판정 $10^{-4}$·공분산을 정상점과 유사역행렬로(§6-3)<br>- §6-4 꼭짓점 창 밖이면 씨앗으로 대체<br>- 공기결합 거부를 점 수 검사보다 먼저(§7)<br>- 플래그 `box_in_zero_zone`·`no_apex_seed`·`mute_unavailable`·`ransac_rejected`·`bandpass_px_skipped`(§2·§10)<br>- U5 $f_c$ 함께 축척·U7 잡음 자료 유지(§11-1)<br>- `DepthConfig` 상수 확인과 `single_event_h_max_m` 삭제(§13-1 아래)<br>- 픽·피팅 객체 필드 정본(§13-4)<br>- (integrity 반영) §5-2 씨앗 문구를 "문턱을 넘는 첫 피크"로 명확화, §10 `bandpass_px_skipped` 행, §13 모듈 표 시그니처, §13-4 `CurvatureFit` status 규칙(꼭짓점 없음 → `fit_failed`) |
+| 2026-10-30 | v1.3 (M2-3 대조) | M2-3 구현 판정 반영:<br>- 스케일 없는 입력에 픽셀 단위 밴드패스 `bandpass_px` 추가(§3, 꼭짓점 후보 잡음 대책)<br>- 꼭짓점 후보·추적 탐색 범위와 뮤트 규칙(§5-4)<br>- RANSAC 거부는 초기값 대체 후 계속 + `ransac_rejected`(§6-2·§10, v1 §10 "메타 v로 §6-4" 행과의 충돌 해소)<br>- $t_\text{max}=\max\tau$·경계 판정 $10^{-4}$·공분산을 정상점과 유사역행렬로(§6-3)<br>- §6-4 꼭짓점 창 밖이면 꼭짓점 후보로 대체<br>- 공기결합 거부를 점 수 검사보다 먼저(§7)<br>- 플래그 `box_in_zero_zone`·`no_apex_candidate`·`mute_unavailable`·`ransac_rejected`·`bandpass_px_skipped`(§2·§10)<br>- U5 $f_c$ 함께 축척·U7 잡음 자료 유지(§11-1)<br>- `DepthConfig` 상수 확인과 `single_event_h_max_m` 삭제(§13-1 아래)<br>- 픽·피팅 객체 필드 정본(§13-4)<br>- (integrity 반영) §5-2 꼭짓점 후보 문구를 "문턱을 넘는 첫 피크"로 명확화, §10 `bandpass_px_skipped` 행, §13 모듈 표 시그니처, §13-4 `CurvatureFit` status 규칙(꼭짓점 없음 → `fit_failed`) |
 | 2026-10-30 | v1.4 (M2-4 대조) | M2-4 구현 판정 반영:<br>- `status="no_velocity"`, `target_class`, `eps_r_refraction_qc(_range)`, `sigma_zero_ns`, `sigma_apex_ns`, `alt_depths` 채우는 규칙(§2)<br>- 굴절 격자 한 단·꼭짓점 $d$ 결정(§6-1)<br>- §7 2a를 $h_\text{est}$ 간섭 편향에 견디는 **구간 판정**으로 바꿈, 2a 세부, 순서 2b(공기결합·메타 없음)·6(`unknown` → `no_velocity`, 곡률 금지)<br>- §9 $\sigma_a$ 정의, §10 좁은 피크 판정식·$s$ 보정 0 처리<br>- U4 조건(500 MHz)·기준 재정의, R13 두 경로(§11)<br>- §13 refraction·velocity·result·estimate 시그니처<br>- 근거: 정확한 광선 픽 εr 민감도. $h$ 0.300–0.349 m로 상한 쪽을, 0.25·0.269·0.289 m로 구간 하한 쪽을 쟀다(§7 2a, review 계산, scratchpad, CSV 없음)<br>- (구현 확인) 구간을 min/max로 정렬, U4 실측 구간 (6.85, 9.70)의 분해(R 불일치 −6~−9 %), U4(d) 메타값 5 → 2.7, §13 `refraction_h_margin_m`·`eps_r_refraction_qc_range` |
 | 2026-10-30 | v1.5 (M2-4b 대조) | 합성 로더 반영: §1-1 합성 채움 규약(`eps_r_meta_source="synthetic_truth"`, `t0_candidates_ns` 비움, 끄기 옵션), §11-2 입력 규약(`SyntheticTruth` 필드 용도와 필수/선택, x축 비교 규약, **M2-5 박스 공급 규칙**, `_fs.npy` 불필요), §13 `io/synthetic.py` 행 |
 | 2026-10-30 | v1.6 (M2-5 회귀 판정) | 사용자 결정 반영:<br>- R5 기준을 같은 (1)–(3)을 거친 이상 배경의 꼭짓점 포락선 피크로 바꾸고 필터 이동은 별도 기록(M15 밴드패스 −0.055 ns)<br>- R13을 R13a-1(json 광선 시각 픽, εr 9±0.1·d ±1 cm), R13a-2(현재 경로 픽·json h, εr ≤20 %·d ≤5 cm, 날개 지연 −13 % 기록, 기본 격자·전체 픽), R13b로 나눔<br>- R6 실측 −1.49 cm, R2·R13b $h_\text{est}$ +0.049 m<br>- §12 표 3 굴절 9.00에 "h_est 0.330 상쇄" 주석<br>- §7 R 미상 편향 문구 +14 → +17 %(R11 M01·M06 +16.5 %)<br>- §14 Δh 여유 0.011 m<br>- 근거: `analysis/processing/regression_failures_m2_5.py` |
 | 2026-10-30 | v1.7 (band v1.1 반영 대조) | §3 `bandpass_px` 주기 범위 하한 4 → 2.2 px(AIHub 반송파 2.44–4.83 px 실측, 근거 `analysis/processing/aihub_period_px_check.py`), §10 해당 행, §13 filters 행에 `dominant_period_px`·`FittingBranch.period_px` |
+| 2026-10-31 | v1.7 (용어) | 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(`ApexSeed`→`ApexCandidate`, `find_apex_seed`→`find_apex_candidate`, `no_apex_seed`→`no_apex_candidate`, `seed_rel`→`candidate_rel`). 내용 변경 없음. 난수 시드(`seed=0`, `random_state`)는 그대로 |
 
 ---
 
@@ -109,7 +110,7 @@
 | `n_picks`, `inlier_frac`, `rms_ns` | int, float, float | –, –, ns | |
 | `h_est_m` | float \| None | m | 공기결합에서 두 사건 간격으로 추정 |
 | `alt_depths` | `dict[str, AltDepth]` | m | 메타 영점별 깊이와 사건 라벨(§4-3, 4TU 필수) |
-| `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_seed`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10) 등 |
+| `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10) 등 |
 
 `AltDepth = {t_zero_ns, label: "direct_wave"|"surface_reflection"|"merged"|"unclassified", depth_top_m}` (`merged`는 v1.1, §4-3).
 
@@ -147,12 +148,12 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 - (6)·(7)과 (5)를 묶은 검출 영상 변환은 M3-2 `DetectionImage`에서 구현한다. M2-1 범위는 피팅 갈래 (1)–(4)와 `agc` 함수다.
 - `amplitude_processed=True`(GPR-SD, 광저우 MALA): (1)–(4)를 다시 하지 않는다(이미 지표 에코 제거·gain 적용). 검출 갈래의 (5) gain도 기본값으로 생략하고 (6) clip만 한다(이중 gain 방지, cv 쪽에서 바꿀 수 있음). 시간 가변 gain은 포락선 피크를 gain 기울기 방향으로 조금 옮기므로 `flags`에 `amplitude_processed`를 넣는다.
 - `dt_ns=None`(스케일 없는 JPG): ns 시간 창을 정할 수 없으므로 (2)는 생략한다. 창 $W_\text{bg}$는 픽셀(열) 단위 그대로다(AIHub 256 px 폭은 301 이하라 측선 전체 median).
-  - **(3) 대신 픽셀 단위 밴드패스(v1.3).** (1) 뒤 자료의 트레이스 평균 진폭 스펙트럼 $\overline{|\mathcal F_k[a_j]|}$에서 DC를 뺀 최대 주파수 $f_\text{px}$(cycle/px)를 우세 주기로 잡는다. 통과대역 $[0.25f_\text{px},\ \min(2f_\text{px},\ 0.45)]$ cycle/px로 (3)과 같은 4차 Butterworth `sosfiltfilt`를 쓴다(단계 이름 `bandpass_px`). 영점(px)과 꼭짓점 씨앗이 같은 자료를 쓰게 하려고 (4) 전에 둔다.
+  - **(3) 대신 픽셀 단위 밴드패스(v1.3).** (1) 뒤 자료의 트레이스 평균 진폭 스펙트럼 $\overline{|\mathcal F_k[a_j]|}$에서 DC를 뺀 최대 주파수 $f_\text{px}$(cycle/px)를 우세 주기로 잡는다. 통과대역 $[0.25f_\text{px},\ \min(2f_\text{px},\ 0.45)]$ cycle/px로 (3)과 같은 4차 Butterworth `sosfiltfilt`를 쓴다(단계 이름 `bandpass_px`). 영점(px)과 꼭짓점 후보가 같은 자료를 쓰게 하려고 (4) 전에 둔다.
   - 우세 주기 $1/f_\text{px}$가 **2.2–128 px**(v1.7; v1.3은 4–128 px) 밖이면 생략하고 `bandpass_px_skipped` 플래그를 붙인다.
     - 하한 2.2 px = 1/0.45: 상한 차단이 $0.45$ cycle/px에 묶이므로, 그보다 짧은 주기는 통과대역을 만들 수 없다.
     - v1.3의 4 px는 근거 없는 가정이었다. AIHub 실측 우세 주기가 2.44–4.83 px였고, 이 중 4 px 미만 14/40장이 생략됐다.
     - 이 주기는 레이다 반송파로 판정했다: 세로(시간축)에만 있고, 띠 박스 안에서도 같은 4.1–4.6 px이며, 가로에는 없고, JPEG 8×8 블록 선(1/8·1/4 cycle/px) 비가 0.8–1.2로 평탄하다. 근거는 `analysis/processing/aihub_period_px_check.py`(train_pool 10장)다.
-  - 근거: (1)·(4)만 하면 SNR 20 dB 해석 합성에서 광대역 잡음 포락선이 $0.3E_\text{max}$를 넘는다. "가장 이른 첫 피크" 규칙(§5-2)은 120 트레이스 중 하나만 넘어도 그것을 고르므로 씨앗이 박스 위 끝(정답보다 27–30 px 이른 곳)에 잡혔다(SNR 10–20 dB 전부). 트레이스 방향 3·5개 평균으로는 고쳐지지 않았다. 픽셀 밴드패스를 쓰면 $f_\text{px}$ 0.0187–0.0213(정답 0.0200)이었고, 씨앗은 트레이스 75–76, 꼭짓점 차 −1.1~0.0 px였다(review 계산 2026-10-30, scratchpad, CSV 없음).
+  - 근거: (1)·(4)만 하면 SNR 20 dB 해석 합성에서 광대역 잡음 포락선이 $0.3E_\text{max}$를 넘는다. "가장 이른 첫 피크" 규칙(§5-2)은 120 트레이스 중 하나만 넘어도 그것을 고르므로 꼭짓점 후보가 박스 위 끝(정답보다 27–30 px 이른 곳)에 잡혔다(SNR 10–20 dB 전부). 트레이스 방향 3·5개 평균으로는 고쳐지지 않았다. 픽셀 밴드패스를 쓰면 $f_\text{px}$ 0.0187–0.0213(정답 0.0200)이었고, 꼭짓점 후보는 트레이스 75–76, 꼭짓점 차 −1.1~0.0 px였다(review 계산 2026-10-30, scratchpad, CSV 없음).
   - $f_\text{px}$는 물리 축척이 아니므로 ns·m로 바꾸지 않는다.
 - `f_c_hz=None`, `dt_ns` 있음: (3)을 생략하고 (2)는 σ 2 ns(500 MHz 가정)를 쓴다. 영점 탐색 창의 $1/f_c$도 2 ns로 둔다(§4-1). 세 기본값(dewow σ 2 ns, AGC 16 ns, 주기 2 ns)은 모두 500 MHz 가정에서 나온 값이다.
 - 기록 앞머리 효과: 사건이 기록 시작에서 dewow 커널 반폭 안에 있으면 포락선 피크가 조금 옮겨진다. 4TU 직접파 위치(약 2 ns, Δt 0.098)에서 +0.03 ns, 400 MHz에서 1.5 ns에 놓인 사건은 +0.18 ns(깊이 약 0.9 cm)였다. 보정하지 않는다.
@@ -215,7 +216,7 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 입력은 배경 제거 후·gain 전 자료(§3 (4)), 박스 `(i0..i1, k0..k1)`, $t_z$다.
 
 1. 박스를 트레이스 방향으로 좌우 10 %씩 넓힌다. 포락선은 $E=|\mathcal H[a]|$를 시간축으로 구한다.
-2. **꼭짓점 씨앗**: 박스 안 최대 포락선을 $E_\text{max}$라 한다. 각 트레이스에서 $k>k_\text{mute}$ 구간의 피크 가운데 $E\ge0.3E_\text{max}$를 넘는 **첫** 피크를 찾는다(v1.3 문구 명확화: 문턱 아래 작은 피크는 건너뛰고 문턱을 넘는 가장 이른 피크; `find_peaks(height=0.3E_max)`의 첫 원소). "첫 피크가 문턱 아래면 그 트레이스는 후보 없음"으로 읽지 않는다. 그렇게 읽으면 사건 앞의 작은 잡음·잔향 피크 하나로 꼭짓점 트레이스가 빠진다. M18 회피 의도(늦게 오는 더 강한 바닥·내부 반사 대신 상단)는 문턱을 넘는 첫 피크로 충분하다(§12 표 4, 1.027 m). 그중 시각이 가장 이른 트레이스를 $j_a$, 그 시각을 $t_a$로 둔다. $k_\text{mute}$는 $t_z+1/f_c$에 해당하는 샘플이다.
+2. **꼭짓점 후보**: 박스 안 최대 포락선을 $E_\text{max}$라 한다. 각 트레이스에서 $k>k_\text{mute}$ 구간의 피크 가운데 $E\ge0.3E_\text{max}$를 넘는 **첫** 피크를 찾는다(v1.3 문구 명확화: 문턱 아래 작은 피크는 건너뛰고 문턱을 넘는 가장 이른 피크; `find_peaks(height=0.3E_max)`의 첫 원소). "첫 피크가 문턱 아래면 그 트레이스는 후보 없음"으로 읽지 않는다. 그렇게 읽으면 사건 앞의 작은 잡음·잔향 피크 하나로 꼭짓점 트레이스가 빠진다. M18 회피 의도(늦게 오는 더 강한 바닥·내부 반사 대신 상단)는 문턱을 넘는 첫 피크로 충분하다(§12 표 4, 1.027 m). 그중 시각이 가장 이른 트레이스를 $j_a$, 그 시각을 $t_a$로 둔다. $k_\text{mute}$는 $t_z+1/f_c$에 해당하는 샘플이다.
    - 근거: 트레이스별 **전역 최대**를 쓰면 물 찬 PVC(M18)에서 바닥·내부 반사를 잡아 깊이가 2.17 m(정답 1.0 m)로 나왔다. 첫 피크 규칙으로 바꾸자 1.027 m가 됐다(§12 표 4).
 3. **추적**: $j_a$에서 좌우로 한 트레이스씩 나간다. 탐색 창은 $[t_\text{prev}-0.3,\ t_\text{prev}+2\Delta x/v_\text{min}+0.3]$ ns이고 $v_\text{min}=0.05$ m/ns다. 창 안 포락선 최대를 포물선 보간으로 잡는다. 다음 중 하나면 멈춘다.
    - $E<0.2\,E(t_a)$
@@ -223,7 +224,7 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
    - 바깥으로 갈 때 $t$가 0.1 ns 넘게 줄어듦(다른 사건으로 넘어간 경우)
 4. 점 수가 $n\ge9$이고 양쪽 각각 3개 이상이어야 곡률 피팅을 허용한다. 모자라면 `insufficient_picks`이고, v는 메타 고정만 쓴다.
    - 탐색 범위(v1.3, M2-3 구현 확인):
-     - 씨앗의 $E_\text{max}$와 첫 피크는 좌우로 넓힌 박스 안에서, 시간 방향은 박스 $k_0..k_1$(뮤트로 위를 자른 뒤) 안에서만 찾는다. 위로 넓히지 않는다.
+     - 꼭짓점 후보의 $E_\text{max}$와 첫 피크는 좌우로 넓힌 박스 안에서, 시간 방향은 박스 $k_0..k_1$(뮤트로 위를 자른 뒤) 안에서만 찾는다. 위로 넓히지 않는다.
      - 추적의 시간 창은 박스 아래 끝에 묶이지 않는다. 날개가 박스 밖으로 내려가도 기록 끝까지 따라간다. 트레이스 방향은 넓힌 박스 경계와 $a_\text{max}$ 중 먼저 닿는 곳에서 멈춘다.
    - 뮤트(v1.3):
      - $k_\text{mute}=\lceil(t_z+1/f_c)/\Delta t\rceil$이다. $f_c$가 없으면 $1/f_c=2$ ns로 둔다.
@@ -278,7 +279,7 @@ $$v=\frac{1}{\sqrt c},\quad x_0=x_a-\frac{b}{2c},\quad t_0=2\sqrt{a-\frac{b^2}{4
 
 ### 6-4. v 고정 시 꼭짓점 시각
 
-$v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날개는 직선 광선 식과 맞지 않으므로 날개로 $t_0$를 맞추지 않는다. $|x-x_a|\le0.10$ m 안의 점(5개 이상)에 $\tau=p_0+p_1\xi+p_2\xi^2$를 맞추고, $t_0=p_0-p_1^2/(4p_2)$, $x_0=x_a-p_1/(2p_2)$로 둔다. $p_2\le0$이거나, 점이 5개 미만이거나, 꼭짓점 $\xi_v=-p_1/(2p_2)$가 $|\xi_v|>0.10$ m(맞춘 창 밖, 외삽)이면 씨앗 $(x_a,\tau_a)$를 쓴다(v1.3 마지막 조건 추가).
+$v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날개는 직선 광선 식과 맞지 않으므로 날개로 $t_0$를 맞추지 않는다. $|x-x_a|\le0.10$ m 안의 점(5개 이상)에 $\tau=p_0+p_1\xi+p_2\xi^2$를 맞추고, $t_0=p_0-p_1^2/(4p_2)$, $x_0=x_a-p_1/(2p_2)$로 둔다. $p_2\le0$이거나, 점이 5개 미만이거나, 꼭짓점 $\xi_v=-p_1/(2p_2)$가 $|\xi_v|>0.10$ m(맞춘 창 밖, 외삽)이면 꼭짓점 후보 $(x_a,\tau_a)$를 쓴다(v1.3 마지막 조건 추가).
 
 ---
 
@@ -337,10 +338,10 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | 상황 | 처리 |
 |---|---|
 | 박스가 영점 사건과 겹침($k_0\Delta t<t_z+1/f_c$) | 박스 위쪽을 $t_z+1/f_c$로 자르고, 남은 높이가 $2/f_c$보다 작으면 픽 없음 + `box_in_zero_zone` 플래그, `status="fit_failed"` |
-| 씨앗 없음(박스 안에 $0.3E_\text{max}$ 첫 피크 없음, 박스 전부 0 포함) | 픽 없음 + `no_apex_seed`, `status="fit_failed"`(꼭짓점이 없어 어떤 v로도 깊이를 못 냄) (v1.3) |
+| 꼭짓점 후보 없음(박스 안에 $0.3E_\text{max}$ 첫 피크 없음, 박스 전부 0 포함) | 픽 없음 + `no_apex_candidate`, `status="fit_failed"`(꼭짓점이 없어 어떤 v로도 깊이를 못 냄) (v1.3) |
 | 스케일 없음, 우세 주기 $1/f_\text{px}$가 2.2–128 px 밖(v1.7) | `bandpass_px`를 생략하고 `bandpass_px_skipped` 플래그를 붙인 뒤 처리를 계속한다(§3, v1.3) |
 | 영점 실패로 뮤트 불가 | 뮤트 없이 추적 + `mute_unavailable`(§5). 깊이는 아래 "사건 0개" 행대로 없음 (v1.3) |
-| 꼭짓점 2개 이상(인접 관) | 씨앗은 가장 이른 것 하나만 쓴다. 다중 관 분리는 v2 |
+| 꼭짓점 2개 이상(인접 관) | 꼭짓점 후보는 가장 이른 것 하나만 쓴다. 다중 관 분리는 v2 |
 | 꼭짓점이 박스 경계 | 플래그만 붙이고 계속 |
 | RANSAC 거부(§6-2) | v1.3: §6-2 대체 초기값으로 §6-3을 **계속**하고 `ransac_rejected` 플래그. §6-3이 수렴하고 경계에 붙지 않으면 곡률 결과를 쓴다. 실패하면 아래 행. (v1의 "메타 v로 §6-4"는 아래 행에 합쳤다. 메타 v 경로는 M2-4에서 반영됨: 곡률 실패 시 `v_rule="none"` + `alt_depths["meta_fixed"]`(§7, §2 (b))) |
 | `least_squares` 미수렴 또는 경계 값에 붙음 | `fit_failed`, 메타 v가 있으면 §6-4 결과를 `alt_depths`에 |
@@ -368,8 +369,8 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | U4 | 공기결합 **500 MHz**(400 MHz면 간격 1.69 ns가 분리 한계 1.85 ns보다 작아 사건이 합쳐짐, §4-2), h 0.3 m, s 0.1 m, $R$ 0.05 m(굴절 모델로 생성, 메타 `pipe_radius_m` 없음), SNR 20 dB, `air_gap="air"`, `eps_r_meta` 9 (v1.4) | (a) 직선 광선 곡률 호출은 `ValueError`. (b) `meta_fixed` 깊이 ±2 cm. (c) 2a 구간이 9를 포함하고(실측 (6.85, 9.70)) `meta_eps_suspect`가 없음. (d) 같은 자료에 `eps_r_meta` **2.7**(= 9/1.82², M20 공기결합 직선 광선 곡률값 $v'/v$ 1.82를 모사)을 주면 `meta_eps_suspect`가 붙음. 4.5도 붙어야 한다(문턱 4.8 아래, 선택 시험). v1.4 초안의 5는 문턱 위라 폐기한다. 시험 시간을 줄이려고 QC 격자를 εr 4–14로 좁혀도 된다. 이때 구간 양 끝이 격자 경계(4, 14)에 붙지 않았음을 함께 단언한다(붙으면 격자가 좁아서 생긴 값이다). **알고리즘 정확도**는 `test_refraction`(정확한 광선 픽, 참 $h$)에서 εr 9±0.1로 따로 본다. v1.3까지의 "εr 9±0.5"를 $h_\text{est}$ 자료에 적용하던 기준은 폐기한다(간섭 편향이 εr을 +8 %/cm로 옮김, §7 2a) |
 | U5 | U1 자료(같은 샘플 배열)를 Δt 1.18배(GPR-SD 가설 B/A 비)로 다시 해석한다. 영점도 1.18배다. 같은 배열을 다른 Δt로 읽으면 파형의 실제 주파수도 1/1.18배가 되므로 $f_c$도 1/1.18배로 준다. 그래야 필터가 샘플 단위로 같다(v1.3) | $d$ 변화 ≤ 1 mm, $v$는 $1/1.18$배(±0.5 %). 실제 GPR-SD는 `amplitude_processed`·$f_c$ 없음이라 필터를 다시 돌리지 않는다. U5는 피팅 식의 축척 불변성만 본다 |
 | U6 | `pick_mode` 불일치(영점 envelope, 꼭짓점 signed) | 호출 거부 |
-| U7 | 스케일 없음(`dt_ns=None`), U1 자료 **SNR 20 dB 그대로**(v1.3; 잡음 없는 자료로 바꾸지 않는다) | `status="no_scale"`, 깊이 None. 픽은 씨앗 1개이고, 씨앗 트레이스는 75±1, 샘플은 정답 꼭짓점 ±2 px(§3 `bandpass_px`). `bandpass_px` 없이는 실패하는 것이 정상이다(트레이스 68, −28 px) |
-| U8 | 늦은 강한 사건(바닥 반사 진폭 2배)이 있는 원통 | 씨앗이 상단 반사(첫 피크)를 잡음 |
+| U7 | 스케일 없음(`dt_ns=None`), U1 자료 **SNR 20 dB 그대로**(v1.3; 잡음 없는 자료로 바꾸지 않는다) | `status="no_scale"`, 깊이 None. 픽은 꼭짓점 후보 1개이고, 꼭짓점 후보 트레이스는 75±1, 샘플은 정답 꼭짓점 ±2 px(§3 `bandpass_px`). `bandpass_px` 없이는 실패하는 것이 정상이다(트레이스 68, −28 px) |
+| U8 | 늦은 강한 사건(바닥 반사 진폭 2배)이 있는 원통 | 꼭짓점 후보가 상단 반사(첫 피크)를 잡음 |
 
 전처리·영점 단위 시험(v1.1 추가, `tests/preprocess/`):
 
@@ -437,8 +438,8 @@ Z6·Z7 주석(v1.2):
   - 시간 위: $k_0=\max\!\left(0,\ \lfloor(t_\text{apex,env}-1.5/f_c)/\Delta t\rfloor\right)$($t_\text{apex,env}$=`apex_envelope_peak_ns`; 현재 20개 모델은 모두 $t_\text{apex}>1.5/f_c$라 하한에 걸리지 않는다).
   - 시간 아래: $k_1=\lceil(\max_{i\in[i_0,i_1]}(t_\text{src}+\tau_\text{ray}[i]+\ell)+1.5/f_c)/\Delta t\rceil$, 기록 끝에서 자른다($t_\text{src}$=`source_peak_ns`, $\tau_\text{ray}$=`ray_reflection_time_ns`, $\ell$=`wavelet_lag_ns`).
   - 근거: 1.5 주기는 포락선 주엽(약 ±0.6 주기)에 여유를 둔 값이다(**가정**). 0.8 m는 합성 측선 ±1.1 m 안에서 날개가 충분히 들어오는 폭이다.
-  - 박스 위쪽이 영점 구역에 걸리면 §10대로 잘린다. 물 찬 관(M08·M14·M18)의 하단·내부 반사가 박스 안에 들어와도 그대로 둔다. 첫 피크 씨앗(§5-2)을 시험하는 조건이기 때문이다.
-  - 박스는 정답에서 만들지만 씨앗은 박스 전체(±40 트레이스)에서 찾으므로 R4(±3 트레이스)는 순환 판정이 아니다.
+  - 박스 위쪽이 영점 구역에 걸리면 §10대로 잘린다. 물 찬 관(M08·M14·M18)의 하단·내부 반사가 박스 안에 들어와도 그대로 둔다. 첫 피크 꼭짓점 후보(§5-2)을 시험하는 조건이기 때문이다.
+  - 박스는 정답에서 만들지만 꼭짓점 후보는 박스 전체(±40 트레이스)에서 찾으므로 R4(±3 트레이스)는 순환 판정이 아니다.
 - `_fs.npy`(자유공간, 공기층 모델 M12·M13·M15·M18·M20만): M2-5에는 필요 없다. R2는 json `surface_reflection_peak`(= bg − fs 포락선 피크, 미리 계산됨)를 쓴다. 영점 분해 같은 분석은 `analysis/processing/`에서 npy를 직접 읽는다.
 
 | ID | 대상 | 검사 | 기준 | 현재 근거값 |
@@ -447,7 +448,7 @@ Z6·Z7 주석(v1.2):
 | R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.35 ns, $|h_\text{est}-0.3|\le0.07$ m (v1.1: (1)–(3) 처리 후 값 기준) | 필터 없음 +0.184 ns·0.330 m. v1 상자형 처리 +0.227 ns·0.337 m, v1.1 가우스 처리 +0.292 ns·0.349 m(review 계산). 분해(v1.2): 지표 반사 단독(bg−fs)은 처리 후 +0.002 ns, 두 사건(bg)·코드 입력 간섭 +0.29 ns. 편향 전부가 직접파 간섭이다([`surface_zero_shift.csv`](surface_zero_shift.csv)). M2-5 실측 $h_\text{est}$ 0.349 m(+0.049) |
 | R3 | h 0.1 (M12, M13, M15, M18) | `zero_rule == "air_single_event"`, 단일 피크 vs `direct_wave_peak` | ≤0.05 ns | 4개 모두 단일 사건, 편차 0 |
 | R4 | 20개 전부 | 꼭짓점 트레이스 vs `apex.trace_index` | ±3 트레이스 | 측정한 6개(M02·M12·M13·M15·M18·M20) 52–55 |
-| R5 | 20개 전부 | (v1.6) $t_a$(씨앗 = 꼭짓점 트레이스의 첫 포락선 피크, median 배경) vs **같은 (1)–(3)을 거친 이상 배경(D − `_bg` 가운데 열) 꼭짓점 트레이스의 포락선 피크**. 기준 피크는 그 트레이스의 박스 시간 범위($k_0..k_1$) 안에서 $0.3\times$최대 이상인 **첫 피크**로 잡는다(§5-2 씨앗 규칙과 같다. 전역 최대를 쓰면 물 찬 관 M08·M14·M18에서 더 강한 하단 반사로 간다). `_bg`의 측방 차는 최대 1.84e-05라 가운데 열 하나로 빼도 된다(v1.6 구현 확인) | ≤0.05 ns. 필터 이동($t$((1)–(3) 이상 배경) − json `apex.envelope_peak_ns`)은 별도 열에 기록만 한다 | v1: M02 +0.0003, M20 −0.0007(json 기준). v1.6 근거: M15 json 대비 −0.059 ns였으나, 이 중 밴드패스 이동이 −0.055 ns이고(M15 꼭짓점 파형은 json 기하 기대보다 +0.237 ns 늦은 분산·비대칭 파형), 재정의 기준 대비는 −0.006 ns다(`analysis/processing/regression_failures_m2_5.py`) |
+| R5 | 20개 전부 | (v1.6) $t_a$(꼭짓점 후보 = 꼭짓점 트레이스의 첫 포락선 피크, median 배경) vs **같은 (1)–(3)을 거친 이상 배경(D − `_bg` 가운데 열) 꼭짓점 트레이스의 포락선 피크**. 기준 피크는 그 트레이스의 박스 시간 범위($k_0..k_1$) 안에서 $0.3\times$최대 이상인 **첫 피크**로 잡는다(§5-2 꼭짓점 후보 선정 규칙과 같다. 전역 최대를 쓰면 물 찬 관 M08·M14·M18에서 더 강한 하단 반사로 간다). `_bg`의 측방 차는 최대 1.84e-05라 가운데 열 하나로 빼도 된다(v1.6 구현 확인) | ≤0.05 ns. 필터 이동($t$((1)–(3) 이상 배경) − json `apex.envelope_peak_ns`)은 별도 열에 기록만 한다 | v1: M02 +0.0003, M20 −0.0007(json 기준). v1.6 근거: M15 json 대비 −0.059 ns였으나, 이 중 밴드패스 이동이 −0.055 ns이고(M15 꼭짓점 파형은 json 기하 기대보다 +0.237 ns 늦은 분산·비대칭 파형), 재정의 기준 대비는 −0.006 ns다(`analysis/processing/regression_failures_m2_5.py`) |
 | R6 | M20 | `meta_fixed` 깊이 | $|d-d_\text{top}|\le2$ cm (일치) | **−1.49 cm**(v1.6, M2-5 실측; v1.2 예상 −1.42 cm. 차 0.07 cm는 §6-4 꼭짓점과 포락선 피크의 차). v1 근거값 −0.88 cm는 필터 없는 영점(+0.184 ns) 기준 |
 | R7 | M12, M13, M15, M18 | `meta_fixed` 깊이, 편향 부호 + | $0<d-d_\text{top}\le5$ cm | +1.8, +3.6, +2.0, +2.8 cm |
 | R8 | h=0 전부 | `meta_fixed` + `ground_direct_peak` | $-5\le d-d_\text{top}<0$ cm | [DP] 표 D −1.9~−3.9, M02 −3.26 |
@@ -511,7 +512,7 @@ Z6·Z7 주석(v1.2):
 - (v1.6 주석) M20 굴절 격자 행의 εr 9.00·−0.8 cm는 **$h_\text{est}$ 0.330 m 조건에서 나온 상쇄 결과**다. $h_\text{est}$ +0.03 m 편향은 εr을 약 +24 % 올리고, gprMax 날개 픽 지연은 약 −13 % 내린다. json $h$ 0.3 m에서는 같은 이상 배경 원 신호 픽으로 εr 7.72가 나온다(M2-5 review, `analysis/processing/regression_failures_m2_5.py`). 알고리즘 근거로 쓰지 않는다(§11-2 R13a-1·a-2).
 - M20 직선 광선 결과는 [DP] 표 C·F(1.81, +0.49 m)를 재현한다. 직선 광선에서는 RMS가 0.044 ns로 작아 **잔차로는 실패를 알 수 없다**. 그래서 규칙으로 금지한다(§7 순서 2).
 
-### 표 4. 공기층 모델 블라인드 영점 (v = 정답, 꼭짓점 = median 배경, 첫 피크 씨앗)
+### 표 4. 공기층 모델 블라인드 영점 (v = 정답, 꼭짓점 = median 배경, 첫 피크 꼭짓점 후보)
 
 | 모델 | h (m) | f (MHz) | 검출 사건 (ns) | 늦은 사건 − json 지표 반사 (ns) | $h_\text{est}$ (m) | $d$ 오차 (cm) | json 지표 반사 영점일 때 (cm) |
 |---|---|---|---|---|---|---|---|
@@ -522,7 +523,7 @@ Z6·Z7 주석(v1.2):
 | M20 | 0.3 | 500 | [3.164, 5.060] | +0.184 | 0.330 | −0.9 | +0.04 |
 
 - h = 0.1 m에서는 직접파와 지표 반사의 간격이 약 0.45 ns로 포락선 폭보다 짧다. 그래서 피크가 하나로 합쳐진다(`air_single_event`). 4TU는 두 사건 간격이 약 20 샘플(1.95 ns, h ≈ 0.29 m)이라 M20처럼 분리될 것으로 예상한다([DP] §7-2). 현장 확인은 analyze 다음 단계다.
-- 꼭짓점 씨앗을 전역 최대로 잡으면 M18이 +116.7 cm로 실패했고, 첫 피크 규칙으로 +2.8 cm가 됐다(§5-2).
+- 꼭짓점 후보를 전역 최대로 잡으면 M18이 +116.7 cm로 실패했고, 첫 피크 규칙으로 +2.8 cm가 됐다(§5-2).
 
 그림: `docs/processing/zero_reference_check.png`(꼭짓점 트레이스 포락선과 영점 후보 표시, M02·M20).
 
@@ -539,7 +540,7 @@ Z6·Z7 주석(v1.2):
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
 | `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
 | `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값, v1.4 `refraction_h_margin_m=0.06` 추가 — §7 2a Δh, 가정), `zero_config()` |
-| `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config) -> HyperbolaPicks`(§13-4), `widen_box`, `find_apex_seed`(첫 피크 씨앗), `mute_sample`, 추적 |
+| `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config) -> HyperbolaPicks`(§13-4), `widen_box`, `find_apex_candidate`(첫 피크 꼭짓점 후보), `mute_sample`, 추적 |
 | `src/gpr_detection/depth/hyperbola.py` | `hyperbola_time`(§6-1 식), `ransac_init -> RansacInit`, `fit_hyperbola(R fixed) -> HyperbolaFit`, `apex_vertex -> ApexVertex`, `fit_curvature(picks, *, radius_m, air_gap, v_fallback, config) -> CurvatureFit`, `fixed_velocity_apex(picks, config) -> ApexVertex` (§13-4) |
 | `src/gpr_detection/depth/refraction.py` | `leg_time(x_antenna, h, px, pz, v)`, `reflection_times(x_mid_m, *, offset_m, h, x0_m, d_top_m, radius_m, v)`(송신 기준 ns), `surface_reflection_time(h, offset_m)`, `refraction_qc(x_m, tau_ns, *, x0_m, tau_apex_ns, h_m, offset_m, radius_m, config) -> RefractionQC`(`eps_fit`, `v_fit`, `d_top_m`, `rms_ns`, `n_picks`, `h_m`, `offset_m`) (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
 | `src/gpr_detection/depth/velocity.py` | (v1.4) `VelocityRule`(StrEnum: `none`, `meta_fixed`, `curvature_R_fixed`; 띠 규칙은 M2-6b에서 추가), `VelocityChoice`([B] §8-2 필드와 같음: `v_rule`, `v_m_per_ns`, `sigma_v`, `eps_r_used`, `v_sources`, `alt_meta_v`, `bias_notes`, `flags`; 속성 `has_velocity`), `meta_velocity(radargram)`, `select_hyperbola_velocity(radargram, curvature, config) -> VelocityChoice`(§7) |
@@ -608,7 +609,7 @@ Z6·Z7 주석(v1.2):
 
 `depth/picks.py`·`depth/hyperbola.py`가 돌려주고 M2-4 `estimate_depth`가 받는다. 필드 추가는 허용하고, 빼거나 이름을 바꾸려면 이 표를 함께 고친다. 위치는 L0 격자(원본 트레이스·샘플)다.
 
-**`ApexSeed`**(§5-2): `trace: int`(L0), `k: float`(L0 샘플, 포물선 보간), `amplitude: float`(픽 신호 값).
+**`ApexCandidate`**(§5-2): `trace: int`(L0), `k: float`(L0 샘플, 포물선 보간), `amplitude: float`(픽 신호 값).
 
 **`PickScale`**: `dt_ns`, `dx_m`, `t_zero_ns`(각 float \| None). `require()`는 하나라도 None이면 `ValueError`다.
 
@@ -620,10 +621,10 @@ Z6·Z7 주석(v1.2):
 | `trace_idx` | ndarray[int] | 트레이스 | 픽 트레이스, 오름차순 |
 | `k_pick` | ndarray[float] | 샘플 | 픽 위치(L0) |
 | `amplitude` | ndarray[float] | 픽 신호 | 픽 값 |
-| `apex` | `ApexSeed \| None` | – | 씨앗. `no_apex_seed`·`box_in_zero_zone`이면 None |
+| `apex` | `ApexCandidate \| None` | – | 꼭짓점 후보. `no_apex_candidate`·`box_in_zero_zone`이면 None |
 | `n_left`, `n_right` | int | – | 꼭짓점 좌·우 픽 수(꼭짓점 제외) |
 | `scale` | `PickScale` | – | 변환에 쓴 축척·영점 |
-| `flags` | tuple[str, ...] | – | `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_seed`, `mute_unavailable` |
+| `flags` | tuple[str, ...] | – | `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable` |
 | 속성 | `n_picks`, `x_m`(=trace·dx), `tau_ns`(=k·dt−t_z), `apex_x_m`, `apex_tau_ns`, `is_enough_for_curvature(config)` | m, ns | 축척이 없으면 `x_m`·`tau_ns`·`apex_*`가 `ValueError` |
 
 **`RansacInit`**(§6-2): `x0_m`, `t0_ns`, `v_m_per_ns`(float), `inlier_mask: ndarray[bool]`(RANSAC을 안 돌렸으면 전부 False), `accepted: bool`(False면 대체 초기값).
@@ -645,14 +646,14 @@ Z6·Z7 주석(v1.2):
 
 **`CurvatureFit`**(`fit_curvature` 반환): `status: FitStatus`, `init: RansacInit | None`·`fit: HyperbolaFit | None`(시도하지 않았으면 None), `flags`(`ransac_rejected`). 속성 `is_ok`.
 - status 규칙(v1.3, §10):
-  - `picks.apex is None`(`box_in_zero_zone`·`no_apex_seed`)이면 `fit_failed`이고 `flags`에 `picks.flags`를 그대로 담는다.
+  - `picks.apex is None`(`box_in_zero_zone`·`no_apex_candidate`)이면 `fit_failed`이고 `flags`에 `picks.flags`를 그대로 담는다.
   - 꼭짓점은 있으나 §5-4 점 수가 모자라면 `insufficient_picks`다. 이때는 §7 순서 4로 `meta_fixed` + §6-4를 쓸 수 있다.
   - 수렴 실패·경계에 붙으면 `fit_failed`, 그 밖은 `ok`다.
 - 두 실패를 구분하는 이유: `insufficient_picks`는 메타 v로 깊이를 낼 수 있고, 꼭짓점이 없으면 낼 수 없다.
 
-**`ApexVertex`**(§6-4, `apex_vertex`·`fixed_velocity_apex` 반환): `x0_m`, `t0_ns`(대체 시 씨앗 값), `n_points: int`(대체 시 1), `rms_ns`(대체 시 0), `used_fallback: bool`.
+**`ApexVertex`**(§6-4, `apex_vertex`·`fixed_velocity_apex` 반환): `x0_m`, `t0_ns`(대체 시 꼭짓점 후보 값), `n_points: int`(대체 시 1), `rms_ns`(대체 시 0), `used_fallback: bool`.
 
-설정 기본값은 `DepthConfig` dataclass 하나에 모은다: `a_max_m=1.0`, `seed_rel=0.3`, `track_stop_rel=0.2`, `v_min=0.05`, `ransac_dt_ns=0.3`, `ransac_trials=200`, `f_scale_ns=0.1`, `apex_halfwidth_m=0.10`, `bg_window=301`, `h_max_m=0.5`, `ground_zero_shift="none"`, `sigma_eps_rel=0.15`, `seed=0`.
+설정 기본값은 `DepthConfig` dataclass 하나에 모은다: `a_max_m=1.0`, `candidate_rel=0.3`, `track_stop_rel=0.2`, `v_min=0.05`, `ransac_dt_ns=0.3`, `ransac_trials=200`, `f_scale_ns=0.1`, `apex_halfwidth_m=0.10`, `bg_window=301`, `h_max_m=0.5`, `ground_zero_shift="none"`, `sigma_eps_rel=0.15`, `seed=0`.
 - v1.3에서 확인하고 추가한 값(본문 상수와 같음):
   - `pick_mode="envelope"`(§0-4)
   - `box_expand_frac=0.1`(§5-1), `track_back_ns=0.3`·`track_reverse_ns=0.1`(§5-3), `min_picks=9`·`min_side_picks=3`(§5-4), `apex_edge_traces=3`(§5-6)

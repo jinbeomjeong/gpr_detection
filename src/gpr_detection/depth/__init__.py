@@ -2,7 +2,7 @@
 
 Receives only L0 grid boxes (``GridBox``) and never imports ``detect``
 (architecture README section 2-2). Modules: :mod:`.config` (settings),
-:mod:`.picks` (apex seed and tracking), :mod:`.hyperbola` (RANSAC start,
+:mod:`.picks` (apex candidate and tracking), :mod:`.hyperbola` (RANSAC start,
 fixed-radius fit, fixed-v apex), :mod:`.refraction` (air-gap ray model and
 refraction QC), :mod:`.velocity` (section 7 velocity rules), :mod:`.result`
 (``DepthResult``, ``BandGeometry``), :mod:`.estimate` (``estimate_depth``: one

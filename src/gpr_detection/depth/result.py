@@ -110,7 +110,7 @@ class DepthResult:
         t_apex_ns: Apex time on the record clock (``t_a``).
         t_zero_ns: Depth zero (``t_z``).
         t0_ns: ``t_a - t_z``.
-        apex_trace: Apex seed trace (L0), also without scale.
+        apex_trace: Apex candidate trace (L0), also without scale.
         apex_sample: Apex sample (L0, fractional), also without scale.
         zero_rule: Section 4 rule name.
         zero_event_label: Event the zero sits on.

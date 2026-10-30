@@ -353,7 +353,7 @@ def extract_band_picks(
     k_hi = min(box.k1 + p_down, a_bg.shape[0] - 1)
     signal = pick_signal(a_bg[:, box.trace_slice], cfg.pick_mode)
     e_box = float(signal[box.sample_slice].max())
-    threshold = cfg.seed_rel * e_box
+    threshold = cfg.candidate_rel * e_box
     inner_samples = None
     if dt_ns is not None and f_c_hz is not None:
         inner_samples = INNER_REFLECTION_PERIODS * _HZ_PER_GHZ / f_c_hz / dt_ns

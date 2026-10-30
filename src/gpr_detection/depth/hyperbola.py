@@ -106,8 +106,8 @@ def ransac_init(
     Args:
         x_m: Pick positions.
         tau_ns: Pick times after the zero.
-        x_apex_m: Apex seed position.
-        tau_apex_ns: Apex seed time after the zero.
+        x_apex_m: Apex candidate position.
+        tau_apex_ns: Apex candidate time after the zero.
         v_fallback: Velocity used on rejection (metadata velocity if known).
         config: ``ransac_dt_ns``, ``ransac_trials`` and ``seed``.
     """
@@ -301,14 +301,14 @@ def fit_hyperbola(
 
 @dataclass(frozen=True)
 class ApexVertex:
-    """Fixed-velocity apex from a parabola near the seed (section 6-4).
+    """Fixed-velocity apex from a parabola near the apex candidate (section 6-4).
 
     Attributes:
-        x0_m: Vertex position (the seed position on fallback).
-        t0_ns: Vertex time after the zero (the seed time on fallback).
+        x0_m: Vertex position (the apex candidate position on fallback).
+        t0_ns: Vertex time after the zero (the apex candidate time on fallback).
         n_points: Points used in the parabola (1 on fallback).
         rms_ns: RMS of the parabola residuals (0 on fallback).
-        used_fallback: True when the seed was used directly.
+        used_fallback: True when the apex candidate was used directly.
     """
 
     x0_m: float
@@ -325,10 +325,10 @@ def apex_vertex(
     tau_apex_ns: float,
     config: DepthConfig = DEFAULT_DEPTH_CONFIG,
 ) -> ApexVertex:
-    """Fit ``tau = p0 + p1 xi + p2 xi^2`` within ``apex_halfwidth_m`` of the seed.
+    """Fit ``tau = p0 + p1 xi + p2 xi^2`` within ``apex_halfwidth_m`` of the candidate.
 
     ``t0 = p0 - p1^2 / (4 p2)``, ``x0 = x_apex - p1 / (2 p2)``. Falls back to
-    the seed when fewer than ``apex_min_points`` points exist, ``p2 <= 0``, or
+    the apex candidate when fewer than ``apex_min_points`` points exist, ``p2 <= 0``, or
     the vertex lands outside the fitted window.
     """
     fallback = ApexVertex(x_apex_m, tau_apex_ns, 1, 0.0, True)
@@ -367,12 +367,12 @@ class CurvatureFit:
 
     Attributes:
         status: ``ok``, ``insufficient_picks`` (section 5-4) or ``fit_failed``
-            (no apex seed, or ``least_squares`` not converged or stuck on a
+            (no apex candidate, or ``least_squares`` not converged or stuck on a
             bound, section 10).
         init: RANSAC start values; ``None`` when the fit was not attempted.
         fit: The ``least_squares`` result; ``None`` when not attempted.
         flags: ``ransac_rejected``; without an apex, the picks' flags
-            (``box_in_zero_zone``, ``no_apex_seed``, ...).
+            (``box_in_zero_zone``, ``no_apex_candidate``, ...).
     """
 
     status: FitStatus
@@ -432,7 +432,7 @@ def fixed_velocity_apex(
     """Section 6-4 apex vertex of scaled picks (used whenever v is fixed).
 
     Raises:
-        ValueError: Without an apex seed, physical scale or time zero.
+        ValueError: Without an apex candidate, physical scale or time zero.
     """
     return apex_vertex(
         picks.x_m, picks.tau_ns, picks.apex_x_m, picks.apex_tau_ns, config

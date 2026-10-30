@@ -17,7 +17,7 @@ class DepthConfig:
 
     Attributes:
         a_max_m: Max half-aperture of the pick tracking (section 5-3).
-        seed_rel: First-peak threshold for the apex seed, vs the box maximum.
+        candidate_rel: First-peak threshold for the apex candidate, vs the box maximum.
         track_stop_rel: Tracking stops below this fraction of the apex value.
         v_min: Slowest velocity used to size the tracking window (m/ns).
         ransac_dt_ns: RANSAC residual threshold expressed as a time (ns).
@@ -49,7 +49,7 @@ class DepthConfig:
     """
 
     a_max_m: float = 1.0
-    seed_rel: float = 0.3
+    candidate_rel: float = 0.3
     track_stop_rel: float = 0.2
     v_min: float = 0.05
     ransac_dt_ns: float = 0.3
@@ -97,7 +97,7 @@ class BandConfig:
     rules) and ``band.py`` can both use it without importing each other.
 
     Attributes:
-        seed_rel: First-peak threshold vs the box envelope maximum.
+        candidate_rel: First-peak threshold vs the box envelope maximum.
         pad_up_periods: Search window extension above the box, in ``1 / f_c``.
         pad_down_periods: Extension below the box, in ``1 / f_c``.
         bg_window: Masked-median window in traces (centred on the band).
@@ -118,7 +118,7 @@ class BandConfig:
         pick_mode: Phase reference shared with the zero.
     """
 
-    seed_rel: float = 0.3
+    candidate_rel: float = 0.3
     pad_up_periods: float = 1.0
     pad_down_periods: float = 0.5
     bg_window: int = BACKGROUND_WINDOW_TRACES

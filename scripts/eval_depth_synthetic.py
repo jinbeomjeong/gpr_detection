@@ -230,12 +230,12 @@ def _ideal_section(radargram: Radargram, background: np.ndarray) -> np.ndarray:
 
 
 def _first_envelope_peak_ns(
-    trace: np.ndarray, box: GridBox, dt_ns: float, seed_rel: float
+    trace: np.ndarray, box: GridBox, dt_ns: float, candidate_rel: float
 ) -> float | None:
-    """First envelope peak >= ``seed_rel`` x max in the box rows (seed rule)."""
+    """First envelope peak >= ``candidate_rel`` x box maximum (candidate rule)."""
     envelope = pick_signal(trace, "envelope")
     window = envelope[box.sample_slice]
-    peaks, _ = find_peaks(window, height=seed_rel * float(window.max()))
+    peaks, _ = find_peaks(window, height=candidate_rel * float(window.max()))
     if len(peaks) == 0:
         return None
     k_local, _ = parabolic_peak(window, int(peaks[0]))
@@ -253,7 +253,10 @@ def _ideal_apex_and_lateral(
     ideal = _ideal_section(radargram, background)
     assert radargram.dt_ns is not None
     reference_ns = _first_envelope_peak_ns(
-        ideal[:, truth.apex_trace_index], box, radargram.dt_ns, DepthConfig().seed_rel
+        ideal[:, truth.apex_trace_index],
+        box,
+        radargram.dt_ns,
+        DepthConfig().candidate_rel,
     )
     return reference_ns, lateral_rel
 
@@ -402,7 +405,7 @@ def _zero_checks(run: ModelRun) -> list[Check]:
 
 
 def _apex_checks(run: ModelRun) -> list[Check]:
-    """R4: seed trace vs json apex; R5 (v1.6): seed time vs the ideal ``D - bg``."""
+    """R4: candidate trace vs json apex; R5 (v1.6): its time vs ideal ``D - bg``."""
     main, truth = run.main, run.truth
     trace_diff = (
         None if main.apex_trace is None else main.apex_trace - truth.apex_trace_index
@@ -420,7 +423,7 @@ def _apex_checks(run: ModelRun) -> list[Check]:
             "R5",
             run.model_id,
             _fmt(time_diff, " ns"),
-            "|t_seed - t_ideal(D-bg, (1)-(3))| <= 0.05 ns",
+            "|t_candidate - t_ideal(D-bg, (1)-(3))| <= 0.05 ns",
             time_diff is not None and abs(time_diff) <= 0.05,
         ),
     ]
@@ -432,18 +435,18 @@ def load_dt(run: ModelRun) -> float:
     return run.picks.scale.dt_ns
 
 
-def _seed_time_ns(run: ModelRun) -> float | None:
-    """Apex seed time ``t_a`` (first envelope peak, median background)."""
+def _candidate_time_ns(run: ModelRun) -> float | None:
+    """Apex candidate time ``t_a`` (first envelope peak, median background)."""
     if run.main.apex_sample is None:
         return None
     return run.main.apex_sample * load_dt(run)
 
 
 def _r5_diff_ns(run: ModelRun) -> float | None:
-    seed_ns = _seed_time_ns(run)
-    if seed_ns is None or run.ideal_apex_ns is None:
+    candidate_ns = _candidate_time_ns(run)
+    if candidate_ns is None or run.ideal_apex_ns is None:
         return None
-    return seed_ns - run.ideal_apex_ns
+    return candidate_ns - run.ideal_apex_ns
 
 
 def _filter_shift_ns(run: ModelRun) -> float | None:
@@ -681,7 +684,7 @@ def model_row(run: ModelRun) -> dict[str, object]:
         ),
         "apex_trace_true": truth.apex_trace_index,
         "apex_trace_est": "" if main.apex_trace is None else main.apex_trace,
-        "t_seed_ns": _round(_seed_time_ns(run)),
+        "t_candidate_ns": _round(_candidate_time_ns(run)),
         "t_ideal_apex_ns": _round(run.ideal_apex_ns),
         "r5_diff_ns": _round(_r5_diff_ns(run)),
         "filter_shift_ns": _round(_filter_shift_ns(run)),

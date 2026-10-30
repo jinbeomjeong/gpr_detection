@@ -315,7 +315,7 @@ def estimate_depth(
 
     Returns:
         One :class:`DepthResult`. Statuses: ``no_scale`` (apex pixel only),
-        ``zero_failed``, ``fit_failed`` (no apex seed, box in the zero zone or a
+        ``zero_failed``, ``fit_failed`` (no apex candidate, box in the zero zone or a
         failed curvature fit), ``insufficient_picks``, ``no_velocity``
         (air-coupled without ``eps_r_meta``, or unknown air gap) and ``ok``.
 
@@ -370,7 +370,7 @@ def _depth_with_apex(
     flags: list[str],
     common: dict,
 ) -> DepthResult:
-    """Sections 7-9 once scale, zero and apex seed exist."""
+    """Sections 7-9 once scale, zero and apex candidate exist."""
     radius_m = radargram.pipe_radius_m or 0.0
     curvature = None
     # Rules 2 and 6: no straight-ray curvature fit when the gap is air or unknown.

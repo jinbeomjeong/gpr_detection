@@ -80,7 +80,7 @@
 - pipe_hyperbola 검증 인스턴스가 crop 단위 71개로 적다.
 
 ## 7. 5회째(ringing만 끔) 권고 — 사용자 결정(2026-10-30): **C. 시드 반복**
-강도 0·1을 seed 1로 한 번씩(`runs/detect/m17_aug0_s1`, `m17_aug1_s1`, 러너 `runs/logs/m17_seed1_runner.ps1`) 돌려 실행 간 변동을 잰다. **실행은 보류**(사용자 결정 2026-10-30, 미실행·예약 없음): 재요청 시 `pwsh -NoProfile -File runs/logs/m17_seed1_runner.ps1`로 시작하고, M1-10 러너와 GPU가 겹치지 않게 한다. 결과는 이 문서에 추가한다. 아래는 결정 전 검토한 선택지다.
+강도 0·1을 seed 1로 한 번씩(`runs/detect/m17_aug0_s1`, `m17_aug1_s1`, 러너 `runs/logs/m17_seed1_runner.ps1`) 돌려 실행 간 변동을 잰다. **실행은 보류**(사용자 결정 2026-10-30, 미실행·예약 없음): 재요청 시 `pwsh -NoProfile -File runs/logs/m17_seed1_runner.ps1`로 시작하고, M1-10 러너와 GPU가 겹치지 않게 한다. 결과는 이 문서에 추가한다. **실행 전 결정(사용자, 2026-10-31)**: 시작 시점은 사용자가 다시 지시할 때 · 평가는 seed 0 네 실행(`m17_aug0/0.5/1/2`)과 seed 1 두 실행을 모두 `scripts/eval_detector.py`(crop·image, `--confusion-conf 0.25`)로 다시 평가해 json/csv로 남김(`m17_aug0` 재평가는 M1-10 평가 경로 수용 확인도 겸함) · 판정은 강도 0·1 각각 seed 0·1 평균의 관로 2클래스 AP50으로 같은 규칙(차이 1 %p 안이면 강도 0), 시드 간 변동폭은 따로 보고 · M1 GPU 순서는 M1-7 시드 반복 → M1-9 → M1-0b → M1-10. 아래는 결정 전 검토한 선택지다.
 최적 강도가 0이라, 원래 계획("최적 강도에서 ringing만 끔")대로 하면 강도 0의 ringing 진폭이 이미 0이어서 **`m17_aug0`과 같은 실험**이 된다. 선택지:
 
 | 선택지 | 내용 | 비용 |

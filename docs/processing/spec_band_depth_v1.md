@@ -11,6 +11,7 @@
 - **v1.1 (M2-6b 구현 대조, 2026-10-30)**: §8-2 `branch` 인자와 내부 추가 인자 확인, §3-3 다중 사건·창 끝 플래그 규칙, §3-5·§6-4 스케일 없는 입력의 픽셀 기준을 우세 주기 $P_\text{px}$에 묶음(코드 수정 필요), §5-2 `velocity_estimate_from` 규칙, §6-2 상태 집합, §6-4 잡음 구간 길이, §9-1 UB2 측정식·UB14 깊이 0.1 m, §9-2 BR 영점 경로·실측값, §9-4 AIHub 플래그 해석
 - **v1.2 (band v1.1 반영 대조, 2026-10-30)**: AIHub $P_\text{px}\approx4$ px는 레이다 반송파로 판정. v1.1 $P_\text{px}$ 기준은 유지하고 §9-4 해석을 정정(v1.1 기대가 틀림). §3-5 문턱 근거를 §11 미결로 옮김, UB11 주기 단언 기준, [S] v1.7 주기 범위 2.2–128 px 동기화
 - **v1.3 (M2-6b 커밋 전 정합, 2026-10-31)**: §8-1 실제 배치(`BandConfig`→config.py, `BandGeometry`→result.py, 단수 `estimate_band_depth` 삭제), §5-2·§8-1 `velocity_estimate_from` 시그니처, §8-2 `period_px` 인자, §3-4 coverage 분자(구성 트레이스만, ≤1), §6-2 `inconsistent_picks` px 기준·스케일 없을 때 모든 실패 → `no_scale`, `pad_*_periods`는 코드가 읽음, §9-4 하한 2.2 px 재측정 수치
+- 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(`seed_rel` → `candidate_rel` 등. 난수 시드는 그대로)
 
 ---
 
@@ -146,7 +147,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
    - 이유: 검출·라벨 박스는 gain 영상에서 눈에 보이는 위쪽 경계(파형 시작)를 따라 그려지므로 포락선 피크가 박스 위 끝 근처에 걸릴 수 있다. 위로 한 주기를 넓힌다.
 2. 트레이스 범위는 박스 그대로 $[i_0,i_1]$다(쌍곡선처럼 좌우로 넓히지 않는다. 이웃 조각과 섞이는 것을 막기 위해서다).
 3. 포락선 $E=|\mathcal H[a-b]|$(시간축). $E_\text{box}$ = **원래 박스** $[k_0,k_1]\times[i_0,i_1]$ 안 $E$의 최댓값.
-4. 트레이스마다 창 안 `find_peaks(E, height=0.3·E_box)`의 **첫 피크**를 고르고 포물선 보간으로 $t_{b,j}$를 잡는다. 0.3은 [S] §5-2 씨앗 문턱과 같다.
+4. 트레이스마다 창 안 `find_peaks(E, height=0.3·E_box)`의 **첫 피크**를 고르고 포물선 보간으로 $t_{b,j}$를 잡는다. 0.3은 [S] §5-2 꼭짓점 후보 문턱과 같다.
 5. 고른 피크가 창 위 끝 2 샘플 안이면 그 트레이스에 `top_at_window_edge`를 기록한다. 이런 트레이스가 30 %를 넘으면 결과 플래그로 올린다.
 6. **다중 사건 표시**(정보용): 같은 트레이스에서 첫 피크 뒤 $E\ge0.5E_\text{box}$인 피크 $t_2$가 있고, $|\tau_2/\tau_1-2|<0.1$이면 `surface_multiple_candidate`를 붙인다. $\tau_2-\tau_1<2/f_c$이면 `inner_reflection_candidate`를 붙인다. 깊이에는 첫 피크만 쓴다.
    - v1.1 확인: $t_2$는 첫 피크 뒤 **트레이스 끝까지** 찾는다(창으로 자르지 않는다. 비율·간격 조건이 이미 사건을 좁힌다).
@@ -370,7 +371,7 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 ```python
 @dataclass(frozen=True)
 class BandConfig:
-    seed_rel: float = 0.3            # first-peak threshold vs box envelope max
+    candidate_rel: float = 0.3            # first-peak threshold vs box envelope max
     pad_up_periods: float = 1.0      # window extension above the box, in 1/f_c (v1.3: code must read it)
     pad_down_periods: float = 0.5    # (no-scale fallback stays the box-height fractions of section 3-3)
     bg_window: int = 301
@@ -586,7 +587,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 
 - 측선은 관로와 직각으로 설계됐고(readme_4tu §5-3-2), 정답은 측선과 나란한 시굴 단면의 관 깊이다. 01.7 survey map에서도 측선 5개가 시굴 방향과 나란했다. 그래서 **측선과 평행한 관의 정답은 사실상 없다.**
 - 후보는 메타 `교차 관로 = Yes`인 11개 활동(01.7, 01.9, 03.5, 03.6, 05.9, 08.1, 010.21, 010.24, 011.7, 011.17, 012.2)과 30 m 이상 지그재그 측선의 연결 구간이다. M2-6b analyze에서 `04_radargrams_png_view`로 띠가 보이는지만 확인한다. 정답표에 해당 관이 있으면 깊이를 참고로 비교하되 **판정에는 넣지 않는다**.
-- M2-8 깊이 판정(헝가리안·제186조)에는 `pipe_band` 결과를 섞지 않는다. 손 씨앗 꼭짓점만 쓴다.
+- M2-8 깊이 판정(헝가리안·제186조)에는 `pipe_band` 결과를 섞지 않는다. 수동 꼭짓점 후보만 쓴다.
 
 ### 9-6. 판정 기준 (M2-6b verify)
 

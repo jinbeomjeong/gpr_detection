@@ -1,6 +1,6 @@
 """Unit tests of picks and the fixed-radius hyperbola fit (spec section 11-1, M2-3).
 
-U1-U3, U5, U6, U8, the U4 refusal and the U7 picks (no-scale apex seed) at the
+U1-U3, U5, U6, U8, the U4 refusal and the U7 picks (no-scale apex candidate) at the
 pick/fit level. The zero is the transmit time (``given_zero``), as U1 specifies.
 """
 
@@ -132,7 +132,7 @@ def test_u6_mixed_pick_modes_are_refused() -> None:
         )
 
 
-def test_u8_seed_takes_the_first_peak_not_the_stronger_late_event() -> None:
+def test_u8_candidate_takes_the_first_peak_not_the_stronger_late_event() -> None:
     spec = BScanSpec(radius_m=0.1)
     top_ns = (2.0 / spec.velocity) * (
         np.sqrt((0.6 + 0.1) ** 2 + (spec.x_m - spec.x0_m) ** 2) - 0.1
@@ -167,11 +167,11 @@ def test_box_above_the_mute_fails_the_curvature_fit() -> None:
     assert result.fit is None
 
 
-def test_all_zero_box_fails_the_curvature_fit_without_a_seed() -> None:
+def test_all_zero_box_fails_the_curvature_fit_without_an_apex_candidate() -> None:
     radargram = make_radargram(BScanSpec(), data=np.zeros((800, 151), np.float32))
     result = _curvature(_picks(radargram), radius_m=0.0)
     assert result.status == FitStatus.FIT_FAILED
-    assert "no_apex_seed" in result.flags
+    assert "no_apex_candidate" in result.flags
 
 
 def test_box_above_the_mute_gives_no_picks() -> None:
@@ -192,8 +192,8 @@ def test_apex_near_the_box_side_is_flagged() -> None:
     assert "apex_at_box_edge" in picks.flags
 
 
-def test_no_scale_returns_the_unmuted_apex_seed_only() -> None:
-    """U7 picks (SNR 20 dB): the pixel band-pass keeps noise below the seed rule."""
+def test_no_scale_returns_the_unmuted_apex_candidate_only() -> None:
+    """U7 picks (SNR 20 dB): pixel band-pass keeps noise below the candidate rule."""
     spec = BScanSpec()
     radargram = make_radargram(spec, dt_ns=None, dx_m=None, f_c_hz=None)
     picks = _picks(radargram)

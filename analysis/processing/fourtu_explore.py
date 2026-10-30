@@ -11,7 +11,7 @@ Questions answered with numbers:
      k = 1 (moves with the surface: surface reflection / sub-surface), k = 2 (surface multiple).
   2. Label `t0_sample_est` and `t0_sample_act_median` (direct / surface / lobe of merged band).
      Whole-index (759 lines, CSV only) distribution of est - act.
-  3. Semi-automatic apexes (hand seeds below) -> refraction-model QC: eps_r(h) for h grid,
+  3. Semi-automatic apexes (hand-picked apex candidates below) -> refraction-model QC: eps_r(h) for h grid,
      compare with eps_r_used.  Straight-ray (h = 0) eps is reported for comparison only.
   4. Apex depth (meta v, zero = band envelope peak) vs ground-truth depth set,
      top and centre hypotheses (exploration, not a verdict).
@@ -53,9 +53,9 @@ W_BG = 301  # spec 3 (4)
 COL = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 INK, INK2 = "#0b0b0b", "#52514e"
 
-# Hand-chosen apex seeds (trace index, sample index) read off fourtu_explore_bscans_<act>.png.
+# Hand-chosen apex candidates (trace index, sample index) read off fourtu_explore_bscans_<act>.png.
 # Filled after the first quick-look pass; the refinement below snaps to the local envelope max.
-SEEDS: dict[tuple[str, str], list[tuple[int, int]]] = {
+APEX_CANDIDATES: dict[tuple[str, str], list[tuple[int, int]]] = {
     ("01.1", "Path1"): [(105, 175), (160, 125), (15, 285)],
     ("01.1", "Path2"): [(70, 180), (140, 150)],
     ("01.1", "Path3"): [(190, 145), (95, 190)],
@@ -266,7 +266,7 @@ def eps_scan(x, tau, x0, tau_a, h, R, grid=np.arange(2.0, 40.01, 0.25)):
 
 
 # ----------------------------------------------------------------------------- apex picks
-def refine_seed(E: np.ndarray, j: int, k: int, dj: int = 8, dk: int = 10) -> tuple[int, float]:
+def refine_apex_candidate(E: np.ndarray, j: int, k: int, dj: int = 8, dk: int = 10) -> tuple[int, float]:
     sub = E[max(k - dk, 0):k + dk + 1, max(j - dj, 0):j + dj + 1]
     kk, jj = np.unravel_index(int(np.argmax(sub)), sub.shape)
     j2, k2 = max(j - dj, 0) + jj, max(k - dk, 0) + kk
@@ -460,7 +460,7 @@ def main() -> None:
     fig_quicklook(store)
 
     # ---- 3/4. apexes
-    if SEEDS:
+    if APEX_CANDIDATES:
         apex_part(store, gt, ulist)
 
 
@@ -574,7 +574,7 @@ def gt_table(gt, ulist):
 def apex_part(store, gt, ulist) -> None:
     gtt = gt_table(gt, ulist)
     apex_rows, eps_rows, examples = [], [], []
-    for (act, name), seeds in SEEDS.items():
+    for (act, name), candidates in APEX_CANDIDATES.items():
         g = store[(act, name)]
         m, X, dt, dx = g["m"], g["X"], g["m"]["dt_ns"], g["m"]["trace_dx_m"]
         eps_meta = float(m["eps_r_used"])
@@ -583,8 +583,8 @@ def apex_part(store, gt, ulist) -> None:
         if R is None:
             R = median_bg(X)
         E = envelope(R)
-        for (js, ks) in seeds:
-            j_a, k_a = refine_seed(E, js, ks, dj=12, dk=15)
+        for (js, ks) in candidates:
+            j_a, k_a = refine_apex_candidate(E, js, ks, dj=12, dk=15)
             # local zero: band envelope peak of the mean trace within +-W_BG/2 traces (spec 4-1)
             a, b = max(j_a - W_BG // 2, 0), min(j_a + W_BG // 2 + 1, X.shape[1])
             k_z = zero_events(X[:, a:b], dt)["k_env"]
@@ -595,7 +595,7 @@ def apex_part(store, gt, ulist) -> None:
             ok = len(idx) >= 9 and n_l >= 3 and n_r >= 3
             x0, tau_a = local_apex(x, tau, j_a * dx)
             d_top = v_meta * tau_a / 2
-            row = {"activity": act, "line": name, "seed": f"{js}/{ks}", "apex_trace": j_a,
+            row = {"activity": act, "line": name, "apex_candidate": f"{js}/{ks}", "apex_trace": j_a,
                    "apex_sample": k_a, "zero_sample_env": k_z, "x0_m": x0, "tau_a_ns": tau_a,
                    "apex_env_fwhm_ns": fwhm(E[:, j_a], int(round(k_a))) * dt,
                    "band_env_fwhm_ns": g["ev"]["fwhm_ns"],
@@ -629,7 +629,7 @@ def apex_part(store, gt, ulist) -> None:
                 row["h_implied_by_eps_meta_m"] = h_imp
                 examples.append((act, name, j_a, x, tau, x0, tau_a, eps_meta, row))
             apex_rows.append(row)
-            print(f"[apex] {act:6s} {name:13s} seed {js}/{ks} -> trace {j_a} sample {k_a:.1f} zero {k_z:.1f} "
+            print(f"[apex] {act:6s} {name:13s} candidate {js}/{ks} -> trace {j_a} sample {k_a:.1f} zero {k_z:.1f} "
                   f"tau_a {tau_a:.2f} ns d_top(meta) {d_top:.3f} m picks {len(idx)} ({n_l}/{n_r}) "
                   + (f"eps straight {row['eps_straight']:.2f} | eps(h) "
                      + " ".join(f"{row[f'eps_h{h:g}']:.1f}" for h in H_GRID)

@@ -1,7 +1,7 @@
 """Hyperbola point extraction inside one L0 box (spec_depth_v1 section 5).
 
 1. Widen the box by 10 % per side along traces.
-2. **Apex seed**: per trace, the *first* peak after the mute that reaches 30 %
+2. **Apex candidate**: per trace, the *first* peak after the mute that reaches 30 %
    of the box maximum; the trace with the earliest such peak is the apex. The
    first-peak rule keeps the pipe top when a later event is stronger
    (water-filled pipe bottom, M18: 2.17 m with the global maximum, 1.027 m now).
@@ -11,7 +11,7 @@
 
 Input is the background-removed, **un-gained** section and the radargram's
 ``ZeroResult`` (mute and shared pick mode). Without a physical scale only the
-apex seed is returned, unmuted (tracking windows are in ns and m).
+apex candidate is returned, unmuted (tracking windows are in ns and m).
 """
 
 import math
@@ -32,7 +32,7 @@ from gpr_detection.preprocess.timezero import DEFAULT_PERIOD_NS, ZeroResult
 
 
 @dataclass(frozen=True)
-class ApexSeed:
+class ApexCandidate:
     """Earliest first peak in the box (L0 indices)."""
 
     trace: int
@@ -63,11 +63,11 @@ class HyperbolaPicks:
         trace_idx: Trace index of every pick, ascending (int).
         k_pick: Pick position in fractional samples (L0).
         amplitude: Pick-signal value at each pick.
-        apex: The seed, or ``None`` when no peak reached the threshold.
+        apex: The candidate, or ``None`` when no peak reached the threshold.
         n_left: Picks left of the apex (apex excluded).
         n_right: Picks right of the apex (apex excluded).
         scale: ``dt_ns``, ``dx_m`` and ``t_zero_ns`` used for ``x_m``/``tau_ns``.
-        flags: e.g. ``apex_at_box_edge``, ``box_in_zero_zone``, ``no_apex_seed``,
+        flags: e.g. ``apex_at_box_edge``, ``box_in_zero_zone``, ``no_apex_candidate``,
             ``mute_unavailable``.
     """
 
@@ -75,7 +75,7 @@ class HyperbolaPicks:
     trace_idx: np.ndarray
     k_pick: np.ndarray
     amplitude: np.ndarray
-    apex: ApexSeed | None
+    apex: ApexCandidate | None
     n_left: int
     n_right: int
     scale: PickScale
@@ -100,19 +100,19 @@ class HyperbolaPicks:
 
     @property
     def apex_x_m(self) -> float:
-        """Apex seed position in m."""
+        """Apex candidate position in m."""
         _, dx_m, _ = self.scale.require()
         return self._require_apex().trace * dx_m
 
     @property
     def apex_tau_ns(self) -> float:
-        """Apex seed time after the zero in ns (``t_a - t_z``)."""
+        """Apex candidate time after the zero in ns (``t_a - t_z``)."""
         dt_ns, _, t_zero_ns = self.scale.require()
         return self._require_apex().k * dt_ns - t_zero_ns
 
-    def _require_apex(self) -> ApexSeed:
+    def _require_apex(self) -> ApexCandidate:
         if self.apex is None:
-            raise ValueError("no apex seed")
+            raise ValueError("no apex candidate")
         return self.apex
 
     def is_enough_for_curvature(self, config: DepthConfig) -> bool:
@@ -134,23 +134,23 @@ def widen_box(box: GridBox, n_traces: int, fraction: float) -> GridBox:
     )
 
 
-def find_apex_seed(
-    signal: np.ndarray, box: GridBox, seed_rel: float
-) -> ApexSeed | None:
-    """Earliest first peak above ``seed_rel`` x box maximum (section 5-2).
+def find_apex_candidate(
+    signal: np.ndarray, box: GridBox, candidate_rel: float
+) -> ApexCandidate | None:
+    """Earliest first peak above ``candidate_rel`` x box maximum (section 5-2).
 
     Args:
         signal: Pick signal (envelope or signed), ``[n_samples, n_columns]``.
         box: Search box in the coordinates of ``signal``; peaks are looked for
             in rows ``k0..k1``.
-        seed_rel: Threshold relative to the maximum inside ``box``.
+        candidate_rel: Threshold relative to the maximum inside ``box``.
     """
     window = signal[box.sample_slice, box.trace_slice]
-    threshold = seed_rel * float(window.max())
+    threshold = candidate_rel * float(window.max())
     if not threshold > 0:
         return None
 
-    best: ApexSeed | None = None
+    best: ApexCandidate | None = None
     for column, trace in enumerate(range(box.i0, box.i1 + 1)):
         peaks, _ = find_peaks(window[:, column], height=threshold)
         if len(peaks) == 0:
@@ -158,7 +158,7 @@ def find_apex_seed(
         k_local, amplitude = parabolic_peak(window[:, column], int(peaks[0]))
         k = box.k0 + k_local
         if best is None or k < best.k:
-            best = ApexSeed(trace=trace, k=k, amplitude=amplitude)
+            best = ApexCandidate(trace=trace, k=k, amplitude=amplitude)
     return best
 
 
@@ -174,14 +174,18 @@ class _TrackLimits:
 
 
 def _track_one_side(
-    signal: np.ndarray, seed: ApexSeed, step: int, box: GridBox, limits: _TrackLimits
+    signal: np.ndarray,
+    candidate: ApexCandidate,
+    step: int,
+    box: GridBox,
+    limits: _TrackLimits,
 ) -> list[tuple[int, float, float]]:
     """Picks ``(trace, k, amplitude)`` walking from the apex in direction ``step``."""
     picks: list[tuple[int, float, float]] = []
-    previous_k = seed.k
+    previous_k = candidate.k
     n_samples = signal.shape[0]
     for distance in range(1, limits.max_steps + 1):
-        trace = seed.trace + step * distance
+        trace = candidate.trace + step * distance
         if not box.i0 <= trace <= box.i1:
             break
         lo = max(0, math.floor(previous_k - limits.back_samples))
@@ -245,21 +249,21 @@ def extract_picks(
     f_c_hz: float | None,
     config: DepthConfig = DEFAULT_DEPTH_CONFIG,
 ) -> HyperbolaPicks:
-    """Seed the apex and track the hyperbola picks (spec_depth_v1 section 5).
+    """Find the apex candidate and track the hyperbola picks (spec_depth_v1 section 5).
 
     Args:
         section: Background-removed, un-gained data ``[n_samples, n_traces]``.
         box: Detection box on the original grid (L0).
         zero: Time zero of the same radargram; sets the mute ``t_z + 1 / f_c``
             and must share ``config.pick_mode``.
-        dt_ns: Sample interval; ``None`` returns the apex seed only, unmuted.
-        dx_m: Trace interval; ``None`` returns the apex seed only.
+        dt_ns: Sample interval; ``None`` returns the apex candidate only, unmuted.
+        dx_m: Trace interval; ``None`` returns the apex candidate only.
         f_c_hz: Centre frequency; ``None`` assumes a 2 ns period.
         config: Thresholds, aperture and pick mode.
 
     Returns:
         Picks sorted by trace. ``box_in_zero_zone`` (too little box below the
-        mute) and ``no_apex_seed`` give no picks.
+        mute) and ``no_apex_candidate`` give no picks.
 
     Raises:
         ValueError: If the zero was picked with another ``pick_mode`` (U6).
@@ -278,11 +282,11 @@ def extract_picks(
     # Work on the searched columns only; local trace j is global searched.i0 + j.
     signal = pick_signal(section[:, searched.trace_slice], config.pick_mode)
     local_box = GridBox(i0=0, i1=searched.n_traces - 1, k0=searched.k0, k1=searched.k1)
-    seed = find_apex_seed(signal, local_box, config.seed_rel)
-    if seed is None:
-        return _empty_picks(searched, scale, (*flags, "no_apex_seed"))
+    candidate = find_apex_candidate(signal, local_box, config.candidate_rel)
+    if candidate is None:
+        return _empty_picks(searched, scale, (*flags, "no_apex_candidate"))
 
-    apex_trace = searched.i0 + seed.trace
+    apex_trace = searched.i0 + candidate.trace
     near_left = apex_trace - box.i0 < config.apex_edge_traces
     near_right = box.i1 - apex_trace < config.apex_edge_traces
     if near_left or near_right:
@@ -295,19 +299,25 @@ def extract_picks(
             back_samples=config.track_back_ns / dt_ns,
             forward_samples=(2.0 * dx_m / config.v_min + config.track_back_ns) / dt_ns,
             reverse_samples=config.track_reverse_ns / dt_ns,
-            stop_amplitude=config.track_stop_rel * seed.amplitude,
+            stop_amplitude=config.track_stop_rel * candidate.amplitude,
             max_steps=math.floor(config.a_max_m / dx_m + 1e-9),
         )
-        left = _track_one_side(signal, seed, -1, local_box, limits)
-        right = _track_one_side(signal, seed, +1, local_box, limits)
+        left = _track_one_side(signal, candidate, -1, local_box, limits)
+        right = _track_one_side(signal, candidate, +1, local_box, limits)
 
-    ordered = [*reversed(left), (seed.trace, seed.k, seed.amplitude), *right]
+    ordered = [
+        *reversed(left),
+        (candidate.trace, candidate.k, candidate.amplitude),
+        *right,
+    ]
     return HyperbolaPicks(
         box=searched,
         trace_idx=np.array([searched.i0 + j for j, _, _ in ordered], dtype=int),
         k_pick=np.array([k for _, k, _ in ordered]),
         amplitude=np.array([amplitude for _, _, amplitude in ordered]),
-        apex=ApexSeed(trace=apex_trace, k=seed.k, amplitude=seed.amplitude),
+        apex=ApexCandidate(
+            trace=apex_trace, k=candidate.k, amplitude=candidate.amplitude
+        ),
         n_left=len(left),
         n_right=len(right),
         scale=scale,
