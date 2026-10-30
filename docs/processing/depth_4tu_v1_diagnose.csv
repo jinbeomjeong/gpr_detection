@@ -1,0 +1,5 @@
+depths,clusters,n_gt,n_est,n_pairs,mae_m,bias_m,pass_a,pass_b,missed,false_est,baseline_pass_b_mean,baseline_pass_b_p975,baseline_p
+reseeded (as run),single_linkage (as run),388,188,162,0.325,-0.232,0.63,0.263,226,26,0.397,0.407,1.0
+reseeded (as run),span_limited_0.10,388,448,320,0.317,-0.278,0.675,0.557,68,128,0.77,0.789,1.0
+candidate_direct,single_linkage (as run),388,190,161,0.266,-0.151,0.696,0.289,227,29,0.393,0.405,1.0
+candidate_direct,span_limited_0.10,388,481,323,0.256,-0.203,0.74,0.616,65,158,0.783,0.799,1.0
