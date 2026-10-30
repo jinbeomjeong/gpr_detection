@@ -18,7 +18,7 @@
 
 ## M1 데이터·검출 기준선
 
-**M1 결정 사항(사용자, 2026-10-29)**: AIHub는 B-scan만(C-scan 제외), 4클래스 전체를 쓰되 공동·맨홀은 세션 균형을 유지하며 관로 이미지 수(약 5.6k장)와 비슷한 규모로 축소(총 약 17k장) · gain 0.25/0.5/1.0 세 벌 모두 학습에 사용(같은 fold, 평가는 crop 단위 1회) · 모로코는 교차 도메인 평가 전용(M3-3) · YOLO11m은 **사전학습 없이 scratch** · imgsz 256(원본) · fold당 epoch는 M1-9 smoke의 1 epoch 시간·수렴을 보고 사용자에게 다시 묻는다 · M1-0b는 M1-10 시작 전에 · AIHub test 세션 홀드아웃(약 15 %, 관로 종류별 이미지 비중 10–25 %), 나머지로 5-fold.
+**M1 결정 사항(사용자, 2026-10-29)**: AIHub는 B-scan만(C-scan 제외), 4클래스 전체를 쓰되 공동·맨홀은 세션 균형을 유지하며 관로 이미지 수(약 5.6k장)와 비슷한 규모로 축소(총 약 17k장) · gain 0.25/0.5/1.0 세 벌 모두 학습에 사용(같은 fold, 평가는 crop 단위 1회) · 모로코는 교차 도메인 평가 전용(M3-3) · YOLO11m은 **사전학습 없이 scratch** · imgsz 256(원본) · fold당 epoch는 M1-9 smoke의 1 epoch 시간·수렴을 보고 사용자에게 다시 묻는다(→ 2026-10-30 M1-7 결과로 **50 epoch** 결정, M1-10 항목) · M1-0b는 M1-10 시작 전에 · AIHub test 세션 홀드아웃(약 15 %, 관로 종류별 이미지 비중 10–25 %), 나머지로 5-fold.
 
 - [x] M1-1 패키징(`pyproject.toml`, src 레이아웃, `gpr-detect` 진입점) → python-expert
 - [x] M1-2 io 로더 5종 + `Radargram`·`AnnotatedImage` 데이터 클래스 + 시험(20건 통과, 5종 전수 읽기 확인) → python-expert / `src/gpr_detection/io/`, `tests/test_io.py`
@@ -31,7 +31,7 @@
 - [x] M1-0a 이미지 디코딩 상대 비교(오염 상태 측정) → python-expert / `scripts/bench/decode_bench.py`, `docs/experiments/decode_benchmark.md`
 - [ ] M1-0b 디코딩 판정 재측정(CPU가 빌 때, E코어·P코어 각각 `--affinity`) → python-expert, 시작 전 long-running-task-monitor로 측정 오염 점검
 - [ ] M1-9 YOLO11m smoke 학습(3 epoch) → cv-detection-expert / `configs/train_yolo11m_smoke.yaml`, `runs/`
-- [ ] M1-10 YOLO11m 기준선(AIHub 세션 그룹 5-fold, fold 평균±표준편차; 학습량 약 5배라 메인 세션 + long-running-task-monitor, 시작 전 cpu-scheduler/GPU 확인) → cv-detection-expert / `docs/experiments/`
+- [ ] M1-10 YOLO11m 기준선(AIHub 세션 그룹 5-fold, fold 평균±표준편차; 학습량 약 5배라 메인 세션 + long-running-task-monitor, 시작 전 cpu-scheduler/GPU 확인) — **epoch 결정(사용자, 2026-10-30)**: fold당 **50 epoch**(M1-9 smoke를 기다리지 않고 M1-7 30 epoch×4회 수렴을 근거로 결정 — M1-9 실행·생략은 별도 결정, 집계 `analysis/detection/m110_epoch_budget.py`), `optimizer: AdamW`·`lr0: 0.00125`·`warmup_bias_lr: 0.0` 명시(Ultralytics 8.4.192 `optimizer: auto`는 학습 반복 10,000 초과 시 MuSGD로 바뀜 — fold 0–4는 52–57 epoch부터), `patience: 0`, 판정 가중치 `last.pt`(`best.pt`는 민감도용), 증강 강도 0·batch 64·workers 2, 예상 fold당 26–28분·5 fold 약 2.2 h(CPU 겹침 시 약 2.6 h), 실행 전 5 fold 누수 재단언. RF-DETR 비교(M4-3)도 같은 50 epoch 예산 → cv-detection-expert / `docs/experiments/`
 
 ## M2 깊이 추정 구현·검증 (시작: M1-10 학습 중)
 - [ ] M2-1 전처리 모듈(dewow, median 배경 제거, 밴드패스, gain은 검출 갈래만) → python-expert / `src/gpr_detection/preprocess/`

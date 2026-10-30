@@ -1,2 +1,2 @@
 - [YOLO11m timing & pipe_band FP](yolo11m-timing-and-fp.md) — ~30 s/epoch b64 fold0, 7.5 GB VRAM; pipe_band FP ~7x GT
-- [Framework aug defaults](framework-aug-defaults.md) — Ultralytics mosaic/hsv on by default; rfdetr square stretch resize + vflip presets
+- [Framework aug defaults](framework-aug-defaults.md) — Ultralytics mosaic/hsv on, optimizer auto AdamW->MuSGD >10k iters; rfdetr square stretch + vflip
