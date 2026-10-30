@@ -16,6 +16,7 @@
 | 2026-10-30 | v1.3 (M2-3 대조) | M2-3 구현 판정 반영:<br>- 스케일 없는 입력에 픽셀 단위 밴드패스 `bandpass_px` 추가(§3, 씨앗 잡음 대책)<br>- 씨앗·추적 탐색 범위와 뮤트 규칙(§5-4)<br>- RANSAC 거부는 초기값 대체 후 계속 + `ransac_rejected`(§6-2·§10, v1 §10 "메타 v로 §6-4" 행과의 충돌 해소)<br>- $t_\text{max}=\max\tau$·경계 판정 $10^{-4}$·공분산을 정상점과 유사역행렬로(§6-3)<br>- §6-4 꼭짓점 창 밖이면 씨앗으로 대체<br>- 공기결합 거부를 점 수 검사보다 먼저(§7)<br>- 플래그 `box_in_zero_zone`·`no_apex_seed`·`mute_unavailable`·`ransac_rejected`·`bandpass_px_skipped`(§2·§10)<br>- U5 $f_c$ 함께 축척·U7 잡음 자료 유지(§11-1)<br>- `DepthConfig` 상수 확인과 `single_event_h_max_m` 삭제(§13-1 아래)<br>- 픽·피팅 객체 필드 정본(§13-4)<br>- (integrity 반영) §5-2 씨앗 문구를 "문턱을 넘는 첫 피크"로 명확화, §10 `bandpass_px_skipped` 행, §13 모듈 표 시그니처, §13-4 `CurvatureFit` status 규칙(꼭짓점 없음 → `fit_failed`) |
 | 2026-10-30 | v1.4 (M2-4 대조) | M2-4 구현 판정 반영:<br>- `status="no_velocity"`, `target_class`, `eps_r_refraction_qc(_range)`, `sigma_zero_ns`, `sigma_apex_ns`, `alt_depths` 채우는 규칙(§2)<br>- 굴절 격자 한 단·꼭짓점 $d$ 결정(§6-1)<br>- §7 2a를 $h_\text{est}$ 간섭 편향에 견디는 **구간 판정**으로 바꿈, 2a 세부, 순서 2b(공기결합·메타 없음)·6(`unknown` → `no_velocity`, 곡률 금지)<br>- §9 $\sigma_a$ 정의, §10 좁은 피크 판정식·$s$ 보정 0 처리<br>- U4 조건(500 MHz)·기준 재정의, R13 두 경로(§11)<br>- §13 refraction·velocity·result·estimate 시그니처<br>- 근거: 정확한 광선 픽 εr 민감도. $h$ 0.300–0.349 m로 상한 쪽을, 0.25·0.269·0.289 m로 구간 하한 쪽을 쟀다(§7 2a, review 계산, scratchpad, CSV 없음)<br>- (구현 확인) 구간을 min/max로 정렬, U4 실측 구간 (6.85, 9.70)의 분해(R 불일치 −6~−9 %), U4(d) 메타값 5 → 2.7, §13 `refraction_h_margin_m`·`eps_r_refraction_qc_range` |
 | 2026-10-30 | v1.5 (M2-4b 대조) | 합성 로더 반영: §1-1 합성 채움 규약(`eps_r_meta_source="synthetic_truth"`, `t0_candidates_ns` 비움, 끄기 옵션), §11-2 입력 규약(`SyntheticTruth` 필드 용도와 필수/선택, x축 비교 규약, **M2-5 박스 공급 규칙**, `_fs.npy` 불필요), §13 `io/synthetic.py` 행 |
+| 2026-10-30 | v1.6 (M2-5 회귀 판정) | 사용자 결정 반영:<br>- R5 기준을 같은 (1)–(3)을 거친 이상 배경의 꼭짓점 포락선 피크로 바꾸고 필터 이동은 별도 기록(M15 밴드패스 −0.055 ns)<br>- R13을 R13a-1(json 광선 시각 픽, εr 9±0.1·d ±1 cm), R13a-2(현재 경로 픽·json h, εr ≤20 %·d ≤5 cm, 날개 지연 −13 % 기록, 기본 격자·전체 픽), R13b로 나눔<br>- R6 실측 −1.49 cm, R2·R13b $h_\text{est}$ +0.049 m<br>- §12 표 3 굴절 9.00에 "h_est 0.330 상쇄" 주석<br>- §7 R 미상 편향 문구 +14 → +17 %(R11 M01·M06 +16.5 %)<br>- §14 Δh 여유 0.011 m<br>- 근거: `analysis/processing/regression_failures_m2_5.py` |
 
 ---
 
@@ -297,7 +298,7 @@ $v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날�
   - 격자 최소점 양옆 칸 안에서 `minimize_scalar(method="bounded", xatol=1e-3)`로 정밀화한다.
   - $h_\text{est}$의 간섭 편향(§4-2, +0.03~+0.05 m)이 εr 결과를 키운다. 허용폭은 §11-1 U4.
 
-- $R$을 모른 채 $R=0$으로 곡률 피팅하면 $v'/v$가 1.01–1.14배로 커진다. $d'$는 상단보다 0.2R–0.5R 깊게 나온다([DP] 표 B). `bias_notes`에 `"radius_unknown: v,d over by up to +14 %"`를 넣는다.
+- $R$을 모른 채 $R=0$으로 곡률 피팅하면 $v'/v$가 커지고, $d'$는 상단보다 0.2R–0.5R 깊게 나온다([DP] 표 B). 커지는 정도는 이상 픽([DP] 표 B)에서 1.01–1.14배였고, 처리된 픽(M2-5 R11, 직접파 영점)에서는 최대 1.165배(M01·M06 +16.5 %)였다. `bias_notes`에 `"radius_unknown: v,d over by up to +17 %"`를 넣는다(v1.6, +14 %에서 바꿈).
 - GPR-SD: 지면결합 점산란 식에서 시간축을 $k$배로 늘리면 $t\to kt$, $v\to v/k$가 되고 $d=vt_0/2$는 변하지 않는다. 그래서 **dt 가설 A/B는 곡률 기반 깊이에 영향을 주지 않고 $\varepsilon_r$만 바꾼다.** 두 가설을 모두 돌려 깊이가 같은지 확인한다(단위 시험 U5). 다만 영점이 미확정(`meta_sample0`)이라 깊이에는 `zero_unverified` 플래그를 붙인다.
 
 ---
@@ -439,18 +440,20 @@ Z6·Z7 주석(v1.2):
 | ID | 대상 | 검사 | 기준 | 현재 근거값 |
 |---|---|---|---|---|
 | R1 | h=0 (M01–M11, M14, M16, M17, M19) | $t_\text{dir}$ vs `direct_wave_peak` | ≤0.05 ns | M02 0.0000 ns |
-| R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.35 ns, $|h_\text{est}-0.3|\le0.07$ m (v1.1: (1)–(3) 처리 후 값 기준) | 필터 없음 +0.184 ns·0.330 m. v1 상자형 처리 +0.227 ns·0.337 m, v1.1 가우스 처리 +0.292 ns·0.349 m(review 계산). 분해(v1.2): 지표 반사 단독(bg−fs)은 처리 후 +0.002 ns, 두 사건(bg)·코드 입력 간섭 +0.29 ns. 편향 전부가 직접파 간섭이다([`surface_zero_shift.csv`](surface_zero_shift.csv)). R13은 v1.1 처리로 다시 잰다 |
+| R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.35 ns, $|h_\text{est}-0.3|\le0.07$ m (v1.1: (1)–(3) 처리 후 값 기준) | 필터 없음 +0.184 ns·0.330 m. v1 상자형 처리 +0.227 ns·0.337 m, v1.1 가우스 처리 +0.292 ns·0.349 m(review 계산). 분해(v1.2): 지표 반사 단독(bg−fs)은 처리 후 +0.002 ns, 두 사건(bg)·코드 입력 간섭 +0.29 ns. 편향 전부가 직접파 간섭이다([`surface_zero_shift.csv`](surface_zero_shift.csv)). M2-5 실측 $h_\text{est}$ 0.349 m(+0.049) |
 | R3 | h 0.1 (M12, M13, M15, M18) | `zero_rule == "air_single_event"`, 단일 피크 vs `direct_wave_peak` | ≤0.05 ns | 4개 모두 단일 사건, 편차 0 |
 | R4 | 20개 전부 | 꼭짓점 트레이스 vs `apex.trace_index` | ±3 트레이스 | 측정한 6개(M02·M12·M13·M15·M18·M20) 52–55 |
-| R5 | 20개 전부 | $t_a$(median 배경) vs `apex.envelope_peak_ns` | ≤0.05 ns | M02 +0.0003, M20 −0.0007 |
-| R6 | M20 | `meta_fixed` 깊이 | $|d-d_\text{top}|\le2$ cm (일치) | −1.42 cm (v1.2: v1.1 처리 영점 $t_\text{surf}$ = 4.877 + 0.292 ns, 꼭짓점 16.893 ns → $t_0$ 11.724 ns, $d$ 0.5858 m; 예상치이며 구현 후 다시 잰다. 여유 0.58 cm). v1 근거값 −0.88 cm는 필터 없는 영점(+0.184 ns) 기준 |
+| R5 | 20개 전부 | (v1.6) $t_a$(씨앗 = 꼭짓점 트레이스의 첫 포락선 피크, median 배경) vs **같은 (1)–(3)을 거친 이상 배경(D − `_bg` 가운데 열) 꼭짓점 트레이스의 포락선 피크**. 기준 피크는 그 트레이스의 박스 시간 범위($k_0..k_1$) 안에서 $0.3\times$최대 이상인 **첫 피크**로 잡는다(§5-2 씨앗 규칙과 같다. 전역 최대를 쓰면 물 찬 관 M08·M14·M18에서 더 강한 하단 반사로 간다). `_bg`의 측방 차는 최대 1.84e-05라 가운데 열 하나로 빼도 된다(v1.6 구현 확인) | ≤0.05 ns. 필터 이동($t$((1)–(3) 이상 배경) − json `apex.envelope_peak_ns`)은 별도 열에 기록만 한다 | v1: M02 +0.0003, M20 −0.0007(json 기준). v1.6 근거: M15 json 대비 −0.059 ns였으나, 이 중 밴드패스 이동이 −0.055 ns이고(M15 꼭짓점 파형은 json 기하 기대보다 +0.237 ns 늦은 분산·비대칭 파형), 재정의 기준 대비는 −0.006 ns다(`analysis/processing/regression_failures_m2_5.py`) |
+| R6 | M20 | `meta_fixed` 깊이 | $|d-d_\text{top}|\le2$ cm (일치) | **−1.49 cm**(v1.6, M2-5 실측; v1.2 예상 −1.42 cm. 차 0.07 cm는 §6-4 꼭짓점과 포락선 피크의 차). v1 근거값 −0.88 cm는 필터 없는 영점(+0.184 ns) 기준 |
 | R7 | M12, M13, M15, M18 | `meta_fixed` 깊이, 편향 부호 + | $0<d-d_\text{top}\le5$ cm | +1.8, +3.6, +2.0, +2.8 cm |
 | R8 | h=0 전부 | `meta_fixed` + `ground_direct_peak` | $-5\le d-d_\text{top}<0$ cm | [DP] 표 D −1.9~−3.9, M02 −3.26 |
 | R9 | h=0 전부 | `meta_fixed` + `ground_direct_shifted`(표 $\Delta_\text{dw}$) | $|d-d_\text{top}|\le2$ cm | M02 송신 영점 +0.36 cm |
 | R10 | h=0 전부 | `curvature_R_fixed`($R$=json), 영점 `ground_direct_peak` | $|v/v_\text{true}-1|\le6\%$, $|d-d_\text{top}|\le5$ cm. 5 %·2 cm 안이면 "일치", 아니면 "허용 일치"로 기록 | M02 +3.4 %, −1.6 cm. [DP] 표 F 최대 +5.2 %(M09), −2.4 cm |
 | R11 | h=0 전부 | $R=0$ 곡률 피팅 | $v'/v>1$ (편향 부호) | M02 1.098 |
 | R12 | M20 | 직선 광선 곡률 피팅 요청 | `ValueError`. 참고로 강제 실행 시 $v'/v$ 1.82, +47.8 cm | §12 표 3 |
-| R13 | M20 | `refraction_qc` | (v1.4) json $h$ 0.3 m를 넣으면 εr 9±0.5, $d$ ±2 cm(알고리즘). `estimate_depth` 경로($h_\text{est}$ v1.1 처리 0.349 m)에서는 2a 구간이 9를 포함하고 `meta_eps_suspect`가 없어야 한다 | εr 9.00, −0.83 cm(v1 분석). $h_\text{est}$ 경로는 정확한 광선 계산으로 εr 약 13 예상(단일값이면 거짓 의심) → 구간 하한 εr(0.289) ≈ 8.4 |
+| R13a-1 | M20 | (v1.6) `refraction_qc` **알고리즘**: 픽 = json `ray_reflection_time_ns`(트레이스 인덱스 기준, $\tau_i$ = `ray_reflection_time_ns[i]` − `surface_reflection_time(h, s)`; 같은 값인 json `surface_reflection_geom_ns`는 `SyntheticTruth`에 없으므로 식으로 계산), json $h$ 0.3·$s$ 0.1·$R$ 0.1, 기본 격자 3–30. 픽 범위는 json **전체 111 트레이스**(±1.1 m)다. 박스 ±40보다 넓어 더 엄격하고, 정확한 시각이라 박스가 필요 없다(v1.6 구현 확인) | εr 9±0.1, $|d-d_\text{top}|\le1$ cm (실측 9.000, −0.001 cm) | 모델 검증: `reflection_times`와 json 광선 시각의 최대 차 0.0000 ns(M2-5 review 계산) |
+| R13a-2 | M20 | (v1.6) `refraction_qc` **자료**: 현재 경로의 픽(median 배경, (1)–(3), 검출 $t_\text{surf}$, §6-4 꼭짓점), json $h$ 0.3·$s$ 0.1·$R$ 0.1, **기본 격자·전체 픽**(축소·솎기 안 함) | $|\varepsilon/9-1|\le20\%$, $|d-d_\text{top}|\le5$ cm. 결과에 "날개 지연 편향"을 기록한다. 기록값은 이 행의 εr 상대오차(실측 −13.2 %)이고, 위치별 픽−광선 차는 회귀에서 다시 계산하지 않는다(근거 칸의 review 값으로 둔다) | εr 7.81(−13.2 %), d +2.88 cm. 원인: gprMax 포락선 픽이 날개에서 상대적으로 일찍 옴(픽 − 광선: 꼭짓점 쪽 +0.018 ns, 0.7–0.9 m −0.093 ns). 배경·필터·영점을 바꿔도 7.6–8.0(이상 배경 원 신호 7.72)이라 처리 문제가 아니다 |
+| R13b | M20 | (v1.4) `estimate_depth` 경로($h_\text{est}$): 2a 구간이 9를 포함하고 `meta_eps_suspect` 없음 | 위와 같음 | 구간 [7.41, 10.33](M2-5 실측). $h_\text{est}-h$ = +0.049 m(Δh 0.06 안, 여유 0.011 m). 통과는 $h_\text{est}$ 편향(εr↑)과 날개 지연(εr↓)의 부분 상쇄 결과다 |
 
 - R10 기준을 5 %가 아니라 6 %로 둔 이유: 직접파 영점과 반경 모델을 함께 써도 M09(εr 4)에서 +5.2 %가 실측됐다([DP] 표 F). 판정 등급은 정의서 verify 기준(일치 ≤5 %·2 cm, 허용 일치 d ≤10 cm)으로 따로 기록한다.
 - 공기층 모델(M12·M13·M15·M18·M20)은 곡률 v 기준을 적용하지 않고 고정 v의 d 기준만 본다(정의서 verify 규칙).
@@ -501,6 +504,7 @@ Z6·Z7 주석(v1.2):
 | M20 | 지표 반사 | 굴절 격자(h_est 0.330 m, R 0.1, s 0.1) | 43 | 1.000 | 9.00 | 0.592 | −0.8 | 0.010 |
 
 - M02 R=0 결과(+1.8 cm)가 정답에 가까워 보이는 것은 두 편향이 상쇄된 결과다. v 과대(+9.8 %)와 영점 얕음(−3.3 cm)이 서로 지웠다. 맞는 모델이라서가 아니다.
+- (v1.6 주석) M20 굴절 격자 행의 εr 9.00·−0.8 cm는 **$h_\text{est}$ 0.330 m 조건에서 나온 상쇄 결과**다. $h_\text{est}$ +0.03 m 편향은 εr을 약 +24 % 올리고, gprMax 날개 픽 지연은 약 −13 % 내린다. json $h$ 0.3 m에서는 같은 이상 배경 원 신호 픽으로 εr 7.72가 나온다(M2-5 review, `analysis/processing/regression_failures_m2_5.py`). 알고리즘 근거로 쓰지 않는다(§11-2 R13a-1·a-2).
 - M20 직선 광선 결과는 [DP] 표 C·F(1.81, +0.49 m)를 재현한다. 직선 광선에서는 RMS가 0.044 ns로 작아 **잔차로는 실패를 알 수 없다**. 그래서 규칙으로 금지한다(§7 순서 2).
 
 ### 표 4. 공기층 모델 블라인드 영점 (v = 정답, 꼭짓점 = median 배경, 첫 피크 씨앗)
@@ -666,7 +670,7 @@ Z6·Z7 주석(v1.2):
 | 지면결합 $\Delta_\text{dw}$ 보정 | 2D 합성(s=0.1 m)에서만 얻은 값, 기본값 끔 | 광저우 깊이 기지 표적이 생기면 보정 |
 | GPR-SD 영점 | 샘플 0 가정 | 원 저장소 처리 내역 |
 | $h_\text{max}=0.5$ m, AGC 창 $8/f_c$, $\sigma_\varepsilon$ 0.15 | 가정 | 4TU analyze |
-| 2a 구간 판정의 Δh 0.06 m(`refraction_h_margin_m`) | 가정(v1.4): $h_\text{est}$ 간섭 편향 실측 +0.029 m(해석 Ricker)·+0.049 m(M20)에 여유를 둔 값 | R13(M20)과 M2-5 합성 세트에서 $h_\text{est}-h$ 분포를 재서 확인 |
+| 2a 구간 판정의 Δh 0.06 m(`refraction_h_margin_m`) | 가정(v1.4): $h_\text{est}$ 간섭 편향 실측 +0.029 m(해석 Ricker)·+0.049 m(M20)에 여유를 둔 값 | (v1.6) M2-5 실측: M20 $h_\text{est}-h$ = +0.049 m로 Δh 안이지만 **여유 0.011 m로 작다**. 공기층 h·주파수가 다른 합성이 생기면 다시 잰다. R13(M20)과 M2-5 합성 세트에서 $h_\text{est}-h$ 분포를 재서 확인 |
 | $f_c$ 없을 때 500 MHz 가정(dewow σ 2 ns, AGC 16 ns, 영점 창 주기 2 ns) | 가정(v1.1) | 해당 입력(GPR-SD·MALA)은 `amplitude_processed`라 현재 쓰이지 않음 |
 | 가우스 dewow가 4TU 단일 띠 판정([FX] 41/41, 상자형으로 측정)을 바꾸지 않는지 | 미확인. 가우스는 유령 엽을 줄이는 쪽이라 단일 판정이 유지될 것으로 봄 | M2-7·M2-8 4TU 실행에서 사건 수 재확인 |
 | 4TU 현장 11의 앞쪽 0 뮤트(약 48 샘플)와 DC 제거 | 전 구간 평균을 빼면 뮤트 구간이 상수로 바뀌고 뮤트 끝에 계단이 생긴다(영향 미측정) | M2-7에서 뮤트 끝 사건 여부 확인, 필요하면 DC를 뮤트 밖 샘플로만 계산 |

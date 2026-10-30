@@ -93,7 +93,7 @@ def test_rule3_ground_curvature_depth_and_3a_meta_alternative() -> None:
     assert low <= _depth_error_m(result) < high
     assert result.zero_rule == "ground_direct_peak"
     assert "meta_fixed" in result.alt_depths
-    assert "radius_unknown: v,d over by up to +14 %" in result.bias_notes
+    assert "radius_unknown: v,d over by up to +17 %" in result.bias_notes
     assert result.depth_center_m is None
     assert result.sigma_depth_m > 0
     assert result.n_picks == 101

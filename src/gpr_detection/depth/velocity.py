@@ -34,7 +34,8 @@ from gpr_detection.depth.config import DEFAULT_DEPTH_CONFIG, DepthConfig
 from gpr_detection.depth.hyperbola import CurvatureFit, FitStatus
 from gpr_detection.io.radargram import Radargram, eps_from_velocity, velocity_from_eps
 
-RADIUS_UNKNOWN_NOTE = "radius_unknown: v,d over by up to +14 %"
+RADIUS_UNKNOWN_NOTE = "radius_unknown: v,d over by up to +17 %"
+"""R = 0 curvature fit with unknown R: v'/v up to 1.17 (spec 7 v1.6, M2-5 R11)."""
 
 
 class VelocityRule(StrEnum):

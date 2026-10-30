@@ -234,7 +234,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 | 범위 | $v\in[0.05,\ 0.20]$ m/ns (εr 2.2–36) | 물리 범위(**가정**) |
 | 깊이 근접 | $|\tau_\text{hyp}-\tau_\text{band}|\le0.5\,\tau_\text{band}$인 것이 있으면 그것만 쓴다. 없으면 전부 쓰고 $\delta_\tau=0.05$ | 층상 매질에서 곡률 v는 꼭짓점 깊이까지의 RMS 속도다. 깊이가 다르면 대표성이 떨어진다(**가정** 크기) |
 
-- 적격 쌍곡선의 `radius_used_m`이 0이면 `bias_notes`에 `"neighbor_v_radius_unknown: v up to +14 %"`를 넣는다. 교차각은 항상 미상이므로 `"neighbor_v_oblique_unknown: v,d over by 1/sin(theta)"`를 넣는다.
+- 적격 쌍곡선의 `radius_used_m`이 0이면 `bias_notes`에 `"neighbor_v_radius_unknown: v up to +17 %"`([S] v1.6 `RADIUS_UNKNOWN_NOTE`와 같은 값, R11 처리된 픽 실측 +16.5 %)를 넣는다. 교차각은 항상 미상이므로 `"neighbor_v_oblique_unknown: v,d over by 1/sin(theta)"`를 넣는다.
 - 쓴 쌍곡선 인덱스와 각 v는 `v_sources`에 남긴다.
 
 ---

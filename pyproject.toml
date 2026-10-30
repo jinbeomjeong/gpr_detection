@@ -39,6 +39,9 @@ known-first-party = ["gpr_detection"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Synthetic regression (R1-R13) is opt-in: pytest -m synthetic
+addopts = '-m "not synthetic"'
 markers = [
     "data: needs the read-only datasets under configs/paths.yaml (skipped when absent)",
+    "synthetic: gprMax synthetic depth regression R1-R13 (opt-in, -m synthetic)",
 ]
