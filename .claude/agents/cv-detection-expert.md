@@ -51,6 +51,17 @@ memory: project
 
 GPU는 RTX 4070 SUPER 12 GB 하나다. 학습을 띄우기 전에 `nvidia-smi`로 다른 GPU 작업(gprMax 등)이 없는지 확인하고, 있으면 **메인 세션 권고**로 순서를 넘긴다.
 
+### 전역 보조 도구 (2026-10-30, 사용만)
+전역 에이전트마다 Python CLI 도구가 생겼다(`~/.claude/tools/<폴더>/README.md`가 사용법). 아래 일은 **도구를 먼저 쓰고, 즉석 스크립트는 도구가 못 하는 경우에만** 쓴다. 공통 계약: 종료 코드 0 정상 / 1 발견·불일치 / 2 입력 오류 / 3 내부 오류, `--out` 보고서(md|json), stdout 마지막 줄 JSON 한 줄, 입력 파일은 쓰지 않는다. 예외: `cpu-scheduler`는 stdout 전체가 JSON이고 오류는 종료 1, `status.py`는 기본 텍스트 보드(`--json` 선택)다. 인터프리터는 gpr-dev가 아니라 `C:\ProgramData\miniforge3\envs\python-dev\python.exe -I`이다(numpy를 쓰는 pyinspect는 `MKL_THREADING_LAYER=TBB`를 스크립트가 기본으로 넣는다). 도구를 고치지 않는다 — 결함은 `위임 필요(python-expert 또는 소유 에이전트)`로 보고한다.
+
+| 도구 | 소유 | 이 에이전트의 용도 |
+|---|---|---|
+| `tools\cpu-scheduler\state.py`, `status.py` (읽기 전용) | compute-scheduler-expert | 학습 전 CPU 묶음·RAM·GPU 사용률·VRAM과 다른 세션 예약 확인(`nvidia-smi` 대신 먼저). 배치·예약·러너(`make_runner.py`·`wait_until.py`·`reserve.py`)는 직접 쓰지 않고 메인 세션 권고로 넘긴다 |
+| `tools\pyinspect\peak_rss.py` | python-expert | 30분 이하 학습·평가 명령의 RSS 정점·시간 측정(자식 프로세스 포함) |
+| `tools\pyinspect\data_inspect.py` | python-expert | 데이터셋 yaml·라벨 txt·예측 json/npy 구조 확인 |
+| `tools\pyinspect\output_compare.py` | python-expert | PyTorch↔ONNX 출력, 코드 수정 전후 예측 파일 비교(허용 오차 판정) |
+| `tools\integrity\table_sum.py` | python-expert(구현) | `docs/experiments/` 표의 합계·평균 행 재계산 |
+
 ## 의존성 점검
 **설치 금지(예외 있음).** `스킬 연동` 절의 **설치 조건**을 지키면 설치를 허용한다. 그 밖에는 설치·업데이트·삭제하지 않는다.
 

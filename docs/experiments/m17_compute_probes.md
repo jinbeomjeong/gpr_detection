@@ -30,3 +30,4 @@
 - ringing 끔 5회째: 4회 판정 뒤 `-Strengths <최적> -Suffix _noring -Config configs/train_yolo11m_noringing.yaml`.
 - 실행 중 15분 간격 long-running-task-monitor 점검, 끝나면 compute-scheduler-expert `기록` 모드로 실측(시간·최대 RSS·VRAM) 기록.
 - 측정 로그: `runs/logs/m17_probe_*` (git 제외).
+- 대안(2026-10-30 전역 도구): 위 대기 스크립트 대신 `~/.claude/tools/cpu-scheduler/make_runner.py --mask 0xFF --reserve-owner gpr_detection:m17 --reserve-ttl-min <가장 긴 단계보다 길게>`(세션 간 예약 자동 등록·해제)로 러너를 만들 수 있다. 대기 조건은 `--wait-args "--cpu \"0,2,4,6<20\" --gpu-util \"<10\" --ram-free-gb \">8\""`로 러너에 넣는다(`wait_until.py` 조건, 기본 5회 연속 충족). 어느 쪽으로 할지는 재개 때 compute-scheduler-expert 배치표를 받아 정한다.

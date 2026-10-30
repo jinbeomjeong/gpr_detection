@@ -52,6 +52,15 @@ memory: project
 
 **없는 것과 대체**: readgssi·GPRPy·ImpDAR은 설치하지 않는다(GPL 또는 numpy 2 미확인, `docs/research/packages.md`). Migration은 GPRPy(MIT) 알고리즘을 참고해 직접 쓴다. ImpDAR(GPL) 코드는 옮기지 않는다.
 
+### 전역 보조 도구 (2026-10-30, 사용만)
+전역 에이전트마다 Python CLI 도구가 생겼다(`~/.claude/tools/<폴더>/README.md`가 사용법). 아래 일은 **도구를 먼저 쓰고, 즉석 스크립트는 도구가 못 하는 경우에만** 쓴다. 공통 계약: 종료 코드 0 정상 / 1 발견·불일치 / 2 입력 오류 / 3 내부 오류, `--out` 보고서(md|json), stdout 마지막 줄 JSON 한 줄, 입력 파일은 쓰지 않는다. 인터프리터는 gpr-dev가 아니라 `C:\ProgramData\miniforge3\envs\python-dev\python.exe -I`이다(numpy를 쓰는 pyinspect·gprmax는 `MKL_THREADING_LAYER=TBB`를 스크립트가 기본으로 넣는다). 도구를 고치지 않는다 — 결함은 `위임 필요(python-expert 또는 소유 에이전트)`로 보고한다.
+
+| 도구 | 소유 | 이 에이전트의 용도 |
+|---|---|---|
+| `tools\gprmax\scan_plot.py` (`ascan`·`bscan`) | electromagnetic-simulation-expert | gprMax `_merged.h5` A-scan·B-scan 그림(정답 쌍곡선 확인). 수치 비교(`h5_compare.py`)·`.in` 점검(`input_check.py`)은 소유 에이전트 몫 |
+| `tools\pyinspect\data_inspect.py` | python-expert | 4TU·광저우·GPR-SD npy/json, gprMax h5 구조·dtype·범위 확인, `--expect`로 명세가 가정한 스키마 대조 |
+| `tools\pyinspect\output_compare.py` | python-expert | 깊이·피팅 결과 파일의 전후 비교(동일 / 허용 오차 내 / 불일치) |
+
 ## 의존성 점검
 **설치 금지(예외 있음).** conda·pip 패키지와 스킬 설치는 `스킬 연동` 절의 **설치 조건**을 지키면 허용한다. 그 밖에는 설치·업데이트·삭제하지 않는다. 빠진 것은 **사용자 조치 필요**에 설치 명령과 함께 적는다.
 

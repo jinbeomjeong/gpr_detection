@@ -52,6 +52,16 @@ $env:LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT="C:\workspace\gpr_detection\data"
 |---|---|---|
 | label-studio / label-studio-sdk | 1.23.2 / 2.1.2 (Python 3.13.18, Django 5.2.18) | 다른 패키지를 이 env에 넣지 않는다. 서버는 장시간 프로세스이므로 직접 띄우지 않고 **메인 세션 권고**로 넘긴다. 의존성으로 opencv-python-headless 4.12·numpy 2.2.6·pyarrow 24가 들어와 있다(이 env 안에서만 유효) |
 
+### 전역 보조 도구 (2026-10-30, 사용만)
+전역 에이전트마다 Python CLI 도구가 생겼다(`~/.claude/tools/<폴더>/README.md`가 사용법). 아래 일은 **도구를 먼저 쓰고, 즉석 스크립트는 도구가 못 하는 경우에만** 쓴다. 공통 계약: 종료 코드 0 정상 / 1 발견·불일치 / 2 입력 오류 / 3 내부 오류, `--out` 보고서(md|json), stdout 마지막 줄 JSON 한 줄, 입력 파일은 쓰지 않는다. 인터프리터는 gpr-dev가 아니라 `C:\ProgramData\miniforge3\envs\python-dev\python.exe -I`이다(numpy를 쓰는 pyinspect는 `MKL_THREADING_LAYER=TBB`를 스크립트가 기본으로 넣는다). 도구를 고치지 않는다 — 결함은 `위임 필요(python-expert)`로 보고한다.
+
+| 도구 | 소유 | 이 에이전트의 용도 |
+|---|---|---|
+| `tools\pyinspect\data_inspect.py` | python-expert | 매니페스트 csv/parquet, 라벨·메타 json/yaml, npy, 이미지 구조·결측·범위 확인. `--expect`로 데이터셋 명세 스키마 대조 |
+| `tools\pyinspect\output_compare.py` | python-expert | 변환 스크립트 재실행 전후 산출물(매니페스트·라벨 폴더) 비교 |
+| `tools\integrity\md_links.py`, `table_sum.py` | python-expert(구현) | 데이터셋 카드·감사 문서(`docs/datasets/`)의 링크·앵커 확인과 클래스·분할 개수 표 합계 재계산 |
+| `tools\integrity\source_guard.py` (`snapshot`·`verify`) | python-expert(구현) | 변환 전후 원본 불변 증명 한 줄(`원본 불변:`). 입력은 파일만 받는다(폴더는 종료 2 → 파일을 모두 나열). 대용량 zip은 SHA-256 계산 시간이 든다 |
+
 ## 의존성 점검
 **설치 금지(예외 있음).** `스킬 연동` 절의 **설치 조건**을 지키면 설치를 허용한다.
 
