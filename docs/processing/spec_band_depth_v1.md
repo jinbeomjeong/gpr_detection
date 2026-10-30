@@ -112,7 +112,7 @@ $$d_\text{top}=\frac{v\,\tau_\text{ref}}{2},\qquad \tau_\text{ref}=t_{b,\text{re
 1. [S] §3 (1)–(3)(DC → dewow → 영위상 밴드패스)까지 처리한 자료로 [S] §4-1 사건 검출을 한다. **gain은 쓰지 않는다.**
 2. **추가 규칙**: 평균 트레이스를 만들 때 `pipe_band` 박스(좌우 여유 $m$ 트레이스 포함)에 속한 트레이스는 뺀다. 측선 전체가 띠 박스면 빼지 않고 `zero_band_overlap` 플래그를 붙인다.
    - 이유: 수평 띠는 평균 트레이스에서 상쇄되지 않는다. 띠가 영점 탐색 창 $[0,\ t_\text{max}+2h_\text{max}/c+0.5/f_c]$ 안에 있으면 공기결합 규칙(`late` = 창 안 마지막 피크)이 띠를 지표 반사로 잡는다. 4TU에서 εr 9, $h_\text{max}$ 0.5 m면 창 끝이 영점 뒤 약 4.3 ns이고, $d\lesssim0.21$ m인 띠가 여기에 걸린다.
-   - 이 규칙은 `pipe_hyperbola` 깊이에도 이롭다. `preprocess/timezero.py`와 `detect_zero_events`는 아직 없다(2026-10-30 현재 `preprocess/`에는 `__init__.py`·`to_image.py`뿐이다). 이 모듈은 **신규로 M2-2·M2-3과 함께 구현**하고, 처음부터 `exclude_traces` 인자를 포함한다.
+   - 이 규칙은 `pipe_hyperbola` 깊이에도 이롭다. `preprocess/timezero.py`와 `detect_zero_events`는 아직 커밋되지 않았다(2026-10-30 현재 `preprocess/`에는 `__init__.py`·`to_image.py`·`filters.py`·`signals.py`(M2-1)가 있고, `timezero.py`는 M2-2 승인 전이다). 이 모듈은 **신규로 M2-2·M2-3과 함께 구현**하고, 처음부터 `exclude_traces` 인자를 포함한다.
 3. 트레이스별 영점 $t_{z,j}$(이동 정합, [FX] P3)는 선택 사항이다. 기본값은 전역 $t_z$이고, 측선 영점 이동 std가 0.2 ns를 넘으면 트레이스별 영점을 쓴다([FX] 011.14 계단 근거). 기본값을 바꾸는 일은 M2-9 spec v2에서 [S]와 함께 정한다.
 
 ### 3-2. 띠 갈래 배경 제거 (masked median)
@@ -379,11 +379,11 @@ class VelocityEstimate:
     eligible: bool                # section 5-2 checks already applied
 
 @dataclass(frozen=True)
-class ZeroResult:                 # NEW (preprocess/timezero.py); wraps the [S] section 13
-    t_zero_ns: float | None       # select_zero tuple (t_z, zero_rule, label) + context.
+class ZeroResult:                 # preprocess/timezero.py; canonical field table: [S] section 13-1 (v1.1)
+    t_zero_ns: float | None       # select_zero returns this object (not a tuple) since [S] v1.1.
     k_zero: float | None          # zero sample (float), also filled for no-scale input (px)
     zero_rule: str                # [S] section 4-2 rule name
-    zero_event_label: Literal["surface_reflection", "direct_wave", "merged", "meta"]
+    zero_event_label: Literal["surface_reflection", "direct_wave", "merged", "meta"] | None  # None only if zero_failed
     pick_mode: Literal["envelope", "signed_max", "signed_min"]
     events_ns: tuple[float, ...]  # all detected early events ([S] 4-1)
     h_est_m: float | None
@@ -391,6 +391,9 @@ class ZeroResult:                 # NEW (preprocess/timezero.py); wraps the [S] 
     meta_t0: Mapping[str, tuple[float, str]] # e.g. {"t0_sample_est": (ns, label)} ([S] 4-3)
     excluded_traces: int          # number of traces masked out (band boxes)
     flags: tuple[str, ...]        # zero_failed, zero_band_overlap, ...
+    sigma_zero_ns: float = 0.0    # [S] section 9 sigma_z of the rule ([S] v1.1)
+    bias_notes: tuple[str, ...] = ()
+    window_std_ns: float | None = None   # [S] section 4-1 item 1 window QC (tracks the selected event)
 
 @dataclass(frozen=True)
 class BandPicks:
@@ -451,7 +454,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
                          cfg: BandConfig = BandConfig()) -> list[DepthResult]: ...
 ```
 
-- `a`는 [S] §3 (3)까지 처리한 gain 없는 자료다. `ZeroResult`는 [S]에 없는 **신규 dataclass**다. [S] §13의 `select_zero`는 튜플 `(t_z, zero_rule, label)`을 반환한다. `ZeroResult`는 그 튜플을 감싸고 사건 목록·$h$ 추정·메타 영점 라벨·제외 트레이스 수를 더한다. 쌍곡선 깊이(`estimate_depth`)도 같은 객체를 받도록 M2-2·M2-3에서 함께 정한다. `BandPicks`·`BandFit`·`VelocityChoice`·`VelocityEstimate` 필드는 위 블록이 기준이다. 필드를 더하는 것은 허용하고, 빼거나 이름을 바꾸려면 이 명세를 함께 고친다.
+- `a`는 [S] §3 (3)까지 처리한 gain 없는 자료다. `ZeroResult`는 [S] v1.1(2026-10-30)부터 [S] §13-1이 정본이다. `select_zero`는 튜플 대신 이 객체를 돌려주고, 쌍곡선 깊이(`estimate_depth`)도 같은 객체를 받는다. `BandPicks`·`BandFit`·`VelocityChoice`·`VelocityEstimate` 필드는 위 블록이 기준이다. 필드를 더하는 것은 허용하고, 빼거나 이름을 바꾸려면 이 명세를 함께 고친다.
 - `radargram.has_physical_scale`이 False면 `dt_ns`·`f_c_hz` 없이 px로 진행한다. 결과에 m·ns 필드가 하나라도 채워지면 **시험 실패**다(QA-4).
 - `pick_mode`가 영점의 모드와 다르면 `ValueError`를 낸다.
 - 난수는 쓰지 않는다. RANSAC이 필요 없다. 이상치는 soft_l1과 MAD로 다룬다.

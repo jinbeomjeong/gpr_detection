@@ -9,6 +9,23 @@ import numpy as np
 AirGap = Literal["air", "ground", "unknown"]
 _AIR_GAP_VALUES: tuple[str, ...] = get_args(AirGap)
 
+SPEED_OF_LIGHT_M_PER_NS = 0.299792458
+"""Vacuum speed of light ``c`` in m/ns (spec_depth_v1 symbol table)."""
+
+
+def velocity_from_eps(eps_r: float) -> float:
+    """Wave speed ``v = c / sqrt(eps_r)`` in m/ns for a relative permittivity."""
+    if not eps_r > 0:
+        raise ValueError(f"eps_r must be positive, got {eps_r}")
+    return SPEED_OF_LIGHT_M_PER_NS / float(np.sqrt(eps_r))
+
+
+def eps_from_velocity(v_m_per_ns: float) -> float:
+    """Relative permittivity ``(c / v)^2`` for a wave speed in m/ns."""
+    if not v_m_per_ns > 0:
+        raise ValueError(f"velocity must be positive, got {v_m_per_ns}")
+    return (SPEED_OF_LIGHT_M_PER_NS / v_m_per_ns) ** 2
+
 
 @dataclass(frozen=True)
 class Radargram:

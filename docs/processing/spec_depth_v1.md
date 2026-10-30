@@ -2,8 +2,14 @@
 
 - 작성: gpr-processing-expert, 2026-10-29 (spec 모드)
 - 받는 쪽: python-expert (구현), cv-detection-expert (박스 → 시료 좌표 계약만)
-- 1차 근거: `docs/research/depth_physics.md`(이하 [DP]), `docs/research/prior_art.md`(이하 [PA], 출처 번호는 그 문서의 [n]), `docs/datasets/readme_*.md`·`codebook_4tu.md`, `data/synthetic_gprmax/*.json`·`manifest.csv`
+- 1차 근거: `docs/research/depth_physics.md`(이하 [DP]), `docs/research/prior_art.md`(이하 [PA], 출처 번호는 그 문서의 [n]), `docs/datasets/readme_*.md`·`codebook_4tu.md`, `data/synthetic_gprmax/*.json`·`manifest.csv`, `docs/processing/spec_band_depth_v1.md`(이하 [B], v1.1부터 참조)
 - 이 명세를 위한 탐색 실행: `analysis/processing/zero_reference_check.py` → `docs/processing/zero_reference_check.csv`, `zero_reference_curvature.csv`, `zero_reference_airgap_models.csv`, `zero_reference_check.png` (§12에 요약)
+
+### 변경 이력
+
+| 날짜 | 판 | 내용 |
+|---|---|---|
+| 2026-10-30 | v1.1 | M2-1·M2-2 구현 review 반영: dewow 커널을 상자형에서 가우스($\sigma=1/f_c$)로 바꿈(상자형 유령 엽 ±$T_w/2$, §3), 스케일 없음·`f_c` 없음·배경 창 끝·AGC 기본값 명시(§3, §4-1), 창별 영점 QC를 선택 사건 추적으로 바꿈(§4-1), `air_single_event` 분리 한계·편향 상한 식 수정과 메타 영점 라벨 규칙(`merged`, 지면결합 `direct_wave`만) 보완(§4-2·§4-3), `air_gap="unknown"`·$\Delta_\text{dw}$ 적용 범위(§4-2), R2 허용폭(§11-2), `select_zero`→`ZeroResult`와 필드 정본(§13-1) |
 
 ---
 
@@ -88,7 +94,7 @@
 | `x0_m`, `t_apex_ns`, `t_zero_ns`, `t0_ns` | float | m, ns | $t_0=t_a-t_z$ |
 | `apex_trace`, `apex_sample` | int, float | – | 스케일 없는 입력도 채움 |
 | `zero_rule` | str | – | §4 규칙 이름 |
-| `zero_event_label` | `"surface_reflection" \| "direct_wave" \| "merged" \| "meta"` | – | 영점이 어떤 사건인지 |
+| `zero_event_label` | `"surface_reflection" \| "direct_wave" \| "merged" \| "meta" \| None` | – | 영점이 어떤 사건인지. `None`은 `zero_rule="zero_failed"`일 때만 |
 | `v_rule` | str | – | §7 규칙 이름 |
 | `radius_used_m` | float | m | 0 또는 기지값 |
 | `n_picks`, `inlier_frac`, `rms_ns` | int, float, float | –, –, ns | |
@@ -96,7 +102,7 @@
 | `alt_depths` | `dict[str, AltDepth]` | m | 메타 영점별 깊이와 사건 라벨(§4-3, 4TU 필수) |
 | `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge` 등 |
 
-`AltDepth = {t_zero_ns, label: "direct_wave"|"surface_reflection"|"unclassified", depth_top_m}`.
+`AltDepth = {t_zero_ns, label: "direct_wave"|"surface_reflection"|"merged"|"unclassified", depth_top_m}` (`merged`는 v1.1, §4-3).
 
 ---
 
@@ -113,14 +119,18 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 | 단계 | 식 / 방법 | 기본값 | 근거 |
 |---|---|---|---|
 | (1) DC | 트레이스별 평균 제거 $a_j(t)\leftarrow a_j(t)-\overline{a_j}$ | 전 구간 평균 | [PA 4][PA 20] |
-| (2) dewow | 중심 이동평균 차감, 창 $T_w=3/f_c$ (홀수 샘플로 반올림). $f_c$ 없으면 $T_w=6$ ns | 500 MHz → 6 ns | 컷오프 약 $0.15 f_c$로 대역 밖. 중심 창이라 위상 지연 0 |
-| (3) bandpass | Butterworth 4차 SOS, `scipy.signal.sosfiltfilt`(영위상), 통과대역 $[0.25 f_c,\ \min(2f_c,\ 0.45/\Delta t)]$ | 500 MHz → 125 MHz–1 GHz | [PA 4] 100–600 MHz, 정의서 0.25–2배. 영위상이라 영점·꼭짓점 시각이 같은 방식으로 바뀐다 |
-| (4) 배경 제거 | 이동 **median** 트레이스 차감, 창 $W_\text{bg}$ 트레이스. 측선이 $W_\text{bg}$보다 짧으면 측선 전체 median | $W_\text{bg}=301$ (4TU 6 m) | mean 차감은 꼭짓점을 +0.022 ns 늦게, median은 −0.0007 ns(§12 표 2). 창은 쌍곡선 폭(±1 m ≈ 100 트레이스)보다 충분히 길게 |
-| (5) gain | AGC(RMS 창 $8/f_c$) 또는 SEC. **검출 갈래 전용** | 가정 값, cv 쪽 조정 | 정의서 범위 1 |
+| (2) dewow | **가우스 커널** 이동평균 차감(v1.1): $a\leftarrow a-G_\sigma * a$, $\sigma=1/f_c$, `scipy.ndimage.gaussian_filter1d(axis=0, mode="reflect", truncate=4.0)`. $f_c$ 없으면 $\sigma=2$ ns | 500 MHz → σ 2 ns | 응답 $1-e^{-2\pi^2\sigma^2f^2}$: −3 dB가 $0.25f_c$(밴드패스 하한과 같음), 통과대역 리플 없음, 영위상. v1의 상자형 창($T_w=3/f_c$)도 −3 dB는 $0.25f_c$이지만 통과대역 리플 0.70–1.22배와 **±$T_w/2$ 유령 엽**(포락선 5.5–6.9 %, gprMax M02·M12·M13; 느린 꼬리가 있으면 11.7 %)을 만든다. 유령 엽이 사건 문턱 10 %를 넘으면 공기결합 `late` 규칙이 그것을 지표 반사로 잡아 영점이 약 +3 ns 늦고 깊이가 약 −15 cm 틀어진다(v1.1 review 계산) |
+| (3) bandpass | Butterworth `N=4`(`butter(4, [lo, hi], btype="bandpass")`, 즉 대역통과 8차) SOS, `scipy.signal.sosfiltfilt`(영위상), 통과대역 $[0.25 f_c,\ \min(2f_c,\ 0.45/\Delta t)]$ | 500 MHz → 125 MHz–1 GHz | [PA 4] 100–600 MHz, 정의서 0.25–2배. 영위상이라 영점·꼭짓점 시각이 같은 방식으로 바뀐다 |
+| (4) 배경 제거 | 이동 **median** 트레이스 차감, 창 $W_\text{bg}$ 트레이스(**홀수로 올림**). 측선 끝에서는 창을 안쪽으로 밀어 폭을 유지한다(첫·마지막 온전한 창의 median). 측선이 $W_\text{bg}$ 이하면 측선 전체 median | $W_\text{bg}=301$ (4TU 6 m) | mean 차감은 꼭짓점을 +0.022 ns 늦게, median은 −0.0007 ns(§12 표 2). 창은 쌍곡선 폭(±1 m ≈ 100 트레이스)보다 충분히 길게. `pipe_band` 갈래는 이 단계 대신 masked median([B] §3-2) |
+| (5) gain | AGC(RMS 창 $8/f_c$, $f_c$ 없으면 16 ns) 또는 SEC. **검출 갈래 전용** | 가정 값, cv 쪽 조정 | 정의서 범위 1 |
 | (6) clip | |amp| 99 백분위로 클립 후 [0,255] | GPR-SD는 필수 | readme_gprsd |
 | (7) letterbox | 비율 유지 패딩, `ns_per_px`, `m_per_px`, 패딩 오프셋을 메타로 보존 | – | [PA] §0 |
 
-- `amplitude_processed=True`(GPR-SD, 광저우 MALA): (1)–(4)를 다시 하지 않는다(이미 지표 에코 제거·gain 적용). 시간 가변 gain은 포락선 피크를 gain 기울기 방향으로 조금 옮기므로 `flags`에 `amplitude_processed`를 넣는다.
+- (6)·(7)과 (5)를 묶은 검출 영상 변환은 M3-2 `DetectionImage`에서 구현한다. M2-1 범위는 피팅 갈래 (1)–(4)와 `agc` 함수다.
+- `amplitude_processed=True`(GPR-SD, 광저우 MALA): (1)–(4)를 다시 하지 않는다(이미 지표 에코 제거·gain 적용). 검출 갈래의 (5) gain도 기본값으로 생략하고 (6) clip만 한다(이중 gain 방지, cv 쪽에서 바꿀 수 있음). 시간 가변 gain은 포락선 피크를 gain 기울기 방향으로 조금 옮기므로 `flags`에 `amplitude_processed`를 넣는다.
+- `dt_ns=None`(스케일 없는 JPG): 시간 창을 정할 수 없으므로 (2)·(3)을 생략하고 (1) DC와 (4) median만 한다. 창 $W_\text{bg}$는 픽셀(열) 단위 그대로다(AIHub 256 px 폭은 301 이하라 측선 전체 median).
+- `f_c_hz=None`, `dt_ns` 있음: (3)을 생략하고 (2)는 σ 2 ns(500 MHz 가정)를 쓴다. 영점 탐색 창의 $1/f_c$도 2 ns로 둔다(§4-1). 세 기본값(dewow σ 2 ns, AGC 16 ns, 주기 2 ns)은 모두 500 MHz 가정에서 나온 값이다.
+- 기록 앞머리 효과: 사건이 기록 시작에서 dewow 커널 반폭 안에 있으면 포락선 피크가 조금 옮겨진다. 4TU 직접파 위치(약 2 ns, Δt 0.098)에서 +0.03 ns, 400 MHz에서 1.5 ns에 놓인 사건은 +0.18 ns(깊이 약 0.9 cm)였다. 보정하지 않는다.
 - 공기결합 자료에서 배경 제거는 수평인 지표 반사를 지운다. 그래서 영점은 반드시 (4) **전** 자료로 잡는다([DP] §7-5).
 
 ---
@@ -131,8 +141,10 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 
 입력: (3)까지 처리한 자료. 배경 제거 전이다.
 
-1. 평균 트레이스 $\bar a(t)=\frac1N\sum_j a_j(t)$, 포락선 $e(t)=|\mathcal H[\bar a](t)|$. 측선이 $W_\text{bg}$보다 길면 $W_\text{bg}$ 트레이스 창마다 따로 구하고, 창 사이 $t_\text{surf}$ 표준편차를 QC 값으로 낸다.
-2. 탐색 창: 기록 앞 25 % 안에서 $e$가 최대인 시각을 $t_\text{max}$로 둔다. 창은 $[0,\ t_\text{max}+2h_\text{max}/c+0.5/f_c]$이고 $h_\text{max}=0.5$ m(가정)다.
+1. 평균 트레이스 $\bar a(t)=\frac1N\sum_j a_j(t)$(`pipe_band` 박스 트레이스 제외, [B] §3-1), 포락선 $e(t)=|\mathcal H[\bar a](t)|$. **주 영점은 이 전역 평균 트레이스 하나로 정한다.** 측선이 $W_\text{bg}$보다 길면 $W_\text{bg}$ 트레이스 창마다 같은 사건 검출을 하되 QC에만 쓴다(v1.1):
+   - 창마다 **선택된 영점 사건**(§4-2 규칙이 고른 사건)에 가장 가까운 피크를 0.5 ns 안에서 찾는다. 찾은 시각들의 표준편차가 `window_std_ns`다. 창 피크 목록에서 마지막 피크를 무조건 쓰지 않는다(지면결합·단일 사건에서는 영점이 첫 피크다).
+   - 일치 피크가 없는 창이 있으면 `zero_window_missing`, 창 사건 수가 전역 사건 수와 다른 창이 있으면 `zero_window_event_count_mismatch`(공기결합에서 단일/두 사건 판정이 측선 안에서 바뀐다는 뜻), `window_std_ns`가 0.2 ns를 넘으면 `zero_window_drift` 플래그를 붙인다(0.2 ns는 [B] §3-1 항목 3의 트레이스별 영점 전환 기준과 같다. 전환 자체는 v2).
+2. 탐색 창: 기록 앞 25 % 안에서 $e$가 최대인 시각을 $t_\text{max}$로 둔다. 창은 $[0,\ t_\text{max}+2h_\text{max}/c+0.5/f_c]$이고 $h_\text{max}=0.5$ m(가정)다. $f_c$가 없으면 $1/f_c=2$ ns(500 MHz 가정). `dt_ns=None`이면 ns 창을 만들 수 없으므로 기록 앞 25 % 전체(픽셀)를 창으로 쓰고 결과에 `zero_px_unverified`를 붙인다. AIHub crop은 지표가 영상에 없을 수도 있으므로 이 픽셀 영점은 상대 위치 참고값일 뿐이다.
 3. `scipy.signal.find_peaks(e, height=0.1·max, prominence=0.05·max)`를 쓰고 포물선 보간으로 시각을 잡는다.
 4. 첫 피크가 $t_\text{dir}$이다. 창 안 마지막 피크를 `late`로 둔다. 피크가 2개 이상이면 $t_\text{surf}=t_\text{late}$다.
 5. 공기층 추정(두 사건일 때): $t_\text{surf}-t_\text{dir}=\dfrac{2\sqrt{h^2+s^2/4}-s}{c}$를 $h$로 푼다. $s$를 모르면 $s=0$으로 두고 $h=c\,(t_\text{surf}-t_\text{dir})/2$로 계산한 뒤 `flags`에 남긴다.
@@ -141,12 +153,15 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 
 | `air_gap` | 조건 | `zero_rule` | $t_z$ | 라벨 | 편향·불확도 |
 |---|---|---|---|---|---|
-| air | 사건 2개 이상 | `air_surface_late` | $t_\text{surf}$ (늦은 쪽) | surface_reflection | M20: $t_\text{surf}$가 기준(bg−fs)보다 +0.18 ns 늦음 → 깊이 −0.9 cm. $\sigma_z=0.2$ ns |
-| air | 사건 1개(두 사건 간격 < 포락선 폭 ≈ $1.2/f_c$, 즉 $h\lesssim0.15$ m) | `air_single_event` | 그 피크 | merged | 합쳐진 피크가 직접파 위치에 놓여 **깊게** 나온다. M12·M13·M15·M18(h=0.1)에서 +1.8~+3.6 cm(§12 표 4). 편향 상한 $h/\sqrt{\varepsilon_r}$을 `bias_notes`에 넣는다 |
+| air | 사건 2개 이상 | `air_surface_late` | $t_\text{surf}$ (늦은 쪽) | surface_reflection | M20: $t_\text{surf}$가 기준(bg−fs)보다 늦음. 필터 없이 +0.18 ns, (1)–(3) 처리 후 +0.23 ns(v1 상자형)·+0.29 ns(v1.1 가우스) → 깊이 −0.9 ~ −1.5 cm. $\sigma_z=0.2$ ns |
+| air | 사건 1개 | `air_single_event` | 그 피크 | merged | 합쳐진 피크가 직접파 위치에 놓여 **깊게** 나온다. M12·M13·M15·M18(h=0.1)에서 +1.8~+3.6 cm(§12 표 4). 편향은 $\approx h/\sqrt{\varepsilon_r}$(영점 오차 $\approx 2h/c$)이고, 단일 사건이면 $h\le h_\text{sep}=0.375\,c/f_c$이므로 상한 $h_\text{sep}/\sqrt{\varepsilon_r}$(500 MHz, εr 9 → 7.5 cm)을 **수치로** `bias_notes`에 넣는다(εr 메타 없으면 식만). 분리 한계 근거는 아래 |
 | ground | 항상 | `ground_direct_peak` | $t_\text{dir}$ | direct_wave | 직접파 피크는 송신보다 0.53–1.03 ns 늦다(εr 4–16, s=0.1 m 합성) → **얕게** −1.9~−3.9 cm([DP] 표 D, M02 −3.3 cm) |
-| ground | 선택: `ground_zero_shift="synthetic_table"` | `ground_direct_shifted` | $t_\text{dir}-\Delta_\text{dw}(\varepsilon_r)$ | direct_wave | $\Delta_\text{dw}$: εr 4 → 0.53, 9 → 0.725, 16 → 0.96 ns(400 MHz; 500 MHz는 0.53/0.727/1.03). $\sqrt{\varepsilon_r}$에 선형 보간한다. **s = 0.1 m 2D 합성에서 얻은 값이라 기본값은 끈다**(장비 s가 다르면 값이 다름) |
-| – | GPR-SD | `meta_sample0` | 0 (가정) | meta | 지표 에코가 제거돼 사건 검출이 불가하다. 깊이에 `zero_unverified` 플래그를 붙인다 |
-| – | 광저우 MALA | `meta_sample0` | 0 | meta | 처리본(t0=0). 위상 기준 미상 |
+| ground | 선택: `ground_zero_shift="synthetic_table"` | `ground_direct_shifted` | $t_\text{dir}-\Delta_\text{dw}(\varepsilon_r)$ | direct_wave | $\Delta_\text{dw}$: εr 4 → 0.53, 9 → 0.725, 16 → 0.96 ns(400 MHz; 500 MHz는 0.53/0.727/1.03). $\sqrt{\varepsilon_r}$에 선형 보간한다. **s = 0.1 m 2D 합성에서 얻은 값이라 기본값은 끈다**(장비 s가 다르면 값이 다름). 적용 범위(v1.1): $f_c$ 350–550 MHz(가까운 행), εr 4–16(바깥 외삽 금지), `antenna_offset_m`이 None이거나 $|s-0.1|\le0.02$ m. 하나라도 벗어나거나 $f_c$·`eps_r_meta`가 없으면 보정하지 않고 `ground_direct_peak` + `ground_zero_shift_unavailable` |
+| unknown | 스케일 있음·없음 | 지면결합 규칙과 같음 | $t_\text{dir}$ | direct_wave | `air_gap_unknown` 플래그. 사건이 2개 이상이면 `air_gap_unknown_multi_event`도 붙인다(공기결합이면 영점이 늦은 사건이어야 해서 깊이가 깊게 나올 수 있음). 현재 스케일 있는 데이터셋은 모두 air/ground가 정해져 있다(§1-1) |
+| – | GPR-SD (`amplitude_processed`) | `meta_sample0` | 0 (가정) | meta | 지표 에코가 제거돼 사건 검출이 불가하다. 깊이에 `zero_unverified` 플래그를 붙인다 |
+| – | 광저우 MALA (`amplitude_processed`) | `meta_sample0` | 0 | meta | 처리본(t0=0). 위상 기준 미상. 규칙은 데이터셋 이름이 아니라 `amplitude_processed`로 고른다 |
+
+- **두 사건 분리 한계(v1.1 review 계산, 해석 Ricker, (1)–(3) 처리 후, `find_peaks` 높이 0.1·돌출 0.05)**: 지표 반사가 직접파와 **반대 극성**(공기→토양 반사계수 음수, 진폭비 −2/3)이면 간격 $\ge0.75/f_c$(500 MHz 1.5 ns, 400 MHz 1.85 ns)부터 두 사건으로 갈린다. $s=0$이면 $h_\text{sep}=c\cdot0.75/(2f_c)=0.375\,c/f_c$(500 MHz 0.22 m). **같은 극성**이면 0.4–0.6/f_c에서 갈렸다가 0.65–1.0/f_c(500 MHz 1.3–2.0 ns)에서 다시 합쳐진다. gprMax M20(간격 1.71 ns)은 분리됐고 반대 극성 결과와 맞는다. v1의 "포락선 폭 ≈ $1.2/f_c$, $h\lesssim0.15$ m" 표현은 틀려서 지웠다.
 
 - 광저우 IDS의 `t0_sample_used`(직접파 시작 또는 정점)는 주 영점으로 쓰지 않는다. 직접 검출한 $t_\text{dir}$(포락선 피크)를 쓰고, `t0_sample_used`로 낸 깊이는 `alt_depths["t0_sample_used"]`에만 넣는다(최대 약 1 ns·5 cm 차이, readme_guangzhou).
 - first break(5 % 문턱)는 영점으로 쓰지 않는다. M02에서 +7.9 cm, M20에서 +16.9 cm가 나왔다(§12 표 1).
@@ -154,10 +169,19 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 ### 4-3. 4TU 메타 영점 두 개의 분류와 보고 (CLAUDE.md 분할 규칙)
 
 1. 메타 영점을 ns로 바꾼다. $t^\text{est}=\texttt{t0\_sample\_est}\cdot\Delta t$, $t^\text{act}=\texttt{t0\_sample\_act\_median}\cdot\Delta t$.
-2. 각 값을 §4-1의 $t_\text{dir}$, $t_\text{surf}$ 중 가까운 쪽 사건으로 라벨링한다. 허용폭은 0.5 ns(0.098 ns 자료에서 약 5 샘플)이고, 벗어나면 `unclassified`로 둔다.
-3. 깊이를 세 개 낸다. 주 결과는 $t_z=t_\text{surf}$ 결과이고, `alt_depths["t0_sample_est"]`와 `alt_depths["t0_sample_act_median"]`에는 각 메타 영점 결과와 라벨을 넣는다.
+2. 각 값을 **선택된 규칙의 사건 목록**으로 라벨링한다(v1.1). 벗어나면 `unclassified`로 둔다.
+
+   | 규칙 | 라벨 후보 | 허용폭 |
+   |---|---|---|
+   | `air_surface_late` (사건 2개 이상) | $t_\text{dir}$ → `direct_wave`, $t_\text{surf}$ → `surface_reflection` (가까운 쪽) | 0.5 ns (0.098 ns 자료에서 약 5 샘플) |
+   | `air_single_event` | 합쳐진 피크 → `merged` | $\max(0.5\ \text{ns},\ 0.5/f_c)$ (500 MHz 1.0 ns). 메타 t0는 $\arg\max|\bar a|$라서 같은 띠의 ± 엽에 놓이고, 엽은 포락선 피크에서 약 ±0.4/f_c(Ricker 0.78 ns @500 MHz, [FX] 실측 −0.7 ~ +0.6 ns) 떨어져 있다 |
+   | `ground_*` | $t_\text{dir}$ → `direct_wave`만 | 0.5 ns. 지면결합에는 따로 떨어진 지표 반사가 없으므로 창 안 늦은 피크를 `surface_reflection`으로 부르지 않는다 |
+   | `meta_sample0`, 실패 | 사건이 있으면 위 지면결합 규칙, 없으면 전부 `unclassified` | 0.5 ns |
+
+   단일 사건의 엽 라벨(`band_lobe_pos`/`band_lobe_neg`/`band_envelope`, 허용폭 0.3 ns, 위상차 기록)은 [FX] P2로 v2(M2-9)에서 정한다.
+3. 깊이를 세 개 낸다. 주 결과는 §4-2 규칙의 $t_z$ 결과이고(사건 2개면 $t_\text{surf}$, 단일 사건이면 합쳐진 피크 — 4TU는 [FX]에서 대부분 단일 사건), `alt_depths["t0_sample_est"]`와 `alt_depths["t0_sample_act_median"]`에는 각 메타 영점 결과와 라벨을 넣는다.
 4. 메타 t0는 "처음 100 샘플 중 평균 진폭 최대"로 잡은 값이다. 포락선 피크와 위상 기준이 다르다. 합성에서 $\arg\max|\bar a|$는 M02에서 포락선보다 0.27 ns 이르게 잡혔고, M20에서는 **직접파**를 잡아 +9.6 cm가 나왔다(§12 표 1). 그래서 메타 영점은 비교용으로만 쓴다.
-5. 라벨이 `direct_wave`인 메타 영점으로 낸 깊이는 체계적으로 깊다. 크기는 εr 9, h 0.3 m에서 약 +8.6 cm다([DP] §3).
+5. **사건이 둘로 분리된 경우에만**, 라벨이 `direct_wave`인 메타 영점으로 낸 깊이는 체계적으로 깊다. 크기는 εr 9, h 0.3 m에서 약 +8.6 cm다([DP] §3). `merged` 라벨이면 메타 영점과 주 영점의 차는 엽 위상차뿐이다(±0.4/f_c, 깊이 약 ±3.5 cm, [FX]).
 
 ---
 
@@ -300,6 +324,16 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | U7 | 스케일 없음(`dt_ns=None`) | `status="no_scale"`, 깊이 None |
 | U8 | 늦은 강한 사건(바닥 반사 진폭 2배)이 있는 원통 | 씨앗이 상단 반사(첫 피크)를 잡음 |
 
+전처리·영점 단위 시험(v1.1 추가, `tests/preprocess/`):
+
+| ID | 내용 | 통과 기준 |
+|---|---|---|
+| Z1 | 500 MHz, Δt 0.098 ns, 단일 Ricker + 느린 양의 꼬리($0.6\,e^{-(t-t_e)/1.5\,\text{ns}}$, $t\ge t_e$), 공기결합 | (1)–(3) 뒤 사건 1개, `air_single_event`. (v1 상자형 dewow는 ±3 ns 유령 엽 11.7 %로 실패) |
+| Z2 | 두 사건 반대 극성(진폭비 −2/3), 간격 1.2 ns / 1.8 ns @500 MHz | 1개 / 2개 |
+| Z3 | 지면결합, 창 안에 늦은 피크가 하나 더 있고 메타 t0가 그 피크에 있음 | 메타 라벨 `unclassified`(`surface_reflection` 아님) |
+| Z4 | 공기결합 단일 사건, 메타 t0 = 포락선 피크 ± 0.78 ns(500 MHz) | 라벨 `merged` |
+| Z5 | 측선 700 트레이스, 지면결합, 창 안에 얕은 반사가 앞쪽 절반 트레이스에만 있음 | `window_std_ns`가 직접파 기준으로 < 0.05 ns(마지막 피크를 따라가지 않음) |
+
 ### 11-2. 회귀 시험 (gprMax 합성 20개, json 정답)
 
 정답 필드:
@@ -313,7 +347,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | ID | 대상 | 검사 | 기준 | 현재 근거값 |
 |---|---|---|---|---|
 | R1 | h=0 (M01–M11, M14, M16, M17, M19) | $t_\text{dir}$ vs `direct_wave_peak` | ≤0.05 ns | M02 0.0000 ns |
-| R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.25 ns, $|h_\text{est}-0.3|\le0.05$ m | +0.184 ns, 0.330 m |
+| R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.35 ns, $|h_\text{est}-0.3|\le0.07$ m (v1.1: (1)–(3) 처리 후 값 기준) | 필터 없음 +0.184 ns·0.330 m. v1 상자형 처리 +0.227 ns·0.337 m, v1.1 가우스 처리 +0.292 ns·0.349 m(review 계산). R13은 v1.1 처리로 다시 잰다 |
 | R3 | h 0.1 (M12, M13, M15, M18) | `zero_rule == "air_single_event"`, 단일 피크 vs `direct_wave_peak` | ≤0.05 ns | 4개 모두 단일 사건, 편차 0 |
 | R4 | 20개 전부 | 꼭짓점 트레이스 vs `apex.trace_index` | ±3 트레이스 | 측정한 6개(M02·M12·M13·M15·M18·M20) 52–55 |
 | R5 | 20개 전부 | $t_a$(median 배경) vs `apex.envelope_peak_ns` | ≤0.05 ns | M02 +0.0003, M20 −0.0007 |
@@ -399,13 +433,36 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | 모듈 | 내용 |
 |---|---|
 | `src/gpr_detection/io/radargram.py` | `Radargram` dataclass와 `sample_to_ns`(구현됨). 데이터셋별 로더는 별도 파일 `io/{fourtu,guangzhou,gprsd}.py`(구현됨)와 `io/synthetic.py`(예정, CHECKLIST M2-4b) |
-| `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`, `bandpass`, `remove_background(median, window)`, `agc` |
-| `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events`, `select_zero(radargram, events) -> (t_z, zero_rule, label)`, `classify_meta_t0` |
+| `src/gpr_detection/io/radargram.py`(추가, M2-1) | `SPEED_OF_LIGHT_M_PER_NS`, `velocity_from_eps`, `eps_from_velocity` — depth→io 의존 방향을 지키려고 c 상수를 io에 둔다 |
+| `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용) |
+| `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
+| `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events`, `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`, `given_zero` |
 | `src/gpr_detection/depth/picks.py` | `extract_picks(box, ...)`, 첫 피크 씨앗, 추적 |
 | `src/gpr_detection/depth/hyperbola.py` | `ransac_init`, `fit_hyperbola(R fixed)`, `apex_vertex` |
 | `src/gpr_detection/depth/refraction.py` | `leg_time`, `reflection_time`, `refraction_qc` (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
 | `src/gpr_detection/depth/estimate.py` | `estimate_depth(radargram, box, config) -> DepthResult`, §7 결정표, §9 불확도 |
 | `tests/depth/` | §11-1 단위 시험, §11-2 회귀 시험(합성 npy 읽기, `@pytest.mark.synthetic`) |
+
+### 13-1. `ZeroResult` 필드 정본 (v1.1)
+
+`select_zero`·`find_time_zero`가 돌려주고 `estimate_depth`(위 표)와 `estimate_band_depths`([B])가 함께 받는다. [B] §8-2 블록은 이 표를 따른다. 필드 추가는 허용하고, 빼거나 이름을 바꾸려면 두 명세를 함께 고친다.
+
+| 필드 | 형 | 단위 | 설명 |
+|---|---|---|---|
+| `t_zero_ns` | float \| None | ns | 스케일 없음·실패면 None |
+| `k_zero` | float \| None | 샘플 | 스케일 없어도 채움(px). 실패면 None |
+| `zero_rule` | str | – | §4-2 규칙 이름, 실패면 `"zero_failed"`, 호출자 지정이면 `"given"` |
+| `zero_event_label` | `"surface_reflection" \| "direct_wave" \| "merged" \| "meta" \| None` | – | None은 `zero_failed`일 때만 |
+| `pick_mode` | `"envelope" \| "signed_max" \| "signed_min"` | – | 꼭짓점·띠 픽이 같은 값이어야 함 |
+| `events_ns` | tuple[float, ...] | ns | 검출된 앞쪽 사건 전부(스케일 없으면 빈 튜플) |
+| `h_est_m` | float \| None | m | `air_surface_late`일 때만 |
+| `t_zero_per_trace_ns` | ndarray \| None | ns | 선택 사항([B] §3-1 항목 3), v1.1은 None |
+| `meta_t0` | Mapping[str, tuple[float, label]] | ns | §4-3, label ∈ {`direct_wave`, `surface_reflection`, `merged`, `unclassified`} |
+| `excluded_traces` | int | – | 평균 트레이스에서 뺀 트레이스 수 |
+| `flags` | tuple[str, ...] | – | `zero_failed`, `zero_band_overlap`, `zero_unverified`, `amplitude_processed`, `zero_px_unverified`, `air_gap_unknown`, `air_gap_unknown_multi_event`, `ground_zero_shift_unavailable`, `h_est_offset_unknown`, `zero_window_missing`, `zero_window_event_count_mismatch`, `zero_window_drift` |
+| `sigma_zero_ns` | float | ns | §9 $\sigma_z$ (규칙별) |
+| `bias_notes` | tuple[str, ...] | – | 규칙의 부호 있는 계통 편향(`air_single_event`는 수치 상한 포함) |
+| `window_std_ns` | float \| None | ns | §4-1 항목 1 창별 QC(선택 사건 추적) |
 
 설정 기본값은 `DepthConfig` dataclass 하나에 모은다: `a_max_m=1.0`, `seed_rel=0.3`, `track_stop_rel=0.2`, `v_min=0.05`, `ransac_dt_ns=0.3`, `ransac_trials=200`, `f_scale_ns=0.1`, `apex_halfwidth_m=0.10`, `bg_window=301`, `h_max_m=0.5`, `ground_zero_shift="none"`, `sigma_eps_rel=0.15`, `seed=0`.
 
@@ -421,3 +478,6 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | 지면결합 $\Delta_\text{dw}$ 보정 | 2D 합성(s=0.1 m)에서만 얻은 값, 기본값 끔 | 광저우 깊이 기지 표적이 생기면 보정 |
 | GPR-SD 영점 | 샘플 0 가정 | 원 저장소 처리 내역 |
 | $h_\text{max}=0.5$ m, AGC 창 $8/f_c$, $\sigma_\varepsilon$ 0.15 | 가정 | 4TU analyze |
+| $f_c$ 없을 때 500 MHz 가정(dewow σ 2 ns, AGC 16 ns, 영점 창 주기 2 ns) | 가정(v1.1) | 해당 입력(GPR-SD·MALA)은 `amplitude_processed`라 현재 쓰이지 않음 |
+| 가우스 dewow가 4TU 단일 띠 판정([FX] 41/41, 상자형으로 측정)을 바꾸지 않는지 | 미확인. 가우스는 유령 엽을 줄이는 쪽이라 단일 판정이 유지될 것으로 봄 | M2-7·M2-8 4TU 실행에서 사건 수 재확인 |
+| 4TU 현장 11의 앞쪽 0 뮤트(약 48 샘플)와 DC 제거 | 전 구간 평균을 빼면 뮤트 구간이 상수로 바뀌고 뮤트 끝에 계단이 생긴다(영향 미측정) | M2-7에서 뮤트 끝 사건 여부 확인, 필요하면 DC를 뮤트 밖 샘플로만 계산 |
