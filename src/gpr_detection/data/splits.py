@@ -13,6 +13,11 @@ from sklearn.model_selection import StratifiedGroupKFold
 
 FOLD_COLUMN = "fold"
 AIHUB_LEAK_KEY_COLUMNS = ("session", "session_from_name", "crop_key")
+CROP_KEY_COLUMN = "crop_key"
+GAIN_COLUMN = "gain"
+FILE_NAME_COLUMN = "file_name"
+DEFAULT_GAIN_PRIORITY = ("1.0", "0.5", "0.25")
+"""Crop-level evaluation keeps the gain 1.0 copy, else 0.5, else 0.25 (M1-7)."""
 _MAX_REPORTED_LEAKS = 5
 
 
@@ -155,3 +160,46 @@ def assert_no_fold_leakage(
         problems.append(f"{column}: {len(leaks)} values span folds, e.g. {shown}")
     if problems:
         raise SplitLeakageError("Fold leakage found -> " + "; ".join(problems))
+
+
+def select_crop_representatives(
+    rows: Iterable[Mapping[str, object]],
+    gain_priority: Sequence[str] = DEFAULT_GAIN_PRIORITY,
+) -> list[Mapping[str, object]]:
+    """Pick one gain copy per crop for crop-level evaluation.
+
+    The gain copies of a crop are the same B-scan at different display gains,
+    not independent samples, so crop-level metrics count each crop once
+    (dataset_spec_m1 section 4 item 3).
+
+    Args:
+        rows: Manifest rows with ``crop_key``, ``gain`` and ``file_name``.
+        gain_priority: Gains in order of preference. Gains are compared as
+            numbers (``"1"`` matches ``"1.0"``). Rows with a gain outside this
+            list are never chosen, so a crop with only such rows is left out.
+
+    Returns:
+        One row per crop: the copy with the most preferred gain, ties broken
+        by the smaller ``file_name``. Sorted by ``file_name``, so the result
+        does not depend on the input order.
+
+    Raises:
+        ValueError: If ``gain_priority`` is empty.
+        KeyError: If a row lacks one of the columns.
+    """
+    if not gain_priority:
+        raise ValueError("gain_priority must list at least one gain")
+    rank_by_gain = {float(gain): rank for rank, gain in enumerate(gain_priority)}
+
+    best_by_crop: dict[object, tuple[int, str, Mapping[str, object]]] = {}
+    for row in rows:
+        rank = rank_by_gain.get(float(str(row[GAIN_COLUMN])))
+        if rank is None:
+            continue
+        candidate = (rank, str(row[FILE_NAME_COLUMN]), row)
+        current = best_by_crop.get(row[CROP_KEY_COLUMN])
+        if current is None or candidate[:2] < current[:2]:
+            best_by_crop[row[CROP_KEY_COLUMN]] = candidate
+
+    chosen = sorted(best_by_crop.values(), key=lambda candidate: candidate[1])
+    return [row for _, _, row in chosen]

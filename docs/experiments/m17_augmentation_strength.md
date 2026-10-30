@@ -51,14 +51,15 @@
 
 **해석.** 사용자 정의 증강 4종은 이 조건(fold 0·30 epoch·단일 시드)에서 관로 AP50을 올리지 못했다. 강도 0과 0.5의 차는 잡음 수준이고, 강도 1의 하락은 주로 pipe_band(59.1 → 48.7 %)에서 나온다. 다만 강도 2가 강도 1보다 높아(관로 평균 +3.2 %p) 강도에 따른 단조 감소가 아니므로, 강도 1의 하락폭 일부는 실행 간 변동으로 보아야 한다. pipe_hyperbola는 crop 단위 인스턴스가 71개뿐이라(1개 ≈ 1.4 %p 재현율) 클래스 AP 차이를 크게 해석하지 않는다.
 
-### pipe_band 오검출 관찰(혼동 행렬, conf 0.25·IoU 0.45, crop 단위)
+### pipe_band 오검출 관찰(혼동 행렬, **conf 0.001**·매칭 IoU 0.45, crop 단위)
+> 정정(2026-10-30): 처음에 "conf 0.25"로 적었으나, Ultralytics 8.4.192는 혼동 행렬을 검증 `conf`(이 재평가는 0.001)로 채운다(`models/yolo/detect/val.py:266`). 아래 수는 conf 0.001 이상 박스를 모두 센 값이다. 저신뢰 박스가 포함되므로 "오검출이 정답의 약 7배"는 운용 임계값의 오검출 비율이 아니다. 운용 임계값(conf 0.25) 행렬로 다시 재야 한다(재평가 방법은 `m110_baseline_plan.md` §8 D). 강도 0·1 사이의 상대 비교(같은 임계값)만 유효하다.
 | 강도 | pipe_band 정검출 | pipe_band 미검출(→배경) | 배경→pipe_band 오검출 | 배경→cavity | 배경→manhole |
 |---|---|---|---|---|---|
 | 0 | 914 | 52 | 6,686 | 1,082 | 1,158 |
 | 1 | 928 | 38 | 7,872 | 1,592 | 1,510 |
 
 - 재현율은 비슷하고 오검출이 강도 1에서 늘었다(pipe_band +18 %). 강도 1의 AP 하락은 정밀도 쪽 문제다.
-- 두 강도 모두 pipe_band 오검출이 정답 966개의 약 7배다. 수평 띠 박스가 조각나 IoU 매칭이 안 되거나(띠 하나에 박스 여러 개, 경계 모호), lpipe 라벨 규약(띠 길이·두께 기준)이 일정하지 않을 가능성이 있다. 증강 강도보다 큰 오차원이라 라벨 형태 감사를 권한다(gpr-dataset-curator). 그림: `runs/detect/m17_eval/yolo11m_aihubv1_20261030_fold0_aug0_last_crop/confusion_matrix.png`, `..._aug1_last_crop/confusion_matrix.png`, 사례 `val_batch*_pred.jpg`.
+- 두 강도 모두 conf 0.001 행렬에서 pipe_band 오검출이 정답 966개의 약 7배다(conf 0.25 재평가 전까지 크기 해석 보류). 수평 띠 박스가 조각나 IoU 매칭이 안 되거나(띠 하나에 박스 여러 개, 경계 모호), lpipe 라벨 규약(띠 길이·두께 기준)이 일정하지 않을 가능성이 있다. 증강 강도보다 큰 오차원이라 라벨 형태 감사를 권한다(gpr-dataset-curator). 그림: `runs/detect/m17_eval/yolo11m_aihubv1_20261030_fold0_aug0_last_crop/confusion_matrix.png`, `..._aug1_last_crop/confusion_matrix.png`, 사례 `val_batch*_pred.jpg`.
 
 ## 5. 수렴 곡선(results.csv, 이미지 단위 전체 mAP50)
 | 강도 | epoch 11–20 평균 | epoch 21–30 평균 | 마지막 5 epoch 평균 ± SD | 최대(epoch) |
@@ -79,7 +80,7 @@
 - pipe_hyperbola 검증 인스턴스가 crop 단위 71개로 적다.
 
 ## 7. 5회째(ringing만 끔) 권고 — 사용자 결정(2026-10-30): **C. 시드 반복**
-강도 0·1을 seed 1로 한 번씩(`runs/detect/m17_aug0_s1`, `m17_aug1_s1`, 러너 `runs/logs/m17_seed1_runner.ps1`) 돌려 실행 간 변동을 잰다. 결과는 이 문서에 추가한다. 아래는 결정 전 검토한 선택지다.
+강도 0·1을 seed 1로 한 번씩(`runs/detect/m17_aug0_s1`, `m17_aug1_s1`, 러너 `runs/logs/m17_seed1_runner.ps1`) 돌려 실행 간 변동을 잰다. **실행은 보류**(사용자 결정 2026-10-30, 미실행·예약 없음): 재요청 시 `pwsh -NoProfile -File runs/logs/m17_seed1_runner.ps1`로 시작하고, M1-10 러너와 GPU가 겹치지 않게 한다. 결과는 이 문서에 추가한다. 아래는 결정 전 검토한 선택지다.
 최적 강도가 0이라, 원래 계획("최적 강도에서 ringing만 끔")대로 하면 강도 0의 ringing 진폭이 이미 0이어서 **`m17_aug0`과 같은 실험**이 된다. 선택지:
 
 | 선택지 | 내용 | 비용 |

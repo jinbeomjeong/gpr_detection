@@ -1,0 +1,96 @@
+# YOLO11m baseline, AIHub session-group 5-fold (checklist M1-10).
+# Standalone copy of configs/train_yolo11m_base.yaml (scripts/train_detector.py
+# reads one file, no inheritance). Differences from base are marked "M1-10".
+# Decisions: user 2026-10-30 (docs/CHECKLIST.md M1-10), plan
+# docs/experiments/m110_baseline_plan.md.
+#
+# Run one fold (fold 0-4; seed per the plan's seed policy):
+#   conda run -n gpr-dev python -I scripts/train_detector.py \
+#       --config configs/train_yolo11m_m110.yaml --fold 0 \
+#       --name yolo11m_aihubv1_<YYYYMMDD>_fold0
+# The fold comes from --fold; the "fold" key below is only the default.
+
+model: yolo11m.yaml       # architecture only -> scratch, no pretrained weights
+
+dataset_dir: data/aihub_yolo_v1
+fold: 0
+
+ultralytics:
+  task: detect
+  pretrained: false
+  imgsz: 256
+  epochs: 50              # M1-10: fixed budget per fold (user 2026-10-30)
+  batch: 64               # M1-10: M1-7 compute probe result
+  workers: 2              # Windows: fall back to 0 on DataLoader errors
+  seed: 0                 # M1-10: training seed, see plan "seed policy"
+  deterministic: true
+  cache: false
+  plots: true
+  amp: true
+
+  # Optimiser pinned (M1-10). Ultralytics 8.4.192 "auto" would switch to MuSGD
+  # once ceil(N/64)*epochs > 10000 (folds 0-4 at epoch 52-57). These values
+  # reproduce what "auto" chose in M1-7 (AdamW, lr 0.002*5/(4+nc) = 0.00125,
+  # beta1 0.9, bias warmup from 0). NOTE: with an explicit AdamW Ultralytics
+  # uses `momentum` as beta1, whose default is 0.937, so 0.9 must be set too.
+  optimizer: AdamW
+  lr0: 0.00125
+  momentum: 0.9           # AdamW beta1 (same as "auto" in M1-7)
+  warmup_bias_lr: 0.0
+  lrf: 0.01               # default; linear decay to lr0*lrf at the last epoch
+  cos_lr: false
+  weight_decay: 0.0005    # default
+  warmup_epochs: 3.0      # default
+  warmup_momentum: 0.8    # default (only touches SGD-style "momentum" groups)
+  nbs: 64                 # default; batch 64 -> no gradient accumulation
+
+  # Fixed budget, no early stopping; judged on last.pt (best.pt is sensitivity
+  # only: Ultralytics picks it by val mAP50-95 on the evaluated fold).
+  patience: 0             # M1-10: 0 disables EarlyStopping in 8.4.192
+  save_period: -1
+  val: true
+
+  # Augmentation policy (docs/experiments/augmentation_policy.md), same as M1-7
+  fliplr: 0.5
+  flipud: 0.0             # never flip the time axis
+  degrees: 0.0
+  shear: 0.0
+  perspective: 0.0
+  translate: 0.1
+  scale: 0.2
+  mosaic: 0.0
+  close_mosaic: 0
+  mixup: 0.0
+  cutmix: 0.0
+  copy_paste: 0.0
+  hsv_h: 0.0
+  hsv_s: 0.0
+  hsv_v: 0.3              # no effect with channels 1 (kept for M1-7 parity)
+  bgr: 0.0
+  multi_scale: 0.0
+  rect: false
+
+# Project augmentations: strength 0 = all four off (M1-7 decision 2026-10-30).
+# Probabilities/intensities kept as in base so the settings file stays
+# comparable; strength multiplies the intensities to 0.
+gpr_augment:
+  strength: 0.0           # M1-10: M1-7 optimum
+  gaussian_noise:
+    probability: 0.3
+    sigma_min: 0.02
+    sigma_max: 0.05
+  contrast_gamma:
+    probability: 0.3
+    contrast_max_delta: 0.15
+    gamma_max_delta: 0.15
+  ringing:
+    probability: 0.2
+    amplitude_min: 0.01
+    amplitude_max: 0.03
+    period_min_px: 6.0
+    period_max_px: 24.0
+  trace_dropout:
+    probability: 0.3
+    fraction_min: 0.01
+    fraction_max: 0.05
+    fill: mean

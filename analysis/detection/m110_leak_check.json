@@ -1,0 +1,293 @@
+{
+ "manifest": "data\\splits\\aihub_yolo_v1.csv",
+ "rows": 16887,
+ "manifest_seed": [
+  "20261029"
+ ],
+ "pairs_checked": 15,
+ "keys": [
+  "session",
+  "session_from_name",
+  "crop_key",
+  "split_group"
+ ],
+ "overlap_nonzero": {},
+ "crop_key_multi_fold": 0,
+ "list_files": {
+  "test": {
+   "txt": 2086,
+   "manifest": 2086,
+   "equal": true
+  },
+  "fold0": {
+   "txt": 3525,
+   "manifest": 3525,
+   "equal": true
+  },
+  "fold1": {
+   "txt": 3210,
+   "manifest": 3210,
+   "equal": true
+  },
+  "fold2": {
+   "txt": 2901,
+   "manifest": 2901,
+   "equal": true
+  },
+  "fold3": {
+   "txt": 2490,
+   "manifest": 2490,
+   "equal": true
+  },
+  "fold4": {
+   "txt": 2675,
+   "manifest": 2675,
+   "equal": true
+  }
+ },
+ "fold_yaml": {
+  "fold0": {
+   "train_lists": [
+    "fold1_images.txt",
+    "fold2_images.txt",
+    "fold3_images.txt",
+    "fold4_images.txt"
+   ],
+   "val": "fold0_images.txt",
+   "train_images": 11276,
+   "val_images": 3525,
+   "train_val_overlap": 0,
+   "ok": true
+  },
+  "fold1": {
+   "train_lists": [
+    "fold0_images.txt",
+    "fold2_images.txt",
+    "fold3_images.txt",
+    "fold4_images.txt"
+   ],
+   "val": "fold1_images.txt",
+   "train_images": 11591,
+   "val_images": 3210,
+   "train_val_overlap": 0,
+   "ok": true
+  },
+  "fold2": {
+   "train_lists": [
+    "fold0_images.txt",
+    "fold1_images.txt",
+    "fold3_images.txt",
+    "fold4_images.txt"
+   ],
+   "val": "fold2_images.txt",
+   "train_images": 11900,
+   "val_images": 2901,
+   "train_val_overlap": 0,
+   "ok": true
+  },
+  "fold3": {
+   "train_lists": [
+    "fold0_images.txt",
+    "fold1_images.txt",
+    "fold2_images.txt",
+    "fold4_images.txt"
+   ],
+   "val": "fold3_images.txt",
+   "train_images": 12311,
+   "val_images": 2490,
+   "train_val_overlap": 0,
+   "ok": true
+  },
+  "fold4": {
+   "train_lists": [
+    "fold0_images.txt",
+    "fold1_images.txt",
+    "fold2_images.txt",
+    "fold3_images.txt"
+   ],
+   "val": "fold4_images.txt",
+   "train_images": 12126,
+   "val_images": 2675,
+   "train_val_overlap": 0,
+   "ok": true
+  }
+ },
+ "counts": {
+  "test": {
+   "images": 2086,
+   "crops": 770,
+   "sessions": 271,
+   "split_groups": 270,
+   "crop_level_gain_pick": {
+    "0.25": 6,
+    "0.5": 68,
+    "1.0": 696
+   },
+   "instances_image_level": {
+    "pipe_hyperbola": 165,
+    "pipe_band": 796,
+    "cavity": 696,
+    "manhole": 847
+   },
+   "instances_crop_level": {
+    "pipe_hyperbola": 61,
+    "pipe_band": 301,
+    "cavity": 259,
+    "manhole": 303
+   },
+   "primary_class_images": {
+    "cavity": 696,
+    "manhole": 695,
+    "pipe_band": 530,
+    "pipe_hyperbola": 165
+   }
+  },
+  "fold0": {
+   "images": 3525,
+   "crops": 1298,
+   "sessions": 308,
+   "split_groups": 308,
+   "crop_level_gain_pick": {
+    "0.25": 8,
+    "0.5": 130,
+    "1.0": 1160
+   },
+   "instances_image_level": {
+    "pipe_hyperbola": 185,
+    "pipe_band": 2649,
+    "cavity": 986,
+    "manhole": 1118
+   },
+   "instances_crop_level": {
+    "pipe_hyperbola": 71,
+    "pipe_band": 966,
+    "cavity": 365,
+    "manhole": 408
+   },
+   "primary_class_images": {
+    "cavity": 986,
+    "manhole": 987,
+    "pipe_band": 1367,
+    "pipe_hyperbola": 185
+   }
+  },
+  "fold1": {
+   "images": 3210,
+   "crops": 1186,
+   "sessions": 308,
+   "split_groups": 308,
+   "crop_level_gain_pick": {
+    "0.25": 10,
+    "0.5": 94,
+    "1.0": 1082
+   },
+   "instances_image_level": {
+    "pipe_hyperbola": 125,
+    "pipe_band": 1370,
+    "cavity": 987,
+    "manhole": 1143
+   },
+   "instances_crop_level": {
+    "pipe_hyperbola": 45,
+    "pipe_band": 503,
+    "cavity": 367,
+    "manhole": 425
+   },
+   "primary_class_images": {
+    "cavity": 987,
+    "manhole": 987,
+    "pipe_band": 1111,
+    "pipe_hyperbola": 125
+   }
+  },
+  "fold2": {
+   "images": 2901,
+   "crops": 1074,
+   "sessions": 304,
+   "split_groups": 304,
+   "crop_level_gain_pick": {
+    "0.25": 9,
+    "0.5": 84,
+    "1.0": 981
+   },
+   "instances_image_level": {
+    "pipe_hyperbola": 260,
+    "pipe_band": 700,
+    "cavity": 987,
+    "manhole": 1122
+   },
+   "instances_crop_level": {
+    "pipe_hyperbola": 98,
+    "pipe_band": 258,
+    "cavity": 364,
+    "manhole": 418
+   },
+   "primary_class_images": {
+    "cavity": 987,
+    "manhole": 987,
+    "pipe_band": 667,
+    "pipe_hyperbola": 260
+   }
+  },
+  "fold3": {
+   "images": 2490,
+   "crops": 922,
+   "sessions": 307,
+   "split_groups": 307,
+   "crop_level_gain_pick": {
+    "0.25": 9,
+    "0.5": 82,
+    "1.0": 831
+   },
+   "instances_image_level": {
+    "pipe_hyperbola": 405,
+    "pipe_band": 166,
+    "cavity": 987,
+    "manhole": 1194
+   },
+   "instances_crop_level": {
+    "pipe_hyperbola": 147,
+    "pipe_band": 62,
+    "cavity": 367,
+    "manhole": 439
+   },
+   "primary_class_images": {
+    "cavity": 987,
+    "manhole": 986,
+    "pipe_band": 112,
+    "pipe_hyperbola": 405
+   }
+  },
+  "fold4": {
+   "images": 2675,
+   "crops": 993,
+   "sessions": 304,
+   "split_groups": 304,
+   "crop_level_gain_pick": {
+    "0.25": 10,
+    "0.5": 97,
+    "1.0": 886
+   },
+   "instances_image_level": {
+    "pipe_hyperbola": 382,
+    "pipe_band": 512,
+    "cavity": 987,
+    "manhole": 1198
+   },
+   "instances_crop_level": {
+    "pipe_hyperbola": 142,
+    "pipe_band": 189,
+    "cavity": 364,
+    "manhole": 446
+   },
+   "primary_class_images": {
+    "cavity": 987,
+    "manhole": 987,
+    "pipe_band": 319,
+    "pipe_hyperbola": 382
+   }
+  }
+ },
+ "problems": [],
+ "verdict": "pass"
+}
