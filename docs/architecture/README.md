@@ -2,7 +2,7 @@
 
 - 작성: add-architect (ADD 3.0 design 모드), 2026-10-29 — 체크리스트 M0-12
 - 설계 목적: **greenfield**. 2026-10-29 기준 `src/`에는 M1-1·M1-2 구현분(`io/radargram.py`, `io/classes.py`, `io/annotated.py`, `io/paths.py`, `io/_common.py`, 로더 5종 `io/{aihub,morocco,fourtu,guangzhou,gprsd}.py`, `io/_vendor/`, `cli.py` 스텁)만 있다. M1-7·M1-8(2026-10-29)로 §2-3 스케치의 타입(`GridBox`·`PixelBox`·`Detection`·`DetectorOutput`·`InputTransform`·`ImageGridMap`), `pipeline.py` 역변환, `augment.py`가 코드에 들어갔다. 스케치는 구현에 맞춰 고쳤다. 이 문서는 M1–M2 구현 전에 모듈 경계와 두 갈래(검출·깊이)의 좌표 계약을 고정한다.
-- 결정 기록: [ADR-001 검출기 이전](ADR-001-detector-migration.md), [ADR-002 물리 기반 깊이](ADR-002-physics-based-depth.md), [ADR-003 데이터 분할·클래스](ADR-003-data-split-and-classes.md)
+- 결정 기록: [ADR-001 검출기 이전](ADR-001-detector-migration.md), [ADR-002 물리 기반 깊이](ADR-002-physics-based-depth.md), [ADR-003 데이터 분할·클래스](ADR-003-data-split-and-classes.md), [ADR-004 좌표 계약](ADR-004-coordinate-contract.md)(2026-10-30, §2-3 결정을 옮겨 기록)
 - 근거 표기: 사용자·문서가 준 사실은 그대로, 문서에서 추론한 것은 `[추정]`, 이 문서에서 채운 값은 `[가정]`.
 
 ## 1. 설계 드라이버
@@ -28,7 +28,7 @@
 | QA-5 | 재현성 — 누수 방지 | 데이터 빌드 스크립트 | 분할 매니페스트 생성 | `scripts/build_yolo_dataset.py`, `data/splits/` | 빌드 시마다 | 분할 간 그룹 키 교집합 단언 | AIHub 세션(`source`)·gain 제거 크롭 키, 모로코 그룹, 4TU 현장 교집합 **0건**. 위반 시 빌드 실패 | (H, L) |
 | QA-6 | 재현성 — 결정성 | 개발자 | 같은 설정·시드로 재실행 | 분할·학습·깊이 | 같은 env 버전 | 같은 결과 | 분할 매니페스트 바이트 동일, 깊이 결과 동일(RANSAC `random_state=0`), 검출 mAP50은 AIHub 세션 그룹 k-fold(기준선 포함, 분할 시드 기록) fold 평균±표준편차로 보고 | (M, M) |
 | QA-7 | 라이선스 (license compliance) | 배포 담당 | M5 배포물 생성 | 배포 패키지·가중치 | 배포 전 점검 | AGPL 산출물 배제 | 배포물 안 Ultralytics 코드·YOLO 학습 가중치 **0개**, RF-DETR은 N/S/M/L(Apache-2.0)만 | (H, M) |
-| QA-8 | 정확성 — 좌표 계약 | 시험 | 원본 격자 박스 → 검출 이미지 → 원본 격자 왕복 | `preprocess/to_image`, `detect` 래퍼 | 4TU·합성 npy, 비정사각 입력 | 원본 (trace, sample) 복원 | 왕복 오차 ≤ 1 trace·1 sample `[가정]` | (H, M) |
+| QA-8 | 정확성 — 좌표 계약 | 시험 | 원본 격자 박스 → 검출 이미지 → 원본 격자 왕복 | `preprocess/to_image`, `detect` 래퍼 | 4TU·합성 npy, 비정사각 입력 | 원본 (trace, sample) 복원 | 왕복 오차 ≤ 1 trace·1 sample(사용자 확정 2026-10-30). 바깥쪽 반올림: 격자에 맞춘 박스는 오차 0 왕복, 검출 박스는 각 변 1셀 미만만 넓어짐 | (H, M) |
 
 - 중요도는 사용자 결정 사항(검출기 교체 계획, 제186조 판정, 누수 방지, AGPL 회피)에서 옮겼다. 난이도 H/M/L은 `[가정]`이다.
 - 성능(추론 지연·처리량) 시나리오는 드라이버에 없다. 이 프로젝트의 현재 목표는 오프라인 분석이라고 `[추정]`하고 넣지 않았다(§6 백로그).
@@ -159,7 +159,7 @@ flowchart TB
 
 검증: Mermaid Chart 검증 도구 통과(2026-10-29). 갈래 분리 근거는 spec_depth_v1 §3(피팅은 gain 없는 시간축, 영점은 배경 제거 전).
 
-좌표는 세 층이다. 각 층의 소유자와 변환 책임을 고정한다. **좌표 역변환(L2 → L1 → L0)은 `pipeline`이 한 곳에서 공통으로 한다**(사용자 결정 2026-10-29).
+좌표는 세 층이다. 각 층의 소유자와 변환 책임을 고정한다. **좌표 역변환(L2 → L1 → L0)은 `pipeline`이 한 곳에서 공통으로 한다**(사용자 결정 2026-10-29). 대안·트레이드오프·반올림 규칙 비교는 [ADR-004](ADR-004-coordinate-contract.md)에 있다.
 
 | 층 | 좌표 | 정의 위치 | 다음 층으로의 변환 책임 |
 |---|---|---|---|
@@ -228,7 +228,8 @@ class GridBox:            # io/radargram.py
 | [ADR-001](ADR-001-detector-migration.md) | YOLO11m 초안 → RF-DETR S/M 이전, `Detector` 프로토콜 뒤로 격리 | QA-1, QA-7, CON-1, CON-3 | Accepted 2026-10-29 |
 | [ADR-002](ADR-002-physics-based-depth.md) | 물리 기반 쌍곡선 피팅, 공기결합은 지표 반사 영점·v 고정, R 고정, 스케일 없으면 m 금지 | QA-2, QA-3, QA-4, FR-2, FR-3 | Accepted 2026-10-29 |
 | [ADR-003](ADR-003-data-split-and-classes.md) | 클래스 4개, 그룹 키 단위 분할(AIHub 세션·크롭 키, 모로코 그룹, 4TU 현장), 기준점 두 가정 보고 | QA-5, QA-6, QA-3, FR-1 | Accepted 2026-10-29 |
-| (이 문서) | 단일 패키지 계층형 + 두 갈래, 3층 좌표 계약(역변환은 pipeline 공통) | QA-1, QA-8, CRN-2, CRN-4 | 확정 2026-10-29 |
+| [ADR-004](ADR-004-coordinate-contract.md) | 3층 좌표 계약(L0·L1·L2), 역변환은 pipeline 공통, 바깥쪽 반올림 | QA-8, QA-1, FR-2, FR-3, QA-4, CRN-2, CRN-4 | Accepted 2026-10-30(결정 2026-10-29) |
+| (이 문서) | 단일 패키지 계층형 + 두 갈래 | QA-1, CRN-2, CRN-4 | 확정 2026-10-29 |
 
 ## 4. 분석 (반복 1, ADD ⑦단계)
 
@@ -241,7 +242,7 @@ class GridBox:            # io/radargram.py
 | QA-5 | 부분 해결 | 그룹 키 정의 확정(ADR-003). M1-3·M1-5 단언으로 확인 |
 | QA-6 | 부분 해결 | 시드 규약과 AIHub test 세션 홀드아웃 + train_pool 세션 그룹 5-fold(기준선 포함) 확정. 학습 비용 약 5배(ADR-003) |
 | QA-7 | 부분 해결 | 격리 경계 확정. M4 이전·M5-4 배포 점검 전까지 리스크 유지(U-4) |
-| QA-8 | 부분 해결 | 3층 계약 정의. M3-1 왕복 시험, 허용 오차 `[가정]` |
+| QA-8 | 부분 해결 | 3층 계약 정의(ADR-004). M1-8 합성 왕복 시험 있음(L0 정확 왕복, L1↔L2 ≤ 0.5 px). M3-1 실측 경로 왕복 시험 남음. 허용 오차 ≤ 1 trace·1 sample 확정(2026-10-30) |
 
 리스크:
 - R-A: pipe 독립 세션이 lpipe 13·tpipe 11개뿐이고 전부 NM 장비 → 분할 분산·장비 편향(ADR-003).
@@ -267,7 +268,7 @@ class GridBox:            # io/radargram.py
 | FR-1, QA-1, QA-7 | 부분 해결 | 반복 2(M1-8 `Detector` 구현 검토), 반복 4(M4 이전) |
 | FR-2, FR-3, QA-2, QA-3, QA-4 | 부분 해결 | 반복 3(M2 구현 결과로 판정) |
 | QA-5, QA-6 | 부분 해결 | 반복 2(M1-3 매니페스트 검토) |
-| QA-8 | 부분 해결 | 반복 3(M3-1 좌표 시험) |
+| QA-8 | 부분 해결(ADR-004) | 반복 3(M3-1 좌표 시험) |
 | FR-4, FR-5 | 미착수 | 반복 5(M5 통합) |
 | CRN-1–CRN-4 | 부분 해결 | 반복 2 |
 | 성능(추론 지연) | 드라이버 없음 | M5 전에 필요 여부 확인 |
