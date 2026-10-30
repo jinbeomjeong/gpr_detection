@@ -4,12 +4,15 @@
 - 받는 쪽: python-expert (구현), cv-detection-expert (박스 → 시료 좌표 계약만)
 - 1차 근거: `docs/research/depth_physics.md`(이하 [DP]), `docs/research/prior_art.md`(이하 [PA], 출처 번호는 그 문서의 [n]), `docs/datasets/readme_*.md`·`codebook_4tu.md`, `data/synthetic_gprmax/*.json`·`manifest.csv`, `docs/processing/spec_band_depth_v1.md`(이하 [B], v1.1부터 참조)
 - 이 명세를 위한 탐색 실행: `analysis/processing/zero_reference_check.py` → `docs/processing/zero_reference_check.csv`, `zero_reference_curvature.csv`, `zero_reference_airgap_models.csv`, `zero_reference_check.png` (§12에 요약)
+- v1.2 지표 반사 영점 지연 분해: `conda run -n gpr-dev python -I analysis/processing/surface_zero_shift.py` (단일 프로세스, 수 초, 생성기 시드 0) → `docs/processing/surface_zero_shift.csv`(단계·사건 구성·픽 방식별 이동), `surface_zero_shift_hsweep.csv`(공기층·진폭비별 편향), `surface_zero_shift_z1.csv`(후보 처리별 Z1 사건 수), `surface_zero_shift.png`(단독/직접파/합성 포락선, 해석 Ricker·M20)
 
 ### 변경 이력
 
 | 날짜 | 판 | 내용 |
 |---|---|---|
 | 2026-10-30 | v1.1 | M2-1·M2-2 구현 review 반영: dewow 커널을 상자형에서 가우스($\sigma=1/f_c$)로 바꿈(상자형 유령 엽 ±$T_w/2$, §3), 스케일 없음·`f_c` 없음·배경 창 끝·AGC 기본값 명시(§3, §4-1), 창별 영점 QC를 선택 사건 추적으로 바꿈(§4-1), `air_single_event` 분리 한계·편향 상한 식 수정과 메타 영점 라벨 규칙(`merged`, 지면결합 `direct_wave`만) 보완(§4-2·§4-3), `air_gap="unknown"`·$\Delta_\text{dw}$ 적용 범위(§4-2), R2 허용폭(§11-2), `select_zero`→`ZeroResult`와 필드 정본(§13-1) |
+| 2026-10-30 | v1.2 | 공기결합 지표 반사 영점 지연 원인 조사 반영(사용자 결정 2026-10-30, 권고 (b) 수정안). 지연은 처리 편향이 아니라 **직접파 간섭 편향**이다(단독 지표 반사는 (1)–(3) 뒤 ≤0.003 ns). `air_surface_late` 편향 문구(§4-2)와 $\sigma_z$ 0.2→0.3 ns(§9), Z1 꼬리 진폭 0.6→0.8·Z6(단독 무편향)·Z7(두 사건 간섭 창, 기존 두 사건·UB14 마스크 시험의 시각 기준 대체) 추가(§11-1), R2 근거값 분해·R6 근거값 v1.1 처리 기준 −1.42 cm(§11-2). 근거: `analysis/processing/surface_zero_shift.py` → [`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv), [`surface_zero_shift_z1.csv`](surface_zero_shift_z1.csv)(Z1 꼬리 0.6 한 조건뿐. 꼬리 0.8 판별은 시험 Z1(a·b), §11-1), [`surface_zero_shift.png`](surface_zero_shift.png) |
+| 2026-10-30 | v1.2 (M2-2 대조) | M2-2 구현 확인 반영: Z1 상자형 판별 대조를 상시 시험으로(사용자 결정), Z3·Z5 얕은 반사 값($\tau$ 3.5 ns, 진폭 −1.5, 반대 극성)과 분리 한계 근거, Z6 잡음 없음 명시(§11-1), `ZeroEvents` 필드(§13-2), `classify_meta_t0` 시그니처·`ZeroConfig`·$\Delta_\text{dw}$ 범위 상수(§13-3) |
 
 ---
 
@@ -153,7 +156,7 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 
 | `air_gap` | 조건 | `zero_rule` | $t_z$ | 라벨 | 편향·불확도 |
 |---|---|---|---|---|---|
-| air | 사건 2개 이상 | `air_surface_late` | $t_\text{surf}$ (늦은 쪽) | surface_reflection | M20: $t_\text{surf}$가 기준(bg−fs)보다 늦음. 필터 없이 +0.18 ns, (1)–(3) 처리 후 +0.23 ns(v1 상자형)·+0.29 ns(v1.1 가우스) → 깊이 −0.9 ~ −1.5 cm. $\sigma_z=0.2$ ns |
+| air | 사건 2개 이상 | `air_surface_late` | $t_\text{surf}$ (늦은 쪽) | surface_reflection | **직접파 간섭 편향**(v1.2): $t_\text{surf}$가 단독 지표 반사 피크보다 (1)–(3) 뒤 0.12–0.29 ns 늦다(해석 Ricker h 0.3 m +0.12, gprMax M20 +0.29) → εr 9에서 깊이 0.6–1.5 cm **얕게**. 단독 지표 반사는 (1)–(3)으로 ≤0.003 ns만 움직이므로(영위상) 처리 자체의 편향이 아니고, 반대 극성 포락선이 서로 밀어내는 효과를 밴드패스가 약 2배로 키운 것이다(M20 필터 없음 +0.18 → 처리 후 +0.29, v1 상자형 +0.23). 크기·부호가 간격·진폭비·파형에 따라 −0.08 ~ +0.29 ns로 바뀌어 보정하지 않는다([`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv)). $\sigma_z=0.3$ ns |
 | air | 사건 1개 | `air_single_event` | 그 피크 | merged | 합쳐진 피크가 직접파 위치에 놓여 **깊게** 나온다. M12·M13·M15·M18(h=0.1)에서 +1.8~+3.6 cm(§12 표 4). 편향은 $\approx h/\sqrt{\varepsilon_r}$(영점 오차 $\approx 2h/c$)이고, 단일 사건이면 $h\le h_\text{sep}=0.375\,c/f_c$이므로 상한 $h_\text{sep}/\sqrt{\varepsilon_r}$(500 MHz, εr 9 → 7.5 cm)을 **수치로** `bias_notes`에 넣는다(εr 메타 없으면 식만). 분리 한계 근거는 아래 |
 | ground | 항상 | `ground_direct_peak` | $t_\text{dir}$ | direct_wave | 직접파 피크는 송신보다 0.53–1.03 ns 늦다(εr 4–16, s=0.1 m 합성) → **얕게** −1.9~−3.9 cm([DP] 표 D, M02 −3.3 cm) |
 | ground | 선택: `ground_zero_shift="synthetic_table"` | `ground_direct_shifted` | $t_\text{dir}-\Delta_\text{dw}(\varepsilon_r)$ | direct_wave | $\Delta_\text{dw}$: εr 4 → 0.53, 9 → 0.725, 16 → 0.96 ns(400 MHz; 500 MHz는 0.53/0.727/1.03). $\sqrt{\varepsilon_r}$에 선형 보간한다. **s = 0.1 m 2D 합성에서 얻은 값이라 기본값은 끈다**(장비 s가 다르면 값이 다름). 적용 범위(v1.1): $f_c$ 350–550 MHz(가까운 행), εr 4–16(바깥 외삽 금지), `antenna_offset_m`이 None이거나 $|s-0.1|\le0.02$ m. 하나라도 벗어나거나 $f_c$·`eps_r_meta`가 없으면 보정하지 않고 `ground_direct_peak` + `ground_zero_shift_unavailable` |
@@ -283,7 +286,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 |---|---|---|
 | $\sigma_v/v$ (`meta_fixed`) | $\tfrac12\,\sigma_{\varepsilon}/\varepsilon$, $\sigma_\varepsilon/\varepsilon=0.15$ (**가정**) | 4TU `eps_r_used`는 조사자 기록이다. Reflex-W 쌍곡선 피팅에서 $\varepsilon=(c/v)^2$로 얻었을 가능성이 있다([PA] §5). 공기결합 곡률 피팅값이면 $v$가 과대이고 $\varepsilon$은 과소이므로 **깊이가 깊게** 나오는 한쪽 편향이 된다. `flags`에 `meta_eps_unverified`를 넣는다 |
 | $\sigma_v/v$ (`curvature_R_fixed`) | $\sqrt{(\sigma_v^\text{fit}/v)^2+0.03^2}$ | 실측 픽 곡률 편향 1.001–1.052([DP] 표 F 반경 열) |
-| $\sigma_z$ | `air_surface_late` 0.2 ns, `air_single_event` 0.25 ns(+편향), `ground_direct_*` 0.15 ns(+편향), `meta_sample0` 0.5 ns | §12 표 1·4 |
+| $\sigma_z$ | `air_surface_late` 0.3 ns(v1.2, 0.2에서 올림), `air_single_event` 0.25 ns(+편향), `ground_direct_*` 0.15 ns(+편향), `meta_sample0` 0.5 ns. 코드 상수 `SIGMA_ZERO_NS`(`preprocess/timezero.py`)가 이 값을 따른다 | §12 표 1·4. `air_surface_late` 0.3 ns는 직접파 간섭 편향 M20 +0.29 ns를 덮는 값([`surface_zero_shift.csv`](surface_zero_shift.csv), §4-2) |
 | $\sigma_a$ | $\max(0.05\ \text{ns},\ \text{rms}/\sqrt{n_\text{apex}})$ | 5 mm 격자 지연 0.05–0.1 ns([DP] §6) |
 | 계통(합산하지 않음) | 기준점 상단/중심 $\pm R$, 영점 편향 부호 | `bias_notes` |
 
@@ -311,7 +314,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 
 ### 11-1. 단위 시험 (해석 합성, `tests/depth/test_*.py`)
 
-합성 B-scan 생성기(시험용): 트레이스 $x_j=j\Delta x$, $\Delta x=0.02$, $\Delta t=0.05$ ns, 400 MHz Ricker를 $t_j=t_\text{src}+\tau(x_j)$에 놓는다. 직접파는 $t_\text{src}+0.7$, 공기결합이면 지표 반사를 $t_\text{src}+2h/c$에 둔다. 백색잡음 SNR 20 dB(꼭짓점 피크 대비).
+합성 B-scan 생성기(시험용): 트레이스 $x_j=j\Delta x$, $\Delta x=0.02$, $\Delta t=0.05$ ns, 400 MHz Ricker를 $t_j=t_\text{src}+\tau(x_j)$에 놓는다. 지면결합이면 직접파를 $t_\text{src}+0.7$ ns(진폭 +3)에 둔다. 공기결합이면 직접파를 $t_\text{src}+s/c$(진폭 +3)에, 지표 반사를 $t_\text{src}+2\sqrt{h^2+s^2/4}/c$(진폭 −2, 공기→토양 반사계수 음수라 반대 극성)에 둔다(`tests/synthetic_bscan.py` `make_bscan`). 백색잡음 SNR 20 dB(꼭짓점 피크 대비, 시드 0).
 
 | ID | 내용 | 통과 기준 |
 |---|---|---|
@@ -328,11 +331,28 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 
 | ID | 내용 | 통과 기준 |
 |---|---|---|
-| Z1 | 500 MHz, Δt 0.098 ns, 단일 Ricker + 느린 양의 꼬리($0.6\,e^{-(t-t_e)/1.5\,\text{ns}}$, $t\ge t_e$), 공기결합 | (1)–(3) 뒤 사건 1개, `air_single_event`. (v1 상자형 dewow는 ±3 ns 유령 엽 11.7 %로 실패) |
+| Z1 | 500 MHz, Δt 0.098 ns, 단일 Ricker + 느린 양의 꼬리($0.8\,e^{-(t-t_e)/1.5\,\text{ns}}$, $t\ge t_e$; v1.2에서 0.6→0.8), 공기결합 | 두 시험을 **상시** 둔다(사용자 결정 2026-10-30). (a) (1)–(3) 뒤 사건 1개, `air_single_event`. (b) 판별력 대조: 같은 자료에서 (2)만 v1 상자형 이동평균 차감($T_w=3/f_c$, 홀수 샘플, `mode="reflect"`)으로 바꾸고 (1)·(3)은 그대로 두면 사건 2개(약 +1.9 ns 유령 엽)여야 한다. (b)가 깨지면 Z1이 상자형 회귀를 못 잡는다는 뜻이므로 꼬리 진폭을 다시 정한다. v1.2 근거는 셋이다.<br>① [`surface_zero_shift_z1.csv`](surface_zero_shift_z1.csv)는 꼬리 0.6·Δt 0.098 ns·감쇠 1.5 ns 한 조건만 담는다. 이 조건에서는 상자형+밴드패스(`dc+box3+bp (v1)`)도 사건 1개였다. 같은 행의 `envelope_rel_at_pm3ns` 0.121은 $|t-t_e|$ 2.5–3.5 ns 구간 포락선 최댓값이다. 이 값은 사건 앞쪽 엽(2.06 ns)의 것이고, 그 엽은 돌출도 0.018로 돌출 문턱 0.05에 못 미쳐 사건이 되지 않았다.<br>② 사건 뒤쪽 유령 엽(7.55 ns)은 높이 0.100·돌출도 0.079로 높이 문턱 0.1 바로 아래였다. 이 값은 평균 트레이스 포락선(앞 100 샘플)에 `find_peaks(prominence=0)`를 돌려 얻은 review 계산이며 CSV 열이 아니다(scratchpad, CSV 없음).<br>③ 꼬리 0.8에서 가우스 1개·상자형 2개로 갈리는 판별은 시험 Z1(a·b)으로 상시 확인한다. Δt 0.05 ns·감쇠 3 ns 변형(모두 가우스 1·상자형 2)은 review 계산이다(scratchpad, CSV 없음) |
 | Z2 | 두 사건 반대 극성(진폭비 −2/3), 간격 1.2 ns / 1.8 ns @500 MHz | 1개 / 2개 |
-| Z3 | 지면결합, 창 안에 늦은 피크가 하나 더 있고 메타 t0가 그 피크에 있음 | 메타 라벨 `unclassified`(`surface_reflection` 아님) |
+| Z3 | 지면결합(생성기 기본 400 MHz, 직접파 $t_\text{src}+0.7$ ns, 진폭 +3), 창 안 얕은 수평 반사 $\tau=3.5$ ns(직접파 뒤 2.8 ns = $1.12/f_c$, 진폭 **−1.5**, 반대 극성)가 모든 트레이스에 있고 메타 t0가 그 피크에 있음 | 사건 2개. 메타 라벨 `unclassified`(`surface_reflection` 아님), 직접파 위 메타 t0는 `direct_wave` |
 | Z4 | 공기결합 단일 사건, 메타 t0 = 포락선 피크 ± 0.78 ns(500 MHz) | 라벨 `merged` |
-| Z5 | 측선 700 트레이스, 지면결합, 창 안에 얕은 반사가 앞쪽 절반 트레이스에만 있음 | `window_std_ns`가 직접파 기준으로 < 0.05 ns(마지막 피크를 따라가지 않음) |
+| Z5 | 측선 700 트레이스, 지면결합, Z3과 같은 얕은 반사($\tau=3.5$ ns, 진폭 −1.5)가 앞쪽 350 트레이스에만 있음 | `ground_direct_peak`, `window_std_ns`가 직접파 기준으로 < 0.05 ns(마지막 피크를 따라가지 않음), `zero_window_event_count_mismatch` 플래그 |
+| Z6 | (v1.2) 공기결합 지표 반사 **단독**(직접파 진폭 0, 지표 반사 −2), 500 MHz, Δt 0.05 ns, h 0.3 m, s 0.1 m, **잡음 없음**(`snr_db=None`; 관 반사는 영점 창 밖이라 둬도 됨) | 사건 1개, (1)–(3) 뒤 포락선 피크와 $t_\text{geom}$의 차가 ±0.01 ns 안(영위상 확인, 현재 0.000 ns). 잡음 없이 판정하는 이유: 시험 대상이 필터의 결정적 성질(영위상)이고, 기준 ±0.01 ns가 잡음 지터(151 트레이스 평균 후 약 0.008 진폭)보다 엄격해서 잡음을 넣으면 필터 회귀와 잡음을 구분할 수 없다 |
+| Z7 | (v1.2) 직접파(+3) + 지표 반사(−2), h 0.3 m, s 0.1 m, 500 MHz, Δt 0.05 ns(생성기 기본). 기존 두 사건 시험과 [B] UB14 마스크 시험(`exclude_traces` 사용 시)의 시각 기준을 이것으로 바꾼다 | `air_surface_late`, 사건 2개, $0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns(현재 +0.122, 마스크 사용 +0.120), $0.30\le h_\text{est}\le0.36$ m(현재 0.329) |
+
+Z3·Z5 주석(v1.2, M2-2 구현 대조):
+- $\tau$는 생성기 `extra_events` 규약대로 $t_\text{src}$ 기준이다. 직접파와의 간격은 $\tau-0.7$ ns다.
+- 400 MHz, 진폭비 −1.5/3(반대 극성)에서 (1)–(3)과 §4-1 문턱을 거치면 간격 1.5·1.8 ns는 사건 1개, 2.0 ns부터 2개였다(review 계산, 2.0–3.2 ns에서 늦은 피크 +0.11 ~ +0.16 ns). §4-2의 반대 극성 분리 한계 $0.75/f_c$ = 1.875 ns와 맞는다.
+- 그래서 $\tau$ 1.5·2.3 ns(간격 0.8·1.6 ns)가 합쳐진 것은 물리적으로 맞다. $\tau=3.5$(간격 2.8 ns = $1.12/f_c$)는 한계보다 0.9 ns 여유가 있다.
+- 같은 극성(+1.5)이면 간격 2.5 ns까지 합쳐졌으므로 Z3·Z5의 반대 극성 조건을 바꾸지 않는다.
+- 간격 2.8 ns는 εr 9에서 약 0.14 m 깊이의 얕은 층(포장 기층 등)에 해당한다.
+
+Z6·Z7 주석(v1.2):
+- $t_\text{geom}=t_\text{src}+2\sqrt{h^2+s^2/4}/c$(h 0.3, s 0.1 m → $t_\text{src}$ + 2.029 ns)는 단독 지표 반사의 포락선 피크다. 이 값은 (1)–(3)을 거쳐도 0.003 ns 안에서 변하지 않는다(Z6). 그러니 기대값을 "처리 후 단독 피크"로 다시 정의해도 값은 같다.
+- 두 사건 시험에서 생기는 차이는 직접파 해석 신호 꼬리와의 **간섭 편향**이다. 반대 극성 포락선이 서로 밀어내고, 밴드패스가 이를 약 2배로 키운다(해석: 원 신호 +0.055 → DC·가우스 dewow +0.066 → 밴드패스 +0.120 ns).
+- 편향은 간격·진폭비·파형에 따라 바뀐다. 해석 Ricker(h 0.25–0.5 m, 진폭비 −1/3~−1)에서 −0.08 ~ +0.17 ns이고 분리 한계 근처에서는 부호가 바뀐다. gprMax M20에서는 +0.29 ns다. 그래서 보정하지 않고 허용 창과 $\sigma_z$(§9, 0.3 ns)로 다룬다. εr 9에서 깊이로 −0.6 ~ −1.5 cm(얕게)다.
+- Z7의 한쪽 창은 이 고정 기하에서만 성립한다(부호 회귀 검출용). 다른 기하에 일반화하지 않는다.
+- 근거: [`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv), [`surface_zero_shift.png`](surface_zero_shift.png).
+- 처리 변경 후보(σ 0.5–2/f_c, dewow 없음, 밴드패스 하한 0.125–0.5 f_c, 2차, 영점만 DC 처리, 부호 피크)를 모두 시험했다. 이득은 최대 0.03 ns(≈1.5 mm)였다. 이보다 크게 줄이는 후보는 상자형(유령 엽)과 DC만 처리(Z1 실패)뿐이어서 둘 다 기각했다.
 
 ### 11-2. 회귀 시험 (gprMax 합성 20개, json 정답)
 
@@ -347,11 +367,11 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | ID | 대상 | 검사 | 기준 | 현재 근거값 |
 |---|---|---|---|---|
 | R1 | h=0 (M01–M11, M14, M16, M17, M19) | $t_\text{dir}$ vs `direct_wave_peak` | ≤0.05 ns | M02 0.0000 ns |
-| R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.35 ns, $|h_\text{est}-0.3|\le0.07$ m (v1.1: (1)–(3) 처리 후 값 기준) | 필터 없음 +0.184 ns·0.330 m. v1 상자형 처리 +0.227 ns·0.337 m, v1.1 가우스 처리 +0.292 ns·0.349 m(review 계산). R13은 v1.1 처리로 다시 잰다 |
+| R2 | M20 (h 0.3) | 사건 2개, $t_\text{surf}$ vs `surface_reflection_peak` | ≤0.35 ns, $|h_\text{est}-0.3|\le0.07$ m (v1.1: (1)–(3) 처리 후 값 기준) | 필터 없음 +0.184 ns·0.330 m. v1 상자형 처리 +0.227 ns·0.337 m, v1.1 가우스 처리 +0.292 ns·0.349 m(review 계산). 분해(v1.2): 지표 반사 단독(bg−fs)은 처리 후 +0.002 ns, 두 사건(bg)·코드 입력 간섭 +0.29 ns. 편향 전부가 직접파 간섭이다([`surface_zero_shift.csv`](surface_zero_shift.csv)). R13은 v1.1 처리로 다시 잰다 |
 | R3 | h 0.1 (M12, M13, M15, M18) | `zero_rule == "air_single_event"`, 단일 피크 vs `direct_wave_peak` | ≤0.05 ns | 4개 모두 단일 사건, 편차 0 |
 | R4 | 20개 전부 | 꼭짓점 트레이스 vs `apex.trace_index` | ±3 트레이스 | 측정한 6개(M02·M12·M13·M15·M18·M20) 52–55 |
 | R5 | 20개 전부 | $t_a$(median 배경) vs `apex.envelope_peak_ns` | ≤0.05 ns | M02 +0.0003, M20 −0.0007 |
-| R6 | M20 | `meta_fixed` 깊이 | $|d-d_\text{top}|\le2$ cm (일치) | −0.88 cm |
+| R6 | M20 | `meta_fixed` 깊이 | $|d-d_\text{top}|\le2$ cm (일치) | −1.42 cm (v1.2: v1.1 처리 영점 $t_\text{surf}$ = 4.877 + 0.292 ns, 꼭짓점 16.893 ns → $t_0$ 11.724 ns, $d$ 0.5858 m; 예상치이며 구현 후 다시 잰다. 여유 0.58 cm). v1 근거값 −0.88 cm는 필터 없는 영점(+0.184 ns) 기준 |
 | R7 | M12, M13, M15, M18 | `meta_fixed` 깊이, 편향 부호 + | $0<d-d_\text{top}\le5$ cm | +1.8, +3.6, +2.0, +2.8 cm |
 | R8 | h=0 전부 | `meta_fixed` + `ground_direct_peak` | $-5\le d-d_\text{top}<0$ cm | [DP] 표 D −1.9~−3.9, M02 −3.26 |
 | R9 | h=0 전부 | `meta_fixed` + `ground_direct_shifted`(표 $\Delta_\text{dw}$) | $|d-d_\text{top}|\le2$ cm | M02 송신 영점 +0.36 cm |
@@ -436,7 +456,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | `src/gpr_detection/io/radargram.py`(추가, M2-1) | `SPEED_OF_LIGHT_M_PER_NS`, `velocity_from_eps`, `eps_from_velocity` — depth→io 의존 방향을 지키려고 c 상수를 io에 둔다 |
 | `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용) |
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
-| `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events`, `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`, `given_zero` |
+| `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
 | `src/gpr_detection/depth/picks.py` | `extract_picks(box, ...)`, 첫 피크 씨앗, 추적 |
 | `src/gpr_detection/depth/hyperbola.py` | `ransac_init`, `fit_hyperbola(R fixed)`, `apex_vertex` |
 | `src/gpr_detection/depth/refraction.py` | `leg_time`, `reflection_time`, `refraction_qc` (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
@@ -459,10 +479,46 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | `t_zero_per_trace_ns` | ndarray \| None | ns | 선택 사항([B] §3-1 항목 3), v1.1은 None |
 | `meta_t0` | Mapping[str, tuple[float, label]] | ns | §4-3, label ∈ {`direct_wave`, `surface_reflection`, `merged`, `unclassified`} |
 | `excluded_traces` | int | – | 평균 트레이스에서 뺀 트레이스 수 |
-| `flags` | tuple[str, ...] | – | `zero_failed`, `zero_band_overlap`, `zero_unverified`, `amplitude_processed`, `zero_px_unverified`, `air_gap_unknown`, `air_gap_unknown_multi_event`, `ground_zero_shift_unavailable`, `h_est_offset_unknown`, `zero_window_missing`, `zero_window_event_count_mismatch`, `zero_window_drift` |
+| `flags` | tuple[str, ...] | – | `zero_failed`, `zero_band_overlap`, `zero_unverified`, `amplitude_processed`, `zero_px_unverified`, `air_gap_unknown`, `air_gap_unknown_multi_event`, `ground_zero_shift_unavailable`, `h_est_offset_unknown`, `zero_window_missing`, `zero_window_event_count_mismatch`, `zero_window_drift`, `zero_given`(`given_zero`가 붙임) |
 | `sigma_zero_ns` | float | ns | §9 $\sigma_z$ (규칙별) |
 | `bias_notes` | tuple[str, ...] | – | 규칙의 부호 있는 계통 편향(`air_single_event`는 수치 상한 포함) |
-| `window_std_ns` | float \| None | ns | §4-1 항목 1 창별 QC(선택 사건 추적) |
+| `window_std_ns` | float \| None | ns | §4-1 항목 1 창별 QC(선택 사건 추적). v1.2: `ZeroEvents`에서 이 객체로 옮겼다(선택 사건을 알아야 계산되므로) |
+
+### 13-2. `ZeroEvents` 필드 (v1.2, M2-2 구현 대조)
+
+`detect_zero_events`가 돌려주고 `select_zero`가 받는 중간 객체다. §4-1 결과를 담고, 규칙 선택(§4-2) 전 값이다.
+
+| 필드 | 형 | 단위 | 설명 |
+|---|---|---|---|
+| `events_k` | tuple[float, ...] | 샘플 | 전역 평균 트레이스의 사건 피크(포물선 보간), 이른 순 |
+| `amplitudes` | tuple[float, ...] | 픽 신호 | 각 피크의 `pick_signal` 값 |
+| `dt_ns` | float \| None | ns | 스케일 없으면 None |
+| `f_c_hz` | float \| None | Hz | 창 폭·메타 허용폭에 쓴 값(None이면 500 MHz 가정) |
+| `pick_mode` | `PickMode` | – | 영점 위상 기준(꼭짓점과 같아야 함) |
+| `window_end_k` | int | 샘플 | §4-1 항목 2 탐색 창 끝 |
+| `h_est_m` | float \| None | m | 사건 2개 이상·스케일 있을 때 §4-1 항목 5 |
+| `window_events_k` | tuple[tuple[float, ...], ...] | 샘플 | 트레이스 창별 피크(QC). 측선 ≤ $W_\text{bg}$ 또는 스케일 없음이면 빈 튜플 |
+| `excluded_traces` | int | – | 평균에서 뺀 트레이스 수 |
+| `flags` | tuple[str, ...] | – | `zero_band_overlap`, `h_est_offset_unknown` |
+| 속성 `n_events` | int | – | `len(events_k)` |
+| 속성 `events_ns` | tuple[float, ...] | ns | `events_k`·`dt_ns`, 스케일 없으면 빈 튜플 |
+
+### 13-3. 영점 함수 시그니처·설정 (v1.2 확인)
+
+- `classify_meta_t0(candidates_ns, zero_rule, events_ns, f_c_hz=None, tolerance_ns=0.5) -> dict[str, tuple[float, label]]`
+  - 라벨 후보는 §4-3 표의 **선택된 규칙** 기준이다.
+  - `air_surface_late`: 첫 사건 → `direct_wave`, 마지막 사건 → `surface_reflection`.
+  - `air_single_event`: `merged`, 허용폭 $\max(\text{tol},0.5/f_c)$.
+  - 그 밖(`ground_*`, `meta_sample0`, `given`): 첫 사건 → `direct_wave`만. 사건이 없으면(`zero_failed`) 전부 `unclassified`.
+- `ZeroConfig` 기본값: `h_max_m=0.5`, `early_fraction=0.25`, `height_rel=0.1`, `prominence_rel=0.05`, `window_traces=301`($W_\text{bg}$), `window_match_ns=0.5`(§4-1 항목 1 일치 거리), `window_drift_ns=0.2`(`zero_window_drift` 문턱), `meta_tolerance_ns=0.5`, `ground_zero_shift="none"`.
+- $\Delta_\text{dw}$ 적용 범위 상수(§4-2):
+  - `DELAY_TABLE_F_C_RANGE_HZ=(350e6, 550e6)`
+  - `DELAY_TABLE_EPS_RANGE=(4, 16)`
+  - `DELAY_TABLE_OFFSET_M=0.1`
+  - `DELAY_TABLE_OFFSET_TOLERANCE_M=0.02`
+  - `antenna_offset_m=None`은 적용 가능으로 본다.
+- `SIGMA_ZERO_NS`: §9 값과 같다(`air_surface_late` 0.3).
+- `SEPARATION_PERIODS=0.75`: §4-2 반대 극성 분리 한계, `air_single_event` 편향 상한에 쓴다.
 
 설정 기본값은 `DepthConfig` dataclass 하나에 모은다: `a_max_m=1.0`, `seed_rel=0.3`, `track_stop_rel=0.2`, `v_min=0.05`, `ransac_dt_ns=0.3`, `ransac_trials=200`, `f_scale_ns=0.1`, `apex_halfwidth_m=0.10`, `bg_window=301`, `h_max_m=0.5`, `ground_zero_shift="none"`, `sigma_eps_rel=0.15`, `seed=0`.
 

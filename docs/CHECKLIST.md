@@ -35,7 +35,7 @@
 
 ## M2 깊이 추정 구현·검증 (시작: M1-10 학습 중)
 - [x] M2-1 전처리 모듈(dewow, median 배경 제거, 밴드패스, gain은 검출 갈래만) — 완료·사용자 승인 2026-10-30: `preprocess/filters.py`·`signals.py`, 단위 시험 `tests/preprocess/test_filters.py`, 합성 생성기 `tests/synthetic_bscan.py`. gpr-processing-expert 판정으로 dewow를 상자형에서 **가우스 σ=1/f_c**로 변경(유령 엽 방지, 명세 v1.1) → python-expert / `src/gpr_detection/preprocess/`
-- [ ] M2-2 영점 검출(지면결합 직접파, 공기결합 지표 반사, `air_single_event`) → python-expert / `preprocess/timezero.py`
+- [x] M2-2 영점 검출(지면결합 직접파, 공기결합 지표 반사, `air_single_event`) — 완료·사용자 승인 2026-10-30: `preprocess/timezero.py`(`exclude_traces`, `ZeroResult`, 창별 QC가 선택 사건 추적, 공기결합 단일 사건 메타 t0 라벨 `merged`, Δdw 적용 범위, `air_surface_late` σ_zero 0.3 ns), 시험 `tests/preprocess/test_timezero.py`·`test_zero_dewow_z1.py`(Z1–Z7, Z1 상자형 판별 상시). 지표 반사 +0.12 ns는 직접파 간섭 편향(보정 안 함, `docs/processing/surface_zero_shift.csv`), 명세 v1.2 → python-expert / `preprocess/timezero.py`
 - [ ] M2-3 꼭짓점·점 추출(첫 피크 씨앗) + RANSAC x²–t² + least_squares(R 고정) (M1-8의 `GridBox` 사용) → python-expert / `depth/picks.py`, `depth/hyperbola.py`
 - [ ] M2-4 굴절 모델(공기층 h)과 v 결정 규칙 → python-expert / `depth/refraction.py`, `depth/estimate.py`
 - [ ] M2-4b 합성 gprMax 로더(`io/synthetic.py`: `data/synthetic_gprmax/<id>.npy`+`.json` → `Radargram`, spec §1-1 표 첫 행) → python-expert

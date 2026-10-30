@@ -1,3 +1,3 @@
 - [4TU zero band facts](fourtu-zero-band.md) — single merged band, meta t0 = +/- lobes, hyperbola shape says h <~ 0.1 m, eps meta = header default
-- [Zero/apex picking pitfalls](zero-and-apex-pitfalls.md) — merged events, argmax|mean| picks direct wave, first-peak seed, median bg, boxcar-dewow ghost lobes, polarity-dependent event split
+- [Zero/apex picking pitfalls](zero-and-apex-pitfalls.md) — merged events, argmax|mean| picks direct wave, first-peak seed, median bg, boxcar-dewow ghost lobes, polarity-dependent event split, surface-zero interference bias
 - [Band depth pitfalls](band-depth-pitfalls.md) — median bg erases long bands, pseudo-band from apex trace, oblique 1/sin bias, no parallel truth

@@ -2,9 +2,10 @@
 
 Traces sit at ``x_j = j * dx``. A Ricker wavelet is placed at
 ``t_src + travel_time`` for every event: the pipe reflection follows the
-straight-ray cylinder curve (or any curve the caller passes), the direct wave
-sits at ``t_src + 0.7`` ns and, for air-coupled profiles, the surface reflection
-at ``t_src + 2 sqrt(h^2 + s^2/4) / c``. White noise is scaled to the SNR
+straight-ray cylinder curve (ground-coupled; air-coupled profiles must pass
+``pipe_times_ns``), the direct wave sits at ``t_src + 0.7`` ns (air: ``s / c``)
+and, for air-coupled profiles, the surface reflection (opposite polarity) at
+``t_src + 2 sqrt(h^2 + s^2/4) / c``. White noise is scaled to the SNR
 relative to the apex peak. The seed is always 0.
 """
 
@@ -58,7 +59,9 @@ class BScanSpec:
     surface_amplitude: float = -2.0
     snr_db: float | None = SNR_DB
     pipe_times_ns: np.ndarray | None = None
-    extra_events: list[tuple[np.ndarray, float]] = field(default_factory=list)
+    extra_events: list[tuple[np.ndarray, np.ndarray | float]] = field(
+        default_factory=list
+    )
 
     @property
     def velocity(self) -> float:
@@ -96,6 +99,10 @@ def make_bscan(spec: BScanSpec) -> np.ndarray:
     _place(data, direct_ns * ones, spec.direct_amplitude, spec)
 
     pipe_times = spec.pipe_times_ns
+    if pipe_times is None and spec.air_gap_m > 0:
+        # cylinder_times has no air leg; air-coupled pipe times must come from
+        # the caller (later: the refraction model).
+        raise ValueError("air_gap_m > 0 needs explicit pipe_times_ns")
     if pipe_times is None:
         pipe_times = cylinder_times(
             spec.x_m, spec.x0_m, spec.d_top_m, spec.velocity, spec.radius_m

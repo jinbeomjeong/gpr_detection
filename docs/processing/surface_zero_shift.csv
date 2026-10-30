@@ -1,0 +1,217 @@
+case,variant,composition,pick_mode,t_pick_ns,shift_ns,depth_cm_eps9,direct_tail_ratio
+analytic,raw,surface_only,envelope,5.029,0.0,-0.0,0.088
+analytic,raw,surface_only,signed_min,5.029,0.0,-0.0,0.088
+analytic,raw,direct_only,envelope,nan,nan,nan,0.088
+analytic,raw,direct_only,signed_min,nan,nan,nan,0.088
+analytic,raw,both,envelope,5.0838,0.0548,-0.27,0.088
+analytic,raw,both,signed_min,5.0205,-0.0084,0.04,0.088
+analytic,raw,test_full,envelope,5.0914,0.0624,-0.31,0.088
+analytic,raw,test_full,signed_min,5.0205,-0.0085,0.04,0.088
+analytic,raw,code_detect_zero_events,envelope,5.0914,0.0624,-0.31,n_events=2;h_est=0.31
+analytic,dc,surface_only,envelope,5.029,0.0,-0.0,0.088
+analytic,dc,surface_only,signed_min,5.029,0.0,-0.0,0.088
+analytic,dc,direct_only,envelope,nan,nan,nan,0.088
+analytic,dc,direct_only,signed_min,nan,nan,nan,0.088
+analytic,dc,both,envelope,5.0838,0.0548,-0.27,0.088
+analytic,dc,both,signed_min,5.0205,-0.0084,0.04,0.088
+analytic,dc,test_full,envelope,5.0914,0.0625,-0.31,0.088
+analytic,dc,test_full,signed_min,5.0205,-0.0085,0.04,0.088
+analytic,dc,code_detect_zero_events,envelope,5.0914,0.0625,-0.31,n_events=2;h_est=0.31
+analytic,dc+gauss1,surface_only,envelope,5.0291,0.0001,-0.0,0.102
+analytic,dc+gauss1,surface_only,signed_min,5.029,0.0,-0.0,0.102
+analytic,dc+gauss1,direct_only,envelope,nan,nan,nan,0.102
+analytic,dc+gauss1,direct_only,signed_min,nan,nan,nan,0.102
+analytic,dc+gauss1,both,envelope,5.0952,0.0662,-0.33,0.102
+analytic,dc+gauss1,both,signed_min,5.0198,-0.0092,0.05,0.102
+analytic,dc+gauss1,test_full,envelope,5.1115,0.0825,-0.41,0.102
+analytic,dc+gauss1,test_full,signed_min,5.0195,-0.0094,0.05,0.102
+analytic,dc+gauss1,code_detect_zero_events,envelope,5.1115,0.0825,-0.41,n_events=2;h_est=0.314
+analytic,dc+gauss1+bp (current),surface_only,envelope,5.0286,-0.0004,0.0,0.097
+analytic,dc+gauss1+bp (current),surface_only,signed_min,5.029,0.0,-0.0,0.097
+analytic,dc+gauss1+bp (current),direct_only,envelope,nan,nan,nan,0.097
+analytic,dc+gauss1+bp (current),direct_only,signed_min,5.2769,0.2479,-1.24,0.097
+analytic,dc+gauss1+bp (current),both,envelope,5.149,0.12,-0.6,0.097
+analytic,dc+gauss1+bp (current),both,signed_min,5.0301,0.0011,-0.01,0.097
+analytic,dc+gauss1+bp (current),test_full,envelope,5.1507,0.1217,-0.61,0.097
+analytic,dc+gauss1+bp (current),test_full,signed_min,5.0306,0.0016,-0.01,0.097
+analytic,dc+gauss1+bp (current),code_detect_zero_events,envelope,5.1507,0.1217,-0.61,n_events=2;h_est=0.329
+analytic,dc+bp (no dewow),surface_only,envelope,5.0284,-0.0006,0.0,0.089
+analytic,dc+bp (no dewow),surface_only,signed_min,5.029,0.0,-0.0,0.089
+analytic,dc+bp (no dewow),direct_only,envelope,nan,nan,nan,0.089
+analytic,dc+bp (no dewow),direct_only,signed_min,5.2883,0.2593,-1.3,0.089
+analytic,dc+bp (no dewow),both,envelope,5.1415,0.1126,-0.56,0.089
+analytic,dc+bp (no dewow),both,signed_min,5.0306,0.0016,-0.01,0.089
+analytic,dc+bp (no dewow),test_full,envelope,5.1431,0.1141,-0.57,0.089
+analytic,dc+bp (no dewow),test_full,signed_min,5.0312,0.0022,-0.01,0.089
+analytic,dc+bp (no dewow),code_detect_zero_events,envelope,5.1431,0.1141,-0.57,n_events=2;h_est=0.327
+analytic,dc+box3 (no bp),surface_only,envelope,5.029,0.0,-0.0,0.073
+analytic,dc+box3 (no bp),surface_only,signed_min,5.029,0.0,-0.0,0.073
+analytic,dc+box3 (no bp),direct_only,envelope,nan,nan,nan,0.073
+analytic,dc+box3 (no bp),direct_only,signed_min,nan,nan,nan,0.073
+analytic,dc+box3 (no bp),both,envelope,5.0722,0.0432,-0.22,0.073
+analytic,dc+box3 (no bp),both,signed_min,5.0223,-0.0067,0.03,0.073
+analytic,dc+box3 (no bp),test_full,envelope,5.0734,0.0444,-0.22,0.073
+analytic,dc+box3 (no bp),test_full,signed_min,5.0226,-0.0064,0.03,0.073
+analytic,dc+box3 (no bp),code_detect_zero_events,envelope,5.0734,0.0444,-0.22,n_events=2;h_est=0.307
+analytic,dc+box3+bp (v1),surface_only,envelope,5.0263,-0.0027,0.01,0.061
+analytic,dc+box3+bp (v1),surface_only,signed_min,5.0291,0.0001,-0.0,0.061
+analytic,dc+box3+bp (v1),direct_only,envelope,nan,nan,nan,0.061
+analytic,dc+box3+bp (v1),direct_only,signed_min,nan,nan,nan,0.061
+analytic,dc+box3+bp (v1),both,envelope,5.1208,0.0918,-0.46,0.061
+analytic,dc+box3+bp (v1),both,signed_min,5.0339,0.0049,-0.02,0.061
+analytic,dc+box3+bp (v1),test_full,envelope,5.1224,0.0934,-0.47,0.061
+analytic,dc+box3+bp (v1),test_full,signed_min,5.0345,0.0055,-0.03,0.061
+analytic,dc+box3+bp (v1),code_detect_zero_events,envelope,5.1224,0.0934,-0.47,n_events=2;h_est=0.326
+analytic,dc+gauss2+bp,surface_only,envelope,5.0284,-0.0006,0.0,0.09
+analytic,dc+gauss2+bp,surface_only,signed_min,5.029,0.0,-0.0,0.09
+analytic,dc+gauss2+bp,direct_only,envelope,nan,nan,nan,0.09
+analytic,dc+gauss2+bp,direct_only,signed_min,5.2882,0.2592,-1.3,0.09
+analytic,dc+gauss2+bp,both,envelope,5.1416,0.1126,-0.56,0.09
+analytic,dc+gauss2+bp,both,signed_min,5.0306,0.0016,-0.01,0.09
+analytic,dc+gauss2+bp,test_full,envelope,5.1432,0.1142,-0.57,0.09
+analytic,dc+gauss2+bp,test_full,signed_min,5.0312,0.0022,-0.01,0.09
+analytic,dc+gauss2+bp,code_detect_zero_events,envelope,5.1432,0.1142,-0.57,n_events=2;h_est=0.327
+analytic,dc+gauss0.5+bp,surface_only,envelope,5.0288,-0.0002,0.0,0.136
+analytic,dc+gauss0.5+bp,surface_only,signed_min,5.029,0.0,-0.0,0.136
+analytic,dc+gauss0.5+bp,direct_only,envelope,nan,nan,nan,0.136
+analytic,dc+gauss0.5+bp,direct_only,signed_min,5.3256,0.2966,-1.48,0.136
+analytic,dc+gauss0.5+bp,both,envelope,5.2011,0.1721,-0.86,0.136
+analytic,dc+gauss0.5+bp,both,signed_min,5.0289,-0.0001,0.0,0.136
+analytic,dc+gauss0.5+bp,test_full,envelope,5.203,0.174,-0.87,0.136
+analytic,dc+gauss0.5+bp,test_full,signed_min,5.0295,0.0005,-0.0,0.136
+analytic,dc+gauss0.5+bp,code_detect_zero_events,envelope,5.203,0.174,-0.87,n_events=2;h_est=0.342
+analytic,dc+gauss1+bpL0.125,surface_only,envelope,5.0273,-0.0016,0.01,0.095
+analytic,dc+gauss1+bpL0.125,surface_only,signed_min,5.029,0.0,-0.0,0.095
+analytic,dc+gauss1+bpL0.125,direct_only,envelope,nan,nan,nan,0.095
+analytic,dc+gauss1+bpL0.125,direct_only,signed_min,5.3259,0.2969,-1.48,0.095
+analytic,dc+gauss1+bpL0.125,both,envelope,5.138,0.109,-0.54,0.095
+analytic,dc+gauss1+bpL0.125,both,signed_min,5.0282,-0.0008,0.0,0.095
+analytic,dc+gauss1+bpL0.125,test_full,envelope,5.1393,0.1103,-0.55,0.095
+analytic,dc+gauss1+bpL0.125,test_full,signed_min,5.0287,-0.0003,0.0,0.095
+analytic,dc+gauss1+bpL0.125,code_detect_zero_events,envelope,5.1393,0.1103,-0.55,n_events=2;h_est=0.326
+analytic,dc+gauss1+bpL0.5,surface_only,envelope,5.0288,-0.0002,0.0,0.178
+analytic,dc+gauss1+bpL0.5,surface_only,signed_min,5.029,0.0,-0.0,0.178
+analytic,dc+gauss1+bpL0.5,direct_only,envelope,nan,nan,nan,0.178
+analytic,dc+gauss1+bpL0.5,direct_only,signed_min,nan,nan,nan,0.178
+analytic,dc+gauss1+bpL0.5,both,envelope,5.2564,0.2274,-1.14,0.178
+analytic,dc+gauss1+bpL0.5,both,signed_min,5.0256,-0.0034,0.02,0.178
+analytic,dc+gauss1+bpL0.5,test_full,envelope,5.2583,0.2293,-1.15,0.178
+analytic,dc+gauss1+bpL0.5,test_full,signed_min,5.0262,-0.0028,0.01,0.178
+analytic,dc+gauss1+bpL0.5,code_detect_zero_events,envelope,5.2583,0.2293,-1.15,n_events=2;h_est=0.355
+analytic,dc+gauss1+bp order2,surface_only,envelope,5.0287,-0.0002,0.0,0.14
+analytic,dc+gauss1+bp order2,surface_only,signed_min,5.029,0.0,-0.0,0.14
+analytic,dc+gauss1+bp order2,direct_only,envelope,nan,nan,nan,0.14
+analytic,dc+gauss1+bp order2,direct_only,signed_min,5.5728,0.5438,-2.72,0.14
+analytic,dc+gauss1+bp order2,both,envelope,5.1371,0.1081,-0.54,0.14
+analytic,dc+gauss1+bp order2,both,signed_min,5.0152,-0.0138,0.07,0.14
+analytic,dc+gauss1+bp order2,test_full,envelope,5.1378,0.1089,-0.54,0.14
+analytic,dc+gauss1+bp order2,test_full,signed_min,5.0158,-0.0132,0.07,0.14
+analytic,dc+gauss1+bp order2,code_detect_zero_events,envelope,5.1378,0.1089,-0.54,n_events=2;h_est=0.326
+M20,raw,surface_only,envelope,4.8768,0.0,-0.0,0.258
+M20,raw,surface_only,signed_min,5.3806,0.5038,-2.52,0.258
+M20,raw,direct_only,envelope,nan,nan,nan,0.258
+M20,raw,direct_only,signed_min,4.4997,-0.377,1.88,0.258
+M20,raw,both,envelope,5.0603,0.1836,-0.92,0.258
+M20,raw,both,signed_min,5.3678,0.491,-2.45,0.258
+M20,raw,test_full,envelope,5.0603,0.1836,-0.92,0.258
+M20,raw,test_full,signed_min,5.3678,0.491,-2.45,0.258
+M20,raw,code_detect_zero_events,envelope,5.0603,0.1836,-0.92,n_events=2;h_est=0.33
+M20,dc,surface_only,envelope,4.8768,-0.0,0.0,0.258
+M20,dc,surface_only,signed_min,5.3806,0.5038,-2.52,0.258
+M20,dc,direct_only,envelope,nan,nan,nan,0.258
+M20,dc,direct_only,signed_min,4.4997,-0.377,1.88,0.258
+M20,dc,both,envelope,5.0603,0.1836,-0.92,0.258
+M20,dc,both,signed_min,5.3678,0.491,-2.45,0.258
+M20,dc,test_full,envelope,5.0603,0.1836,-0.92,0.258
+M20,dc,test_full,signed_min,5.3678,0.491,-2.45,0.258
+M20,dc,code_detect_zero_events,envelope,5.0603,0.1836,-0.92,n_events=2;h_est=0.33
+M20,dc+gauss1,surface_only,envelope,4.876,-0.0008,0.0,0.275
+M20,dc+gauss1,surface_only,signed_min,5.3803,0.5035,-2.52,0.275
+M20,dc+gauss1,direct_only,envelope,nan,nan,nan,0.275
+M20,dc+gauss1,direct_only,signed_min,4.5012,-0.3756,1.88,0.275
+M20,dc+gauss1,both,envelope,5.0701,0.1933,-0.97,0.275
+M20,dc+gauss1,both,signed_min,5.3674,0.4906,-2.45,0.275
+M20,dc+gauss1,test_full,envelope,5.0701,0.1933,-0.97,0.275
+M20,dc+gauss1,test_full,signed_min,5.3674,0.4906,-2.45,0.275
+M20,dc+gauss1,code_detect_zero_events,envelope,5.0701,0.1933,-0.97,n_events=2;h_est=0.332
+M20,dc+gauss1+bp (current),surface_only,envelope,4.8783,0.0015,-0.01,0.245
+M20,dc+gauss1+bp (current),surface_only,signed_min,5.4209,0.5442,-2.72,0.245
+M20,dc+gauss1+bp (current),direct_only,envelope,5.3975,0.5207,-2.6,0.245
+M20,dc+gauss1+bp (current),direct_only,signed_min,4.4956,-0.3812,1.9,0.245
+M20,dc+gauss1+bp (current),both,envelope,5.1686,0.2918,-1.46,0.245
+M20,dc+gauss1+bp (current),both,signed_min,4.368,-0.5088,2.54,0.245
+M20,dc+gauss1+bp (current),test_full,envelope,5.1685,0.2917,-1.46,0.245
+M20,dc+gauss1+bp (current),test_full,signed_min,4.368,-0.5088,2.54,0.245
+M20,dc+gauss1+bp (current),code_detect_zero_events,envelope,5.1685,0.2917,-1.46,n_events=2;h_est=0.349
+M20,dc+bp (no dewow),surface_only,envelope,4.8787,0.0019,-0.01,0.235
+M20,dc+bp (no dewow),surface_only,signed_min,5.4212,0.5444,-2.72,0.235
+M20,dc+bp (no dewow),direct_only,envelope,5.3954,0.5186,-2.59,0.235
+M20,dc+bp (no dewow),direct_only,signed_min,4.4951,-0.3817,1.91,0.235
+M20,dc+bp (no dewow),both,envelope,5.1621,0.2853,-1.43,0.235
+M20,dc+bp (no dewow),both,signed_min,4.3676,-0.5092,2.54,0.235
+M20,dc+bp (no dewow),test_full,envelope,5.1621,0.2853,-1.43,0.235
+M20,dc+bp (no dewow),test_full,signed_min,4.3676,-0.5092,2.54,0.235
+M20,dc+bp (no dewow),code_detect_zero_events,envelope,5.1621,0.2853,-1.43,n_events=2;h_est=0.348
+M20,dc+box3 (no bp),surface_only,envelope,4.8765,-0.0003,0.0,0.234
+M20,dc+box3 (no bp),surface_only,signed_min,5.3806,0.5039,-2.52,0.234
+M20,dc+box3 (no bp),direct_only,envelope,nan,nan,nan,0.234
+M20,dc+box3 (no bp),direct_only,signed_min,4.4978,-0.379,1.89,0.234
+M20,dc+box3 (no bp),both,envelope,5.0209,0.1441,-0.72,0.234
+M20,dc+box3 (no bp),both,signed_min,5.3513,0.4745,-2.37,0.234
+M20,dc+box3 (no bp),test_full,envelope,5.0208,0.1441,-0.72,0.234
+M20,dc+box3 (no bp),test_full,signed_min,5.3513,0.4745,-2.37,0.234
+M20,dc+box3 (no bp),code_detect_zero_events,envelope,5.0208,0.1441,-0.72,n_events=2;h_est=0.324
+M20,dc+box3+bp (v1),surface_only,envelope,4.8792,0.0024,-0.01,0.211
+M20,dc+box3+bp (v1),surface_only,signed_min,5.4214,0.5446,-2.72,0.211
+M20,dc+box3+bp (v1),direct_only,envelope,nan,nan,nan,0.211
+M20,dc+box3+bp (v1),direct_only,signed_min,4.4955,-0.3813,1.91,0.211
+M20,dc+box3+bp (v1),both,envelope,5.1039,0.2271,-1.13,0.211
+M20,dc+box3+bp (v1),both,signed_min,4.368,-0.5088,2.54,0.211
+M20,dc+box3+bp (v1),test_full,envelope,5.1038,0.227,-1.13,0.211
+M20,dc+box3+bp (v1),test_full,signed_min,4.368,-0.5088,2.54,0.211
+M20,dc+box3+bp (v1),code_detect_zero_events,envelope,5.1038,0.227,-1.13,n_events=2;h_est=0.337
+M20,dc+gauss2+bp,surface_only,envelope,4.8787,0.0019,-0.01,0.236
+M20,dc+gauss2+bp,surface_only,signed_min,5.4212,0.5444,-2.72,0.236
+M20,dc+gauss2+bp,direct_only,envelope,5.3954,0.5186,-2.59,0.236
+M20,dc+gauss2+bp,direct_only,signed_min,4.4951,-0.3817,1.91,0.236
+M20,dc+gauss2+bp,both,envelope,5.1622,0.2854,-1.43,0.236
+M20,dc+gauss2+bp,both,signed_min,4.3676,-0.5092,2.54,0.236
+M20,dc+gauss2+bp,test_full,envelope,5.1622,0.2854,-1.43,0.236
+M20,dc+gauss2+bp,test_full,signed_min,4.3676,-0.5092,2.54,0.236
+M20,dc+gauss2+bp,code_detect_zero_events,envelope,5.1622,0.2854,-1.43,n_events=2;h_est=0.348
+M20,dc+gauss0.5+bp,surface_only,envelope,4.8769,0.0002,-0.0,0.378
+M20,dc+gauss0.5+bp,surface_only,signed_min,5.4157,0.5389,-2.69,0.378
+M20,dc+gauss0.5+bp,direct_only,envelope,5.3993,0.5225,-2.61,0.378
+M20,dc+gauss0.5+bp,direct_only,signed_min,4.4911,-0.3856,1.93,0.378
+M20,dc+gauss0.5+bp,both,envelope,5.2403,0.3636,-1.82,0.378
+M20,dc+gauss0.5+bp,both,signed_min,4.3672,-0.5096,2.55,0.378
+M20,dc+gauss0.5+bp,test_full,envelope,5.2403,0.3635,-1.82,0.378
+M20,dc+gauss0.5+bp,test_full,signed_min,4.3672,-0.5096,2.55,0.378
+M20,dc+gauss0.5+bp,code_detect_zero_events,envelope,5.2403,0.3635,-1.82,n_events=2;h_est=0.362
+M20,dc+gauss1+bpL0.125,surface_only,envelope,4.879,0.0022,-0.01,0.27
+M20,dc+gauss1+bpL0.125,surface_only,signed_min,5.4223,0.5455,-2.73,0.27
+M20,dc+gauss1+bpL0.125,direct_only,envelope,5.4237,0.5469,-2.73,0.27
+M20,dc+gauss1+bpL0.125,direct_only,signed_min,4.5063,-0.3704,1.85,0.27
+M20,dc+gauss1+bpL0.125,both,envelope,5.1631,0.2863,-1.43,0.27
+M20,dc+gauss1+bpL0.125,both,signed_min,4.3744,-0.5024,2.51,0.27
+M20,dc+gauss1+bpL0.125,test_full,envelope,5.1631,0.2863,-1.43,0.27
+M20,dc+gauss1+bpL0.125,test_full,signed_min,4.3744,-0.5024,2.51,0.27
+M20,dc+gauss1+bpL0.125,code_detect_zero_events,envelope,5.1631,0.2863,-1.43,n_events=2;h_est=0.348
+M20,dc+gauss1+bpL0.5,surface_only,envelope,4.8765,-0.0002,0.0,0.395
+M20,dc+gauss1+bpL0.5,surface_only,signed_min,5.4141,0.5373,-2.68,0.395
+M20,dc+gauss1+bpL0.5,direct_only,envelope,5.4136,0.5368,-2.68,0.395
+M20,dc+gauss1+bpL0.5,direct_only,signed_min,4.4817,-0.3951,1.97,0.395
+M20,dc+gauss1+bpL0.5,both,envelope,5.28,0.4032,-2.01,0.395
+M20,dc+gauss1+bpL0.5,both,signed_min,4.3609,-0.5159,2.58,0.395
+M20,dc+gauss1+bpL0.5,test_full,envelope,5.28,0.4032,-2.01,0.395
+M20,dc+gauss1+bpL0.5,test_full,signed_min,4.3609,-0.5159,2.58,0.395
+M20,dc+gauss1+bpL0.5,code_detect_zero_events,envelope,5.28,0.4032,-2.01,n_events=2;h_est=0.369
+M20,dc+gauss1+bp order2,surface_only,envelope,4.8778,0.001,-0.01,0.408
+M20,dc+gauss1+bp order2,surface_only,signed_min,5.4255,0.5487,-2.74,0.408
+M20,dc+gauss1+bp order2,direct_only,envelope,nan,nan,nan,0.408
+M20,dc+gauss1+bp order2,direct_only,signed_min,4.5623,-0.3145,1.57,0.408
+M20,dc+gauss1+bp order2,both,envelope,5.156,0.2792,-1.4,0.408
+M20,dc+gauss1+bp order2,both,signed_min,4.4078,-0.469,2.34,0.408
+M20,dc+gauss1+bp order2,test_full,envelope,5.156,0.2792,-1.4,0.408
+M20,dc+gauss1+bp order2,test_full,signed_min,4.4078,-0.469,2.34,0.408
+M20,dc+gauss1+bp order2,code_detect_zero_events,envelope,5.156,0.2792,-1.4,n_events=2;h_est=0.347

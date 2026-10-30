@@ -1,6 +1,6 @@
 ---
 name: zero-and-apex-pitfalls
-description: Time-zero/apex picking traps verified on gprMax synthetics (h=0.1 merged events, argmax|mean| picks direct wave, global-max apex fails on water pipes, mean vs median background, boxcar dewow ghost lobes, polarity-dependent two-event split, window QC event tracking)
+description: Time-zero/apex picking traps verified on gprMax synthetics (h=0.1 merged events, argmax|mean| picks direct wave, global-max apex fails on water pipes, mean vs median background, boxcar dewow ghost lobes, polarity-dependent two-event split, window QC event tracking, surface-event interference bias, weak Z1)
 metadata:
   type: project
 ---
@@ -18,6 +18,8 @@ Verified 2026-10-29 with analysis/processing/zero_reference_check.py (results in
 - Bandpass/dewow move the M20 late (surface) event: raw +0.18, boxcar +0.23, Gaussian/no-dewow +0.29 ns vs json. Do not tune R2 on raw-data numbers.
 - Two-event separation is polarity-dependent (analytic Ricker after (1)-(3)): opposite polarity splits at gap >= 0.75/f_c (h_sep = 0.375 c/f_c, 0.22 m @500 MHz); same polarity re-merges at 0.65-1.0/f_c. "1.2/f_c, h<=0.15 m" was wrong.
 - Window QC must track the selected event, not "last peak" (ground/single zero is the first peak).
+- (2026-10-30, analysis/processing/surface_zero_shift.py) The late-event delay is pure direct-wave INTERFERENCE: an isolated surface reflection moves <=0.003 ns through (1)-(3) (zero-phase). Opposite-polarity envelopes repel; bandpass roughly doubles it (analytic h0.3: raw +0.055 -> +0.12; M20 +0.18 -> +0.29), dewow adds only ~0.01. Bias depends on gap/amp ratio/wavelet and flips sign near the split limit (h 0.25, amp -3: -0.08) -> no constant correction; test windows must be bias-aware, not "processing-redefined" (processed isolated peak == geometric truth).
+- Z1 tail 0.6 does NOT discriminate box vs Gaussian dewow with current thresholds (box ghost 10.0 % height, just under); tail 0.8 does (box 2 events at ~+1.9 ns, Gaussian 1).
 
 **Why:** these are non-obvious failure modes that recur when verifying python-expert implementations.
 **How to apply:** check them first in verify/review of src/gpr_detection/preprocess/timezero.py and depth/picks.py; see [[spec-depth-v1]].

@@ -6,6 +6,7 @@
 - 1차 근거: `docs/research/depth_physics.md`([DP]), `docs/processing/fourtu_explore.md`([FX]), `docs/datasets/aihub_71327.md` §4, `docs/datasets/audit_pipe_band_shape_v1.md`([AU]), `docs/datasets/readme_4tu.md` §5, ADR-002, ADR-004
 - **사용자 결정(2026-10-30, 확인 필요 질문 Q1–Q4 모두 권고안)**: Q1 가정 v(데이터셋 기본 εr) **허용 안 함**(`dataset_default_eps=None`, 출처 없으면 `no_velocity`·τ만) · Q2 측방 이격 편향은 **보정 없이** `bias_notes`·`lateral_bias_max_m` 상한만 · Q3 조각 박스 묶기는 라벨 v2 여부와 무관하게 **깊이 단계에서 항상** · Q4 경사 띠 대표 깊이는 **박스 중심**(양끝·경사율은 `depth_profile`·`grade`). Q5(4TU 끝단간 평가에서 `pipe_band`는 헝가리안 매칭에 넣지 않고 따로 보고)는 권고안대로 두고 M3 때 다시 본다.
 - 이 명세를 위한 탐색 실행: `conda run -n gpr-dev python -I analysis/processing/pipe_band_check.py` (단일 프로세스, 약 30 s, 시드 0) → `docs/processing/pipe_band_check_synthetic.csv`, `pipe_band_check_geometry.csv`, `pipe_band_check_oblique.csv`, `pipe_band_check.png` (§10에 요약)
+- [S] v1.2 동기화(2026-10-30): `air_surface_late` $\sigma_z$ 0.3 ns(§6-3 $\sigma_z$는 [S] §9를 그대로 씀), UB14 시각 기준을 [S] Z7 창으로 바꿈. 띠 규칙과 그 밖의 시험은 그대로다
 
 ---
 
@@ -112,7 +113,7 @@ $$d_\text{top}=\frac{v\,\tau_\text{ref}}{2},\qquad \tau_\text{ref}=t_{b,\text{re
 1. [S] §3 (1)–(3)(DC → dewow → 영위상 밴드패스)까지 처리한 자료로 [S] §4-1 사건 검출을 한다. **gain은 쓰지 않는다.**
 2. **추가 규칙**: 평균 트레이스를 만들 때 `pipe_band` 박스(좌우 여유 $m$ 트레이스 포함)에 속한 트레이스는 뺀다. 측선 전체가 띠 박스면 빼지 않고 `zero_band_overlap` 플래그를 붙인다.
    - 이유: 수평 띠는 평균 트레이스에서 상쇄되지 않는다. 띠가 영점 탐색 창 $[0,\ t_\text{max}+2h_\text{max}/c+0.5/f_c]$ 안에 있으면 공기결합 규칙(`late` = 창 안 마지막 피크)이 띠를 지표 반사로 잡는다. 4TU에서 εr 9, $h_\text{max}$ 0.5 m면 창 끝이 영점 뒤 약 4.3 ns이고, $d\lesssim0.21$ m인 띠가 여기에 걸린다.
-   - 이 규칙은 `pipe_hyperbola` 깊이에도 이롭다. `preprocess/timezero.py`와 `detect_zero_events`는 아직 커밋되지 않았다(2026-10-30 현재 `preprocess/`에는 `__init__.py`·`to_image.py`·`filters.py`·`signals.py`(M2-1)가 있고, `timezero.py`는 M2-2 승인 전이다). 이 모듈은 **신규로 M2-2·M2-3과 함께 구현**하고, 처음부터 `exclude_traces` 인자를 포함한다.
+   - 이 규칙은 `pipe_hyperbola` 깊이에도 이롭다. `preprocess/timezero.py`(`detect_zero_events`·`find_time_zero`의 `exclude_traces` 인자, `ZeroResult`·`ZeroEvents` 포함)는 M2-2에서 구현됐다(2026-10-30, [S] §13-1–13-3).
 3. 트레이스별 영점 $t_{z,j}$(이동 정합, [FX] P3)는 선택 사항이다. 기본값은 전역 $t_z$이고, 측선 영점 이동 std가 0.2 ns를 넘으면 트레이스별 영점을 쓴다([FX] 011.14 계단 근거). 기본값을 바꾸는 일은 M2-9 spec v2에서 [S]와 함께 정한다.
 
 ### 3-2. 띠 갈래 배경 제거 (masked median)
@@ -335,12 +336,12 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 | `src/gpr_detection/depth/band.py` | `BandConfig`, `BandPicks`, `BandFit`, `BandGeometry`, `group_band_boxes`, `masked_background`, `extract_band_picks`, `fit_band_profile`, `estimate_band_depth`, `estimate_band_depths` |
 | `src/gpr_detection/depth/velocity.py` | `VelocityEstimate`, `VelocityChoice`, `velocity_estimate_from(result)`, `select_band_velocity` |
 | `src/gpr_detection/depth/result.py` (또는 `estimate.py` 안) | 공통 `DepthResult`(+`target_class`, `band`) — M2-3/M2-4 구현과 함께 정한다 |
-| `src/gpr_detection/preprocess/timezero.py` | **신규**(아직 없음, M2-2·M2-3과 함께 구현). `detect_zero_events(..., exclude_traces: np.ndarray \| None = None)`는 처음부터 이 인자를 포함한다. `ZeroResult` dataclass도 여기에 둔다 |
+| `src/gpr_detection/preprocess/timezero.py` | M2-2에서 구현됨(2026-10-30). `detect_zero_events(..., exclude_traces: np.ndarray \| None = None)`·`find_time_zero(..., exclude_traces=...)`가 이 인자를 받고, `ZeroResult`·`ZeroEvents` dataclass도 여기에 있다([S] §13-1·13-2) |
 | `src/gpr_detection/pipeline.py` | 순서: 영점(띠 트레이스 제외) → `pipe_hyperbola` 깊이 → 속도 풀 → `pipe_band` 깊이. `pipe_band` `GridBox`도 depth로 넘긴다(ADR 개정 뒤) |
 | `tests/depth/test_band_*.py` | §9-1·§9-2 |
 
 - **import 규칙**: `depth/band.py`·`depth/velocity.py`는 `io.radargram`(`Radargram`, `GridBox`)과 `preprocess`만 import한다. `detect`·`pipeline`·검출 라이브러리는 import하지 않는다(ADR-004 결정 7, README §2-2). 클래스 이름 문자열 `"pipe_band"`은 결과 표시에만 쓴다. 박스 클래스 판별은 pipeline이 한다.
-- 포락선·포물선 보간·영점 사건은 `depth/picks.py`·`preprocess/timezero.py`([S] §13 배치안, 둘 다 신규)와 같은 함수를 공유한다. 위상 기준이 같아야 하기 때문이다.
+- 포락선·포물선 보간·영점 사건은 `depth/picks.py`·`preprocess/timezero.py`([S] §13 배치안. `timezero.py`는 M2-2에서 구현됨, `picks.py`는 M2-3 예정)와 같은 함수를 공유한다. 위상 기준이 같아야 하기 때문이다.
 
 ### 8-2. 시그니처
 
@@ -484,7 +485,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | UB11 | 스케일 없음(`dt_ns=None`) | `status=="no_scale"`, m·ns 필드 전부 None, `ref_sample` 오차 ≤ 1 px |
 | UB12 | v 출처: (a) 지면 + 적격 쌍곡선 풀 → `neighbor_hyperbola` (b) `air_gap="air"` + 풀 → `meta_fixed`(풀 무시) (c) 지면, 풀·메타 없음 → `no_velocity`, `t0_ns` 채움 (d) `dataset_default_eps=None`이면 순서 5에서 깊이 없음 | 규칙 이름 일치 |
 | UB13 | UB1 시간축 1.18배 + 이웃 쌍곡선 v도 1/1.18배 (GPR-SD A/B) | 깊이 변화 ≤ 1 mm |
-| UB14 | 영점 탐색 창 안의 얕은 띠(d 0.15 m, 공기결합 모의, 띠가 측선 60 %) | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 미사용 시와 비교 기록 |
+| UB14 | 영점 탐색 창 안의 얕은 띠(d 0.15 m, 공기결합 모의, 띠가 측선 60 %) | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록 |
 | UB15 | `pick_mode` 불일치 | `ValueError` |
 
 ### 9-2. 회귀 시험 (2D gprMax 의사 띠, `tests/depth/test_band_synthetic.py`, `@pytest.mark.synthetic`)

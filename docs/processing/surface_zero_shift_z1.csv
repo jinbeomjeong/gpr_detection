@@ -1,0 +1,13 @@
+variant,n_events,events_ns,max_side_envelope_rel,envelope_rel_at_pm3ns
+raw,2,5.108;6.756,0.177,0.11
+dc,2,5.108;6.761,0.191,0.104
+dc+gauss1,2,4.800;5.112,0.267,0.047
+dc+gauss1+bp (current),1,4.946,0.397,0.066
+dc+bp (no dewow),1,4.938,0.389,0.065
+dc+box3 (no bp),2,4.799;5.111,0.269,0.08
+dc+box3+bp (v1),1,4.942,0.394,0.121
+dc+gauss2+bp,1,4.939,0.39,0.066
+dc+gauss0.5+bp,1,4.967,0.421,0.043
+dc+gauss1+bpL0.125,1,4.933,0.367,0.052
+dc+gauss1+bpL0.5,1,4.994,0.453,0.097
+dc+gauss1+bp order2,1,4.980,0.424,0.062
