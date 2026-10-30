@@ -142,6 +142,20 @@ def test_estimate_period_px_rejects_out_of_range_or_flat_data() -> None:
     assert estimate_period_px(np.zeros((64, 3))) is None
 
 
+def test_short_carrier_period_above_the_lower_bound_is_kept() -> None:
+    """[S] section 3 v1.7: a 2.4 px period (above 2.2 px) is not skipped."""
+    carrier = np.sin(2 * np.pi * np.arange(240) / 2.4)  # 100 whole cycles
+    data = np.tile(carrier[:, None], (1, 10)).astype(np.float32)
+    assert estimate_period_px(remove_dc(data)) == pytest.approx(2.4)
+    radargram = make_radargram(
+        BScanSpec(), data=data, dt_ns=None, dx_m=None, f_c_hz=None
+    )
+    branch = prepare_fitting_branch(radargram)
+    assert "bandpass_px" in branch.steps
+    assert branch.period_px == pytest.approx(2.4)
+    assert branch.flags == ()
+
+
 def test_bandpass_px_is_zero_phase() -> None:
     pulse = ricker(TIME_NS - 12.345, F_C_HZ)
     filtered = bandpass_px(pulse[:, None], period_px=50.0)[:, 0]

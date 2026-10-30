@@ -1,0 +1,41 @@
+model_id,pipe_material,air_gap_m,eps_r,coverage,status,zero_rule,t_zero_ns,d_true_m,d_band_m,d_err_cm,band_minus_apex_rule_cm,v_rule,model,bg_mode,band_coverage,sigma_res_ns,confidence,flags,seconds
+M01,pec,0.0,9.0,0.4,ok,ground_direct_peak,4.2592,0.3,0.2639,-3.61,-0.0,meta_fixed,flat,masked_median,1.0,0.0047,1.0,meta_eps_unverified,0.65
+M01,pec,0.0,9.0,1.0,ok,ground_direct_peak,4.2595,0.3,0.2637,-3.63,-0.02,meta_fixed,flat,none,1.0,0.012,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.63
+M02,pec,0.0,9.0,0.4,ok,ground_direct_peak,4.2591,0.6,0.5648,-3.52,-0.04,meta_fixed,flat,masked_median,1.0,0.0233,0.994,meta_eps_unverified,0.7
+M02,pec,0.0,9.0,1.0,ok,ground_direct_peak,4.2598,0.6,0.5648,-3.52,-0.04,meta_fixed,flat,none,1.0,0.0081,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.64
+M03,pec,0.0,9.0,0.4,ok,ground_direct_peak,4.2598,1.0,0.9661,-3.39,-0.04,meta_fixed,flat,masked_median,1.0,0.003,1.0,meta_eps_unverified,0.77
+M03,pec,0.0,9.0,1.0,ok,ground_direct_peak,4.2596,1.0,0.9654,-3.46,-0.11,meta_fixed,flat,none,1.0,0.0075,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.98
+M04,pec,0.0,9.0,0.4,ok,ground_direct_peak,4.2593,1.5,1.4669,-3.31,-0.12,meta_fixed,flat,masked_median,1.0,0.0092,0.999,meta_eps_unverified,0.92
+M04,pec,0.0,9.0,1.0,ok,ground_direct_peak,4.2593,1.5,1.4666,-3.34,-0.15,meta_fixed,flat,none,1.0,0.0086,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,1.74
+M05,pec,0.0,9.0,0.4,ok,ground_direct_peak,4.2588,0.6,0.5622,-3.78,-0.12,meta_fixed,flat,masked_median,1.0,0.003,1.0,meta_eps_unverified,0.91
+M05,pec,0.0,9.0,1.0,ok,ground_direct_peak,4.259,0.6,0.5632,-3.68,-0.02,meta_fixed,flat,none,1.0,0.0078,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,1.04
+M06,pec,0.0,9.0,0.4,ok,ground_direct_peak,4.2578,0.6,0.5655,-3.45,0.02,meta_fixed,flat,masked_median,1.0,0.0059,1.0,meta_eps_unverified,1.1
+M06,pec,0.0,9.0,1.0,ok,ground_direct_peak,4.2595,0.6,0.565,-3.5,-0.03,meta_fixed,flat,none,1.0,0.0064,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.75
+M07,pvc_air,0.0,9.0,0.4,ok,ground_direct_peak,4.2597,0.6,0.5787,-2.13,0.01,meta_fixed,flat,masked_median,1.0,0.0048,1.0,meta_eps_unverified,0.68
+M07,pvc_air,0.0,9.0,1.0,ok,ground_direct_peak,4.2593,0.6,0.5802,-1.98,0.16,meta_fixed,flat,none,1.0,0.01,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,1.82
+M08,pvc_water,0.0,9.0,0.4,ok,ground_direct_peak,4.2602,0.6,0.5755,-2.45,0.06,meta_fixed,flat,masked_median,1.0,0.0035,1.0,surface_multiple_candidate meta_eps_unverified,5.0
+M08,pvc_water,0.0,9.0,1.0,ok,ground_direct_peak,4.2604,0.6,0.5759,-2.41,0.1,meta_fixed,flat,none,1.0,0.0073,0.8,zero_band_overlap surface_multiple_candidate touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,2.74
+M09,pec,0.0,4.0,0.4,ok,ground_direct_peak,4.0709,0.6,0.559,-4.1,-0.02,meta_fixed,flat,masked_median,1.0,0.0045,1.0,meta_eps_unverified,0.54
+M09,pec,0.0,4.0,1.0,ok,ground_direct_peak,4.0726,0.6,0.5561,-4.39,-0.29,meta_fixed,flat,none,1.0,0.0073,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.55
+M10,pec,0.0,16.0,0.4,ok,ground_direct_peak,4.4754,0.6,0.5677,-3.23,-0.06,meta_fixed,flat,masked_median,1.0,0.0078,0.999,meta_eps_unverified,0.8
+M10,pec,0.0,16.0,1.0,ok,ground_direct_peak,4.476,0.6,0.5675,-3.25,-0.08,meta_fixed,flat,none,1.0,0.0083,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,1.0
+M11,pec,0.0,9.0,0.4,ok,ground_direct_peak,3.5518,0.6,0.5657,-3.43,-0.1,meta_fixed,flat,masked_median,1.0,0.004,1.0,meta_eps_unverified,0.66
+M11,pec,0.0,9.0,1.0,ok,ground_direct_peak,3.5503,0.6,0.5662,-3.38,-0.05,meta_fixed,flat,none,1.0,0.0072,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.63
+M12,pec,0.1,9.0,0.4,ok,air_single_event,3.8716,0.6,0.6182,1.82,-0.07,meta_fixed,flat,masked_median,1.0,0.0039,1.0,meta_eps_unverified,0.97
+M12,pec,0.1,9.0,1.0,ok,air_single_event,3.8713,0.6,0.6189,1.89,-0.0,meta_fixed,flat,none,1.0,0.0068,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.86
+M13,pvc_air,0.1,4.0,0.4,ok,air_single_event,3.1808,1.0,1.0355,3.55,-0.1,meta_fixed,flat,masked_median,1.0,0.0036,1.0,meta_eps_unverified,0.59
+M13,pvc_air,0.1,4.0,1.0,ok,air_single_event,3.1808,1.0,1.0368,3.68,0.03,meta_fixed,flat,none,1.0,0.0054,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.46
+M14,pvc_water,0.0,16.0,0.4,ok,ground_direct_peak,3.8118,0.3,0.2669,-3.31,-0.14,meta_fixed,flat,masked_median,1.0,0.0039,1.0,inner_reflection_candidate meta_eps_unverified,2.96
+M14,pvc_water,0.0,16.0,1.0,ok,ground_direct_peak,3.8129,0.3,0.2666,-3.34,-0.17,meta_fixed,flat,none,1.0,0.0082,0.799,zero_band_overlap inner_reflection_candidate touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,3.34
+M15,pec,0.1,16.0,0.4,ok,air_single_event,3.8913,1.5,1.5195,1.95,-0.17,meta_fixed,flat,masked_median,1.0,0.0051,1.0,meta_eps_unverified,1.43
+M15,pec,0.1,16.0,1.0,ok,air_single_event,3.8915,1.5,1.5191,1.91,-0.2,meta_fixed,flat,none,1.0,0.0075,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,1.89
+M16,pec,0.0,4.0,0.4,ok,ground_direct_peak,3.3568,1.0,0.9576,-4.24,-0.16,meta_fixed,flat,masked_median,1.0,0.0061,0.999,inner_reflection_candidate meta_eps_unverified,1.55
+M16,pec,0.0,4.0,1.0,ok,ground_direct_peak,3.3565,1.0,0.958,-4.2,-0.12,meta_fixed,flat,none,1.0,0.0074,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.57
+M17,pvc_air,0.0,16.0,0.4,ok,ground_direct_peak,4.4806,0.3,0.2742,-2.58,0.05,meta_fixed,flat,masked_median,1.0,0.0046,1.0,meta_eps_unverified,1.71
+M17,pvc_air,0.0,16.0,1.0,ok,ground_direct_peak,4.4767,0.3,0.2741,-2.59,0.03,meta_fixed,flat,none,1.0,0.0096,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.84
+M18,pvc_water,0.1,9.0,0.4,ok,air_single_event,3.8715,1.0,1.0282,2.82,-0.02,meta_fixed,flat,masked_median,1.0,0.0066,1.0,meta_eps_unverified,3.61
+M18,pvc_water,0.1,9.0,1.0,ok,air_single_event,3.8712,1.0,1.0285,2.85,0.01,meta_fixed,flat,none,1.0,0.0064,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,4.89
+M19,pec,0.0,16.0,0.4,ok,ground_direct_peak,4.4735,1.0,0.9697,-3.03,-0.13,meta_fixed,flat,masked_median,1.0,0.0038,1.0,meta_eps_unverified,0.85
+M19,pec,0.0,16.0,1.0,ok,ground_direct_peak,4.4736,1.0,0.9695,-3.05,-0.15,meta_fixed,flat,none,1.0,0.0071,0.8,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,0.95
+M20,pec,0.3,9.0,0.4,ok,air_surface_late,5.1687,0.6,0.584,-1.6,-0.18,meta_fixed,flat,masked_median,1.0,0.0054,1.0,inner_reflection_candidate meta_eps_unverified,0.59
+M20,pec,0.3,9.0,1.0,ok,air_surface_late,5.1685,0.6,0.5845,-1.55,-0.13,meta_fixed,flat,none,1.0,0.0069,0.799,zero_band_overlap touches_profile_edge_left touches_profile_edge_right bg_none meta_eps_unverified,1.16

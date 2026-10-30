@@ -12,7 +12,7 @@
 | ID | 기능 | 근거 |
 |---|---|---|
 | FR-1 | B-scan 영상에서 4개 클래스(`pipe_hyperbola`, `pipe_band`, `cavity`, `manhole`) 박스 검출 | ROADMAP 확정 결정, ADR-003 |
-| FR-2 | 물리 스케일(dt_ns, dx_m)이 있는 입력에서 `pipe_hyperbola` 박스마다 관 상단 깊이(m)·불확도·플래그 산출 | CLAUDE.md, spec_depth_v1 §2 |
+| FR-2 | 물리 스케일(dt_ns, dx_m)이 있는 입력에서 `pipe_hyperbola` 박스마다 관 상단 깊이(m)·불확도·플래그 산출. `pipe_band`는 띠 상단 시각으로 깊이를 내되 v 출처가 없으면 `no_velocity`(2026-10-30, ADR-002 결정 8) | CLAUDE.md, spec_depth_v1 §2, spec_band_depth_v1 §4–§6 |
 | FR-3 | 스케일이 없는 입력(AIHub·모로코 JPG)은 꼭짓점 픽셀·시간 위치와 `no_scale`만 산출 | spec_depth_v1 §0-1, §7 순서 1 |
 | FR-4 | `gpr-detect infer <파일>` → 박스 + 깊이 JSON/PNG | ROADMAP M5 |
 | FR-5 | 검증 경로(검출: AIHub test 홀드아웃 1회 측정 + train_pool 5-fold): gprMax 합성 회귀(R1–R13), 4TU 활동 단위 깊이 검증(13개 현장 전체, 튜닝 없음), 검출 mAP(AIHub 세션 그룹 k-fold) | ROADMAP M1·M2, 사용자 답변 2026-10-29 |
@@ -116,8 +116,8 @@ flowchart LR
 | `preprocess` | `filters`(DC·dewow·bandpass·median 배경 제거·AGC), `timezero`(영점 사건 검출·선택), `to_image`(검출 갈래 영상화와 `ImageGridMap`) | QA-2, QA-8 |
 | `detect` | `Detector` 프로토콜, 백엔드 래퍼(`yolo.py`, M4에 `rfdetr.py`), 증강 어댑터(`yolo_train.py`, 증강 본체는 최상위 `augment.py`). **ultralytics·rfdetr import는 여기에만** | QA-1, QA-7, CRN-4 |
 | `augment` | 백엔드 공통 B-scan 광도 증강 4종(가우시안 잡음·대비/감마·수평 띠 잡음·트레이스 누락). numpy만 사용(torch·cv2·ultralytics·rfdetr 금지) | QA-1, M1-7 |
-| `depth` | 점 추출·RANSAC·least_squares(R 고정)·굴절 모델·v 결정표·불확도 → `DepthResult` | FR-2, QA-2, QA-3 |
-| `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`만)와 좌표 변환을 적용 | FR-4, QA-8 |
+| `depth` | 점 추출·RANSAC·least_squares(R 고정)·굴절 모델·v 결정표·불확도 → `DepthResult`. M2-6b: `band.py`(띠 상단 픽·masked median·flat/sloped/curved)·`velocity.py` 속도 풀(`VelocityEstimate`, `select_band_velocity`) | FR-2, QA-2, QA-3 |
+| `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`·`pipe_band`, `cavity`·`manhole` 제외)와 좌표 변환을 적용. 측선 단위 깊이 호출 순서(ADR-004 결정 7)는 M3-1·M5-1에서 구현 | FR-4, QA-8 |
 | `cli` | `gpr-detect infer` | FR-4 |
 | `scripts/` | 데이터 빌드·평가 진입점. 패키지를 import하고 **패키지는 `scripts/`를 import하지 않는다** | QA-5, FR-5 |
 
@@ -140,10 +140,12 @@ flowchart TB
     detector["Detector.predict<br/>모델 입력 좌표 L2 + InputTransform"]
   end
   mapBox["pipeline 좌표 변환<br/>L2 → L1 → L0 GridBox"]
-  subgraph depthBranch["피팅 갈래 (gain 금지)"]
-    tz["timezero<br/>배경 제거 전"]
+  subgraph depthBranch["피팅 갈래 (gain 금지, 측선 단위)"]
+    tz["① timezero<br/>배경 제거 전, 띠 트레이스 제외"]
     bgF["median 배경 제거"]
-    est["estimate_depth<br/>pipe_hyperbola만"]
+    est["② estimate_depth<br/>pipe_hyperbola"]
+    vPool["③ 속도 풀<br/>VelocityEstimate"]
+    bandEst["④ estimate_band_depths<br/>pipe_band, branch 재사용, masked median"]
   end
   out["DepthResult + Detection<br/>JSON / PNG"]
   rg --> common
@@ -151,13 +153,20 @@ flowchart TB
   detector -->|"Detection: L2 xyxy, InputTransform"| mapBox
   common --> tz
   common --> bgF
-  mapBox -->|"GridBox: trace i0..i1, sample k0..k1"| est
-  tz -->|"t_z, zero_rule"| est
+  common -->|"FittingBranch.filtered"| bandEst
+  mapBox -->|"GridBox pipe_hyperbola"| est
+  mapBox -->|"GridBox pipe_band"| bandEst
+  mapBox -.->|"exclude_traces"| tz
+  tz -->|"ZeroResult"| est
+  tz -->|"ZeroResult"| bandEst
   bgF --> est
+  est --> vPool
+  vPool -->|"pool, survey_pool"| bandEst
   est --> out
+  bandEst --> out
 ```
 
-검증: Mermaid Chart 검증 도구 통과(2026-10-29). 갈래 분리 근거는 spec_depth_v1 §3(피팅은 gain 없는 시간축, 영점은 배경 제거 전).
+검증: Mermaid Chart 검증 도구 통과(2026-10-29, `pipe_band` 경로 추가 뒤 다시 통과 2026-10-30). 갈래 분리 근거는 spec_depth_v1 §3(피팅은 gain 없는 시간축, 영점은 배경 제거 전). 띠 갈래는 측선 전체 median 배경 제거 대신 박스 밖 트레이스로만 구한 masked median을 쓴다(spec_band_depth_v1 §3-2). ①–④는 측선 단위 호출 순서(ADR-004 결정 7)다. 영점·쌍곡선·띠는 같은 (1)–(3) 전처리 자료(`FittingBranch`, `prepare_depth_inputs`가 만든 `inputs.branch`)를 공유하고, ④는 `estimate_band_depths(..., branch=inputs.branch)`로 받는다(2026-10-31, M2-6b 구현). 조사 단위 풀(`survey_pool`)은 같은 조사 단위의 모든 측선에서 ②가 끝난 뒤 모은다.
 
 좌표는 세 층이다. 각 층의 소유자와 변환 책임을 고정한다. **좌표 역변환(L2 → L1 → L0)은 `pipeline`이 한 곳에서 공통으로 한다**(사용자 결정 2026-10-29). 대안·트레이드오프·반올림 규칙 비교는 [ADR-004](ADR-004-coordinate-contract.md)에 있다.
 
@@ -219,16 +228,16 @@ class GridBox:            # io/radargram.py
 - `ImageGridMap`은 등방 여부와 무관하게 축별 배율을 따로 가진다(4TU 512×N 측선은 가로세로 배율이 다를 수 있음).
 - 스케일 없는 입력(AIHub·모로코)도 L0가 정의된다(이미지 픽셀 = 격자). `dt_ns=None`이라 깊이는 `no_scale`(QA-4). 라벨 박스 `io/annotated.py`의 `Box`(원본 이미지 px)는 이 경우 L0 좌표다.
 - `GridBox`는 `io/radargram.py`에 구현됨(M1-8, 닫힌 구간 `i0..i1`·`k0..k1`). `detect`·`depth`가 서로 import하지 않고 같은 타입을 쓴다.
-- `depth`는 `Detection`을 모른다. `pipeline`이 `class_name == "pipe_hyperbola"`인 것만 `GridBox`로 바꿔 넘긴다(ADR-002·ADR-003). `pipe_band` 깊이는 M2-6 명세 뒤에 같은 계약으로 추가한다.
+- `depth`는 `Detection`을 모른다. `pipeline`이 `class_name`이 `pipe_hyperbola`인 박스는 `estimate_depth`로, `pipe_band`인 박스는 `depth.band`(`estimate_band_depths`)로 `GridBox`(L0)로 바꿔 넘긴다(ADR-002 결정 8, ADR-004 결정 7, 2026-10-30 개정). 측선마다 영점(`prepare_depth_inputs(..., exclude_traces=띠 트레이스)`)을 한 번 구해 두 클래스가 같은 `ZeroResult`를 쓴다. `pipeline`의 이 연결은 M3-1·M5-1에서 구현한다.
 
 ## 3. 결정 요약
 
 | ADR | 결정 | 드라이버 | 상태 |
 |---|---|---|---|
 | [ADR-001](ADR-001-detector-migration.md) | YOLO11m 초안 → RF-DETR S/M 이전, `Detector` 프로토콜 뒤로 격리 | QA-1, QA-7, CON-1, CON-3 | Accepted 2026-10-29 |
-| [ADR-002](ADR-002-physics-based-depth.md) | 물리 기반 쌍곡선 피팅, 공기결합은 지표 반사 영점·v 고정, R 고정, 스케일 없으면 m 금지 | QA-2, QA-3, QA-4, FR-2, FR-3 | Accepted 2026-10-29 |
+| [ADR-002](ADR-002-physics-based-depth.md) | 물리 기반 쌍곡선 피팅, 공기결합은 지표 반사 영점·v 고정, R 고정, 스케일 없으면 m 금지. `pipe_band`는 띠 상단 시각(꼭짓점 시각 규칙), v는 이웃 쌍곡선 → 메타 εr → 조사 단위 중앙값 → `no_velocity`(가정 v 금지) | QA-2, QA-3, QA-4, FR-2, FR-3 | Accepted 2026-10-29, 결정 8 개정 2026-10-30 |
 | [ADR-003](ADR-003-data-split-and-classes.md) | 클래스 4개, 그룹 키 단위 분할(AIHub 세션·크롭 키, 모로코 그룹, 4TU 현장), 기준점 두 가정 보고 | QA-5, QA-6, QA-3, FR-1 | Accepted 2026-10-29 |
-| [ADR-004](ADR-004-coordinate-contract.md) | 3층 좌표 계약(L0·L1·L2), 역변환은 pipeline 공통, 바깥쪽 반올림 | QA-8, QA-1, FR-2, FR-3, QA-4, CRN-2, CRN-4 | Accepted 2026-10-30(결정 2026-10-29) |
+| [ADR-004](ADR-004-coordinate-contract.md) | 3층 좌표 계약(L0·L1·L2), 역변환은 pipeline 공통, 바깥쪽 반올림. 깊이 호출은 측선 단위 영점(띠 제외) → 쌍곡선 → 속도 풀 → 띠 | QA-8, QA-1, FR-2, FR-3, QA-4, CRN-2, CRN-4 | Accepted 2026-10-30(결정 2026-10-29), 결정 7 개정 2026-10-30 |
 | (이 문서) | 단일 패키지 계층형 + 두 갈래 | QA-1, CRN-2, CRN-4 | 확정 2026-10-29 |
 
 ## 4. 분석 (반복 1, ADD ⑦단계)
@@ -266,7 +275,7 @@ class GridBox:            # io/radargram.py
 | 드라이버 | 상태 | 다음 반복 |
 |---|---|---|
 | FR-1, QA-1, QA-7 | 부분 해결 | 반복 2(M1-8 `Detector` 구현 검토), 반복 4(M4 이전) |
-| FR-2, FR-3, QA-2, QA-3, QA-4 | 부분 해결 | 반복 3(M2 구현 결과로 판정) |
+| FR-2, FR-3, QA-2, QA-3, QA-4 | 부분 해결 | 반복 3(M2 구현 결과로 판정). `pipe_band` 깊이 규칙은 ADR-002 결정 8(2026-10-30)로 정함, M2-6b 시험·M3-1/M5-1 `pipeline` 연결 남음 |
 | QA-5, QA-6 | 부분 해결 | 반복 2(M1-3 매니페스트 검토) |
 | QA-8 | 부분 해결(ADR-004) | 반복 3(M3-1 좌표 시험) |
 | FR-4, FR-5 | 미착수 | 반복 5(M5 통합) |
@@ -274,3 +283,12 @@ class GridBox:            # io/radargram.py
 | 성능(추론 지연) | 드라이버 없음 | M5 전에 필요 여부 확인 |
 
 반복 로드맵: 1회차(이 문서) 최상위 구조·좌표 계약·ADR 3건 → 2회차 M1 산출물(io·detect·분할) 검토 → 3회차 M2·M3-1(깊이·좌표 계약) 검토 → 4회차 M4 이전 결과로 ADR-001 갱신(M4-5) → 5회차 M5 배포·라이선스.
+
+## 7. 변경 이력
+
+| 날짜 | 변경 | 근거 |
+|---|---|---|
+| 2026-10-29 | 최초 작성(반복 1, M0-12) | 사용자 답변 Q1–Q5 |
+| 2026-10-30 | ADR-004 추가(§2-3 좌표 결정 이관) | `adr_lint.py` 고아 드라이버 경고 |
+| 2026-10-30 | `pipe_band` 깊이 반영: FR-2, §2-2 `depth`·`pipeline` 책임, §2-3 데이터 흐름 뷰(속도 풀·띠 경로·띠 트레이스 제외 영점 추가, ①–④ 측선 단위 순서), §2-3 계약 규칙 마지막 항목, §3 ADR-002·ADR-004 요약, §6 백로그 | ADR-002 결정 8·ADR-004 결정 7 개정, spec_band_depth_v1(M2-6), 사용자 결정 Q1–Q4 |
+| 2026-10-31 | §2-3 데이터 흐름 뷰 ④ 노드·`FittingBranch.filtered` 연결선 추가, 설명에 같은 `FittingBranch` 공유와 `branch=inputs.branch` 명시 | M2-6b 구현(`depth/band.py`), ADR-004 결정 7 정정, integrity-checker 지적 |

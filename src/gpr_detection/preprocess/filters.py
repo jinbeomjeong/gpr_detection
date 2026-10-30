@@ -49,8 +49,13 @@ AGC_WINDOW_PERIODS = 8.0
 AGC_DEFAULT_WINDOW_NS = 16.0
 """AGC window when ``f_c`` is unknown (equals 8 / 500 MHz, assumed)."""
 
-PIXEL_PERIOD_RANGE_PX = (4.0, 128.0)
-"""No-scale input: the pixel band-pass runs only for dominant periods in this range."""
+PIXEL_PERIOD_RANGE_PX = (2.2, 128.0)
+"""No-scale input: the pixel band-pass runs only for dominant periods in this range.
+
+2.2 px ~ 1 / 0.45: the shortest period whose pass band still exists under the
+0.45 cycle/px upper cut-off ([S] section 3 v1.7). AIHub crops have a radar
+carrier near 4 px, so the earlier 4 px lower bound skipped many of them.
+"""
 
 _HZ_PER_GHZ = 1e9
 
@@ -66,12 +71,15 @@ class FittingBranch:
         steps: Names of the steps that actually ran, in order, e.g.
             ``("dc", "dewow", "bandpass", "background_median")``.
         flags: e.g. ``bandpass_px_skipped``.
+        period_px: No-scale input: dominant period used by ``bandpass_px``;
+            ``None`` when skipped or when the input has a time axis.
     """
 
     filtered: np.ndarray
     background_removed: np.ndarray
     steps: tuple[str, ...]
     flags: tuple[str, ...] = ()
+    period_px: float | None = None
 
 
 def _period_ns(f_c_hz: float) -> float:
@@ -162,19 +170,26 @@ def estimate_period_px(data: np.ndarray) -> float | None:
     ``f_px`` cycles/px; the period is ``1 / f_px``.
 
     Returns:
-        The period, or ``None`` when it lies outside 4-128 px or the data are flat.
+        The period, or ``None`` when it lies outside 2.2-128 px or the data are flat.
+    """
+    period_px = dominant_period_px(data)
+    low_px, high_px = PIXEL_PERIOD_RANGE_PX
+    if period_px is None or not low_px <= period_px <= high_px:
+        return None
+    return period_px
+
+
+def dominant_period_px(data: np.ndarray) -> float | None:
+    """``1 / f_px`` of the trace-averaged spectrum without the 2.2-128 px range check.
+
+    For reporting skipped inputs; ``None`` only for flat data.
     """
     values = np.asarray(data, dtype=np.float64)
     spectrum = np.abs(np.fft.rfft(values, axis=0)).mean(axis=1)
     frequencies = np.fft.rfftfreq(values.shape[0], d=1.0)
     if len(spectrum) < 2 or not spectrum[1:].max() > 0:
         return None
-    f_px = float(frequencies[1 + int(np.argmax(spectrum[1:]))])
-    period_px = 1.0 / f_px
-    low_px, high_px = PIXEL_PERIOD_RANGE_PX
-    if not low_px <= period_px <= high_px:
-        return None
-    return period_px
+    return 1.0 / float(frequencies[1 + int(np.argmax(spectrum[1:]))])
 
 
 def bandpass_px(data: np.ndarray, period_px: float) -> np.ndarray:
@@ -261,7 +276,7 @@ def prepare_fitting_branch(
       both sections are the stored amplitudes (step name ``"upstream"``).
     * ``dt_ns is None`` (no-scale JPG input, spec v1.3): DC, then a pixel
       band-pass around the dominant period (``bandpass_px``, skipped with flag
-      ``bandpass_px_skipped`` outside 4-128 px), then background removal.
+      ``bandpass_px_skipped`` outside 2.2-128 px), then background removal.
       Dewow needs a time axis and is not run.
     * ``f_c_hz is None``: band-pass is skipped, dewow uses sigma 2 ns.
 
@@ -275,6 +290,7 @@ def prepare_fitting_branch(
 
     steps = ["dc"]
     flags: list[str] = []
+    period_px = None
     section = remove_dc(radargram.data)
     if radargram.dt_ns is None:
         period_px = estimate_period_px(section)
@@ -291,7 +307,9 @@ def prepare_fitting_branch(
             steps.append("bandpass")
     background_removed = remove_background(section, background_window)
     steps.append("background_median")
-    return FittingBranch(section, background_removed, tuple(steps), tuple(flags))
+    return FittingBranch(
+        section, background_removed, tuple(steps), tuple(flags), period_px
+    )
 
 
 def period_ns_or_default(f_c_hz: float | None, default_ns: float) -> float:

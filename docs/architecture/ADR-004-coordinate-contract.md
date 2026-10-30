@@ -1,6 +1,6 @@
 # ADR-004: 검출↔깊이 좌표는 3층(L0·L1·L2) 계약으로 고정하고, 역변환은 `pipeline` 한 곳에서 한다
 
-- 상태: Accepted (2026-10-30 문서화. 결정은 2026-10-29 사용자 답변 Q2로 확정, M1-8에서 구현)
+- 상태: Accepted (2026-10-30 문서화. 결정은 2026-10-29 사용자 답변 Q2로 확정, M1-8에서 구현). 결정 7 개정 2026-10-30(`pipe_band` 전달·측선 단위 처리 순서, 아래 변경 이력)
 - 날짜: 2026-10-30
 - 관련 드라이버: QA-8(좌표 계약), QA-1(검출기 교체), FR-2, FR-3, QA-4, CRN-2, CRN-4 — 정의는 [README](README.md) §1
 - 반복: 1회차 결정의 기록 보완 (README §2-3에만 있던 결정을 ADR로 옮김, 2026-10-30 `adr_lint.py` 고아 드라이버 경고 대응)
@@ -30,6 +30,14 @@ L1 → L0 반올림 규칙(대안 A 안의 하위 결정):
 | 가장 가까운 정수로 반올림 | 대칭, 평균 편향 없음 | 0.5 경계에서 셀을 잃을 수 있고 영폭 박스가 0셀이 된다 | 기각 |
 | 안쪽 반올림 | 배경을 덜 포함 | 작은 박스가 사라지고 꼭짓점이 잘릴 수 있다 | 기각 |
 
+깊이 갈래 호출 순서(결정 7의 하위 결정, 2026-10-30 추가):
+
+| 대안 | 장점 | 단점 | 판정 |
+|---|---|---|---|
+| **P1. `pipeline`이 측선 단위로 영점(띠 트레이스 제외) → 쌍곡선 → 속도 풀 → 띠 순서로 부른다. `depth` 함수는 측선 하나·박스 목록만 안다** (채택) | 영점을 한 번 구해 두 클래스가 같은 영점을 쓴다(위상 기준 일치, ADR-002 결정 4). 조사 단위 풀처럼 측선을 넘는 상태가 `depth` 밖에 있어 `depth`는 순수 함수로 시험된다(CRN-2) | `pipeline`에 순서 규칙과 조사 단위 묶기가 생긴다. 조사 단위 풀이 필요하면 두 단계 처리 | 채택 (FR-2, QA-2, CRN-2) |
+| P2. `depth`에 측선 단위 진입점 하나(두 클래스 박스 목록을 받아 내부에서 순서 처리) | `pipeline`이 단순 | 조사 단위 풀은 여러 측선을 봐야 해 결국 `depth` 밖 상태가 필요하다. 클래스 이름을 `depth`가 알아야 한다 | 보류(측선 내부만 감싸는 편의 함수로는 M2-6b에서 허용) |
+| P3. 박스마다 영점을 따로 구한다 | 박스 사이 의존 없음 | 띠 트레이스가 섞인 영점이 생기고(band §3-1, d ≲ 0.21 m 띠를 지표 반사로 오인) 같은 측선에서 영점이 달라진다 | 기각 |
+
 ## 결정
 
 1. 좌표는 세 층이다. 층마다 정의 위치를 고정한다.
@@ -41,7 +49,14 @@ L1 → L0 반올림 규칙(대안 A 안의 하위 결정):
 4. 역변환 L2 → L1 → L0는 `pipeline.py`에만 둔다(`model_box_to_image_box` → `image_box_to_grid_box`, 묶음 `model_box_to_grid_box`·`detections_to_grid_boxes`). 반올림은 위 표의 바깥쪽 규칙(허용 오차 `GRID_ROUNDING_TOLERANCE = 1e-6`), 격자 범위로 자르고, 격자와 겹치지 않으면(letterbox 패딩 안 등) 버린다(`None`).
 5. `ImageGridMap`은 등방 여부와 무관하게 축별 배율을 따로 가진다. 스케일 없는 입력(AIHub·모로코)은 `ImageGridMap.identity`(이미지 픽셀 = 격자)를 쓴다.
 6. 세로축은 모든 층에서 시간 증가 방향이 아래다. 상하 반전은 어느 층에도 없다(augmentation_policy §1).
-7. `depth`는 `Detection`을 모른다. `pipeline`이 `pipe_hyperbola`만 `GridBox`로 바꿔 넘긴다(ADR-002 결정 8).
+7. `depth`는 `Detection`을 모른다. 박스의 클래스 판별은 `pipeline`이 하고, `pipe_hyperbola`와 `pipe_band` 박스를 `GridBox`(L0)로 바꿔 각각 `depth`(쌍곡선)와 `depth.band`로 넘긴다. `cavity`·`manhole`은 깊이로 넘기지 않는다(ADR-002 결정 8, 개정 2026-10-30, 근거 spec_band_depth_v1 §2·§8-1). `depth/band.py`·`depth/velocity.py`도 `io.radargram`·`preprocess`만 import하고 `detect`·`pipeline`은 import하지 않는다(README §2-2 규칙 1). 처리 순서는 측선(radargram) 단위로 고정한다.
+   1. **영점(측선당 한 번)**: `prepare_depth_inputs(radargram, config, exclude_traces=<pipe_band 박스 트레이스(좌우 여유 포함)>)` → `DepthInputs(branch, zero)`. 띠 박스 트레이스를 평균 트레이스에서 빼고(`find_time_zero`의 `exclude_traces`), 측선 전체가 띠면 빼지 않고 `zero_band_overlap`을 붙인다(band §3-1). 제외 마스크는 `pipeline`이 L0 `GridBox`에서 만든다.
+   2. **쌍곡선**: `pipe_hyperbola` 박스마다 `estimate_depth(radargram, box, config, inputs=inputs)`. 같은 `inputs`(같은 영점)를 재사용한다(M2-4 구조).
+   3. **속도 풀**: 2의 `DepthResult`마다 `velocity_estimate_from(result, *, line_id, source_index, survey_key=None)` → 측선 풀(`pool`, v가 없는 결과는 `None`이라 빠진다). 지면결합의 조사 단위 풀(`survey_pool`)은 같은 조사 단위 키(`survey_key`)의 모든 측선에서 2를 끝낸 뒤 모은다.
+   4. **띠**: `estimate_band_depths(radargram, band_boxes, inputs.zero, pool, survey_pool, cfg, branch=inputs.branch)`. 조각 박스 묶기는 여기서 한다(Q3). `branch`를 넘기지 않으면 `band`가 (1)–(3)을 다시 계산한다.
+   - 영점·쌍곡선·띠는 같은 (1)–(3) 전처리 자료(`FittingBranch`, `inputs.branch`)를 공유한다. 영점은 `filtered`, 쌍곡선은 `background_removed`(측선 median), 띠는 `filtered`에서 박스 밖 트레이스로 masked median을 따로 구한다(spec_band_depth_v1 §3-2).
+   - 조사 단위 풀이 필요하면 조사 단위 안의 모든 측선에 1–3을 먼저 하고 4를 나중에 하는 두 단계 처리가 된다. 조사 단위 풀이 없으면(4TU 공기결합·합성) 측선 하나로 끝난다.
+   - 함수 이름·인자는 spec_band_depth_v1 §8-2를 따르고 `depth/band.py`·`depth/velocity.py`에 구현됨(2026-10-31, M2-6b). `pipeline`의 이 연결 구현은 **M3-1(좌표 경로)·M5-1(`gpr-detect infer`) 몫**이고, 2026-10-30 현재 `pipeline.py`에는 좌표 역변환만 있고 깊이 호출은 없다.
 8. QA-8 판정 기준: 격자에 맞춘 박스의 L0 → L1 → L2 → L0 왕복은 **정확히 같은 `GridBox`**, 연속 박스의 L1 → L2 → L1 왕복은 ≤ 0.5 px, 검출 박스의 L0 복원 오차는 바깥쪽 반올림 때문에 각 변 1 trace·1 sample 미만(바깥쪽으로만 넓어짐). README QA-8 척도 ≤ 1 trace·1 sample은 사용자가 2026-10-30에 확정했다.
 
 ## 결과
@@ -72,12 +87,24 @@ L1 → L0 반올림 규칙(대안 A 안의 하위 결정):
 - M3-1: 실측 경로(M3-2 `DetectionImage` + `ImageGridMap`)로 L0 왕복 시험을 추가하고 QA-8을 판정한다. 판정 기준(확정 2026-10-30): 격자에 맞춘 `GridBox`는 L0 → L1 → L2 → L0 왕복 오차 0(정확히 같은 `GridBox`), 검출 박스의 L0 복원은 바깥쪽 반올림으로 각 변 1 trace·1 sample 미만만 넓어짐(안쪽으로 줄어들면 실패).
 - M4-4: RF-DETR 래퍼의 `InputTransform`(정사각 늘림이면 `scale_x ≠ scale_y`) 왕복 시험 ≤ 0.5 px.
 - M3-2: 타일 분할·겹침과 중복 박스 병합 규칙을 정하면 이 ADR의 위험 항목을 갱신한다.
+- M3-1·M5-1(결정 7): `pipeline`에 측선 단위 깊이 호출 순서(영점 → 쌍곡선 → 속도 풀 → 띠)와 `exclude_traces` 마스크 생성을 구현하고, 띠 박스가 있는 측선의 영점이 띠 트레이스를 뺀 값인지 시험한다. 지면결합 조사 단위 풀을 쓰려면 로더 `metadata`에 조사 단위 키(광저우 `zone`, GPR-SD 도로)가 있어야 한다(band §5-1). 2026-10-30 현재 `io/` 로더에는 조사 단위 키 필드가 따로 없고, `file_id`(광저우 `<target>/<mission_zone>/<file>`, GPR-SD `<road>_<line>`)에서 뽑을 수 있다 `[추정]`(코드 읽기).
 
 ## 근거 문서
 
 - [README](README.md) §2-3 — 3층 좌표 표, 인터페이스 스케치, 계약 규칙, §5 Q2(사용자 답변 2026-10-29)
 - [ADR-001](ADR-001-detector-migration.md) 결정 3 — `Detector` 프로토콜과 `InputTransform` 반환
-- [ADR-002](ADR-002-physics-based-depth.md) 결정 7·8 — 피팅 갈래, 깊이 대상 클래스
+- [ADR-002](ADR-002-physics-based-depth.md) 결정 7·8 — 피팅 갈래, 깊이 대상 클래스(`pipe_band` 규칙 2026-10-30)
+- [`docs/processing/spec_band_depth_v1.md`](../processing/spec_band_depth_v1.md) §2(입력 계약·ADR 반영 요청), §3-1(띠 트레이스 제외 영점), §5(속도 풀), §8-1·§8-2(모듈 배치·시그니처)
+- [`docs/processing/spec_depth_v1.md`](../processing/spec_depth_v1.md) §13(`prepare_depth_inputs`·`estimate_depth`, `ZeroResult` 정본)
 - [`docs/experiments/augmentation_policy.md`](../experiments/augmentation_policy.md) §1, §4 — 상하 반전 금지, RF-DETR 정사각 리사이즈
 - 코드: `src/gpr_detection/pipeline.py`, `src/gpr_detection/preprocess/to_image.py`, `src/gpr_detection/detect/base.py`, `src/gpr_detection/io/radargram.py`, `tests/test_detect_contract.py`
-- [`docs/CHECKLIST.md`](../CHECKLIST.md) M1-8(완료), M3-1, M3-2, M4-4
+- [`docs/CHECKLIST.md`](../CHECKLIST.md) M1-8(완료), M2-6b, M3-1, M3-2, M4-4, M5-1
+- 코드(결정 7): `src/gpr_detection/depth/estimate.py`(`prepare_depth_inputs`·`estimate_depth`·`DepthInputs`), `src/gpr_detection/preprocess/timezero.py`(`find_time_zero`의 `exclude_traces`), `src/gpr_detection/depth/band.py`(`estimate_band_depths`)·`velocity.py`(`velocity_estimate_from`·속도 풀)·`result.py`(`band` 필드) — 구현됨(2026-10-31, M2-6b)
+
+## 변경 이력
+
+| 날짜 | 변경 | 근거 |
+|---|---|---|
+| 2026-10-30 | 최초 문서화(결정 1–8) | README §2-3, 사용자 답변 Q2(2026-10-29), M1-8 |
+| 2026-10-30 | 결정 7 개정: `pipe_band` 박스도 `depth.band`로 전달, 측선 단위 처리 순서(영점·띠 트레이스 제외 → 쌍곡선 → 속도 풀 → 띠), 하위 결정 표 P1–P3, `pipeline` 연결은 M3-1·M5-1 몫 명시 | spec_band_depth_v1 §2·§8, ADR-002 결정 8 개정, M2-6b와 함께 개정(사용자 결정 2026-10-30) |
+| 2026-10-31 | 결정 7 정정(M2-6b 구현 대조): ③ `velocity_estimate_from` 실제 시그니처, ④ `branch=inputs.branch` 추가, 같은 `FittingBranch` 공유 명시, "구현 중"·"`band` 필드 자리" → 구현됨 | `depth/band.py`·`velocity.py`·`estimate.py` 코드, integrity-checker 지적 |

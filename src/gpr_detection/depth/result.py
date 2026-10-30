@@ -1,8 +1,8 @@
 """Depth result shared by ``pipe_hyperbola`` (M2-4) and ``pipe_band`` (M2-6b).
 
-Fields follow spec_depth_v1 section 2; ``target_class`` comes from
-spec_band_depth_v1 section 6-1 (the ``band`` geometry field is added in M2-6b).
-List-valued fields are tuples so the result stays immutable.
+Fields follow spec_depth_v1 section 2; ``target_class`` and ``band``
+(:class:`BandGeometry`) come from spec_band_depth_v1 section 6-1. List-valued
+fields are tuples so the result stays immutable.
 """
 
 from collections.abc import Mapping
@@ -11,10 +11,12 @@ from enum import StrEnum
 from typing import Literal
 
 AltDepthLabel = Literal["direct_wave", "surface_reflection", "merged", "unclassified"]
+BandModel = Literal["flat", "sloped", "curved"]
+BandBackgroundMode = Literal["masked_median", "none", "upstream"]
 
 
 class DepthStatus(StrEnum):
-    """``DepthResult.status`` values (spec 2; ``no_velocity`` from the band spec)."""
+    """``DepthResult.status`` values (spec 2; band spec 6-2 adds the last three)."""
 
     OK = "ok"
     NO_SCALE = "no_scale"
@@ -22,6 +24,54 @@ class DepthStatus(StrEnum):
     FIT_FAILED = "fit_failed"
     ZERO_FAILED = "zero_failed"
     NO_VELOCITY = "no_velocity"
+    BAND_IN_ZERO_ZONE = "band_in_zero_zone"
+    INCONSISTENT_PICKS = "inconsistent_picks"
+
+
+@dataclass(frozen=True)
+class BandGeometry:
+    """Band geometry of a ``pipe_band`` result (spec_band_depth_v1 section 6-1).
+
+    Attributes:
+        model: ``flat``, ``sloped`` or ``curved`` (section 3-5).
+        ref_trace: Representative trace (L0, fractional), also without scale.
+        ref_sample: Representative sample (L0, fractional), also without scale.
+        x_ref_m: ``ref_trace * dx`` when scaled.
+        t_band_ns: Band-top time on the record clock when scaled.
+        trace_range: ``(i0, i1)`` of the (merged) box.
+        member_indices: Input box indices merged into this band (section 3-4).
+        coverage: Picked traces / member box traces (gaps excluded).
+        n_picks: Picked traces.
+        sigma_res: ``1.4826 MAD`` of the model residuals (ns, or px).
+        slope_ns_per_m: ``sloped`` only.
+        grade: ``sloped`` only, ``v/2 * slope`` (m/m).
+        theta_est_deg: ``curved`` with a velocity only.
+        depth_profile: ``sloped``: ``((x, d), ...)`` at both ends and the centre.
+        bg_mode: Background removal used (section 3-2).
+        lateral_bias_max_m: Upper bound of the lateral-offset bias (section 6-3).
+        confidence: Pick quality ``q`` in [0, 1] (section 6-4).
+        fragment_neighbors: ``(box index, delta tau)`` of candidate fragments
+            that were not merged (section 3-4 item 4); delta in ns or px.
+    """
+
+    model: BandModel
+    ref_trace: float
+    ref_sample: float
+    x_ref_m: float | None
+    t_band_ns: float | None
+    trace_range: tuple[int, int]
+    member_indices: tuple[int, ...]
+    coverage: float
+    n_picks: int
+    sigma_res: float
+    slope_ns_per_m: float | None
+    grade: float | None
+    theta_est_deg: float | None
+    depth_profile: tuple[tuple[float, float], ...] | None
+    bg_mode: BandBackgroundMode
+    lateral_bias_max_m: float | None
+    confidence: float
+    fragment_neighbors: tuple[tuple[int, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -78,7 +128,10 @@ class DepthResult:
         eps_r_refraction_qc_range: ``(eps_lo, eps_hi)`` over ``h_est - 0.06 m``
             to ``h_est`` (rule 2a, v1.4).
         sigma_zero_ns: Zero uncertainty used in ``sigma_depth_m``.
-        sigma_apex_ns: Apex-time uncertainty used in ``sigma_depth_m``.
+        sigma_apex_ns: Apex-time uncertainty used in ``sigma_depth_m`` (for a
+            band: the band-top time uncertainty ``sigma_b``).
+        band: Band geometry for ``target_class="pipe_band"``, else ``None``.
+            Band results leave the apex fields ``None``.
     """
 
     status: DepthStatus
@@ -110,3 +163,4 @@ class DepthResult:
     eps_r_refraction_qc_range: tuple[float, float] | None = None
     sigma_zero_ns: float | None = None
     sigma_apex_ns: float | None = None
+    band: BandGeometry | None = None

@@ -8,6 +8,9 @@
 - 이 명세를 위한 탐색 실행: `conda run -n gpr-dev python -I analysis/processing/pipe_band_check.py` (단일 프로세스, 약 30 s, 시드 0) → `docs/processing/pipe_band_check_synthetic.csv`, `pipe_band_check_geometry.csv`, `pipe_band_check_oblique.csv`, `pipe_band_check.png` (§10에 요약)
 - [S] v1.2 동기화(2026-10-30): `air_surface_late` $\sigma_z$ 0.3 ns(§6-3 $\sigma_z$는 [S] §9를 그대로 씀), UB14 시각 기준을 [S] Z7 창으로 바꿈. 띠 규칙과 그 밖의 시험은 그대로다
 - [S] v1.3 동기화(2026-10-30): 스케일 없는 입력의 (1)–(3)에 [S] §3 픽셀 단위 밴드패스 `bandpass_px`가 들어간다. 띠 갈래도 [S] 전처리를 물려받으므로 그대로 적용한다. 띠의 px 기준(1·2·3 px)은 바꾸지 않는다. UB11은 M2-6b 구현 때 `bandpass_px` 적용 상태로 다시 잰다
+- **v1.1 (M2-6b 구현 대조, 2026-10-30)**: §8-2 `branch` 인자와 내부 추가 인자 확인, §3-3 다중 사건·창 끝 플래그 규칙, §3-5·§6-4 스케일 없는 입력의 픽셀 기준을 우세 주기 $P_\text{px}$에 묶음(코드 수정 필요), §5-2 `velocity_estimate_from` 규칙, §6-2 상태 집합, §6-4 잡음 구간 길이, §9-1 UB2 측정식·UB14 깊이 0.1 m, §9-2 BR 영점 경로·실측값, §9-4 AIHub 플래그 해석
+- **v1.2 (band v1.1 반영 대조, 2026-10-30)**: AIHub $P_\text{px}\approx4$ px는 레이다 반송파로 판정. v1.1 $P_\text{px}$ 기준은 유지하고 §9-4 해석을 정정(v1.1 기대가 틀림). §3-5 문턱 근거를 §11 미결로 옮김, UB11 주기 단언 기준, [S] v1.7 주기 범위 2.2–128 px 동기화
+- **v1.3 (M2-6b 커밋 전 정합, 2026-10-31)**: §8-1 실제 배치(`BandConfig`→config.py, `BandGeometry`→result.py, 단수 `estimate_band_depth` 삭제), §5-2·§8-1 `velocity_estimate_from` 시그니처, §8-2 `period_px` 인자, §3-4 coverage 분자(구성 트레이스만, ≤1), §6-2 `inconsistent_picks` px 기준·스케일 없을 때 모든 실패 → `no_scale`, `pad_*_periods`는 코드가 읽음, §9-4 하한 2.2 px 재측정 수치
 
 ---
 
@@ -146,6 +149,8 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 4. 트레이스마다 창 안 `find_peaks(E, height=0.3·E_box)`의 **첫 피크**를 고르고 포물선 보간으로 $t_{b,j}$를 잡는다. 0.3은 [S] §5-2 씨앗 문턱과 같다.
 5. 고른 피크가 창 위 끝 2 샘플 안이면 그 트레이스에 `top_at_window_edge`를 기록한다. 이런 트레이스가 30 %를 넘으면 결과 플래그로 올린다.
 6. **다중 사건 표시**(정보용): 같은 트레이스에서 첫 피크 뒤 $E\ge0.5E_\text{box}$인 피크 $t_2$가 있고, $|\tau_2/\tau_1-2|<0.1$이면 `surface_multiple_candidate`를 붙인다. $\tau_2-\tau_1<2/f_c$이면 `inner_reflection_candidate`를 붙인다. 깊이에는 첫 피크만 쓴다.
+   - v1.1 확인: $t_2$는 첫 피크 뒤 **트레이스 끝까지** 찾는다(창으로 자르지 않는다. 비율·간격 조건이 이미 사건을 좁힌다).
+   - 결과 플래그는 `top_at_window_edge`와 같이 해당 트레이스가 픽 트레이스의 30 %를 넘을 때만 올린다.
 7. `pick_mode`는 영점과 같아야 한다([S] §5-5). 기본값은 `"envelope"`이고, `"onset"`은 API에 두지 않는다(표 A3).
 
 ### 3-4. 조각 박스 묶기 (`group_band_boxes`)
@@ -156,7 +161,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
    - $G$ = 스케일 없음: 8 트레이스(=px, [AU] 권고 1의 보수값)
    - $G$ = 스케일 있음: $\lceil0.2\ \text{m}/\Delta x\rceil$ (4TU 10 트레이스) (**가정**)
 2. 확인: 각 조각에서 §3-3 픽을 낸다. 맞닿는 쪽 끝 5 트레이스의 픽 중앙값 차가 $|\Delta\tau|\le\max(0.5/f_c,\ 3\Delta t)$(스케일 없으면 3 px)이면 같은 띠로 묶는다.
-3. 묶음은 이행적으로 반복한다. 결과는 합집합 박스 하나와 구성 박스 인덱스 `member_indices`다. 간격 트레이스도 픽을 시도하되 coverage 분모에는 넣지 않는다.
+3. 묶음은 이행적으로 반복한다. 결과는 합집합 박스 하나와 구성 박스 인덱스 `member_indices`다. 간격 트레이스도 픽을 시도하되 coverage 분모에는 넣지 않는다. v1.3: 분자도 구성 박스 트레이스의 픽만 센다. 따라서 coverage ≤ 1이다. 간격 트레이스 픽은 `fit_band_profile`에만 쓴다.
 4. 묶지 않은 조각은 각각 결과를 낸다. 같은 관의 조각이 따로 남을 수 있으므로 `fragment_of_group` 정보(이웃 조각 인덱스, $\Delta\tau$)를 남긴다.
 
 ### 3-5. 트레이스 방향 집계와 모델 선택 (`fit_band_profile`)
@@ -177,7 +182,16 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 - **꼭짓점이 범위 밖**(최소 시각이 박스 끝): 교차점이 박스 밖에 있다. `sloped`로 처리하고 `crossing_outside_box`를 붙인다. 이른 쪽 끝 깊이가 깊이의 상한 쪽 추정이다.
 - $p_2<0$이고 유의하면(가운데가 늦은 볼록) 관 기하로 설명되지 않는다(지층·지표 굴곡). `band_concave` 플래그를 붙이고 `flat`/`sloped`로 처리한다.
 - `sloped`이면 경사율 $g=\frac{v}{2}q_1$ (m/m)과 `depth_profile`(박스 양끝과 중심의 $(x, d)$)을 낸다. 영점이 트레이스별이 아니면 겉보기 경사에 영점 이동(지표 단차)이 섞일 수 있다. 공기결합에서 영점 이동 std > 0.2 ns이면 `slope_may_include_zero_drift`를 붙인다.
-- **잔차 일관성**: 채택 모델 잔차의 $1.4826\,\mathrm{MAD}$ = $\sigma_\text{res}$. $\sigma_\text{res}>0.25/f_c$(500 MHz 0.5 ns, 스케일 없으면 2 px)이면 서로 다른 사건이 섞였다고 보고 `inconsistent_picks` 실패로 처리한다.
+- **잔차 일관성**: 채택 모델 잔차의 $1.4826\,\mathrm{MAD}$ = $\sigma_\text{res}$. $\sigma_\text{res}>0.25/f_c$(500 MHz 0.5 ns, 스케일 없으면 아래 규칙)이면 서로 다른 사건이 섞였다고 보고 `inconsistent_picks` 실패로 처리한다.
+- **스케일 없는 입력의 픽셀 기준(v1.1)**: $1/f_c$ 자리에 [S] §3 `bandpass_px`가 추정한 우세 주기 $P_\text{px}$(px)를 쓴다. 표로 정리하면 아래와 같다. `bandpass_px_skipped`로 $P_\text{px}$가 없을 때만 고정 px 값(괄호 안)을 쓴다.
+  - f_scale $0.05P_\text{px}$ (1 px)
+  - `inconsistent_picks` 문턱 $0.25P_\text{px}$ (2 px)
+  - `sloped` 최소 변화 $0.1P_\text{px}$ (2 px)
+  - 묶기 허용 $\max(0.5P_\text{px},3)$ px (3 px)
+  - $q_\text{res}$ 척도 $0.125P_\text{px}$ (1 px)
+  - 이유: px는 시간 단위가 아니므로 1·2 px 고정값은 영상 세로 해상도에 따라 뜻이 달라진다. AIHub 표본(§9-4)에서 고정값으로 `inconsistent_picks` 30/51, confidence 중앙값 0.00이 나왔다. 파형 한 주기에 묶는 것은 단위를 맞추는 일이지 AIHub에 맞춘 조정이 아니다.
+  - v1.2 확인: AIHub의 $P_\text{px}$는 약 4.2 px(train_pool 2.44–4.83)였다. 레이다 반송파이고 압축 잡음이 아니다([S] §3 v1.7 근거). 그래서 이 규칙을 유지한다. 고정 2 px는 우연히 약 0.5 주기, 새 문턱 $0.25P_\text{px}$는 약 1 px로 오히려 엄격해졌다. 결과 `inconsistent_picks`가 30 → 39/51(v1.1 재측정, 하한 4 px; [S] v1.7 하한 2.2 px 뒤 42/51, §9-4)로 늘어난 것은 AIHub 띠 픽이 실제로 0.25–0.5 주기만큼 흩어진다는 뜻이다. 문턱을 AIHub에 맞춰 바꾸지 않는다(§6-4: AIHub로는 분포만 본다). 스케일 없는 결과는 `no_scale`이라 이 플래그가 깊이에 영향을 주지 않는다. 0.25 주기 문턱 자체의 타당성은 §11 미결이다.
+  - 스케일 없는 입력에서 `inconsistent_picks`·`band_concave`는 `status="no_scale"`이 우선하고 플래그로만 남긴다(QA-4). $\sigma_b$는 바닥값 없이 $n_\text{eff}=n$으로 둔다(px, 참고값).
 
 ### 3-6. 가장자리에서 잘린 띠
 
@@ -236,6 +250,9 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 
 - 적격 쌍곡선의 `radius_used_m`이 0이면 `bias_notes`에 `"neighbor_v_radius_unknown: v up to +17 %"`([S] v1.6 `RADIUS_UNKNOWN_NOTE`와 같은 값, R11 처리된 픽 실측 +16.5 %)를 넣는다. 교차각은 항상 미상이므로 `"neighbor_v_oblique_unknown: v,d over by 1/sin(theta)"`를 넣는다.
 - 쓴 쌍곡선 인덱스와 각 v는 `v_sources`에 남긴다.
+- `velocity_estimate_from(result, *, line_id, source_index, survey_key=None) -> VelocityEstimate`(v1.1 확인, v1.3 시그니처):
+  - `DepthResult`에는 양쪽 픽 수가 없다. 하지만 `v_rule=="curvature_R_fixed"`·`status=="ok"`이면 [S] §5-4 양쪽 ≥3이 이미 보장된다(`fit_curvature`가 아니면 `insufficient_picks`). 그래서 충족으로 본다.
+  - `radius_known` = `radius_used_m > 0`이다(기지 관경 0은 물리적으로 없음).
 
 ---
 
@@ -287,7 +304,9 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 | `zero_failed` | 영점 사건 없음([S] §10) | None | `band.ref_*`(px) |
 | `band_in_zero_zone` | §3-7 | None | 박스 정보 |
 | `insufficient_picks` | coverage < 0.3 또는 `n_picks` < 5 (**가정**) | None | 있는 픽 요약 |
-| `inconsistent_picks` | $\sigma_\text{res}>0.25/f_c$ (스케일 없으면 2 px) | None | 픽 요약 |
+| `inconsistent_picks` | $\sigma_\text{res}>0.25/f_c$ (스케일 없으면 $0.25P_\text{px}$, $P_\text{px}$ 없으면 2 px; §3-5) | None | 픽 요약 |
+
+- v1.1: `band_in_zero_zone`·`inconsistent_picks`는 `DepthStatus` 값으로 구현됐다([S] §2 집합 + `no_velocity` + 이 둘). 스케일이 없으면 모든 실패보다 `no_scale`이 우선하고, 실패 사유는 같은 이름의 플래그로 남는다(`insufficient_picks`, `inconsistent_picks` 등; v1.3 확인 — [S] `estimate_depth`가 스케일 없음을 먼저 반환하는 것과 같은 규칙). 스케일이 없으면 뮤트가 없으므로 `band_in_zero_zone`은 생기지 않는다.
 
 공통 플래그(일부): `zero_band_overlap`, `bg_none`, `band_bg_removed_upstream`, `top_at_window_edge`, `surface_multiple_candidate`, `inner_reflection_candidate`, `band_oblique_large`, `crossing_outside_box`, `band_concave`, `steep_band`, `slope_may_include_zero_drift`, `touches_profile_edge_left/right`, `fragment_of_group`, `zero_px_unverified`, `v_assumed`, `meta_eps_unverified`, `amplitude_processed`, `dt_hypothesis_A/B`.
 
@@ -309,8 +328,8 @@ $$\sigma_d=\sqrt{\Big(d\,\frac{\sigma_v}{v}\Big)^2+\Big(\frac v2\Big)^2\big(\sig
 
 $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\Big(1,\frac{\text{coverage}}{0.6}\Big),\quad q_\text{res}=\exp\!\Big[-\Big(\frac{\sigma_\text{res}}{0.125/f_c}\Big)^2\Big],\quad q_\text{snr}=\mathrm{clip}\Big(\frac{\mathrm{SNR}_\text{dB}-6}{14},0,1\Big)$$
 
-- $\mathrm{SNR}_\text{dB}=20\log_{10}\big(\operatorname{median}_jE(t_{b,j})/\hat\sigma_n\big)$. $\hat\sigma_n$은 탐색 창 바로 위 $[k_\text{lo}-2/f_c,\ k_\text{lo})$ 구간(뮤트 이후만)의 배경 제거 진폭의 $1.4826\,\mathrm{MAD}$다. 구간이 없으면 창 아래 같은 길이를 쓴다.
-- 스케일 없으면 $0.125/f_c$ 대신 1 px을 쓴다.
+- $\mathrm{SNR}_\text{dB}=20\log_{10}\big(\operatorname{median}_jE(t_{b,j})/\hat\sigma_n\big)$. $\hat\sigma_n$은 탐색 창 바로 위 $p_\uparrow+p_\downarrow$ 샘플(=$1.5/f_c$; v1.1에서 구현대로 2/f_c를 바꿈, 차이는 무시할 만함) 구간(뮤트 이후만)의 배경 제거 진폭의 $1.4826\,\mathrm{MAD}$다. 구간이 없으면 창 아래 같은 길이를 쓴다.
+- 스케일 없으면 $0.125/f_c$ 대신 $0.125P_\text{px}$(없으면 1 px)를 쓴다(§3-5 v1.1).
 - `band_bg_removed_upstream`·`bg_none`이면 $q$에 0.8을 곱한다. 계수와 문턱은 모두 **가정**이고, AIHub test 라벨 박스로 분포만 보고(§9-4) 4TU로는 조정하지 않는다.
 
 ---
@@ -334,8 +353,10 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 
 | 모듈 | 내용 |
 |---|---|
-| `src/gpr_detection/depth/band.py` | `BandConfig`, `BandPicks`, `BandFit`, `BandGeometry`, `group_band_boxes`, `masked_background`, `extract_band_picks`, `fit_band_profile`, `estimate_band_depth`, `estimate_band_depths` |
-| `src/gpr_detection/depth/velocity.py` | `VelocityEstimate`, `VelocityChoice`, `velocity_estimate_from(result)`, `select_band_velocity` |
+| `src/gpr_detection/depth/band.py` | `BandPicks`, `BandFit`, `group_band_boxes`, `masked_background`, `band_exclude_traces`, `extract_band_picks`, `fit_band_profile`, `estimate_band_depths` (v1.3 실제 배치: 단수 `estimate_band_depth`는 두지 않음) |
+| `src/gpr_detection/depth/config.py` | `BandConfig`(v1.3: 순환 import를 피하려고 `DepthConfig`와 같은 파일) |
+| `src/gpr_detection/depth/result.py` | `BandGeometry`(+`fragment_neighbors`), `DepthResult.band` |
+| `src/gpr_detection/depth/velocity.py` | `VelocityEstimate`, `VelocityChoice`, `velocity_estimate_from(result, *, line_id, source_index, survey_key=None)`, `select_band_velocity` |
 | `src/gpr_detection/depth/result.py` | 공통 `DepthResult` — M2-4에서 구현됨(`target_class` 포함). `band` 필드는 M2-6b에서 추가 |
 | `src/gpr_detection/preprocess/timezero.py` | M2-2에서 구현됨(2026-10-30). `detect_zero_events(..., exclude_traces: np.ndarray \| None = None)`·`find_time_zero(..., exclude_traces=...)`가 이 인자를 받고, `ZeroResult`·`ZeroEvents` dataclass도 여기에 있다([S] §13-1·13-2) |
 | `src/gpr_detection/pipeline.py` | 순서: 영점(띠 트레이스 제외) → `pipe_hyperbola` 깊이 → 속도 풀 → `pipe_band` 깊이. `pipe_band` `GridBox`도 depth로 넘긴다(ADR 개정 뒤) |
@@ -350,8 +371,8 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 @dataclass(frozen=True)
 class BandConfig:
     seed_rel: float = 0.3            # first-peak threshold vs box envelope max
-    pad_up_periods: float = 1.0      # window extension above the box, in 1/f_c
-    pad_down_periods: float = 0.5
+    pad_up_periods: float = 1.0      # window extension above the box, in 1/f_c (v1.3: code must read it)
+    pad_down_periods: float = 0.5    # (no-scale fallback stays the box-height fractions of section 3-3)
     bg_window: int = 301
     bg_margin_m: float = 0.1         # min 5 traces
     bg_min_outside: int = 30
@@ -453,8 +474,17 @@ def select_band_velocity(radargram: Radargram, tau_band_ns: float,
 def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
                          zero: ZeroResult, pool: Sequence[VelocityEstimate] = (),
                          survey_pool: Sequence[VelocityEstimate] = (),
-                         cfg: BandConfig = BandConfig()) -> list[DepthResult]: ...
+                         cfg: BandConfig = BandConfig(), *,
+                         branch: FittingBranch | None = None) -> list[DepthResult]: ...
 ```
+
+- v1.1 확인(M2-6b 구현):
+  - `estimate_band_depths(..., *, branch=None)`: 쌍곡선 갈래(`prepare_depth_inputs`)와 [S] §3 (1)–(3) 결과를 공유한다. pipeline은 같은 `FittingBranch.filtered`를 넘겨야 한다. 영점과 픽이 같은 처리 자료를 쓰게 하고 중복 계산을 피하기 위해서다. None이면 안에서 계산한다. 넘긴 `branch`의 shape가 radargram과 다르면 `ValueError`로 거부할 것을 권한다.
+  - 시그니처 밖 추가 인자는 키워드 전용으로 허용한다(필드 계약은 그대로).
+    - `extract_band_picks(..., k_zero, member_traces, member_indices, bg_mode)`: px 영점, 묶음 구성 트레이스, 배경 방식 전달
+    - `fit_band_profile(..., dt_ns, f_c_hz, k_zero, period_px)`: 단위 환산, 스케일 없을 때 §3-5 픽셀 기준
+    - `group_band_boxes(..., edge_samples, tolerance_samples)`: §3-4 단계 2의 끝 픽 비교
+  - 공개 함수 `band_exclude_traces`(§3-1 제외 트레이스)와 `[S]` `alternative_depths`(구 `_alt_depths`)도 확인했다.
 
 - `a`는 [S] §3 (3)까지 처리한 gain 없는 자료다. `ZeroResult`는 [S] v1.1(2026-10-30)부터 [S] §13-1이 정본이다. `select_zero`는 튜플 대신 이 객체를 돌려주고, 쌍곡선 깊이(`estimate_depth`)도 같은 객체를 받는다. `BandPicks`·`BandFit`·`VelocityChoice`·`VelocityEstimate` 필드는 위 블록이 기준이다. 필드를 더하는 것은 허용하고, 빼거나 이름을 바꾸려면 이 명세를 함께 고친다.
 - `radargram.has_physical_scale`이 False면 `dt_ns`·`f_c_hz` 없이 px로 진행한다. 결과에 m·ns 필드가 하나라도 채워지면 **시험 실패**다(QA-4).
@@ -474,7 +504,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | ID | 내용 | 통과 기준 |
 |---|---|---|
 | UB1 | 평탄 띠, 박스 = 트레이스 60–140 | $|d-d_\text{true}|\le2$ cm, `model=="flat"` |
-| UB2 | 띠가 측선 100 % 덮음 | UB1과 같음. `bg_mode=="none"`. 비교: 전체 median 배경을 강제로 쓰면 진폭비 < 0.05(제거 확인) |
+| UB2 | 띠가 측선 100 % 덮음 | UB1과 같음. `bg_mode=="none"`. 비교: 전체 median 배경을 강제로 쓰면 진폭비 < 0.05(제거 확인). v1.1: 진폭비는 띠 시각에서 **트레이스 평균 포락선**(강제 median 뒤 ÷ 전)으로 잰다. 트레이스별 최대를 쓰면 잡음 피크(약 0.09)가 바닥이 되어 제거를 잴 수 없다 |
 | UB3 | 경사율 3 % | `model=="sloped"`, $|g-0.03|\le0.005$, 중심 깊이 ±2 cm |
 | UB4 | 교차각 θ 10°, 15°, 20° (반폭 1 m) | `model=="curved"`, $|\theta_\text{est}-\theta|\le2°$, 꼭짓점 깊이 ±1 cm |
 | UB5 | 측방 이격 y 0.2 m | 깊이 = $\sqrt{d_c^2+y^2}-R$ ±1 cm (보정하지 않음 확인), `lateral_bias_max_m` > 0 |
@@ -483,10 +513,10 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | UB8 | 지표 다중반사 $2\tau$ 사건 추가 | 상단을 잡음, `surface_multiple_candidate` |
 | UB9 | 극성 반전 띠 | 깊이 차 ≤ 1 mm (envelope) |
 | UB10 | 띠가 직접파와 겹침($d_\text{top}$ 0.05 m) | `status=="band_in_zero_zone"` |
-| UB11 | 스케일 없음(`dt_ns=None`) | `status=="no_scale"`, m·ns 필드 전부 None, `ref_sample` 오차 ≤ 1 px |
+| UB11 | 스케일 없음(`dt_ns=None`) | `status=="no_scale"`, m·ns 필드 전부 None, `ref_sample` 오차 ≤ 1 px. v1.2: `period_px`는 [S] §3 범위(2.2–128 px) 안이고 $1/(f_c\Delta t)$=50 px의 ±20 %(40–60 px) 안이어야 한다(실측 57.14 = 800/14; FFT 빈 간격이 800 샘플에서 약 ±6 %/빈이고, Ricker 스펙트럼이 넓은 데다 직접파·띠가 간섭하므로 한 빈 단위 일치는 요구하지 않는다). 문턱이 $P$에 비례한다는 단언이 이 시험의 핵심이다 |
 | UB12 | v 출처: (a) 지면 + 적격 쌍곡선 풀 → `neighbor_hyperbola` (b) `air_gap="air"` + 풀 → `meta_fixed`(풀 무시) (c) 지면, 풀·메타 없음 → `no_velocity`, `t0_ns` 채움 (d) `dataset_default_eps=None`이면 순서 5에서 깊이 없음 | 규칙 이름 일치 |
 | UB13 | UB1 시간축 1.18배 + 이웃 쌍곡선 v도 1/1.18배 (GPR-SD A/B) | 깊이 변화 ≤ 1 mm |
-| UB14 | 영점 탐색 창 안의 얕은 띠(d 0.15 m, 공기결합 모의, 띠가 측선 60 %) | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록 |
+| UB14 | 영점 탐색 창 안의 얕은 띠(v1.1: **d 0.1 m**, 공기결합 모의 500 MHz·h 0.3 m, 띠가 측선 60 %). 0.15 m에서 바꾼 이유: 창 끝이 $t_\text{dir}+2h_\text{max}/c+0.5/f_c\approx3.33+3.34+1.0=7.7$ ns인데, 0.15 m 띠는 $5.03+2\cdot0.15/0.0999=8.0$ ns로 창 밖이라 시험이 성립하지 않는다. 0.1 m면 7.0 ns로 창 안이다 | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록 |
 | UB15 | `pick_mode` 불일치 | `ValueError` |
 
 ### 9-2. 회귀 시험 (2D gprMax 의사 띠, `tests/depth/test_band_synthetic.py`, `@pytest.mark.synthetic`)
@@ -495,6 +525,8 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 - 꼭짓점 트레이스(json `apex.trace_index`)를 띠 영역에 반복한다. 나머지 트레이스는 `<id>_bg.npy`의 무관 모델 트레이스로 채운다.
 - 측선은 160 트레이스다. 잡음 σ = 0.05·max|관 단독 꼭짓점 트레이스|이고 시드 0이다.
 - 박스는 $[t_\text{apex}-0.4/f_c,\ t_\text{apex}+0.8/f_c]$ × 띠 트레이스다. 덮음 비율은 0.4와 1.0 두 가지다.
+- v1.1 영점 경로: BR은 실제 경로대로 `band_exclude_traces`로 띠 트레이스를 뺀 검출 영점을 쓴다. 덮음 1.0이면 모두 빠지므로 `zero_band_overlap` 대체 경로를 탄다. 분석 스크립트 Part A(제외 없음)와 조건이 다르지만 BR7(규칙 일치)이 40/40이라 승인한다. BR1은 띠와 꼭짓점 규칙이 같은 영점을 쓰므로 영점 경로와 무관하다.
+- M2-6b 실측(`depth_band_synthetic_v1.*`): BR1 −0.29 ~ +0.16 cm, BR2 −4.39 ~ −1.98 cm, BR3 +1.82 ~ +3.68 cm, BR4 −1.60 ~ −1.55 cm, BR5–BR7 전부 통과, 모델은 전부 `flat`.
 
 | ID | 대상 | 검사 | 기준 | 현재 근거값(분석 스크립트) |
 |---|---|---|---|---|
@@ -531,6 +563,24 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 - 지표: `status` 분포, `coverage`·`confidence` 분포, $k_\text{ref}-k_0$(박스 위 끝 대비 픽 위치, px) 분포, 조각 묶기 전후 결과 수.
 - 판정은 하지 않는다. 깊이 정답이 없기 때문이다. 목적은 픽 실패 유형(`band_in_zero_zone` 비율 등)을 찾는 것이다. 모든 결과에 m·ns 필드가 없는지 확인한다(QA-4).
 - 박스 좌표·원본 이미지는 로컬 전용이다(AIHub 카드 공개 규칙).
+- **v1.1 train_pool 예비 점검 해석**(`depth_band_aihub_trainpool_v1.md`, 40장·51결과, test 봉인 유지):
+
+  | 플래그 | 빈도 | 해석 | 대책 |
+  |---|---|---|---|
+  | `inconsistent_picks` | 30/51 | 고정 2 px 문턱이 파형 주기보다 훨씬 작다(단위 불일치) | §3-5 v1.1 $P_\text{px}$ 기준(코드 수정 후 재측정) |
+  | confidence 중앙값 0.00 | – | $q_\text{res}$ 척도 1 px가 원인(σ_res 2 px → 0.02) | 같음 |
+  | `band_concave` | 19 | 도로 횡단 구배·지층 굴곡, 또는 짧은 crop에서 쌍곡선 날개가 섞인 것(**가정**) | 정보 플래그 유지. $P_\text{px}$ 기준 뒤 빈도 재확인 |
+  | `bandpass_px_skipped` | 16 | 우세 주기가 4–128 px 밖이다. gain 영상의 저주파 밝기 기울기가 스펙트럼 최대를 차지했을 가능성(**가정**, 미확인) | 재측정 때 생략된 영상의 $1/f_\text{px}$ 값을 표에 함께 낸다. 저주파 우세가 확인되면 [S] §3에서 "4–128 px 안의 최대로 고르기"를 검토(명세 변경 사안) |
+  | `bg_none` 10, `zero_band_overlap` 9, `touches_profile_edge_*` 12 | – | lpipe 띠가 256 px crop 폭 대부분을 덮는다. crop 경계 접촉 32.9 %([AU])와 같은 성질 | 예상된 결과. 대책 없음 |
+  | `air_gap_unknown_multi_event` | 50/51 | AIHub는 `air_gap="unknown"`이고, gain JPG 평균 트레이스에 이른 사건이 여럿 보인다. 스케일 없는 px 영점은 참고값이라 깊이에 영향이 없다 | 정보 플래그로 둔다(예상된 결과) |
+
+- **v1.2 정정**(v1.1 재측정 + `analysis/processing/aihub_period_px_check.py`, train_pool 10장): 위 표의 첫 두 줄과 `bandpass_px_skipped` 줄의 해석은 틀렸다.
+  - 우세 주기는 2.44–4.83 px(중앙 4.20)이다. 세로에만 있고, 띠 박스 안에서도 같으며(4.1–4.6 px), JPEG 블록 선은 없다. 그래서 **레이다 반송파**로 판정한다. 띠 박스 높이 15–21 px는 반송파 4–5 주기에 해당한다.
+  - 따라서 고정 2 px는 주기보다 작은 값이 아니라 약 0.5 주기였다. $P_\text{px}$ 기준(약 1 px)은 더 엄격해졌고, confidence 중앙값은 0.00 그대로다.
+    - v1.1 재측정(하한 4 px): `inconsistent_picks` 39/51, `band_concave` 21/51.
+    - v1.3 재측정([S] v1.7 하한 2.2 px): `inconsistent_picks` **42/51**, `band_concave` 20/51, `bandpass_px_skipped` **0장**. $\sigma_\text{res}/P_\text{px}$ 분위(최소/25/50/75/최대)는 0.08 / 0.35 / 0.52 / 0.84 / 1.52다. 중앙값 0.52 주기는 "0.25–0.5 주기 흩어짐" 해석과 맞고, 75 % 이상 0.84 주기는 반송파 엽 건너뜀(사이클 스킵)이 섞였을 가능성을 시사한다(**가정**).
+  - 판정: 단위 규칙(§3-5)은 유지한다. AIHub 띠 픽은 0.25–0.5 주기만큼 실제로 흩어진다. 문턱은 AIHub로 조정하지 않는다.
+  - `bandpass_px_skipped` 14장(1/f_px 2.44–3.82 px)은 v1.3의 4 px 하한에 걸린 반송파였다. [S] v1.7 하한 2.2 px로 해소됐다(재측정 0장).
 
 ### 9-5. 4TU
 
@@ -634,6 +684,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | 조각 묶기 간격 8 px / 0.2 m, $|\Delta\tau|$ 허용 | 가정([AU] 근거는 px만) | AIHub test 박스 점검(§9-4) |
 | 발자국 반경 식(측방 이격 상한) | Conyers & Goodman(1997) 경험식, 프로젝트 근거 문서 미등록 | web-research-expert로 출처 확인 또는 P04 |
 | 이웃 v 깊이 근접 조건(±50 %), $\delta_\tau$ 0.05 | 가정 | 광저우 다관 측선 |
+| (v1.2) `inconsistent_picks` 문턱 $0.25/f_c$(px는 $0.25P_\text{px}$)와 $q_\text{res}$ 척도 $0.125/f_c$ | 가정. 근거는 해석·gprMax 합성뿐이다. AIHub 띠 픽은 0.25–0.5 주기 흩어짐(39/51 초과) | 스케일 있는 실측(4TU M2-7·광저우)의 σ_res/주기 분포로 재검토. AIHub로는 조정하지 않음 |
 | 신뢰도 점수 계수 | 가정 | AIHub 분포만 확인, 4TU로 조정 금지 |
 | `survey_hyperbola_median` $\sigma_v/v\ge0.10$ | 가정 | 광저우 존 내 분산 |
 | 상태 문턱(coverage 0.3, n 5) | 가정 | UB, AIHub |

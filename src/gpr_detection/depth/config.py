@@ -87,3 +87,56 @@ class DepthConfig:
 
 
 DEFAULT_DEPTH_CONFIG = DepthConfig()
+
+
+@dataclass(frozen=True)
+class BandConfig:
+    """``pipe_band`` settings (spec_band_depth_v1 section 8-2).
+
+    Lives here, not in ``band.py``, so that ``velocity.py`` (band velocity
+    rules) and ``band.py`` can both use it without importing each other.
+
+    Attributes:
+        seed_rel: First-peak threshold vs the box envelope maximum.
+        pad_up_periods: Search window extension above the box, in ``1 / f_c``.
+        pad_down_periods: Extension below the box, in ``1 / f_c``.
+        bg_window: Masked-median window in traces (centred on the band).
+        bg_margin_m: Trace margin around every band box (at least 5 traces).
+        bg_min_outside: Fewer outside traces skip the background removal.
+        merge_gap_px: Fragment gap for no-scale inputs (traces = px).
+        merge_gap_m: Fragment gap for scaled inputs.
+        merge_overlap_min: Required time overlap of the smaller box height.
+        f_scale_ns: ``least_squares`` soft-L1 scale (1 px without scale).
+        signif_sigma: Significance of the slope / curvature (in sigmas).
+        slope_min_ns: Minimum time change over the pick range for ``sloped``.
+        res_max_periods: ``sigma_res`` above this many periods fails.
+        coverage_min: Below this coverage the band has too few picks.
+        n_picks_min: Below this pick count the band has too few picks.
+        oblique_flag_deg: ``theta_est`` above this flags ``band_oblique_large``.
+        footprint_corr_m: Pick correlation length for ``n_eff``.
+        dataset_default_eps: Assumed eps_r when no other source exists; off.
+        pick_mode: Phase reference shared with the zero.
+    """
+
+    seed_rel: float = 0.3
+    pad_up_periods: float = 1.0
+    pad_down_periods: float = 0.5
+    bg_window: int = BACKGROUND_WINDOW_TRACES
+    bg_margin_m: float = 0.1
+    bg_min_outside: int = 30
+    merge_gap_px: int = 8
+    merge_gap_m: float = 0.2
+    merge_overlap_min: float = 0.5
+    f_scale_ns: float = 0.1
+    signif_sigma: float = 3.0
+    slope_min_ns: float = 0.2
+    res_max_periods: float = 0.25
+    coverage_min: float = 0.3
+    n_picks_min: int = 5
+    oblique_flag_deg: float = 30.0
+    footprint_corr_m: float = 0.2
+    dataset_default_eps: float | None = None
+    pick_mode: PickMode = "envelope"
+
+
+DEFAULT_BAND_CONFIG = BandConfig()

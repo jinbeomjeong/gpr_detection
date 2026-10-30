@@ -5,6 +5,7 @@ Receives only L0 grid boxes (``GridBox``) and never imports ``detect``
 :mod:`.picks` (apex seed and tracking), :mod:`.hyperbola` (RANSAC start,
 fixed-radius fit, fixed-v apex), :mod:`.refraction` (air-gap ray model and
 refraction QC), :mod:`.velocity` (section 7 velocity rules), :mod:`.result`
-(``DepthResult``) and :mod:`.estimate` (``estimate_depth``: one box, sections
-8-10).
+(``DepthResult``, ``BandGeometry``), :mod:`.estimate` (``estimate_depth``: one
+box, sections 8-10) and :mod:`.band` (``estimate_band_depths``: ``pipe_band``
+boxes, spec_band_depth_v1).
 """

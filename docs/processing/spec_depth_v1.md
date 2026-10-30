@@ -17,6 +17,7 @@
 | 2026-10-30 | v1.4 (M2-4 대조) | M2-4 구현 판정 반영:<br>- `status="no_velocity"`, `target_class`, `eps_r_refraction_qc(_range)`, `sigma_zero_ns`, `sigma_apex_ns`, `alt_depths` 채우는 규칙(§2)<br>- 굴절 격자 한 단·꼭짓점 $d$ 결정(§6-1)<br>- §7 2a를 $h_\text{est}$ 간섭 편향에 견디는 **구간 판정**으로 바꿈, 2a 세부, 순서 2b(공기결합·메타 없음)·6(`unknown` → `no_velocity`, 곡률 금지)<br>- §9 $\sigma_a$ 정의, §10 좁은 피크 판정식·$s$ 보정 0 처리<br>- U4 조건(500 MHz)·기준 재정의, R13 두 경로(§11)<br>- §13 refraction·velocity·result·estimate 시그니처<br>- 근거: 정확한 광선 픽 εr 민감도. $h$ 0.300–0.349 m로 상한 쪽을, 0.25·0.269·0.289 m로 구간 하한 쪽을 쟀다(§7 2a, review 계산, scratchpad, CSV 없음)<br>- (구현 확인) 구간을 min/max로 정렬, U4 실측 구간 (6.85, 9.70)의 분해(R 불일치 −6~−9 %), U4(d) 메타값 5 → 2.7, §13 `refraction_h_margin_m`·`eps_r_refraction_qc_range` |
 | 2026-10-30 | v1.5 (M2-4b 대조) | 합성 로더 반영: §1-1 합성 채움 규약(`eps_r_meta_source="synthetic_truth"`, `t0_candidates_ns` 비움, 끄기 옵션), §11-2 입력 규약(`SyntheticTruth` 필드 용도와 필수/선택, x축 비교 규약, **M2-5 박스 공급 규칙**, `_fs.npy` 불필요), §13 `io/synthetic.py` 행 |
 | 2026-10-30 | v1.6 (M2-5 회귀 판정) | 사용자 결정 반영:<br>- R5 기준을 같은 (1)–(3)을 거친 이상 배경의 꼭짓점 포락선 피크로 바꾸고 필터 이동은 별도 기록(M15 밴드패스 −0.055 ns)<br>- R13을 R13a-1(json 광선 시각 픽, εr 9±0.1·d ±1 cm), R13a-2(현재 경로 픽·json h, εr ≤20 %·d ≤5 cm, 날개 지연 −13 % 기록, 기본 격자·전체 픽), R13b로 나눔<br>- R6 실측 −1.49 cm, R2·R13b $h_\text{est}$ +0.049 m<br>- §12 표 3 굴절 9.00에 "h_est 0.330 상쇄" 주석<br>- §7 R 미상 편향 문구 +14 → +17 %(R11 M01·M06 +16.5 %)<br>- §14 Δh 여유 0.011 m<br>- 근거: `analysis/processing/regression_failures_m2_5.py` |
+| 2026-10-30 | v1.7 (band v1.1 반영 대조) | §3 `bandpass_px` 주기 범위 하한 4 → 2.2 px(AIHub 반송파 2.44–4.83 px 실측, 근거 `analysis/processing/aihub_period_px_check.py`), §10 해당 행, §13 filters 행에 `dominant_period_px`·`FittingBranch.period_px` |
 
 ---
 
@@ -147,7 +148,10 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 - `amplitude_processed=True`(GPR-SD, 광저우 MALA): (1)–(4)를 다시 하지 않는다(이미 지표 에코 제거·gain 적용). 검출 갈래의 (5) gain도 기본값으로 생략하고 (6) clip만 한다(이중 gain 방지, cv 쪽에서 바꿀 수 있음). 시간 가변 gain은 포락선 피크를 gain 기울기 방향으로 조금 옮기므로 `flags`에 `amplitude_processed`를 넣는다.
 - `dt_ns=None`(스케일 없는 JPG): ns 시간 창을 정할 수 없으므로 (2)는 생략한다. 창 $W_\text{bg}$는 픽셀(열) 단위 그대로다(AIHub 256 px 폭은 301 이하라 측선 전체 median).
   - **(3) 대신 픽셀 단위 밴드패스(v1.3).** (1) 뒤 자료의 트레이스 평균 진폭 스펙트럼 $\overline{|\mathcal F_k[a_j]|}$에서 DC를 뺀 최대 주파수 $f_\text{px}$(cycle/px)를 우세 주기로 잡는다. 통과대역 $[0.25f_\text{px},\ \min(2f_\text{px},\ 0.45)]$ cycle/px로 (3)과 같은 4차 Butterworth `sosfiltfilt`를 쓴다(단계 이름 `bandpass_px`). 영점(px)과 꼭짓점 씨앗이 같은 자료를 쓰게 하려고 (4) 전에 둔다.
-  - 우세 주기 $1/f_\text{px}$가 4–128 px 밖이면 생략하고 `bandpass_px_skipped` 플래그를 붙인다.
+  - 우세 주기 $1/f_\text{px}$가 **2.2–128 px**(v1.7; v1.3은 4–128 px) 밖이면 생략하고 `bandpass_px_skipped` 플래그를 붙인다.
+    - 하한 2.2 px = 1/0.45: 상한 차단이 $0.45$ cycle/px에 묶이므로, 그보다 짧은 주기는 통과대역을 만들 수 없다.
+    - v1.3의 4 px는 근거 없는 가정이었다. AIHub 실측 우세 주기가 2.44–4.83 px였고, 이 중 4 px 미만 14/40장이 생략됐다.
+    - 이 주기는 레이다 반송파로 판정했다: 세로(시간축)에만 있고, 띠 박스 안에서도 같은 4.1–4.6 px이며, 가로에는 없고, JPEG 8×8 블록 선(1/8·1/4 cycle/px) 비가 0.8–1.2로 평탄하다. 근거는 `analysis/processing/aihub_period_px_check.py`(train_pool 10장)다.
   - 근거: (1)·(4)만 하면 SNR 20 dB 해석 합성에서 광대역 잡음 포락선이 $0.3E_\text{max}$를 넘는다. "가장 이른 첫 피크" 규칙(§5-2)은 120 트레이스 중 하나만 넘어도 그것을 고르므로 씨앗이 박스 위 끝(정답보다 27–30 px 이른 곳)에 잡혔다(SNR 10–20 dB 전부). 트레이스 방향 3·5개 평균으로는 고쳐지지 않았다. 픽셀 밴드패스를 쓰면 $f_\text{px}$ 0.0187–0.0213(정답 0.0200)이었고, 씨앗은 트레이스 75–76, 꼭짓점 차 −1.1~0.0 px였다(review 계산 2026-10-30, scratchpad, CSV 없음).
   - $f_\text{px}$는 물리 축척이 아니므로 ns·m로 바꾸지 않는다.
 - `f_c_hz=None`, `dt_ns` 있음: (3)을 생략하고 (2)는 σ 2 ns(500 MHz 가정)를 쓴다. 영점 탐색 창의 $1/f_c$도 2 ns로 둔다(§4-1). 세 기본값(dewow σ 2 ns, AGC 16 ns, 주기 2 ns)은 모두 500 MHz 가정에서 나온 값이다.
@@ -334,7 +338,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 |---|---|
 | 박스가 영점 사건과 겹침($k_0\Delta t<t_z+1/f_c$) | 박스 위쪽을 $t_z+1/f_c$로 자르고, 남은 높이가 $2/f_c$보다 작으면 픽 없음 + `box_in_zero_zone` 플래그, `status="fit_failed"` |
 | 씨앗 없음(박스 안에 $0.3E_\text{max}$ 첫 피크 없음, 박스 전부 0 포함) | 픽 없음 + `no_apex_seed`, `status="fit_failed"`(꼭짓점이 없어 어떤 v로도 깊이를 못 냄) (v1.3) |
-| 스케일 없음, 우세 주기 $1/f_\text{px}$가 4–128 px 밖 | `bandpass_px`를 생략하고 `bandpass_px_skipped` 플래그를 붙인 뒤 처리를 계속한다(§3, v1.3) |
+| 스케일 없음, 우세 주기 $1/f_\text{px}$가 2.2–128 px 밖(v1.7) | `bandpass_px`를 생략하고 `bandpass_px_skipped` 플래그를 붙인 뒤 처리를 계속한다(§3, v1.3) |
 | 영점 실패로 뮤트 불가 | 뮤트 없이 추적 + `mute_unavailable`(§5). 깊이는 아래 "사건 0개" 행대로 없음 (v1.3) |
 | 꼭짓점 2개 이상(인접 관) | 씨앗은 가장 이른 것 하나만 쓴다. 다중 관 분리는 v2 |
 | 꼭짓점이 박스 경계 | 플래그만 붙이고 계속 |
@@ -531,7 +535,7 @@ Z6·Z7 주석(v1.2):
 | `src/gpr_detection/io/radargram.py` | `Radargram` dataclass와 `sample_to_ns`(구현됨). 데이터셋별 로더는 별도 파일 `io/{fourtu,guangzhou,gprsd}.py`(구현됨)와 `io/synthetic.py`(M2-4b 구현됨) |
 | `src/gpr_detection/io/synthetic.py` | (v1.5) `load_synthetic(model_id, *, root, include_eps=True, include_radius=True) -> Radargram`(장비 메타만, §1-1), `load_synthetic_background(model_id, *, root) -> ndarray`(`_bg.npy` [n_samples, 3], 트레이스 0/55/110, 분석 전용), `load_synthetic_truth(model_id, *, root) -> SyntheticTruth`(§11-2 필드 표), `list_synthetic_models(root)`(manifest). 기본 경로는 `io/paths.py` `DEFAULT_SYNTHETIC_ROOT`. **x 오프셋 주의**: json x = `trace_x_m_first`(0.4) + i·dx, `Radargram` x = i·dx(§11-2). `_fs.npy` 로더는 두지 않는다(M2-5 불필요) |
 | `src/gpr_detection/io/radargram.py`(추가, M2-1) | `SPEED_OF_LIGHT_M_PER_NS`, `velocity_from_eps`, `eps_from_velocity` — depth→io 의존 방향을 지키려고 c 상수를 io에 둔다 |
-| `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용). v1.3: `estimate_period_px`(우세 주기를 **px로** 반환, $1/f_\text{px}$), 스케일 없을 때 `bandpass_px` 단계(§3), `FittingBranch.flags`(`bandpass_px_skipped`) |
+| `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용). v1.3: `estimate_period_px`(우세 주기를 **px로** 반환, $1/f_\text{px}$, 범위 밖이면 None), 스케일 없을 때 `bandpass_px` 단계(§3), `FittingBranch.flags`(`bandpass_px_skipped`). v1.7: `dominant_period_px`(범위 검사 없는 $1/f_\text{px}$, 생략된 입력의 보고용), `FittingBranch.period_px`([B] §3-5 픽셀 기준) |
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
 | `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
 | `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값, v1.4 `refraction_h_margin_m=0.06` 추가 — §7 2a Δh, 가정), `zero_config()` |

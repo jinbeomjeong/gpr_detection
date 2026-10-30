@@ -182,7 +182,7 @@ def _alt_label(label: str | None) -> AltDepthLabel:
     return label if label in _ALT_LABELS else "unclassified"  # type: ignore[return-value]
 
 
-def _alt_depths(
+def alternative_depths(
     radargram: Radargram,
     zero: ZeroResult,
     main_t0_ns: float,
@@ -406,7 +406,7 @@ def _depth_with_apex(
         "v_rule": choice.v_rule.value,
         "eps_r_refraction_qc": eps_qc,
         "eps_r_refraction_qc_range": eps_qc_range,
-        "alt_depths": _alt_depths(
+        "alt_depths": alternative_depths(
             radargram,
             zero,
             apex.t0_ns,

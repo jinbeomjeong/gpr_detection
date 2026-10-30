@@ -12,6 +12,7 @@ Facts found while writing the pipe_band depth spec (2026-10-30, M2-6):
 - A hyperbola from an oblique crossing (angle theta) gives curvature v and depth both too large by 1/sin(theta): +6.4 % at 70 deg, +15.5 % at 60 deg. spec_depth_v1 does not mention this. It matters whenever a neighbor-hyperbola v is borrowed.
 - A lateral offset y between the line and the pipe axis makes the band deeper by about y^2/(2 d_c). This cannot be observed from a single line.
 - 4TU lines are designed perpendicular to the utilities and its truth comes from trench cross-sections, so parallel-pipe truth is essentially absent. Candidates for a look: the 11 activities flagged as crossing utilities. 2D TMz cannot model parallel pipes; 3D is required.
+- (2026-10-30 M2-6b) AIHub 256x256 JPG crops: the vertical dominant period is ~4.2 px (2.44-4.83) = the radar carrier (vertical only, same inside band boxes, no JPEG 8x8 lines), band boxes span 4-5 cycles. So "2 px" fixed thresholds were ~0.5 period, not tiny. AIHub band picks scatter 0.25-0.5 period; do not tune thresholds on AIHub. Check with analysis/processing/aihub_period_px_check.py before assuming a px scale.
 - Shallow bands inside the zero search window are mistaken for the surface reflection by the air-coupled "late event" rule. Exclude band-box traces from the mean trace.
 
 **Why:** these are not obvious from spec_depth_v1, and they change which preprocessing and validation are valid for pipe_band.
