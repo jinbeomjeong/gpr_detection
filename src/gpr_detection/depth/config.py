@@ -42,7 +42,10 @@ class DepthConfig:
         refraction_eps_min: Lower end of the refraction QC eps_r grid.
         refraction_eps_max: Upper end of the refraction QC eps_r grid.
         refraction_eps_step: Grid step of the refraction QC.
-        meta_eps_suspect_rel: Refraction QC vs meta eps_r beyond this flags it.
+        meta_eps_suspect_rel: Metadata eps_r below ``(1 - this) eps_lo`` or above
+            ``(1 + this) eps_hi`` of the refraction QC interval flags it.
+        refraction_h_margin_m: The QC interval also runs at ``h_est`` minus this
+            (direct-wave interference biases ``h_est`` high; assumed, v1.4).
     """
 
     a_max_m: float = 1.0
@@ -72,6 +75,7 @@ class DepthConfig:
     refraction_eps_max: float = 30.0
     refraction_eps_step: float = 0.25
     meta_eps_suspect_rel: float = 0.3
+    refraction_h_margin_m: float = 0.06
 
     def zero_config(self) -> ZeroConfig:
         """The time-zero settings implied by these depth settings."""

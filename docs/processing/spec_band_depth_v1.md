@@ -243,7 +243,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 
 ### 6-1. 공통 결과와 띠 기하
 
-[S] §2 `DepthResult`는 아직 구현 전(M2-4)이다. 그래서 공통 필드를 하나로 두고 클래스별 하위 구조를 붙이도록 제안한다.
+[S] §2 `DepthResult`는 M2-4에서 `depth/result.py`로 구현됐다(`target_class` 포함, [S] §13). `band` 하위 구조는 M2-6b에서 붙인다. 공통 필드를 하나로 두고 클래스별 하위 구조를 붙이는 방식이다.
 
 | 필드 | 형 | 단위 | 띠에서의 뜻 |
 |---|---|---|---|
@@ -336,7 +336,7 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 |---|---|
 | `src/gpr_detection/depth/band.py` | `BandConfig`, `BandPicks`, `BandFit`, `BandGeometry`, `group_band_boxes`, `masked_background`, `extract_band_picks`, `fit_band_profile`, `estimate_band_depth`, `estimate_band_depths` |
 | `src/gpr_detection/depth/velocity.py` | `VelocityEstimate`, `VelocityChoice`, `velocity_estimate_from(result)`, `select_band_velocity` |
-| `src/gpr_detection/depth/result.py` (또는 `estimate.py` 안) | 공통 `DepthResult`(+`target_class`, `band`) — M2-3/M2-4 구현과 함께 정한다 |
+| `src/gpr_detection/depth/result.py` | 공통 `DepthResult` — M2-4에서 구현됨(`target_class` 포함). `band` 필드는 M2-6b에서 추가 |
 | `src/gpr_detection/preprocess/timezero.py` | M2-2에서 구현됨(2026-10-30). `detect_zero_events(..., exclude_traces: np.ndarray \| None = None)`·`find_time_zero(..., exclude_traces=...)`가 이 인자를 받고, `ZeroResult`·`ZeroEvents` dataclass도 여기에 있다([S] §13-1·13-2) |
 | `src/gpr_detection/pipeline.py` | 순서: 영점(띠 트레이스 제외) → `pipe_hyperbola` 깊이 → 속도 풀 → `pipe_band` 깊이. `pipe_band` `GridBox`도 depth로 넘긴다(ADR 개정 뒤) |
 | `tests/depth/test_band_*.py` | §9-1·§9-2 |

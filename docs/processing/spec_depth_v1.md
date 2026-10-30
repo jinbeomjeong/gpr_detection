@@ -14,6 +14,7 @@
 | 2026-10-30 | v1.2 | 공기결합 지표 반사 영점 지연 원인 조사 반영(사용자 결정 2026-10-30, 권고 (b) 수정안). 지연은 처리 편향이 아니라 **직접파 간섭 편향**이다(단독 지표 반사는 (1)–(3) 뒤 ≤0.003 ns). `air_surface_late` 편향 문구(§4-2)와 $\sigma_z$ 0.2→0.3 ns(§9), Z1 꼬리 진폭 0.6→0.8·Z6(단독 무편향)·Z7(두 사건 간섭 창, 기존 두 사건·UB14 마스크 시험의 시각 기준 대체) 추가(§11-1), R2 근거값 분해·R6 근거값 v1.1 처리 기준 −1.42 cm(§11-2). 근거: `analysis/processing/surface_zero_shift.py` → [`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv), [`surface_zero_shift_z1.csv`](surface_zero_shift_z1.csv)(Z1 꼬리 0.6 한 조건뿐. 꼬리 0.8 판별은 시험 Z1(a·b), §11-1), [`surface_zero_shift.png`](surface_zero_shift.png) |
 | 2026-10-30 | v1.2 (M2-2 대조) | M2-2 구현 확인 반영: Z1 상자형 판별 대조를 상시 시험으로(사용자 결정), Z3·Z5 얕은 반사 값($\tau$ 3.5 ns, 진폭 −1.5, 반대 극성)과 분리 한계 근거, Z6 잡음 없음 명시(§11-1), `ZeroEvents` 필드(§13-2), `classify_meta_t0` 시그니처·`ZeroConfig`·$\Delta_\text{dw}$ 범위 상수(§13-3) |
 | 2026-10-30 | v1.3 (M2-3 대조) | M2-3 구현 판정 반영:<br>- 스케일 없는 입력에 픽셀 단위 밴드패스 `bandpass_px` 추가(§3, 씨앗 잡음 대책)<br>- 씨앗·추적 탐색 범위와 뮤트 규칙(§5-4)<br>- RANSAC 거부는 초기값 대체 후 계속 + `ransac_rejected`(§6-2·§10, v1 §10 "메타 v로 §6-4" 행과의 충돌 해소)<br>- $t_\text{max}=\max\tau$·경계 판정 $10^{-4}$·공분산을 정상점과 유사역행렬로(§6-3)<br>- §6-4 꼭짓점 창 밖이면 씨앗으로 대체<br>- 공기결합 거부를 점 수 검사보다 먼저(§7)<br>- 플래그 `box_in_zero_zone`·`no_apex_seed`·`mute_unavailable`·`ransac_rejected`·`bandpass_px_skipped`(§2·§10)<br>- U5 $f_c$ 함께 축척·U7 잡음 자료 유지(§11-1)<br>- `DepthConfig` 상수 확인과 `single_event_h_max_m` 삭제(§13-1 아래)<br>- 픽·피팅 객체 필드 정본(§13-4)<br>- (integrity 반영) §5-2 씨앗 문구를 "문턱을 넘는 첫 피크"로 명확화, §10 `bandpass_px_skipped` 행, §13 모듈 표 시그니처, §13-4 `CurvatureFit` status 규칙(꼭짓점 없음 → `fit_failed`) |
+| 2026-10-30 | v1.4 (M2-4 대조) | M2-4 구현 판정 반영:<br>- `status="no_velocity"`, `target_class`, `eps_r_refraction_qc(_range)`, `sigma_zero_ns`, `sigma_apex_ns`, `alt_depths` 채우는 규칙(§2)<br>- 굴절 격자 한 단·꼭짓점 $d$ 결정(§6-1)<br>- §7 2a를 $h_\text{est}$ 간섭 편향에 견디는 **구간 판정**으로 바꿈, 2a 세부, 순서 2b(공기결합·메타 없음)·6(`unknown` → `no_velocity`, 곡률 금지)<br>- §9 $\sigma_a$ 정의, §10 좁은 피크 판정식·$s$ 보정 0 처리<br>- U4 조건(500 MHz)·기준 재정의, R13 두 경로(§11)<br>- §13 refraction·velocity·result·estimate 시그니처<br>- 근거: 정확한 광선 픽 εr 민감도. $h$ 0.300–0.349 m로 상한 쪽을, 0.25·0.269·0.289 m로 구간 하한 쪽을 쟀다(§7 2a, review 계산, scratchpad, CSV 없음)<br>- (구현 확인) 구간을 min/max로 정렬, U4 실측 구간 (6.85, 9.70)의 분해(R 불일치 −6~−9 %), U4(d) 메타값 5 → 2.7, §13 `refraction_h_margin_m`·`eps_r_refraction_qc_range` |
 
 ---
 
@@ -88,7 +89,8 @@
 
 | 필드 | 형 | 단위 | 설명 |
 |---|---|---|---|
-| `status` | `"ok" \| "no_scale" \| "insufficient_picks" \| "fit_failed" \| "zero_failed"` | – | |
+| `status` | `"ok" \| "no_scale" \| "insufficient_picks" \| "fit_failed" \| "zero_failed" \| "no_velocity"` | – | `no_velocity`(v1.4, [B] §5와 같은 이름): 스케일·영점·꼭짓점은 있으나 v 출처가 없음. 공기결합 + `eps_r_meta` 없음, 또는 `air_gap="unknown"`(§7). 지면결합 순서 5(점 부족 + 메타 없음)는 `insufficient_picks`로 둔다 |
+| `target_class` | str | – | `"pipe_hyperbola"`(M2-6b에서 `"pipe_band"`) (v1.4) |
 | `depth_top_m` | float \| None | m | 주 결과 |
 | `depth_center_m` | float \| None | m | $R$을 알 때만 $d_\text{top}+R$ |
 | `sigma_depth_m` | float \| None | m | §9 결합 표준불확도 |
@@ -107,6 +109,15 @@
 | `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_seed`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10) 등 |
 
 `AltDepth = {t_zero_ns, label: "direct_wave"|"surface_reflection"|"merged"|"unclassified", depth_top_m}` (`merged`는 v1.1, §4-3).
+
+v1.4 추가 필드(M2-4 구현):
+- `eps_r_refraction_qc`(float \| None): §7 2a QC의 εr($h_\text{est}$에서 구한 값). 플래그 판정용이며 깊이에는 쓰지 않는다.
+- `eps_r_refraction_qc_range`(tuple[float, float] \| None): §7 2a 구간 $[\varepsilon_\text{lo},\varepsilon_\text{hi}]$.
+- `sigma_zero_ns`, `sigma_apex_ns`(float \| None, ns): §9 계산에 실제로 쓴 $\sigma_z$와 $\sigma_a$다.
+
+`alt_depths` 채우는 규칙(v1.4):
+- (a) 메타 영점 이름(`t0_sample_est` 등): 주 v로, 주 v가 없으면 메타 v로 $d$를 구한다. 시각은 꼭짓점 $t_a$에서 메타 영점을 뺀 값이고, 라벨은 §4-3이다.
+- (b) `"meta_fixed"`: 주 결과가 `meta_fixed`가 아닐 때(순서 3a, 곡률 실패)만 넣는다. 메타 v, 주 영점, **§6-4 꼭짓점**으로 구한다(곡률 해의 $t_0$가 아니다; v를 고정하면 꼭짓점은 §6-4로 정한다). 라벨은 `zero_event_label`이고, `meta`·None이면 `unclassified`다.
 
 ---
 
@@ -226,7 +237,9 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 - 직선 광선, 반경 $R$ 고정(지면결합):
   $$\tau(x)=\frac{2}{v}\left(\sqrt{\left(\tfrac{v t_0}{2}+R\right)^2+(x-x_0)^2}-R\right),\qquad d_\text{top}=\frac{v\,t_0}{2}$$
   $R=0$이면 점산란 식 $\tau=\frac2v\sqrt{d^2+(x-x_0)^2}$다.
-- 굴절(공기층) 모델: Tx $(x-s/2,\,h)$ → 관 상단 정반사점 → Rx $(x+s/2,\,h)$의 Fermat 최소 시간에서 지표 반사 기하 시간 $2\sqrt{h^2+s^2/4}/c$를 뺀다. 알고리즘은 `scripts/synthetic/ray_geometry.py`의 `leg_time`(굴절점 이분법)·`reflection_time`(원주 각 탐색)과 같다. **`src/gpr_detection/depth/refraction.py`로 옮겨 구현**하고 `scripts/`를 import하지 않는다. 각 격자는 721점, 이분법은 40회면 충분하다(M20에서 εr 9.0 복원).
+- 굴절(공기층) 모델: Tx $(x-s/2,\,h)$ → 관 상단 정반사점 → Rx $(x+s/2,\,h)$의 Fermat 최소 시간에서 지표 반사 기하 시간 $2\sqrt{h^2+s^2/4}/c$를 뺀다. 알고리즘은 `scripts/synthetic/ray_geometry.py`의 `leg_time`(굴절점 이분법)·`reflection_time`(원주 각 탐색)과 같다. **`src/gpr_detection/depth/refraction.py`로 옮겨 구현**하고 `scripts/`를 import하지 않는다. 이분법은 40회면 충분하다(M20에서 εr 9.0 복원). 각 격자는 721점이다.
+- v1.4 확인: 구현은 721점 격자 **한 단**만 쓴다(2단 정밀 격자 생략). 정반사점에서 시간이 정류값이라 반 격자(π/1440) 각 오차가 R 0.1 m에서 약 $10^{-6}$ ns만 바꾸므로 승인한다.
+- 꼭짓점 시각으로 $d$를 정할 때(§7 2a): Tx·Rx가 관 중심에 대칭이므로 정반사점은 원 꼭대기다($R$이 들어가지 않는다). $d$는 0–10 m에서 이분법 40회로 찾는다.
 
 ### 6-2. RANSAC 초기값 (직선 광선, $R=0$)
 
@@ -269,11 +282,19 @@ $v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날�
 |---|---|---|---|---|
 | 1 | `dt_ns` 또는 `dx_m` 없음 | `none` | – | 깊이 금지. `status="no_scale"`, 꼭짓점 픽셀만 |
 | 2 | `air_gap="air"` (4TU, 합성 M12·M13·M15·M18·M20) | `meta_fixed` | $c/\sqrt{\varepsilon_{r,\text{meta}}}$ | **직선 광선 곡률 피팅 금지.** 호출 시 `ValueError`. 점 수 검사보다 먼저 거부한다(자료에 따라 결과가 달라지지 않게, v1.3) |
-| 2a | 위 + 사건 2개(h 추정 가능) + 점 충분 | `refraction_qc` (부가) | 굴절 모델로 εr 격자 3–30, 간격 0.25 → 최소 RMS 주변을 `minimize_scalar`로 정밀화. $d$는 꼭짓점 시각에 묶는다 | QC 전용이다. $|\varepsilon_\text{fit}-\varepsilon_\text{meta}|/\varepsilon_\text{meta}>0.3$이면 `meta_eps_suspect` 플래그. 주 깊이는 `meta_fixed` 결과로 낸다 |
+| 2a | 위 + 사건 2개(h 추정 가능) + 점 충분 | `refraction_qc` (부가) | 굴절 모델로 εr 격자 3–30, 간격 0.25 → 최소 RMS 주변을 `minimize_scalar`로 정밀화. $d$는 꼭짓점 시각에 묶는다 | QC 전용이다. 주 깊이는 `meta_fixed` 결과로 낸다. **v1.4 구간 판정**: QC를 $h_\text{est}$와 $h_\text{est}-\Delta h$($\Delta h=0.06$ m, **가정**: 간섭 편향 실측 +0.029 m 해석·+0.049 m M20에 여유를 둔 값)에서 두 번 돌려 $\varepsilon_\text{lo}=\min\{\varepsilon(h_\text{est}-\Delta h),\varepsilon(h_\text{est})\}$, $\varepsilon_\text{hi}=\max\{\cdot\}$를 낸다(v1.4 확인: 정렬해서 내므로 $h$에 대한 단조성을 가정하지 않는다). $\varepsilon_\text{meta}<0.7\,\varepsilon_\text{lo}$ 또는 $\varepsilon_\text{meta}>1.3\,\varepsilon_\text{hi}$일 때만 `meta_eps_suspect`를 붙인다(v1.3까지의 단일값 30 % 규칙을 대체). 이유: εr이 $h$에 매우 민감하다. 정확한 광선 픽에서 $h$ +1 cm마다 εr이 약 +8 % 오른다(점산란체 R 0, 참 h 0.3 m, εr 9: QC h 0.25/0.269/0.289/0.300/0.329/0.349 → εr 6.80/7.50/8.40/9.00/11.08/13.0). 영점 이동 −0.12 ns는 −0.1밖에 바꾸지 않는다. 그래서 $h_\text{est}$의 한쪽 간섭 편향이 단일값 판정을 거짓 의심으로 만든다. 4TU 메타 εr의 주된 오류 방향은 **과소**(공기결합 곡률값, §9)이고, 아래쪽 판정은 구간에서도 유지된다.<br>**판별 범위(v1.4 실측)**: U4 해석 합성(R 0.05인데 QC는 R 0으로 들어감)의 구간은 (6.85, 9.70)이다. 분해하면 정확한 광선 픽·R 일치에서 (7.50, 11.08), R 불일치(관경 모름 → 0)에서 (7.03, 10.04), 나머지 −0.2~−0.3은 검출 영점(+0.12 ns)·잡음 픽이다. 따라서 아래쪽 문턱은 $0.7\times6.85=4.8$이다. 공기결합 직선 광선 곡률로 얻은 메타값은 $v'/v$ 1.5–1.82(h 0.22–0.3 m, 2a가 도는 범위)에서 εr′ = 9/(v'/v)² = 2.7–4.0이므로 이 문턱으로 잡힌다. 관경을 모르면 구간이 약 10 % 아래로 밀리고(R 0.05 m, d 0.6 m), 큰 관에서는 더 밀린다 |
 | 3 | `air_gap="ground"`, 점 충분 | `curvature_R_fixed` | §6-3 결과 | $R$ = 기지 관경/2, 없으면 0 |
 | 3a | 위 + `eps_r_meta` 있음 | 둘 다 보고 | 주 결과는 곡률. `alt_depths["meta_fixed"]` | |
 | 4 | `air_gap="ground"`, 점 부족, `eps_r_meta` 있음 | `meta_fixed` | | |
 | 5 | `air_gap="ground"`, 점 부족, 메타 없음 | `none` | – | `insufficient_picks` (가정 v 0.1 m/ns로 깊이를 내지 않는다) |
+| 2b | (v1.4) `air_gap="air"`, `eps_r_meta` 없음 | `none` | – | `status="no_velocity"`. 꼭짓점·영점·`t0_ns`는 채운다 |
+| 6 | (v1.4) `air_gap="unknown"`, 스케일 있음 | `none` | – | **곡률 피팅을 하지 않는다.** 공기결합일 수 있고, 공기결합 곡률 실패는 잔차로 드러나지 않는다(§12 표 3: RMS 0.044 ns인데 $v'/v$ 1.82). `status="no_velocity"`이고 주 깊이는 없다. 메타 v가 있으면 `alt_depths`를 §2 규칙대로 채운다: (a) 메타 영점 항목(주 v가 없으므로 메타 v)과 (b) `"meta_fixed"`. 둘 다 대체값이고, 영점이 지면결합 규칙(직접파)이라 실제로 공기결합이면 깊게 나올 수 있다(`air_gap_unknown` 플래그로 표시됨). [B] §5-1의 `unknown → none`과 같은 규칙이다. 현재 스케일 있는 데이터셋에는 해당이 없다 |
+
+- 2a 세부(v1.4 확인):
+  - $h$ = `ZeroResult.h_est_m`, $s$ = `antenna_offset_m`(모르면 0), $R$ = 기지 관경/2(모르면 0).
+  - 꼭짓점은 §6-4의 $(x_0,t_0)$이다.
+  - 격자 최소점 양옆 칸 안에서 `minimize_scalar(method="bounded", xatol=1e-3)`로 정밀화한다.
+  - $h_\text{est}$의 간섭 편향(§4-2, +0.03~+0.05 m)이 εr 결과를 키운다. 허용폭은 §11-1 U4.
 
 - $R$을 모른 채 $R=0$으로 곡률 피팅하면 $v'/v$가 1.01–1.14배로 커진다. $d'$는 상단보다 0.2R–0.5R 깊게 나온다([DP] 표 B). `bias_notes`에 `"radius_unknown: v,d over by up to +14 %"`를 넣는다.
 - GPR-SD: 지면결합 점산란 식에서 시간축을 $k$배로 늘리면 $t\to kt$, $v\to v/k$가 되고 $d=vt_0/2$는 변하지 않는다. 그래서 **dt 가설 A/B는 곡률 기반 깊이에 영향을 주지 않고 $\varepsilon_r$만 바꾼다.** 두 가설을 모두 돌려 깊이가 같은지 확인한다(단위 시험 U5). 다만 영점이 미확정(`meta_sample0`)이라 깊이에는 `zero_unverified` 플래그를 붙인다.
@@ -300,7 +321,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | $\sigma_v/v$ (`meta_fixed`) | $\tfrac12\,\sigma_{\varepsilon}/\varepsilon$, $\sigma_\varepsilon/\varepsilon=0.15$ (**가정**) | 4TU `eps_r_used`는 조사자 기록이다. Reflex-W 쌍곡선 피팅에서 $\varepsilon=(c/v)^2$로 얻었을 가능성이 있다([PA] §5). 공기결합 곡률 피팅값이면 $v$가 과대이고 $\varepsilon$은 과소이므로 **깊이가 깊게** 나오는 한쪽 편향이 된다. `flags`에 `meta_eps_unverified`를 넣는다 |
 | $\sigma_v/v$ (`curvature_R_fixed`) | $\sqrt{(\sigma_v^\text{fit}/v)^2+0.03^2}$ | 실측 픽 곡률 편향 1.001–1.052([DP] 표 F 반경 열) |
 | $\sigma_z$ | `air_surface_late` 0.3 ns(v1.2, 0.2에서 올림), `air_single_event` 0.25 ns(+편향), `ground_direct_*` 0.15 ns(+편향), `meta_sample0` 0.5 ns. 코드 상수 `SIGMA_ZERO_NS`(`preprocess/timezero.py`)가 이 값을 따른다 | §12 표 1·4. `air_surface_late` 0.3 ns는 직접파 간섭 편향 M20 +0.29 ns를 덮는 값([`surface_zero_shift.csv`](surface_zero_shift.csv), §4-2) |
-| $\sigma_a$ | $\max(0.05\ \text{ns},\ \text{rms}/\sqrt{n_\text{apex}})$ | 5 mm 격자 지연 0.05–0.1 ns([DP] §6) |
+| $\sigma_a$ | $\max(0.05\ \text{ns},\ \text{rms}/\sqrt{n_\text{apex}})$. v1.4 정의: 곡률 경로는 rms = 곡률 피팅 전체 RMS, $n_\text{apex}$ = 피팅 $x_0$ ±0.10 m 안의 픽 수(최소 1). §6-4 경로는 포물선 RMS와 점 수(대체 시 rms 0, n 1 → 바닥값 0.05 ns) | 5 mm 격자 지연 0.05–0.1 ns([DP] §6) |
 | 계통(합산하지 않음) | 기준점 상단/중심 $\pm R$, 영점 편향 부호 | `bias_notes` |
 
 ---
@@ -315,11 +336,12 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | 영점 실패로 뮤트 불가 | 뮤트 없이 추적 + `mute_unavailable`(§5). 깊이는 아래 "사건 0개" 행대로 없음 (v1.3) |
 | 꼭짓점 2개 이상(인접 관) | 씨앗은 가장 이른 것 하나만 쓴다. 다중 관 분리는 v2 |
 | 꼭짓점이 박스 경계 | 플래그만 붙이고 계속 |
-| RANSAC 거부(§6-2) | v1.3: §6-2 대체 초기값으로 §6-3을 **계속**하고 `ransac_rejected` 플래그. §6-3이 수렴하고 경계에 붙지 않으면 곡률 결과를 쓴다. 실패하면 아래 행. (v1의 "메타 v로 §6-4"는 아래 행에 합쳤다. 메타 v 경로의 결정표 반영은 M2-4 `estimate_depth`) |
+| RANSAC 거부(§6-2) | v1.3: §6-2 대체 초기값으로 §6-3을 **계속**하고 `ransac_rejected` 플래그. §6-3이 수렴하고 경계에 붙지 않으면 곡률 결과를 쓴다. 실패하면 아래 행. (v1의 "메타 v로 §6-4"는 아래 행에 합쳤다. 메타 v 경로는 M2-4에서 반영됨: 곡률 실패 시 `v_rule="none"` + `alt_depths["meta_fixed"]`(§7, §2 (b))) |
 | `least_squares` 미수렴 또는 경계 값에 붙음 | `fit_failed`, 메타 v가 있으면 §6-4 결과를 `alt_depths`에 |
 | 공기결합에서 사건 0개 | `zero_failed`, 깊이 없음 |
 | int16 포화(±32767) | 포화 샘플이 꼭짓점 ±2 샘플 안에 있으면 `saturated_apex` |
-| $\Delta t$가 커서 포락선 피크가 3 샘플 이하 폭 | 포물선 보간은 유지하고 $\sigma_a\ge\Delta t/2$ |
+| $\Delta t$가 커서 포락선 피크가 3 샘플 이하 폭 | 포물선 보간은 유지하고 $\sigma_a\ge\Delta t/2$. v1.4 판정식: 주기 $1/f_c$(없으면 2 ns)가 $3\Delta t$ 이하. 근사이며, 포락선 폭을 한 주기로 본다. 이 조건이면 밴드패스 상한 $2f_c$가 나이퀴스트를 넘으므로 실제 자료(4TU 최소 10 샘플/주기)에서는 걸리지 않는다 |
+| 지면결합, $s$ 앎, 경사거리 $vt_0/2<s/2$ | $d=0$(§8 식의 제곱근 안이 음수). 곡률 경로에도 §8 식을 쓴다 (v1.4) |
 | 스케일 없음 | `no_scale`, `apex_trace`·`apex_sample`만 |
 
 ---
@@ -337,7 +359,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | U1 | 점산란 $R=0$, εr 9, d 0.6 m, 지면결합, 영점=송신 | $|v/v_\text{true}-1|\le5\%$, $|d-0.6|\le2$ cm |
 | U2 | 원통 $R=0.1$, $R$ 고정 피팅 | 같음. $R=0$으로 피팅하면 $v'/v>1$ (편향 부호 확인) |
 | U3 | U1 픽의 20 %를 ±3 ns 이상치로 교체 | U1 기준 유지, `inlier_frac`≥0.75 |
-| U4 | 공기결합 h 0.3 m(굴절 모델로 생성), `air_gap="air"` | 직선 광선 곡률 호출은 `ValueError`. `meta_fixed` 깊이 ±2 cm. `refraction_qc` εr 9±0.5 |
+| U4 | 공기결합 **500 MHz**(400 MHz면 간격 1.69 ns가 분리 한계 1.85 ns보다 작아 사건이 합쳐짐, §4-2), h 0.3 m, s 0.1 m, $R$ 0.05 m(굴절 모델로 생성, 메타 `pipe_radius_m` 없음), SNR 20 dB, `air_gap="air"`, `eps_r_meta` 9 (v1.4) | (a) 직선 광선 곡률 호출은 `ValueError`. (b) `meta_fixed` 깊이 ±2 cm. (c) 2a 구간이 9를 포함하고(실측 (6.85, 9.70)) `meta_eps_suspect`가 없음. (d) 같은 자료에 `eps_r_meta` **2.7**(= 9/1.82², M20 공기결합 직선 광선 곡률값 $v'/v$ 1.82를 모사)을 주면 `meta_eps_suspect`가 붙음. 4.5도 붙어야 한다(문턱 4.8 아래, 선택 시험). v1.4 초안의 5는 문턱 위라 폐기한다. 시험 시간을 줄이려고 QC 격자를 εr 4–14로 좁혀도 된다. 이때 구간 양 끝이 격자 경계(4, 14)에 붙지 않았음을 함께 단언한다(붙으면 격자가 좁아서 생긴 값이다). **알고리즘 정확도**는 `test_refraction`(정확한 광선 픽, 참 $h$)에서 εr 9±0.1로 따로 본다. v1.3까지의 "εr 9±0.5"를 $h_\text{est}$ 자료에 적용하던 기준은 폐기한다(간섭 편향이 εr을 +8 %/cm로 옮김, §7 2a) |
 | U5 | U1 자료(같은 샘플 배열)를 Δt 1.18배(GPR-SD 가설 B/A 비)로 다시 해석한다. 영점도 1.18배다. 같은 배열을 다른 Δt로 읽으면 파형의 실제 주파수도 1/1.18배가 되므로 $f_c$도 1/1.18배로 준다. 그래야 필터가 샘플 단위로 같다(v1.3) | $d$ 변화 ≤ 1 mm, $v$는 $1/1.18$배(±0.5 %). 실제 GPR-SD는 `amplitude_processed`·$f_c$ 없음이라 필터를 다시 돌리지 않는다. U5는 피팅 식의 축척 불변성만 본다 |
 | U6 | `pick_mode` 불일치(영점 envelope, 꼭짓점 signed) | 호출 거부 |
 | U7 | 스케일 없음(`dt_ns=None`), U1 자료 **SNR 20 dB 그대로**(v1.3; 잡음 없는 자료로 바꾸지 않는다) | `status="no_scale"`, 깊이 None. 픽은 씨앗 1개이고, 씨앗 트레이스는 75±1, 샘플은 정답 꼭짓점 ±2 px(§3 `bandpass_px`). `bandpass_px` 없이는 실패하는 것이 정상이다(트레이스 68, −28 px) |
@@ -394,7 +416,7 @@ Z6·Z7 주석(v1.2):
 | R10 | h=0 전부 | `curvature_R_fixed`($R$=json), 영점 `ground_direct_peak` | $|v/v_\text{true}-1|\le6\%$, $|d-d_\text{top}|\le5$ cm. 5 %·2 cm 안이면 "일치", 아니면 "허용 일치"로 기록 | M02 +3.4 %, −1.6 cm. [DP] 표 F 최대 +5.2 %(M09), −2.4 cm |
 | R11 | h=0 전부 | $R=0$ 곡률 피팅 | $v'/v>1$ (편향 부호) | M02 1.098 |
 | R12 | M20 | 직선 광선 곡률 피팅 요청 | `ValueError`. 참고로 강제 실행 시 $v'/v$ 1.82, +47.8 cm | §12 표 3 |
-| R13 | M20 | `refraction_qc` | εr 9±0.5, $d$ ±2 cm | εr 9.00, −0.83 cm |
+| R13 | M20 | `refraction_qc` | (v1.4) json $h$ 0.3 m를 넣으면 εr 9±0.5, $d$ ±2 cm(알고리즘). `estimate_depth` 경로($h_\text{est}$ v1.1 처리 0.349 m)에서는 2a 구간이 9를 포함하고 `meta_eps_suspect`가 없어야 한다 | εr 9.00, −0.83 cm(v1 분석). $h_\text{est}$ 경로는 정확한 광선 계산으로 εr 약 13 예상(단일값이면 거짓 의심) → 구간 하한 εr(0.289) ≈ 8.4 |
 
 - R10 기준을 5 %가 아니라 6 %로 둔 이유: 직접파 영점과 반경 모델을 함께 써도 M09(εr 4)에서 +5.2 %가 실측됐다([DP] 표 F). 판정 등급은 정의서 verify 기준(일치 ≤5 %·2 cm, 허용 일치 d ≤10 cm)으로 따로 기록한다.
 - 공기층 모델(M12·M13·M15·M18·M20)은 곡률 v 기준을 적용하지 않고 고정 v의 d 기준만 본다(정의서 verify 규칙).
@@ -473,11 +495,13 @@ Z6·Z7 주석(v1.2):
 | `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용). v1.3: `estimate_period_px`(우세 주기를 **px로** 반환, $1/f_\text{px}$), 스케일 없을 때 `bandpass_px` 단계(§3), `FittingBranch.flags`(`bandpass_px_skipped`) |
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
 | `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
-| `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값), `zero_config()` |
+| `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값, v1.4 `refraction_h_margin_m=0.06` 추가 — §7 2a Δh, 가정), `zero_config()` |
 | `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config) -> HyperbolaPicks`(§13-4), `widen_box`, `find_apex_seed`(첫 피크 씨앗), `mute_sample`, 추적 |
 | `src/gpr_detection/depth/hyperbola.py` | `hyperbola_time`(§6-1 식), `ransac_init -> RansacInit`, `fit_hyperbola(R fixed) -> HyperbolaFit`, `apex_vertex -> ApexVertex`, `fit_curvature(picks, *, radius_m, air_gap, v_fallback, config) -> CurvatureFit`, `fixed_velocity_apex(picks, config) -> ApexVertex` (§13-4) |
-| `src/gpr_detection/depth/refraction.py` | `leg_time`, `reflection_time`, `refraction_qc` (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
-| `src/gpr_detection/depth/estimate.py` | `estimate_depth(radargram, box, config) -> DepthResult`, §7 결정표, §9 불확도 |
+| `src/gpr_detection/depth/refraction.py` | `leg_time(x_antenna, h, px, pz, v)`, `reflection_times(x_mid_m, *, offset_m, h, x0_m, d_top_m, radius_m, v)`(송신 기준 ns), `surface_reflection_time(h, offset_m)`, `refraction_qc(x_m, tau_ns, *, x0_m, tau_apex_ns, h_m, offset_m, radius_m, config) -> RefractionQC`(`eps_fit`, `v_fit`, `d_top_m`, `rms_ns`, `n_picks`, `h_m`, `offset_m`) (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
+| `src/gpr_detection/depth/velocity.py` | (v1.4) `VelocityRule`(StrEnum: `none`, `meta_fixed`, `curvature_R_fixed`; 띠 규칙은 M2-6b에서 추가), `VelocityChoice`([B] §8-2 필드와 같음: `v_rule`, `v_m_per_ns`, `sigma_v`, `eps_r_used`, `v_sources`, `alt_meta_v`, `bias_notes`, `flags`; 속성 `has_velocity`), `meta_velocity(radargram)`, `select_hyperbola_velocity(radargram, curvature, config) -> VelocityChoice`(§7) |
+| `src/gpr_detection/depth/result.py` | (v1.4) `DepthStatus`(§2 집합 + `no_velocity`), `AltDepth`, `DepthResult`(§2 필드 + `target_class`, `eps_r_refraction_qc`, `eps_r_refraction_qc_range`(lo, hi), `sigma_zero_ns`, `sigma_apex_ns`; 목록형 필드는 tuple) |
+| `src/gpr_detection/depth/estimate.py` | `prepare_depth_inputs(radargram, config, *, exclude_traces=None) -> DepthInputs(branch, zero)`(측선당 한 번), `estimate_depth(radargram, box, config, *, inputs=None) -> DepthResult`(§7 결정표, §8 `depth_from_time`, §9 `depth_uncertainty`) |
 | `tests/depth/` | §11-1 단위 시험, §11-2 회귀 시험(합성 npy 읽기, `@pytest.mark.synthetic`) |
 
 ### 13-1. `ZeroResult` 필드 정본 (v1.1)
@@ -592,6 +616,7 @@ Z6·Z7 주석(v1.2):
   - `apex_min_points=5`(§6-4), `loss="soft_l1"`(§6-3)
   - `curvature_sigma_floor=0.03`(§9)
   - `refraction_eps_min=3.0`·`refraction_eps_max=30.0`·`refraction_eps_step=0.25`·`meta_eps_suspect_rel=0.3`(§7 2a)
+- v1.4 추가: `refraction_h_margin_m=0.06`(§7 2a의 Δh, **가정**, §14).
 - `single_event_h_max_m`은 두지 않는다. v1의 "h ≲ 0.15 m"는 v1.1에서 틀린 표현으로 지웠고, `air_single_event` 상한은 `SEPARATION_PERIODS`(0.375 c/f_c, §4-2)로 계산한다.
 
 ---
@@ -606,6 +631,7 @@ Z6·Z7 주석(v1.2):
 | 지면결합 $\Delta_\text{dw}$ 보정 | 2D 합성(s=0.1 m)에서만 얻은 값, 기본값 끔 | 광저우 깊이 기지 표적이 생기면 보정 |
 | GPR-SD 영점 | 샘플 0 가정 | 원 저장소 처리 내역 |
 | $h_\text{max}=0.5$ m, AGC 창 $8/f_c$, $\sigma_\varepsilon$ 0.15 | 가정 | 4TU analyze |
+| 2a 구간 판정의 Δh 0.06 m(`refraction_h_margin_m`) | 가정(v1.4): $h_\text{est}$ 간섭 편향 실측 +0.029 m(해석 Ricker)·+0.049 m(M20)에 여유를 둔 값 | R13(M20)과 M2-5 합성 세트에서 $h_\text{est}-h$ 분포를 재서 확인 |
 | $f_c$ 없을 때 500 MHz 가정(dewow σ 2 ns, AGC 16 ns, 영점 창 주기 2 ns) | 가정(v1.1) | 해당 입력(GPR-SD·MALA)은 `amplitude_processed`라 현재 쓰이지 않음 |
 | 가우스 dewow가 4TU 단일 띠 판정([FX] 41/41, 상자형으로 측정)을 바꾸지 않는지 | 미확인. 가우스는 유령 엽을 줄이는 쪽이라 단일 판정이 유지될 것으로 봄 | M2-7·M2-8 4TU 실행에서 사건 수 재확인 |
 | 4TU 현장 11의 앞쪽 0 뮤트(약 48 샘플)와 DC 제거 | 전 구간 평균을 빼면 뮤트 구간이 상수로 바뀌고 뮤트 끝에 계단이 생긴다(영향 미측정) | M2-7에서 뮤트 끝 사건 여부 확인, 필요하면 DC를 뮤트 밖 샘플로만 계산 |
