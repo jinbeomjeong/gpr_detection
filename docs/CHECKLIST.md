@@ -40,7 +40,7 @@
 - [ ] M2-4 굴절 모델(공기층 h)과 v 결정 규칙 → python-expert / `depth/refraction.py`, `depth/estimate.py`
 - [ ] M2-4b 합성 gprMax 로더(`io/synthetic.py`: `data/synthetic_gprmax/<id>.npy`+`.json` → `Radargram`, spec §1-1 표 첫 행) → python-expert
 - [ ] M2-5 단위 시험 U1–U8, 합성 회귀 R1–R13 통과(시험별 허용치는 spec §11) + 합성 세트 전체 깊이 리포트 — 박스 공급: 정답 json 꼭짓점(`apex.trace_index`·`apex.envelope_peak_ns`) 주변 창(창 규칙은 gpr-processing-expert가 spec §11에 명시) → python-expert(구현), gpr-processing-expert(판정) / `tests/depth/`, `scripts/eval_depth_synthetic.py`
-- [ ] M2-6 `pipe_band` 깊이 규칙 명세(띠 상단 경계, v 출처) → gpr-processing-expert / `docs/processing/`
+- [x] M2-6 `pipe_band` 깊이 규칙 명세(띠 상단 경계, v 출처) — 완료 2026-10-30 `docs/processing/spec_band_depth_v1.md`(띠 상단 = 꼭짓점 시각 규칙, 포락선 피크 기준, masked median 배경 제거, flat/sloped/curved 모델, v 출처 이웃 쌍곡선 → 메타 εr → 조사 단위 중앙값 → `no_velocity`; 사용자 결정 Q1–Q4 권고안). 후속 핸드오프: ADR-002 결정 8·ADR-004 결정 7 개정(add-architect), 3D 합성 P01–P09(electromagnetic-simulation-expert), 사교 교차 편향 1/sinθ는 M2-9 spec v2 → gpr-processing-expert / `docs/processing/`
 - [ ] M2-6b `pipe_band` 깊이 구현·시험(스케일 있는 실측에서만 m 단위; AIHub는 스케일이 없어 픽셀·시간 단위만) → python-expert, gpr-processing-expert(판정)
 - [x] M2-7 4TU analyze(01.1·04.1·010.14·011.14: 영점 사건 분리, 공기층 h, t0 두 값 라벨, 굴절 QC εr vs `eps_r_used`) → gpr-processing-expert / `docs/processing/fourtu_explore.md` — 결과: 영점은 단일 띠(공기층 ≈0), 메타 t0 두 값은 띠의 ± 엽, `eps_r_used` 9.0은 헤더 기본값과 같음
 - [ ] M2-8 4TU 깊이 검증(활동 단위로 같은 관을 묶어 매칭, MAE, 제186조 ±30 cm 판정률, 상단/중심 두 가정, 무작위 깊이 기준선, **4TU로 튜닝하지 않음**) — 박스 공급: 손으로 고른 꼭짓점 씨앗(`fourtu_explore.md` §6) → python-expert(`scripts/eval_depth_4tu.py`), gpr-processing-expert(판정)
