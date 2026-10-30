@@ -34,3 +34,7 @@ analysis/data/out/*_out.txt
 
 # Ultralytics AMP 검사가 받는 가중치(AGPL) 위치
 /weights/
+docs/datasets/figures/pipe_band_shape/
+analysis/data/out/pipe_*.csv
+analysis/data/out/pipe_band_shape_report*.txt
+analysis/data/out/pb*_std*.txt
