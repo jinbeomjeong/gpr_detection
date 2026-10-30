@@ -7,6 +7,7 @@
 - **사용자 결정(2026-10-30, 확인 필요 질문 Q1–Q4 모두 권고안)**: Q1 가정 v(데이터셋 기본 εr) **허용 안 함**(`dataset_default_eps=None`, 출처 없으면 `no_velocity`·τ만) · Q2 측방 이격 편향은 **보정 없이** `bias_notes`·`lateral_bias_max_m` 상한만 · Q3 조각 박스 묶기는 라벨 v2 여부와 무관하게 **깊이 단계에서 항상** · Q4 경사 띠 대표 깊이는 **박스 중심**(양끝·경사율은 `depth_profile`·`grade`). Q5(4TU 끝단간 평가에서 `pipe_band`는 헝가리안 매칭에 넣지 않고 따로 보고)는 권고안대로 두고 M3 때 다시 본다.
 - 이 명세를 위한 탐색 실행: `conda run -n gpr-dev python -I analysis/processing/pipe_band_check.py` (단일 프로세스, 약 30 s, 시드 0) → `docs/processing/pipe_band_check_synthetic.csv`, `pipe_band_check_geometry.csv`, `pipe_band_check_oblique.csv`, `pipe_band_check.png` (§10에 요약)
 - [S] v1.2 동기화(2026-10-30): `air_surface_late` $\sigma_z$ 0.3 ns(§6-3 $\sigma_z$는 [S] §9를 그대로 씀), UB14 시각 기준을 [S] Z7 창으로 바꿈. 띠 규칙과 그 밖의 시험은 그대로다
+- [S] v1.3 동기화(2026-10-30): 스케일 없는 입력의 (1)–(3)에 [S] §3 픽셀 단위 밴드패스 `bandpass_px`가 들어간다. 띠 갈래도 [S] 전처리를 물려받으므로 그대로 적용한다. 띠의 px 기준(1·2·3 px)은 바꾸지 않는다. UB11은 M2-6b 구현 때 `bandpass_px` 적용 상태로 다시 잰다
 
 ---
 
@@ -242,7 +243,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 
 ### 6-1. 공통 결과와 띠 기하
 
-[S] §2 `DepthResult`는 아직 구현 전(M2-3·M2-4)이다. 그래서 공통 필드를 하나로 두고 클래스별 하위 구조를 붙이도록 제안한다.
+[S] §2 `DepthResult`는 아직 구현 전(M2-4)이다. 그래서 공통 필드를 하나로 두고 클래스별 하위 구조를 붙이도록 제안한다.
 
 | 필드 | 형 | 단위 | 띠에서의 뜻 |
 |---|---|---|---|
@@ -341,7 +342,7 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 | `tests/depth/test_band_*.py` | §9-1·§9-2 |
 
 - **import 규칙**: `depth/band.py`·`depth/velocity.py`는 `io.radargram`(`Radargram`, `GridBox`)과 `preprocess`만 import한다. `detect`·`pipeline`·검출 라이브러리는 import하지 않는다(ADR-004 결정 7, README §2-2). 클래스 이름 문자열 `"pipe_band"`은 결과 표시에만 쓴다. 박스 클래스 판별은 pipeline이 한다.
-- 포락선·포물선 보간·영점 사건은 `depth/picks.py`·`preprocess/timezero.py`([S] §13 배치안. `timezero.py`는 M2-2에서 구현됨, `picks.py`는 M2-3 예정)와 같은 함수를 공유한다. 위상 기준이 같아야 하기 때문이다.
+- 포락선·포물선 보간·영점 사건은 `depth/picks.py`·`preprocess/timezero.py`([S] §13 배치안. `timezero.py`는 M2-2에서 구현됨, `picks.py`는 M2-3에서 구현됨)와 같은 함수를 공유한다. 위상 기준이 같아야 하기 때문이다.
 
 ### 8-2. 시그니처
 

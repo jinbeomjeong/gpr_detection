@@ -49,6 +49,9 @@ AGC_WINDOW_PERIODS = 8.0
 AGC_DEFAULT_WINDOW_NS = 16.0
 """AGC window when ``f_c`` is unknown (equals 8 / 500 MHz, assumed)."""
 
+PIXEL_PERIOD_RANGE_PX = (4.0, 128.0)
+"""No-scale input: the pixel band-pass runs only for dominant periods in this range."""
+
 _HZ_PER_GHZ = 1e9
 
 
@@ -62,11 +65,13 @@ class FittingBranch:
         background_removed: After step (4). Input of hyperbola picks.
         steps: Names of the steps that actually ran, in order, e.g.
             ``("dc", "dewow", "bandpass", "background_median")``.
+        flags: e.g. ``bandpass_px_skipped``.
     """
 
     filtered: np.ndarray
     background_removed: np.ndarray
     steps: tuple[str, ...]
+    flags: tuple[str, ...] = ()
 
 
 def _period_ns(f_c_hz: float) -> float:
@@ -150,6 +155,41 @@ def bandpass(data: np.ndarray, dt_ns: float, f_c_hz: float) -> np.ndarray:
     return sosfiltfilt(sos, np.asarray(data, dtype=np.float64), axis=0)
 
 
+def estimate_period_px(data: np.ndarray) -> float | None:
+    """Dominant period in pixels (samples) of DC-removed data (spec v1.3 section 3).
+
+    The trace-averaged ``|rfft|`` along axis 0, without the DC bin, peaks at
+    ``f_px`` cycles/px; the period is ``1 / f_px``.
+
+    Returns:
+        The period, or ``None`` when it lies outside 4-128 px or the data are flat.
+    """
+    values = np.asarray(data, dtype=np.float64)
+    spectrum = np.abs(np.fft.rfft(values, axis=0)).mean(axis=1)
+    frequencies = np.fft.rfftfreq(values.shape[0], d=1.0)
+    if len(spectrum) < 2 or not spectrum[1:].max() > 0:
+        return None
+    f_px = float(frequencies[1 + int(np.argmax(spectrum[1:]))])
+    period_px = 1.0 / f_px
+    low_px, high_px = PIXEL_PERIOD_RANGE_PX
+    if not low_px <= period_px <= high_px:
+        return None
+    return period_px
+
+
+def bandpass_px(data: np.ndarray, period_px: float) -> np.ndarray:
+    """No-scale step (3): band-pass ``[0.25 f_px, min(2 f_px, 0.45)]`` cycles/px.
+
+    Same 4th-order Butterworth ``sosfiltfilt`` as :func:`bandpass`, with the
+    sample index as time (``fs = 1``) and ``f_px = 1 / period_px`` cycles/px.
+    """
+    f_px = 1.0 / period_px
+    low = BANDPASS_LOW_FRACTION * f_px
+    high = min(BANDPASS_HIGH_FRACTION * f_px, BANDPASS_NYQUIST_CAP)
+    sos = butter(BANDPASS_ORDER, [low, high], btype="bandpass", fs=1.0, output="sos")
+    return sosfiltfilt(sos, np.asarray(data, dtype=np.float64), axis=0)
+
+
 def remove_background(
     data: np.ndarray, window_traces: int = BACKGROUND_WINDOW_TRACES
 ) -> np.ndarray:
@@ -219,8 +259,10 @@ def prepare_fitting_branch(
 
     * ``amplitude_processed=True`` (GPR-SD, Guangzhou MALA): nothing is redone;
       both sections are the stored amplitudes (step name ``"upstream"``).
-    * ``dt_ns is None`` (no-scale JPG input): dewow and band-pass need a time
-      axis and are skipped; DC and background removal still run.
+    * ``dt_ns is None`` (no-scale JPG input, spec v1.3): DC, then a pixel
+      band-pass around the dominant period (``bandpass_px``, skipped with flag
+      ``bandpass_px_skipped`` outside 4-128 px), then background removal.
+      Dewow needs a time axis and is not run.
     * ``f_c_hz is None``: band-pass is skipped, dewow uses sigma 2 ns.
 
     Args:
@@ -232,8 +274,16 @@ def prepare_fitting_branch(
         return FittingBranch(stored, stored, ("upstream",))
 
     steps = ["dc"]
+    flags: list[str] = []
     section = remove_dc(radargram.data)
-    if radargram.dt_ns is not None:
+    if radargram.dt_ns is None:
+        period_px = estimate_period_px(section)
+        if period_px is None:
+            flags.append("bandpass_px_skipped")
+        else:
+            section = bandpass_px(section, period_px)
+            steps.append("bandpass_px")
+    else:
         section = dewow(section, radargram.dt_ns, radargram.f_c_hz)
         steps.append("dewow")
         if radargram.f_c_hz is not None:
@@ -241,7 +291,7 @@ def prepare_fitting_branch(
             steps.append("bandpass")
     background_removed = remove_background(section, background_window)
     steps.append("background_median")
-    return FittingBranch(section, background_removed, tuple(steps))
+    return FittingBranch(section, background_removed, tuple(steps), tuple(flags))
 
 
 def period_ns_or_default(f_c_hz: float | None, default_ns: float) -> float:

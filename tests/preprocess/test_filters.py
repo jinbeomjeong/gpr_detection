@@ -7,8 +7,10 @@ from gpr_detection.preprocess.filters import (
     agc,
     bandpass,
     bandpass_corners_hz,
+    bandpass_px,
     dewow,
     dewow_sigma_samples,
+    estimate_period_px,
     prepare_fitting_branch,
     remove_background,
     remove_dc,
@@ -110,9 +112,40 @@ def test_prepare_fitting_branch_runs_steps_in_order() -> None:
     assert branch.filtered.shape == branch.background_removed.shape
 
 
-def test_prepare_fitting_branch_skips_time_filters_without_scale() -> None:
+def test_prepare_fitting_branch_uses_a_pixel_bandpass_without_scale() -> None:
     radargram = make_radargram(BScanSpec(), dt_ns=None, dx_m=None, f_c_hz=None)
-    assert prepare_fitting_branch(radargram).steps == ("dc", "background_median")
+    branch = prepare_fitting_branch(radargram)
+    assert branch.steps == ("dc", "bandpass_px", "background_median")
+    assert branch.flags == ()
+
+
+def test_prepare_fitting_branch_skips_the_pixel_bandpass_out_of_range() -> None:
+    long_wave = np.sin(2 * np.pi * np.arange(800) / 400.0)  # 400 px period
+    data = np.tile(long_wave[:, None], (1, 10)).astype(np.float32)
+    radargram = make_radargram(
+        BScanSpec(), data=data, dt_ns=None, dx_m=None, f_c_hz=None
+    )
+    branch = prepare_fitting_branch(radargram)
+    assert branch.steps == ("dc", "background_median")
+    assert branch.flags == ("bandpass_px_skipped",)
+
+
+def test_estimate_period_px_finds_the_ricker_period() -> None:
+    trace = ricker(TIME_NS - 15.0, F_C_HZ)  # 2.5 ns period = 50 samples
+    data = remove_dc(np.tile(trace[:, None], (1, 5)))
+    assert estimate_period_px(data) == pytest.approx(50.0, rel=0.05)
+
+
+def test_estimate_period_px_rejects_out_of_range_or_flat_data() -> None:
+    short = np.tile(np.cos(np.pi * np.arange(64))[:, None], (1, 3))  # 2 px period
+    assert estimate_period_px(short) is None
+    assert estimate_period_px(np.zeros((64, 3))) is None
+
+
+def test_bandpass_px_is_zero_phase() -> None:
+    pulse = ricker(TIME_NS - 12.345, F_C_HZ)
+    filtered = bandpass_px(pulse[:, None], period_px=50.0)[:, 0]
+    assert _envelope_peak_ns(filtered) == pytest.approx(12.345, abs=0.02)
 
 
 def test_prepare_fitting_branch_keeps_upstream_processed_data() -> None:
