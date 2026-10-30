@@ -15,6 +15,7 @@
 | 2026-10-30 | v1.2 (M2-2 대조) | M2-2 구현 확인 반영: Z1 상자형 판별 대조를 상시 시험으로(사용자 결정), Z3·Z5 얕은 반사 값($\tau$ 3.5 ns, 진폭 −1.5, 반대 극성)과 분리 한계 근거, Z6 잡음 없음 명시(§11-1), `ZeroEvents` 필드(§13-2), `classify_meta_t0` 시그니처·`ZeroConfig`·$\Delta_\text{dw}$ 범위 상수(§13-3) |
 | 2026-10-30 | v1.3 (M2-3 대조) | M2-3 구현 판정 반영:<br>- 스케일 없는 입력에 픽셀 단위 밴드패스 `bandpass_px` 추가(§3, 씨앗 잡음 대책)<br>- 씨앗·추적 탐색 범위와 뮤트 규칙(§5-4)<br>- RANSAC 거부는 초기값 대체 후 계속 + `ransac_rejected`(§6-2·§10, v1 §10 "메타 v로 §6-4" 행과의 충돌 해소)<br>- $t_\text{max}=\max\tau$·경계 판정 $10^{-4}$·공분산을 정상점과 유사역행렬로(§6-3)<br>- §6-4 꼭짓점 창 밖이면 씨앗으로 대체<br>- 공기결합 거부를 점 수 검사보다 먼저(§7)<br>- 플래그 `box_in_zero_zone`·`no_apex_seed`·`mute_unavailable`·`ransac_rejected`·`bandpass_px_skipped`(§2·§10)<br>- U5 $f_c$ 함께 축척·U7 잡음 자료 유지(§11-1)<br>- `DepthConfig` 상수 확인과 `single_event_h_max_m` 삭제(§13-1 아래)<br>- 픽·피팅 객체 필드 정본(§13-4)<br>- (integrity 반영) §5-2 씨앗 문구를 "문턱을 넘는 첫 피크"로 명확화, §10 `bandpass_px_skipped` 행, §13 모듈 표 시그니처, §13-4 `CurvatureFit` status 규칙(꼭짓점 없음 → `fit_failed`) |
 | 2026-10-30 | v1.4 (M2-4 대조) | M2-4 구현 판정 반영:<br>- `status="no_velocity"`, `target_class`, `eps_r_refraction_qc(_range)`, `sigma_zero_ns`, `sigma_apex_ns`, `alt_depths` 채우는 규칙(§2)<br>- 굴절 격자 한 단·꼭짓점 $d$ 결정(§6-1)<br>- §7 2a를 $h_\text{est}$ 간섭 편향에 견디는 **구간 판정**으로 바꿈, 2a 세부, 순서 2b(공기결합·메타 없음)·6(`unknown` → `no_velocity`, 곡률 금지)<br>- §9 $\sigma_a$ 정의, §10 좁은 피크 판정식·$s$ 보정 0 처리<br>- U4 조건(500 MHz)·기준 재정의, R13 두 경로(§11)<br>- §13 refraction·velocity·result·estimate 시그니처<br>- 근거: 정확한 광선 픽 εr 민감도. $h$ 0.300–0.349 m로 상한 쪽을, 0.25·0.269·0.289 m로 구간 하한 쪽을 쟀다(§7 2a, review 계산, scratchpad, CSV 없음)<br>- (구현 확인) 구간을 min/max로 정렬, U4 실측 구간 (6.85, 9.70)의 분해(R 불일치 −6~−9 %), U4(d) 메타값 5 → 2.7, §13 `refraction_h_margin_m`·`eps_r_refraction_qc_range` |
+| 2026-10-30 | v1.5 (M2-4b 대조) | 합성 로더 반영: §1-1 합성 채움 규약(`eps_r_meta_source="synthetic_truth"`, `t0_candidates_ns` 비움, 끄기 옵션), §11-2 입력 규약(`SyntheticTruth` 필드 용도와 필수/선택, x축 비교 규약, **M2-5 박스 공급 규칙**, `_fs.npy` 불필요), §13 `io/synthetic.py` 행 |
 
 ---
 
@@ -72,7 +73,7 @@
 
 | 데이터셋 | dt_ns | dx_m | f_c | air_gap | eps_r_meta | 비고 |
 |---|---|---|---|---|---|---|
-| gprMax 합성 | json `dt_ns` | json `dx_m` (트레이스 중점 $x=0.4+0.02i$) | json `center_freq_hz` | `air_gap_m>0`이면 air | json `eps_r` (`synthetic_truth`) | s = 0.10 m |
+| gprMax 합성 (`io/synthetic.py` `load_synthetic`, v1.5) | json `dt_ns` | json `dx_m`. `Radargram`에서는 $x=i\,\Delta x$(0부터)이고 json 축은 $0.4+0.02i$(`metadata["trace_x_m_first"]`, §11-2 x축 규약) | json `center_freq_hz` | `air_gap_m>0`이면 air, 아니면 ground | json `eps_r`, `eps_r_meta_source="synthetic_truth"`(`include_eps=False`면 None·`""`) | `antenna_offset_m` = json(0.10 m), `pipe_radius_m` = json(`include_radius=False`면 None), `amplitude_processed=False`. **`t0_candidates_ns`는 비운다**(정답 영점·꼭짓점·깊이는 `load_synthetic_truth`로만). `metadata`는 `model_id`, `trace_x_m_first`, `time_of_sample0_ns`(보고용; 20개 모두 0.0이고 로더는 시간축에 반영하지 않으므로 0이어야 한다). 로더는 정답용 필수 필드가 빠진 json도 거부한다(`load_synthetic_truth`와 같은 검사) |
 | 4TU | json `dt_ns` (0.098 / 0.195 / 0.117) | 0.02 | 500 MHz | air | `eps_r_used` (`4tu_metadata_csv`) | int16 [512, N]. 09.5 Path8·Path13은 헤더 εr 2.03 비정상 → `eps_r_used` 사용 |
 | 광저우 IDS | **시간창 ÷ 샘플 수** (헤더 `data_y_cell` 금지) | `trace_dx_m` | `antenna_MHz` | ground | None | `t0_sample_used` 기준이 섞임(직접파 시작 vs 정점) |
 | 광저우 MALA | 동일 | 동일 | None | ground | None | 처리된 자료, t0=0, `amplitude_processed=True` |
@@ -402,6 +403,39 @@ Z6·Z7 주석(v1.2):
 
 `signed_peak_polarity`는 극성 판정에 쓰지 않는다(2D 합성, [DP] §8).
 
+**입력 규약 (v1.5, M2-4b 로더)**:
+- 자료: `load_synthetic(model_id)`(장비 메타만), 정답: `load_synthetic_truth(model_id) -> SyntheticTruth`. 정답은 `Radargram`에 넣지 않는다(누수 방지).
+- 기본 실행은 `include_eps=True`·`include_radius=True`이다. R10은 $R$=json이 필요하므로 `include_radius=True`, R11($R=0$ 곡률)은 `include_radius=False`로 돌린다.
+- 영점은 **검출값**(`find_time_zero`)을 쓴다. 정답 영점은 비교에만 쓴다.
+- `SyntheticTruth` 필드 용도:
+
+  | 필드 | 쓰는 시험 | 구분 |
+  |---|---|---|
+  | `pipe_top_depth_m`, `velocity_m_per_ns`, `eps_r`, `pipe_radius_m`, `air_gap_m` | R6–R13 | 필수 |
+  | `apex_trace_index`, `apex_envelope_peak_ns` | R4, R5, 박스 공급 | 필수 |
+  | `source_peak_ns` | 박스 공급, 픽 검증 | 필수 |
+  | `ray_reflection_time_ns`(트레이스 $i$별, json 축) | 박스 공급(아래 끝), 트레이스별 픽 검증 | 필수 |
+  | `trace_x_m_first`, `pipe_center_x_m` | $x_0$ 비교 | 필수 |
+  | `direct_wave_peak_ns` | R1, R3 | 선택형이지만 R1·R3 대상 모델에서 None이면 시험 **실패**(건너뛰지 않음) |
+  | `surface_reflection_peak_ns` | R2 | 같음(M20) |
+  | `wavelet_lag_ns` | 박스 공급, 픽 검증 | 선택. None이면 0으로 둔다(0.04 ns 수준이라 박스 여유 $1.5/f_c$에 묻힘) |
+  | `pipe_material` | 회귀 실패 진단(`pec`·`pvc_air`·`pvc_water`; 물 찬 관 M08·M14·M18은 하단·내부 반사) | 선택. 없으면 None (사용자 결정 2026-10-30 보완) |
+  | `t0_top_ns` | 참고(깊이는 `pipe_top_depth_m`으로 판정) | 필수 |
+
+  20개 json 모두 세 선택 필드가 채워져 있다(2026-10-30 확인).
+- **x축 비교 규약**: `Radargram`의 트레이스 위치는 $x=i\,\Delta x$(0부터)이다. json 축은 $x_\text{json}=\texttt{trace\_x\_m\_first}+i\,\Delta x$(합성은 0.4 m부터)이다.
+  - 비교는 **트레이스 인덱스**로 하거나, 추정 $x_0$에 `trace_x_m_first`를 더해 `pipe_center_x_m`과 비교한다.
+  - `ray_reflection_time_ns[i]`, `apex.trace_index`, `_bg.npy` 열(json x 0.4/1.5/2.6 m = 트레이스 0/55/110)은 모두 인덱스 기준이다.
+  - `metadata["trace_x_m_first"]`는 보고용으로만 쓰고 깊이 계산에는 넣지 않는다.
+- **박스 공급 규칙(M2-5)**: 검출기 대신 정답으로 박스 `GridBox(i0, i1, k0, k1)`를 만든다.
+  - 트레이스: $i_a$=`apex_trace_index`, 반폭 $W=\lceil 0.8\,\text{m}/\Delta x\rceil$(0.02 m → 40 트레이스), $i_0=\max(0,i_a-W)$, $i_1=\min(N-1,i_a+W)$. §5-1이 좌우 10 %를 더 넓히고, 추적은 $a_\text{max}$ 1.0 m까지 간다.
+  - 시간 위: $k_0=\max\!\left(0,\ \lfloor(t_\text{apex,env}-1.5/f_c)/\Delta t\rfloor\right)$($t_\text{apex,env}$=`apex_envelope_peak_ns`; 현재 20개 모델은 모두 $t_\text{apex}>1.5/f_c$라 하한에 걸리지 않는다).
+  - 시간 아래: $k_1=\lceil(\max_{i\in[i_0,i_1]}(t_\text{src}+\tau_\text{ray}[i]+\ell)+1.5/f_c)/\Delta t\rceil$, 기록 끝에서 자른다($t_\text{src}$=`source_peak_ns`, $\tau_\text{ray}$=`ray_reflection_time_ns`, $\ell$=`wavelet_lag_ns`).
+  - 근거: 1.5 주기는 포락선 주엽(약 ±0.6 주기)에 여유를 둔 값이다(**가정**). 0.8 m는 합성 측선 ±1.1 m 안에서 날개가 충분히 들어오는 폭이다.
+  - 박스 위쪽이 영점 구역에 걸리면 §10대로 잘린다. 물 찬 관(M08·M14·M18)의 하단·내부 반사가 박스 안에 들어와도 그대로 둔다. 첫 피크 씨앗(§5-2)을 시험하는 조건이기 때문이다.
+  - 박스는 정답에서 만들지만 씨앗은 박스 전체(±40 트레이스)에서 찾으므로 R4(±3 트레이스)는 순환 판정이 아니다.
+- `_fs.npy`(자유공간, 공기층 모델 M12·M13·M15·M18·M20만): M2-5에는 필요 없다. R2는 json `surface_reflection_peak`(= bg − fs 포락선 피크, 미리 계산됨)를 쓴다. 영점 분해 같은 분석은 `analysis/processing/`에서 npy를 직접 읽는다.
+
 | ID | 대상 | 검사 | 기준 | 현재 근거값 |
 |---|---|---|---|---|
 | R1 | h=0 (M01–M11, M14, M16, M17, M19) | $t_\text{dir}$ vs `direct_wave_peak` | ≤0.05 ns | M02 0.0000 ns |
@@ -490,7 +524,8 @@ Z6·Z7 주석(v1.2):
 
 | 모듈 | 내용 |
 |---|---|
-| `src/gpr_detection/io/radargram.py` | `Radargram` dataclass와 `sample_to_ns`(구현됨). 데이터셋별 로더는 별도 파일 `io/{fourtu,guangzhou,gprsd}.py`(구현됨)와 `io/synthetic.py`(예정, CHECKLIST M2-4b) |
+| `src/gpr_detection/io/radargram.py` | `Radargram` dataclass와 `sample_to_ns`(구현됨). 데이터셋별 로더는 별도 파일 `io/{fourtu,guangzhou,gprsd}.py`(구현됨)와 `io/synthetic.py`(M2-4b 구현됨) |
+| `src/gpr_detection/io/synthetic.py` | (v1.5) `load_synthetic(model_id, *, root, include_eps=True, include_radius=True) -> Radargram`(장비 메타만, §1-1), `load_synthetic_background(model_id, *, root) -> ndarray`(`_bg.npy` [n_samples, 3], 트레이스 0/55/110, 분석 전용), `load_synthetic_truth(model_id, *, root) -> SyntheticTruth`(§11-2 필드 표), `list_synthetic_models(root)`(manifest). 기본 경로는 `io/paths.py` `DEFAULT_SYNTHETIC_ROOT`. **x 오프셋 주의**: json x = `trace_x_m_first`(0.4) + i·dx, `Radargram` x = i·dx(§11-2). `_fs.npy` 로더는 두지 않는다(M2-5 불필요) |
 | `src/gpr_detection/io/radargram.py`(추가, M2-1) | `SPEED_OF_LIGHT_M_PER_NS`, `velocity_from_eps`, `eps_from_velocity` — depth→io 의존 방향을 지키려고 c 상수를 io에 둔다 |
 | `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용). v1.3: `estimate_period_px`(우세 주기를 **px로** 반환, $1/f_\text{px}$), 스케일 없을 때 `bandpass_px` 단계(§3), `FittingBranch.flags`(`bandpass_px_skipped`) |
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |

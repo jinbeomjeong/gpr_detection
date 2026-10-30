@@ -11,6 +11,9 @@ PATHS_CONFIG_ENV_VAR = "GPR_PATHS_CONFIG"
 # src/gpr_detection/io/paths.py -> project root is three levels above the package.
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_PATHS_CONFIG = _PROJECT_ROOT / "configs" / "paths.yaml"
+DEFAULT_SYNTHETIC_ROOT = _PROJECT_ROOT / "data" / "synthetic_gprmax"
+"""gprMax synthetic set: a derived project folder (``data/``), not a read-only
+dataset under ``gpr_data_root``, so it is not listed in paths.yaml."""
 
 
 class DatasetName(StrEnum):

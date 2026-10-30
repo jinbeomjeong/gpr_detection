@@ -1,7 +1,8 @@
 """Dataset loaders and the shared data classes.
 
 Physical radargrams (depth-capable when scaled): :mod:`.fourtu`,
-:mod:`.guangzhou`, :mod:`.gprsd` -> :class:`Radargram`.
+:mod:`.guangzhou`, :mod:`.gprsd`, :mod:`.synthetic` (gprMax models, truth kept
+separate) -> :class:`Radargram`.
 Detection images without physical scale: :mod:`.aihub`, :mod:`.morocco`
 -> :class:`AnnotatedImage`.
 """
