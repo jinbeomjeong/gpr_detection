@@ -791,6 +791,7 @@ LAYER_AMBIGUITY_NOTE = (
 - **현상**: 층이 없는 합성 회귀(BR, 2D gprMax 의사 띠)에서도 6행에 `band_top_multi_event`가 붙었다.
   - M13 공기 찬 PVC ×2, M14 물 찬 PVC ×2, M16 PEC, M20(공기결합 h 0.3 m)
   - 그래서 `LAYER_AMBIGUITY_NOTE`도 붙는다.
+  - 추적 중인 `docs/processing/depth_band_synthetic_v1.csv`·`.md`는 v1.4 실행값이라 flags 열에 이 플래그가 없다(깊이 수치는 v1.5와 같음).
 - **원인(물리)**: 첫 픽 뒤 2 주기 안에 포락선 0.3 $E_\text{box}$ 이상인 사건이 실제로 있다.
   - 공기 찬 PVC: 관 하단·내벽 반사가 상단 뒤 $4R/c$(R 0.1 m에서 1.33 ns = 0.67 주기)에 온다(§1-3 관 재질 줄).
   - 물 찬 PVC: 관 하단 반사는 약 12 ns 뒤라 창 밖이다. 2 주기 안의 사건은 물 경계 안쪽 다중반사나 관 측면 회절로 추정한다(**가정**, 미확인).
