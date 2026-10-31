@@ -70,6 +70,13 @@ MIN_MARGIN_TRACES = 5
 EDGE_PICK_COUNT = 5
 """Picks at each fragment end compared when merging (section 3-4 item 2)."""
 
+OVERLAP_MIN_TRACES = 5
+"""Shared traces, and picks per fragment on them, for the overlap comparison.
+
+Section 3-4 item 2 (a), v1.4. Same value as ``EDGE_PICK_COUNT`` but a separate
+rule, so the two can change independently.
+"""
+
 MERGE_TOLERANCE_PERIODS = 0.5
 MERGE_TOLERANCE_SAMPLES = 3.0
 """Merge when the end-pick difference is within ``max(0.5 / f_c, 3 dt)``."""
@@ -747,6 +754,76 @@ def _edge_difference(
     return float(edge_samples[left][1] - edge_samples[right][0])
 
 
+def _left_right(
+    a_index: int, b_index: int, boxes: Sequence[GridBox]
+) -> tuple[int, int]:
+    """``(left, right)``: smaller ``i0`` first, the smaller index on a tie."""
+    left, right = sorted((a_index, b_index), key=lambda index: (boxes[index].i0, index))
+    return left, right
+
+
+def _median_pick_on(picks: BandPicks, first: int, last: int) -> float | None:
+    """Median pick on traces ``first..last``; ``None`` with too few picks there."""
+    on_shared = (picks.trace_idx >= first) & (picks.trace_idx <= last)
+    if on_shared.sum() < OVERLAP_MIN_TRACES:
+        return None
+    return float(np.median(picks.k_pick[on_shared]))
+
+
+def pair_pick_difference(
+    a_index: int,
+    b_index: int,
+    boxes: Sequence[GridBox],
+    fragment_picks: Sequence[BandPicks],
+) -> float:
+    """Pick difference of two fragments in samples, ``left - right`` (3-4 item 2).
+
+    Left is the box with the smaller ``i0`` (the smaller index on a tie).
+
+    (a) When the boxes share at least ``OVERLAP_MIN_TRACES`` traces and each
+    fragment has that many picks on them, the medians over the shared traces
+    are compared: the facing ends of overlapping boxes lie on different traces,
+    so a sloped band would differ there although it is one event (UB17).
+    (b) Otherwise the facing ends are compared: median of the right-end picks of
+    left minus median of the left-end picks of right.
+
+    Args:
+        a_index: First box index.
+        b_index: Second box index.
+        boxes: All band boxes of the radargram.
+        fragment_picks: Picks of every box searched alone (same order as boxes).
+
+    Returns:
+        The difference in samples; NaN when a fragment has no picks.
+    """
+    left, right = _left_right(a_index, b_index, boxes)
+    first_shared = max(boxes[left].i0, boxes[right].i0)
+    last_shared = min(boxes[left].i1, boxes[right].i1)
+    if last_shared - first_shared + 1 >= OVERLAP_MIN_TRACES:
+        left_median = _median_pick_on(fragment_picks[left], first_shared, last_shared)
+        right_median = _median_pick_on(fragment_picks[right], first_shared, last_shared)
+        if left_median is not None and right_median is not None:
+            return left_median - right_median
+    left_end = _edge_picks(fragment_picks[left])[1]
+    right_start = _edge_picks(fragment_picks[right])[0]
+    return left_end - right_start
+
+
+def _pair_difference(
+    a_index: int,
+    b_index: int,
+    boxes: Sequence[GridBox],
+    edge_samples: Sequence[tuple[float, float]] | None,
+    fragment_picks: Sequence[BandPicks] | None,
+) -> float | None:
+    """Confirmation difference of a candidate pair; ``None`` skips the check."""
+    if fragment_picks is not None:
+        return pair_pick_difference(a_index, b_index, boxes, fragment_picks)
+    if edge_samples is not None:
+        return _edge_difference(a_index, b_index, boxes, edge_samples)
+    return None
+
+
 def candidate_pairs(
     boxes: Sequence[GridBox], dx_m: float | None, cfg: BandConfig = DEFAULT_BAND_CONFIG
 ) -> list[tuple[int, int]]:
@@ -767,17 +844,25 @@ def group_band_boxes(
     *,
     edge_samples: Sequence[tuple[float, float]] | None = None,
     tolerance_samples: float = MERGE_TOLERANCE_SAMPLES,
+    fragment_picks: Sequence[BandPicks] | None = None,
 ) -> list[tuple[int, ...]]:
     """Merge fragments of one band, transitively (section 3-4).
 
+    Candidates are confirmed only when their pick difference is at most
+    ``tolerance_samples``. ``fragment_picks`` takes precedence over
+    ``edge_samples``; with neither, only the box geometry is checked.
+
     Args:
         boxes: All ``pipe_band`` boxes of one radargram.
-        dx_m: Trace interval (gap limit 0.2 m), or ``None`` (8 px).
+        dx_m: Trace interval (gap limit 0.2 m), or ``None``
+            (``cfg.merge_gap_px``).
         cfg: Gap and overlap settings.
         edge_samples: Per box ``(left end, right end)`` median pick sample of
-            the 5 end picks; candidates are confirmed only when the facing ends
-            differ by at most ``tolerance_samples``. ``None`` skips the check.
+            the 5 end picks; the facing ends are compared (kept for backward
+            compatibility).
         tolerance_samples: ``max(0.5 / f_c, 3 dt)`` in samples (3 px).
+        fragment_picks: Picks of every box searched alone (v1.4); compared by
+            :func:`pair_pick_difference`.
 
     Returns:
         Groups of box indices (sorted), every box exactly once.
@@ -791,11 +876,10 @@ def group_band_boxes(
         return index
 
     for i, j in candidate_pairs(boxes, dx_m, cfg):
-        mismatched = (
-            edge_samples is not None
-            and abs(_edge_difference(i, j, boxes, edge_samples)) > tolerance_samples
-        )
-        if mismatched:
+        difference = _pair_difference(i, j, boxes, edge_samples, fragment_picks)
+        # A NaN difference (fragment without picks) still merges: band spec
+        # section 11 keeps this open in v1.4.
+        if difference is not None and abs(difference) > tolerance_samples:
             continue
         parent[root(j)] = root(i)
 
@@ -989,8 +1073,12 @@ def estimate_band_depths(
     if branch is None:
         branch = prepare_fitting_branch(radargram, cfg.bg_window)
     context = _context(radargram, zero, branch)
-    groups = _merged_groups(context, band_boxes, cfg)
-    neighbors = _unmerged_neighbors(context, band_boxes, groups, cfg)
+    # One box needs no fragment picks: it is its own group and has no pairs.
+    fragment_picks = (
+        _fragment_picks(context, band_boxes, cfg) if len(band_boxes) > 1 else None
+    )
+    groups = _merged_groups(context, band_boxes, cfg, fragment_picks)
+    neighbors = _unmerged_neighbors(context, band_boxes, groups, cfg, fragment_picks)
     results = []
     for members in groups:
         group = _evaluate_group(context, band_boxes, members, cfg)
@@ -1042,26 +1130,30 @@ def _merge_tolerance(context: _BandContext) -> float:
     )
 
 
-def _fragment_edges(
+def _fragment_picks(
     context: _BandContext, boxes: Sequence[GridBox], cfg: BandConfig
-) -> list[tuple[float, float]]:
-    return [
-        _edge_picks(_picks_for(context, boxes, (i,), cfg)) for i in range(len(boxes))
-    ]
+) -> list[BandPicks]:
+    """Picks of every box searched alone (section 3-4 item 2)."""
+    return [_picks_for(context, boxes, (i,), cfg) for i in range(len(boxes))]
 
 
 def _merged_groups(
-    context: _BandContext, boxes: Sequence[GridBox], cfg: BandConfig
+    context: _BandContext,
+    boxes: Sequence[GridBox],
+    cfg: BandConfig,
+    fragment_picks: Sequence[BandPicks] | None = None,
 ) -> list[tuple[int, ...]]:
+    """Groups of ``boxes``; ``fragment_picks`` is computed here when ``None``."""
     if len(boxes) == 1:
         return [(0,)]
-    edges = _fragment_edges(context, boxes, cfg)
+    if fragment_picks is None:
+        fragment_picks = _fragment_picks(context, boxes, cfg)
     return group_band_boxes(
         boxes,
         context.radargram.dx_m,
         cfg,
-        edge_samples=edges,
         tolerance_samples=_merge_tolerance(context),
+        fragment_picks=fragment_picks,
     )
 
 
@@ -1070,19 +1162,21 @@ def _unmerged_neighbors(
     boxes: Sequence[GridBox],
     groups: Sequence[tuple[int, ...]],
     cfg: BandConfig,
+    fragment_picks: Sequence[BandPicks] | None = None,
 ) -> dict[tuple[int, ...], tuple[tuple[int, float], ...]]:
     """Candidate fragments left in different groups (section 3-4 item 4)."""
     pairs = candidate_pairs(boxes, context.radargram.dx_m, cfg)
     if not pairs:
         return {}
     group_of = {index: group for group in groups for index in group}
-    edges = _fragment_edges(context, boxes, cfg)
+    if fragment_picks is None:
+        fragment_picks = _fragment_picks(context, boxes, cfg)
     scale = context.radargram.dt_ns or 1.0
     neighbors: dict[tuple[int, ...], list[tuple[int, float]]] = {}
     for i, j in pairs:
         if group_of[i] == group_of[j]:
             continue
-        delta = _edge_difference(i, j, boxes, edges) * scale
+        delta = pair_pick_difference(i, j, boxes, fragment_picks) * scale
         neighbors.setdefault(group_of[i], []).append((j, delta))
         neighbors.setdefault(group_of[j], []).append((i, -delta))
     return {group: tuple(items) for group, items in neighbors.items()}
@@ -1366,5 +1460,6 @@ __all__ = [
     "group_band_boxes",
     "masked_background",
     "meta_velocity",
+    "pair_pick_difference",
     "pixel_limits",
 ]

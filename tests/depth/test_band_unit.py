@@ -1,4 +1,4 @@
-"""Unit tests of ``pipe_band`` depth (spec_band_depth_v1 section 9-1, UB1-UB15).
+"""Unit tests of ``pipe_band`` depth (spec_band_depth_v1 section 9-1, UB1-UB19).
 
 Analytic B-scans from ``synthetic_bscan``: 400 MHz Ricker, dt 0.05 ns, dx
 0.02 m, SNR 20 dB, eps_r 9, d_top 0.6 m, R 0.05 m, ground-coupled, 200
@@ -187,6 +187,89 @@ def test_group_band_boxes_requires_matching_ends() -> None:
     assert group_band_boxes(boxes, None) == [(0, 1)]
     edges = [(110.0, 110.0), (130.0, 130.0)]
     assert group_band_boxes(boxes, None, edge_samples=edges) == [(0,), (1,)]
+
+
+def _sloped_tau(grade: float, centre_trace: int = 100) -> np.ndarray:
+    """Band-top times of a sloped band (the UB3 formula)."""
+    depth = D_TOP_M + grade * (X_M - X_M[centre_trace])
+    return 2 * depth * math.cos(math.atan(grade)) / V9
+
+
+def test_ub16_x_overlapping_fragments_of_a_flat_band_merge() -> None:
+    band = (np.full(N_TRACES, TAU_FLAT_NS), _amplitude(slice(40, 181)))
+    radargram = _radargram([band])
+    boxes = [
+        _box(40, 160, TAU_FLAT_NS, TAU_FLAT_NS),
+        _box(120, 180, TAU_FLAT_NS, TAU_FLAT_NS),
+    ]
+    (result,) = _estimate(radargram, boxes)
+    assert result.band.member_indices == (0, 1)
+    assert result.band.trace_range == (40, 180)
+    assert result.depth_top_m == pytest.approx(D_TOP_M, abs=0.02)
+
+
+def test_ub17_contained_fragment_of_a_sloped_band_merges() -> None:
+    """Facing ends 96 traces apart differ by ~1.9 ns; shared traces agree."""
+    grade = 0.05
+    tau = _sloped_tau(grade)
+    radargram = _radargram([(tau, _amplitude(slice(30, 171)))])
+    boxes = [_box(40, 160, tau[40], tau[160]), _box(60, 100, tau[60], tau[100])]
+    results = _estimate(radargram, boxes)
+    assert len(results) == 1, f"got {len(results)} results"
+    (result,) = results
+    assert result.band.member_indices == (0, 1)
+    assert result.band.model == "sloped"
+    assert result.band.grade == pytest.approx(grade, abs=0.005)
+
+
+def test_ub18_overlapping_boxes_on_different_events_stay_apart() -> None:
+    """A spans both bands; on the shared traces A picks tau1 and B picks tau2."""
+    tau_deep = TAU_FLAT_NS + 6.0
+    shallow = (np.full(N_TRACES, TAU_FLAT_NS), _amplitude(slice(40, 161)))
+    deep = (np.full(N_TRACES, tau_deep), _amplitude(slice(100, 181)))
+    radargram = _radargram([shallow, deep])
+    boxes = [_box(40, 160, TAU_FLAT_NS, tau_deep), _box(100, 180, tau_deep, tau_deep)]
+    results = _estimate(radargram, boxes)
+    assert len(results) == 2
+    assert all("fragment_of_group" in result.flags for result in results)
+
+
+def test_ub19_default_no_scale_merge_gap() -> None:
+    assert DEFAULT_BAND_CONFIG.merge_gap_px == 32
+
+
+UB19_GAP_20_BOXES = (
+    _box(40, 90, TAU_FLAT_NS, TAU_FLAT_NS),
+    _box(111, 170, TAU_FLAT_NS, TAU_FLAT_NS),
+)
+UB19_GAP_40_BOXES = (
+    _box(40, 80, TAU_FLAT_NS, TAU_FLAT_NS),
+    _box(121, 170, TAU_FLAT_NS, TAU_FLAT_NS),
+)
+
+
+@pytest.mark.parametrize(
+    ("boxes", "merge_gap_px", "expected_count"),
+    [
+        pytest.param(UB19_GAP_20_BOXES, None, 1, id="a-gap20-default"),
+        pytest.param(UB19_GAP_40_BOXES, None, 2, id="b-gap40-default"),
+        pytest.param(UB19_GAP_20_BOXES, 8, 2, id="c-gap20-G8"),
+    ],
+)
+def test_ub19_no_scale_merge_gap_is_32_px(
+    boxes: tuple[GridBox, ...], merge_gap_px: int | None, expected_count: int
+) -> None:
+    cfg = DEFAULT_BAND_CONFIG
+    if merge_gap_px is not None:
+        cfg = replace(cfg, merge_gap_px=merge_gap_px)
+    band = (np.full(N_TRACES, TAU_FLAT_NS), _amplitude(slice(40, 171)))
+    radargram = _radargram([band], dt_ns=None, dx_m=None, f_c_hz=None)
+    zero = find_time_zero(radargram, prepare_fitting_branch(radargram).filtered)
+    results = estimate_band_depths(radargram, list(boxes), zero, cfg=cfg)
+    assert len(results) == expected_count, f"got {len(results)} results"
+    assert all(result.status == "no_scale" for result in results)
+    if expected_count == 1:
+        assert results[0].band.member_indices == (0, 1)
 
 
 def test_ub7_water_filled_pipe_keeps_the_top_reflection() -> None:

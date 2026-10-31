@@ -120,7 +120,8 @@ class BandConfig:
         bg_window: Masked-median window in traces (centred on the band).
         bg_margin_m: Trace margin around every band box (at least 5 traces).
         bg_min_outside: Fewer outside traces skip the background removal.
-        merge_gap_px: Fragment gap for no-scale inputs (traces = px).
+        merge_gap_px: Fragment gap for no-scale inputs (traces = px); v1.4,
+            band spec 3-4 (was 8).
         merge_gap_m: Fragment gap for scaled inputs.
         merge_overlap_min: Required time overlap of the smaller box height.
         f_scale_ns: ``least_squares`` soft-L1 scale (1 px without scale).
@@ -141,7 +142,7 @@ class BandConfig:
     bg_window: int = BACKGROUND_WINDOW_TRACES
     bg_margin_m: float = 0.1
     bg_min_outside: int = 30
-    merge_gap_px: int = 8
+    merge_gap_px: int = 32
     merge_gap_m: float = 0.2
     merge_overlap_min: float = 0.5
     f_scale_ns: float = 0.1

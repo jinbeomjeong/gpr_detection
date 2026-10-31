@@ -12,6 +12,13 @@
 - **v1.2 (band v1.1 반영 대조, 2026-10-30)**: AIHub $P_\text{px}\approx4$ px는 레이다 반송파로 판정. v1.1 $P_\text{px}$ 기준은 유지하고 §9-4 해석을 정정(v1.1 기대가 틀림). §3-5 문턱 근거를 §11 미결로 옮김, UB11 주기 단언 기준, [S] v1.7 주기 범위 2.2–128 px 동기화
 - **v1.3 (M2-6b 커밋 전 정합, 2026-10-31)**: §8-1 실제 배치(`BandConfig`→config.py, `BandGeometry`→result.py, 단수 `estimate_band_depth` 삭제), §5-2·§8-1 `velocity_estimate_from` 시그니처, §8-2 `period_px` 인자, §3-4 coverage 분자(구성 트레이스만, ≤1), §6-2 `inconsistent_picks` px 기준·스케일 없을 때 모든 실패 → `no_scale`, `pad_*_periods`는 코드가 읽음, §9-4 하한 2.2 px 재측정 수치
 - 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(`seed_rel` → `candidate_rel` 등. 난수 시드는 그대로)
+- **v1.4 (박스 규약 판정 반영, 2026-10-31)**: 근거 `docs/processing/band_box_convention_depth.md`([BC]). 사용자 결정(2026-10-31): 검출 학습 라벨은 **v1(쪼갠 박스) 유지**, 띠 묶기는 깊이 단계가 맡음, S1·S2 승인, S3·띠 상단 정의는 합성 실험으로 판정([BC] §7). 바뀐 곳은 다음과 같다.
+  - §3-4 단계 1: 스케일 없는 입력의 $G$를 8 → **32 px**로 바꿈(S2)
+  - §3-4 단계 2: x로 겹친 후보는 **겹친 트레이스 픽의 중앙값 차**로 판정(S1)
+  - §8-2: `merge_gap_px=32`, `group_band_boxes(..., fragment_picks)`, `pair_pick_difference`
+  - §9-1: UB16–UB19 추가
+  - §11: 스케일 있는 입력의 검출 px 항, 묶음 안 창(S3) 미결 추가
+  - 구현 명세는 [BC] §4-3
 
 ---
 
@@ -158,10 +165,16 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 
 [AU]에서 band 이미지의 30.7 %가 같은 깊이에서 x로 끊긴 조각이었다(간격 ≤8 px 쌍 480개). 검출기도 같은 모양으로 낼 수 있으므로 깊이 단계에서 묶는다.
 
-1. 후보: 두 박스의 시간 겹침이 작은 박스 높이의 50 % 이상이고, 트레이스 간격 $\text{gap}=i_0^{(B)}-i_1^{(A)}-1\le G$일 때 후보로 본다.
-   - $G$ = 스케일 없음: 8 트레이스(=px, [AU] 권고 1의 보수값)
+1. 후보: 두 박스의 시간 겹침이 작은 박스 높이의 50 % 이상이고, 트레이스 간격 $\text{gap}=i_0^{(B)}-i_1^{(A)}-1\le G$일 때 후보로 본다. A는 $i_0$가 작은 박스이고, 같으면 입력 번호가 작은 박스다. $\text{gap}<0$이면 x로 겹친 것이고, 포함 관계도 여기에 든다.
+   - $G$ = 스케일 없음: **32 트레이스(=px)**. v1.4에서 8에서 바꿨다([BC] S2, 근거는 아래 v1.4 메모)
    - $G$ = 스케일 있음: $\lceil0.2\ \text{m}/\Delta x\rceil$ (4TU 10 트레이스) (**가정**)
-2. 확인: 각 조각에서 §3-3 픽을 낸다. 맞닿는 쪽 끝 5 트레이스의 픽 중앙값 차가 $|\Delta\tau|\le\max(0.5/f_c,\ 3\Delta t)$(스케일 없으면 3 px)이면 같은 띠로 묶는다.
+2. 확인: 각 조각에서 §3-3 픽을 **조각 단독으로** 낸다(묶음 창이 아니라 그 박스 하나의 창). 그다음 차 $\Delta$를 아래 규칙으로 구한다. $|\Delta|\le\max(0.5/f_c,\ 3\Delta t)$이면 같은 띠로 묶는다. 스케일 없으면 $\max(0.5P_\text{px},3)$ px이고, $P_\text{px}$가 없으면 3 px다.
+   - **(a) 겹친 후보(v1.4, S1)**: 공유 트레이스 $\mathcal S=[\max(i_0^A,i_0^B),\ \min(i_1^A,i_1^B)]$를 쓴다. $|\mathcal S|\ge5$이고 두 조각이 각각 $\mathcal S$ 안에서 픽을 5개 이상 냈으면 $\Delta=\operatorname{median}_{j\in\mathcal S}k^A_j-\operatorname{median}_{j\in\mathcal S}k^B_j$다(같은 트레이스 집합에서 각 조각이 픽한 트레이스만).
+   - **(b) 그 밖(맞닿은 후보, 또는 겹침이 5 트레이스 미만이거나 공유 픽이 모자란 겹친 후보)**: 지금 규칙 그대로, A 오른쪽 끝 5 픽 중앙값 − B 왼쪽 끝 5 픽 중앙값이다.
+   - 부호는 항상 A − B다. `fragment_neighbors`의 $\Delta\tau$도 같은 함수에서 나온다.
+   - 픽이 없어 $\Delta$가 NaN이면 지금 구현은 묶는다(`abs(nan) > tol`이 거짓). v1.4에서는 바꾸지 않는다(§11 미결).
+   - v1.4 근거([BC] 표 6): 검출 박스의 묶기 후보는 대부분 x로 겹친 쌍이다(v1 모델 346·352쌍, v2 모델 311·180쌍. 정답 박스는 4쌍). (b)를 겹친 쌍에 쓰면 서로 다른 트레이스의 픽을 비교하게 된다. 그래서 경사율 5 %에서 96 트레이스 떨어진 끝은 1.9 ns 차가 나서 같은 띠도 묶이지 않는다(UB17).
+   - v1.4 $G$ 근거([BC] 표 2·5): $G$ 32에서 한 띠에 결과가 둘 이상 나오는 비율이 AIHub 정답 62.6 → 53.2 %, v1 모델 28.1 → 24.6 %, 33.9 → 27.6 %로 줄었다. $G$ 8 대비 대표 행이 0.5 주기 넘게 바뀐 병합 띠는 1.5 %다. 서로 다른 사건이 섞이는 것은 단계 2가 막는다.
 3. 묶음은 이행적으로 반복한다. 결과는 합집합 박스 하나와 구성 박스 인덱스 `member_indices`다. 간격 트레이스도 픽을 시도하되 coverage 분모에는 넣지 않는다. v1.3: 분자도 구성 박스 트레이스의 픽만 센다. 따라서 coverage ≤ 1이다. 간격 트레이스 픽은 `fit_band_profile`에만 쓴다.
 4. 묶지 않은 조각은 각각 결과를 낸다. 같은 관의 조각이 따로 남을 수 있으므로 `fragment_of_group` 정보(이웃 조각 인덱스, $\Delta\tau$)를 남긴다.
 
@@ -354,7 +367,7 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 
 | 모듈 | 내용 |
 |---|---|
-| `src/gpr_detection/depth/band.py` | `BandPicks`, `BandFit`, `group_band_boxes`, `masked_background`, `band_exclude_traces`, `extract_band_picks`, `fit_band_profile`, `estimate_band_depths` (v1.3 실제 배치: 단수 `estimate_band_depth`는 두지 않음) |
+| `src/gpr_detection/depth/band.py` | `BandPicks`, `BandFit`, `group_band_boxes`, `masked_background`, `band_exclude_traces`, `extract_band_picks`, `fit_band_profile`, `estimate_band_depths`, `pair_pick_difference`(v1.4) (v1.3 실제 배치: 단수 `estimate_band_depth`는 두지 않음) |
 | `src/gpr_detection/depth/config.py` | `BandConfig`(v1.3: 순환 import를 피하려고 `DepthConfig`와 같은 파일) |
 | `src/gpr_detection/depth/result.py` | `BandGeometry`(+`fragment_neighbors`), `DepthResult.band` |
 | `src/gpr_detection/depth/velocity.py` | `VelocityEstimate`, `VelocityChoice`, `velocity_estimate_from(result, *, line_id, source_index, survey_key=None)`, `select_band_velocity` |
@@ -377,7 +390,7 @@ class BandConfig:
     bg_window: int = 301
     bg_margin_m: float = 0.1         # min 5 traces
     bg_min_outside: int = 30
-    merge_gap_px: int = 8            # no-scale inputs
+    merge_gap_px: int = 32           # no-scale inputs (v1.4: was 8, [BC] S2)
     merge_gap_m: float = 0.2         # scaled inputs
     merge_overlap_min: float = 0.5
     f_scale_ns: float = 0.1
@@ -460,7 +473,13 @@ class VelocityChoice:
     flags: tuple[str, ...]        # v_assumed, meta_eps_unverified, ...
 
 def group_band_boxes(boxes: Sequence[GridBox], dx_m: float | None,
-                     cfg: BandConfig) -> list[tuple[int, ...]]: ...
+                     cfg: BandConfig, *,
+                     edge_samples: Sequence[tuple[float, float]] | None = None,
+                     tolerance_samples: float = 3.0,
+                     fragment_picks: Sequence[BandPicks] | None = None,   # v1.4 (S1)
+                     ) -> list[tuple[int, ...]]: ...
+def pair_pick_difference(a: int, b: int, boxes: Sequence[GridBox],
+                         fragment_picks: Sequence[BandPicks]) -> float: ...  # v1.4, section 3-4 item 2 (a)/(b), samples, left - right
 def masked_background(a: np.ndarray, band_boxes: Sequence[GridBox], center_trace: int,
                       dx_m: float | None, cfg: BandConfig) -> tuple[np.ndarray | None, str]: ...
 def extract_band_picks(a_bg: np.ndarray, box: GridBox, k_mute: int | None,
@@ -485,6 +504,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
     - `extract_band_picks(..., k_zero, member_traces, member_indices, bg_mode)`: px 영점, 묶음 구성 트레이스, 배경 방식 전달
     - `fit_band_profile(..., dt_ns, f_c_hz, k_zero, period_px)`: 단위 환산, 스케일 없을 때 §3-5 픽셀 기준
     - `group_band_boxes(..., edge_samples, tolerance_samples)`: §3-4 단계 2의 끝 픽 비교
+    - v1.4: `group_band_boxes(..., fragment_picks)`가 주어지면 `pair_pick_difference`(§3-4 단계 2 (a)/(b))로 판정한다. 둘 다 주어지면 `fragment_picks`가 우선한다. `edge_samples` 경로는 하위 호환으로 남긴다. 구현 세부는 [BC] §4-3
   - 공개 함수 `band_exclude_traces`(§3-1 제외 트레이스)와 `[S]` `alternative_depths`(구 `_alt_depths`)도 확인했다.
 
 - `a`는 [S] §3 (3)까지 처리한 gain 없는 자료다. `ZeroResult`는 [S] v1.1(2026-10-30)부터 [S] §13-1이 정본이다. `select_zero`는 튜플 대신 이 객체를 돌려주고, 쌍곡선 깊이(`estimate_depth`)도 같은 객체를 받는다. `BandPicks`·`BandFit`·`VelocityChoice`·`VelocityEstimate` 필드는 위 블록이 기준이다. 필드를 더하는 것은 허용하고, 빼거나 이름을 바꾸려면 이 명세를 함께 고친다.
@@ -519,6 +539,10 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | UB13 | UB1 시간축 1.18배 + 이웃 쌍곡선 v도 1/1.18배 (GPR-SD A/B) | 깊이 변화 ≤ 1 mm |
 | UB14 | 영점 탐색 창 안의 얕은 띠(v1.1: **d 0.1 m**, 공기결합 모의 500 MHz·h 0.3 m, 띠가 측선 60 %). 0.15 m에서 바꾼 이유: 창 끝이 $t_\text{dir}+2h_\text{max}/c+0.5/f_c\approx3.33+3.34+1.0=7.7$ ns인데, 0.15 m 띠는 $5.03+2\cdot0.15/0.0999=8.0$ ns로 창 밖이라 시험이 성립하지 않는다. 0.1 m면 7.0 ns로 창 안이다 | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록 |
 | UB15 | `pick_mode` 불일치 | `ValueError` |
+| UB16 (v1.4) | 평탄 띠(트레이스 40–180, 진폭 1). 박스 A = 40–160, B = 120–180(x 겹침 41 트레이스), 둘 다 같은 τ의 `_box` | 결과 1개, `member_indices == (0, 1)`, `trace_range == (40, 180)`, 깊이 ±2 cm. 현재 코드도 통과(회귀 보호) |
+| UB17 (v1.4) | 경사율 5 % 띠(UB3 식, 중심 트레이스 100, 트레이스 30–170). A = `_box(40, 160, τ[40], τ[160])`가 B = `_box(60, 100, τ[60], τ[100])`를 포함 | 결과 1개, `member_indices == (0, 1)`, `model == "sloped"`, $|g-0.05|\le0.005$. **현재 코드에서는 결과 2개로 실패해야 한다**(끝 비교: A 오른쪽 끝 ≈ 158과 B 왼쪽 끝 ≈ 62의 차 ≈ 96 × 0.02 × 1.0 ns/m ≈ 1.9 ns > 허용 1.25 ns). 고치기 전 실패를 기록 |
+| UB18 (v1.4) | 진폭 1인 두 평탄 띠: τ₁ = `TAU_FLAT_NS`(트레이스 40–160), τ₂ = τ₁ + 6 ns(트레이스 100–180). A = `_box(40, 160, τ₁, τ₂)`(두 띠를 세로로 모두 덮음), B = `_box(100, 180, τ₂, τ₂)`. B의 세로 범위가 A 안에 들어가므로 시간 겹침 100 % → 후보 | 결과 2개(공유 트레이스 100–160에서 A는 τ₁, B는 τ₂를 픽 → Δ ≈ 6 ns > 1.25 ns), 두 결과 모두 `fragment_of_group`. 6 ns는 B 창 위 여유(0.4 + 1 주기 = 3.5 ns)보다 커서 B 창이 τ₁ 포락선에 닿지 않게 고른 값이다 |
+| UB19 (v1.4) | 스케일 없음(`dt_ns=dx_m=f_c_hz=None`, UB11 방식 영점), 평탄 띠(트레이스 40–170, 박스는 모두 τ = `TAU_FLAT_NS`의 `_box`). (a) `_box(40, 90)` + `_box(111, 170)`(간격 20 px) (b) `_box(40, 80)` + `_box(121, 170)`(간격 40 px) (c) (a)를 `replace(cfg, merge_gap_px=8)`로 | (a) 결과 1개, `member_indices == (0, 1)` (b) 결과 2개 (c) 결과 2개. 모두 `status == "no_scale"`. `DEFAULT_BAND_CONFIG.merge_gap_px == 32` 단언 |
 
 ### 9-2. 회귀 시험 (2D gprMax 의사 띠, `tests/depth/test_band_synthetic.py`, `@pytest.mark.synthetic`)
 
@@ -593,7 +617,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 
 | 대상 | `일치` | `허용 일치` | `불일치` |
 |---|---|---|---|
-| 단위 시험 UB1–UB15 | 전부 통과 | – | 하나라도 실패 |
+| 단위 시험 UB1–UB19 | 전부 통과 | – | 하나라도 실패 |
 | 의사 띠 BR1–BR7 | 전부 통과 | BR1만 0.5–1 cm | 그 밖 |
 | 3D P01–P07 (`meta_fixed`) | $|d-d_\text{top}|\le2$ cm (P04는 표 B1 예측 ±1 cm, P05는 $|\theta_\text{est}-\theta|\le2°$, θ ≤ 20°) | ≤ 10 cm | > 10 cm |
 
@@ -682,7 +706,10 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | 2D 의사 띠 = 3D 평행 관 띠(시각·포락선) | 가정 | 3D P01·P09 |
 | 편파가 시각에 영향 없음 | 가정 | P08 |
 | masked median 여유 $m$ 0.1 m, 최소 바깥 30 트레이스 | 가정 | UB2, 3D |
-| 조각 묶기 간격 8 px / 0.2 m, $|\Delta\tau|$ 허용 | 가정([AU] 근거는 px만) | AIHub test 박스 점검(§9-4) |
+| 조각 묶기 간격 32 px(v1.4, 8에서 바꿈) / 0.2 m, $|\Delta\tau|$ 허용 | 가정. px 값 근거는 [BC] 표 2·5·6 | AIHub test 박스 점검(§9-4) |
+| (v1.4) 스케일 있는 입력의 검출 px 항 | 검출 박스 쪼개짐은 검출기 입력 px 현상이다. $G=\max(\lceil0.2/\Delta x\rceil,\ \lceil32\,s\rceil)$($s$ = 검출 입력 1 px당 트레이스)를 검토 대상으로만 둠 | M3-2 타일·리사이즈 확정 때 |
+| (v1.4) 묶음 안 탐색 창(S3): 합집합 박스 창 하나 vs 구성 박스별 창 | 현행(합집합) 유지. 합집합 위 끝이 ≥ 5 px 올라간 트레이스의 38.6 %가 이른 겹으로 옮겨 감([BC] 표 3) | 합성 실험([BC] §7, electromagnetic-simulation-expert 설계). 띠 상단 정의도 같은 실험에서 판정 |
+| (v1.4) 픽이 없어 $\Delta$가 NaN인 후보 | 현행대로 묶임 | 별건. 필요하면 다음 개정에서 "묶지 않음"으로 바꿈 |
 | 발자국 반경 식(측방 이격 상한) | Conyers & Goodman(1997) 경험식, 프로젝트 근거 문서 미등록 | web-research-expert로 출처 확인 또는 P04 |
 | 이웃 v 깊이 근접 조건(±50 %), $\delta_\tau$ 0.05 | 가정 | 광저우 다관 측선 |
 | (v1.2) `inconsistent_picks` 문턱 $0.25/f_c$(px는 $0.25P_\text{px}$)와 $q_\text{res}$ 척도 $0.125/f_c$ | 가정. 근거는 해석·gprMax 합성뿐이다. AIHub 띠 픽은 0.25–0.5 주기 흩어짐(39/51 초과) | 스케일 있는 실측(4TU M2-7·광저우)의 σ_res/주기 분포로 재검토. AIHub로는 조정하지 않음 |

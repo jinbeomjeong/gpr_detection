@@ -11,7 +11,11 @@ seeded sample of ``--count`` images is used.
 
 Outputs: aggregate markdown ``docs/processing/<stem>.md`` (no file names or box
 coordinates; AIHub data card rule) and a per-box csv under ``data/audit/``
-(local, not tracked).
+(local, not tracked). Only the block between the ``GENERATED_BEGIN`` and
+``GENERATED_END`` markers is rewritten; hand-written notes outside it are kept.
+An existing report without the markers is left alone (exit 2). The version
+table puts the current run in a column named after ``CURRENT_SPEC_VERSION``
+next to the frozen ``PREVIOUS_RUNS`` columns.
 
 Example:
     conda run -n gpr-dev python -I scripts/check_band_picks_aihub.py --count 40
@@ -197,6 +201,16 @@ def _quantiles(values: Sequence[float]) -> str:
     return " / ".join(f"{value:.2f}" for value in q)
 
 
+CURRENT_SPEC_VERSION = "v1.4"
+"""Band spec version the current code implements.
+
+Taken from the change history of ``docs/processing/spec_band_depth_v1.md``;
+bump it (and move the old current column into ``PREVIOUS_RUNS``) when the band
+spec changes what this check measures.
+"""
+CURRENT_RUN_SUMMARY = "S1 겹침 판정 + G 32 px"
+"""What the current spec version changed, shown in the current column header."""
+
 PREVIOUS_RUNS = {
     "v1.0 (고정 1/2/2/3/1 px)": {
         "inconsistent_picks": "30/51",
@@ -204,6 +218,7 @@ PREVIOUS_RUNS = {
         "confidence": "0.00 / 0.00 / 0.00 / 0.00 / 0.40",
         "skipped": "16/51 결과 (영상 수 미기록)",
         "sigma_res_over_period": "-",
+        "results_and_fragments": "-",
     },
     "v1.1 (P_px 기준, 하한 4 px)": {
         "inconsistent_picks": "39/51",
@@ -211,15 +226,48 @@ PREVIOUS_RUNS = {
         "confidence": "0.00 / 0.00 / 0.00 / 0.00 / 0.29",
         "skipped": "16/51 결과, 14장 (1/f_px 2.44-3.82 px)",
         "sigma_res_over_period": "-",
+        "results_and_fragments": "-",
+    },
+    "v1.3 (P_px 기준, 하한 2.2 px)": {
+        "inconsistent_picks": "42/51",
+        "band_concave": "20/51",
+        "confidence": "0.00 / 0.00 / 0.00 / 0.00 / 0.29",
+        "skipped": "0/51 결과, 0장",
+        "sigma_res_over_period": "0.08 / 0.35 / 0.52 / 0.84 / 1.52",
+        "results_and_fragments": "51 / 6",
     },
 }
-"""Earlier runs on the same 40 crops (2026-10-30), kept for the comparison table."""
+"""Frozen earlier runs on the same 40 crops (seed 0), kept for the comparison table.
+
+v1.0 and v1.1 ran on 2026-10-30; v1.3 is the run published in the report before
+the v1.4 rerun (2026-10-31). Values are copied from the report, not recomputed.
+"""
+
+COMPARISON_ROW_LABELS = {
+    "inconsistent_picks": "flag `inconsistent_picks`",
+    "band_concave": "flag `band_concave`",
+    "confidence": "confidence 분위",
+    "skipped": "`bandpass_px_skipped`",
+    "sigma_res_over_period": "sigma_res / P_px 분위",
+    "results_and_fragments": "박스 {n_boxes}개 → 결과 / `fragment_of_group`",
+}
+
+GENERATED_BEGIN = "<!-- generated: scripts/check_band_picks_aihub.py begin -->"
+GENERATED_END = (
+    "<!-- generated: scripts/check_band_picks_aihub.py end"
+    " (hand-written notes go below this line) -->"
+)
 
 
-def _comparison_table(
+def current_run_label() -> str:
+    """Comparison-table header of the run made by this code."""
+    return f"{CURRENT_SPEC_VERSION} ({CURRENT_RUN_SUMMARY}, 이번)"
+
+
+def current_run_column(
     rows: Sequence[dict[str, object]], images: Sequence[ImageResult]
-) -> list[str]:
-    """v1.0 / v1.1 / current (v1.2, lower bound 2.2 px) side by side."""
+) -> dict[str, str]:
+    """Comparison-table cells of this run, keyed like ``PREVIOUS_RUNS`` entries."""
     flags = Counter(flag for row in rows for flag in str(row["flags"]).split() if flag)
     total = len(rows)
     skipped_images = sum(image.period_px is None for image in images)
@@ -229,30 +277,53 @@ def _comparison_table(
         for row in rows
         if row["sigma_res_over_period"] != ""
     ]
-    current = {
+    return {
         "inconsistent_picks": f"{flags['inconsistent_picks']}/{total}",
         "band_concave": f"{flags['band_concave']}/{total}",
         "confidence": _quantiles(confidence),
         "skipped": f"{flags['bandpass_px_skipped']}/{total} 결과, {skipped_images}장",
         "sigma_res_over_period": _quantiles(ratios),
+        "results_and_fragments": f"{total} / {flags['fragment_of_group']}",
     }
-    columns = {**PREVIOUS_RUNS, "v1.2 (P_px 기준, 하한 2.2 px, 이번)": current}
-    labels = {
-        "inconsistent_picks": "flag `inconsistent_picks`",
-        "band_concave": "flag `band_concave`",
-        "confidence": "confidence 분위",
-        "skipped": "`bandpass_px_skipped`",
-        "sigma_res_over_period": "sigma_res / P_px 분위",
-    }
+
+
+def comparison_table(current: dict[str, str], n_boxes: int) -> list[str]:
+    """Markdown table: frozen ``PREVIOUS_RUNS`` columns, then the current run."""
+    columns = {**PREVIOUS_RUNS, current_run_label(): current}
     lines = [
         "| 항목 | " + " | ".join(columns) + " |",
         "|---|" + "---|" * len(columns),
     ]
-    for key, label in labels.items():
-        lines.append(
-            f"| {label} | " + " | ".join(run[key] for run in columns.values()) + " |"
-        )
+    for key, label in COMPARISON_ROW_LABELS.items():
+        cells = " | ".join(run[key] for run in columns.values())
+        lines.append(f"| {label.format(n_boxes=n_boxes)} | {cells} |")
     return lines
+
+
+def merge_generated_block(existing: str | None, generated: str) -> str:
+    """Put ``generated`` between the markers, keeping text outside them.
+
+    Args:
+        existing: Current report text, or ``None`` when the report is new.
+        generated: Report body without markers.
+
+    Returns:
+        The full report text.
+
+    Raises:
+        ValueError: The existing report lacks exactly one ordered marker pair;
+            overwriting it could destroy hand-written notes.
+    """
+    block = f"{GENERATED_BEGIN}\n{generated}\n{GENERATED_END}"
+    if existing is None:
+        return f"{block}\n"
+    if existing.count(GENERATED_BEGIN) != 1 or existing.count(GENERATED_END) != 1:
+        raise ValueError("report needs exactly one generated begin and end marker")
+    begin = existing.index(GENERATED_BEGIN)
+    end = existing.index(GENERATED_END)
+    if end < begin:
+        raise ValueError("generated end marker comes before the begin marker")
+    return existing[:begin] + block + existing[end + len(GENERATED_END) :]
 
 
 def _period_lines(images: Sequence[ImageResult]) -> list[str]:
@@ -274,6 +345,11 @@ def write_markdown(
     images: Sequence[ImageResult],
     rows: Sequence[dict[str, object]],
 ) -> None:
+    """Rewrite the generated block of the report; text outside it is kept.
+
+    Raises:
+        ValueError: The report exists but has no generated markers.
+    """
     n_images = len(images)
     n_boxes = sum(len(image.boxes) for image in images)
     statuses = Counter(row["status"] for row in rows)
@@ -319,14 +395,14 @@ def write_markdown(
         "",
         "## 버전 비교 (같은 40장, 시드 0)",
         "",
-        *_comparison_table(rows, images),
-        "",
+        *comparison_table(current_run_column(rows, images), n_boxes),
     ]
-    path.write_text("\n".join(lines), encoding="utf-8")
+    existing = path.read_text(encoding="utf-8") if path.exists() else None
+    path.write_text(merge_generated_block(existing, "\n".join(lines)), encoding="utf-8")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Run the check; exit 1 when a QA-4 violation is found."""
+    """Run the check; exit 1 on a QA-4 violation, 2 when the report has no markers."""
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--count", type=int, default=40)
@@ -350,7 +426,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
         writer.writeheader()
         writer.writerows(rows)
-    write_markdown(args.md_dir / f"{args.stem}.md", images, rows)
+    report_path = args.md_dir / f"{args.stem}.md"
+    try:
+        write_markdown(report_path, images, rows)
+    except ValueError as error:
+        LOGGER.error("%s not rewritten: %s", report_path, error)
+        return 2
     violations = sum(bool(row["scaled_fields_present"]) for row in rows)
     LOGGER.info(
         "images %d, boxes %d, results %d, QA-4 violations %d",
