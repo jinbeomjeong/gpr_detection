@@ -60,6 +60,9 @@ def test_e1_true_apex_candidate_gives_the_depth(script) -> None:
     assert not result.candidate_moved
     assert result.result.depth_top_m == pytest.approx(depth, abs=0.03)
     assert (result.activity_id, result.path) == ("01.1", "PathT")
+    row = script.candidate_row(result, {})
+    assert row["search_k0"] >= row["box_k0"]
+    assert row["apex_minus_search_k0"] > 2  # not a box-top peak (5-7 item 2)
 
 
 def test_e2_clusters_and_support_filter(script) -> None:

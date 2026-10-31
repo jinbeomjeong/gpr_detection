@@ -6,7 +6,7 @@
 | 항목 | 값 | 근거 |
 |---|---|---|
 | batch | **64** | VRAM 최대 7,321 MiB(12 GB의 60 %), batch 32 대비 처리량 약 7 %↑. Ultralytics nbs=64라 grad 누적 없음. 5회 비교 안에서 고정 |
-| DataLoader workers | **2** | 3·4로 늘리면 오히려 느려짐(아래 표) |
+| DataLoader workers | **2** | worker 수를 늘린 이득이 없음. 마스크는 0xFF가 가장 빠름(w2 45.6 s 대 0xFFFF 계열 50.3–72.4 s; 같은 0xFFFF 안에서는 w3가 w2보다 빨랐고, 0xFF에서 w3·w4는 재지 않음, 아래 표) |
 | CPU 배치 | P 논리 0–7(마스크 `0xFF`, 물리 4코어), 우선순위 Normal | 0xFFFF로 넓히면 느려짐 |
 | 시작 조건 | P 짝수 논리 0·2·4·6 평균 < 20 %, GPU < 10 %, 여유 RAM > 8 GB가 5분 연속 | 다른 세션 Chrono 워커가 짝수 논리를 씀 |
 | 시간(2026-10-30 실측) | 첫 epoch 42–46 s, 이후 약 30 s → 30 epoch 약 16분/회(wall 934–948 s, 다른 세션과 CPU가 겹치면 1,068 s), 4회 합 3,886 s(약 1.1시간) | 1 epoch probe의 46 s는 첫 epoch 캐시 생성이 섞여 과대 추정이었다 |

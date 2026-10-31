@@ -42,6 +42,7 @@ from scipy.optimize import linear_sum_assignment
 
 from gpr_detection.depth.config import DepthConfig
 from gpr_detection.depth.estimate import estimate_depth, prepare_depth_inputs
+from gpr_detection.depth.picks import ApexHint, mute_sample
 from gpr_detection.depth.result import DepthResult, DepthStatus
 from gpr_detection.io.fourtu import (
     FourTUTable,
@@ -52,6 +53,8 @@ from gpr_detection.io.fourtu import (
 )
 from gpr_detection.io.paths import load_dataset_paths
 from gpr_detection.io.radargram import GridBox, Radargram, velocity_from_eps
+from gpr_detection.preprocess.filters import period_ns_or_default
+from gpr_detection.preprocess.timezero import DEFAULT_PERIOD_NS, ZeroResult
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_APEX_CANDIDATES = (
@@ -130,6 +133,10 @@ class CandidateResult:
     source: str
     result: DepthResult
     candidate_moved: bool
+    box_k0: int | None = None
+    """Top of the (widened) box; ``None`` without a box."""
+    search_k0: int | None = None
+    """Search top ``k_top``: the later of ``box_k0`` and the mute (5-7 item 2)."""
 
     def depth(self, zero_variant: str) -> float | None:
         """Pipe-top depth for the detected zero or a metadata zero."""
@@ -149,7 +156,7 @@ class Cluster:
     n_lines: int
     n_apex_candidates: int
     member_indices: tuple[int, ...] = ()
-    """Indices of the members in the input `depths` sequence."""
+    """Indices of the members in the input ``depths`` sequence."""
 
 
 @dataclass(frozen=True)
@@ -161,7 +168,7 @@ class MatchResult:
     missed: int
     false_est: int
     est_indices: tuple[int, ...] = ()
-    """Index into `est` of each pair (same order as `pairs`)."""
+    """Index into ``est`` of each pair (same order as ``pairs``)."""
 
 
 @dataclass(frozen=True)
@@ -228,8 +235,18 @@ def _candidate_moved(
     )
 
 
+def _search_top(radargram: Radargram, box: GridBox, zero: ZeroResult) -> int:
+    """``k_top`` of spec_depth_v1 5-7: widened box top or the mute, the later."""
+    if radargram.dt_ns is None or zero.t_zero_ns is None:
+        return box.k0
+    period_ns = period_ns_or_default(radargram.f_c_hz, DEFAULT_PERIOD_NS)
+    return max(box.k0, mute_sample(zero.t_zero_ns, period_ns, radargram.dt_ns))
+
+
 def run_line(radargram: Radargram, candidates: pd.DataFrame) -> list[CandidateResult]:
     """One zero per line, ``estimate_depth`` per candidate, default settings (4-2).
+
+    The candidate is passed as ``apex_hint`` (spec_depth_v1 5-7 item 1).
 
     A candidate without ``tau_ns`` (manual candidate on a line whose zero
     failed) gets no box and counts as ``zero_failed`` (spec v1.1).
@@ -241,13 +258,18 @@ def run_line(radargram: Radargram, candidates: pd.DataFrame) -> list[CandidateRe
     for candidate in candidates.itertuples(index=False):
         trace, sample = round(float(candidate.trace)), float(candidate.sample)
         tau_ns = float(candidate.tau_ns)
+        box_k0 = search_k0 = None
         if math.isnan(tau_ns):
             result = DepthResult(
                 status=DepthStatus.ZERO_FAILED, flags=("candidate_tau_missing",)
             )
         else:
             box = candidate_box(radargram, trace, sample, tau_ns)
-            result = estimate_depth(radargram, box, config, inputs=inputs)
+            hint = ApexHint(trace=trace, sample=sample)
+            result = estimate_depth(
+                radargram, box, config, inputs=inputs, apex_hint=hint
+            )
+            box_k0, search_k0 = box.k0, _search_top(radargram, box, inputs.zero)
         results.append(
             CandidateResult(
                 activity_id=activity_id,
@@ -257,6 +279,8 @@ def run_line(radargram: Radargram, candidates: pd.DataFrame) -> list[CandidateRe
                 source=str(candidate.source),
                 result=result,
                 candidate_moved=_candidate_moved(radargram, trace, sample, result),
+                box_k0=box_k0,
+                search_k0=search_k0,
             )
         )
     return results
@@ -958,6 +982,22 @@ def candidate_row(
         "eps_qc_lo": "" if qc is None else round(qc[0], 3),
         "eps_qc_hi": "" if qc is None else round(qc[1], 3),
         "flags": " ".join(flags),
+        **_box_top_columns(candidate),
+    }
+
+
+def _box_top_columns(candidate: CandidateResult) -> dict[str, object]:
+    """Diagnostic box-top columns (spec_depth_v1 5-7 item 5): blank without a box."""
+    apex_sample = candidate.result.apex_sample
+    apex_minus_search_k0 = (
+        ""
+        if candidate.search_k0 is None or apex_sample is None
+        else round(apex_sample - candidate.search_k0, 2)
+    )
+    return {
+        "box_k0": "" if candidate.box_k0 is None else candidate.box_k0,
+        "search_k0": "" if candidate.search_k0 is None else candidate.search_k0,
+        "apex_minus_search_k0": apex_minus_search_k0,
     }
 
 
@@ -1109,6 +1149,13 @@ def write_markdown(
         "## 가정·한계",
         "",
         "- 보조 결과(a: 지지 필터 없음, b: 묶지 않음)와 t0 est/act는 csv에 있다.",
+        "- 꼭짓점 후보를 `apex_hint`로 넘긴다(spec_depth_v1 §5-7). 힌트 창"
+        "(±3 트레이스·±0.5 주기)이 `candidate_moved` 기준과 같으므로 "
+        "`candidate_moved`는 거의 항상 False다. 위 끝 경계 효과는 "
+        "candidates csv의 `apex_minus_search_k0`와 플래그 "
+        "`apex_at_box_top`·`apex_hint_unmatched`로 본다.",
+        "- `box_in_zero_zone`이면 박스가 뮤트 아래로 거의 남지 않아 탐색을 "
+        "하지 않으므로 `search_k0`는 실제 탐색 위 끝이 아닐 수 있다.",
         "- 두 트렌치 활동(정답 합집합, 같은 관이 두 번 들어갈 수 있음, matches의 "
         "`multi_trench`): " + (", ".join(evaluation.multi_trench_activities) or "없음"),
         "- 무작위 기준선 주 = 활동별 정답 범위, 보조 = 전역 0.2-2.0 m.",

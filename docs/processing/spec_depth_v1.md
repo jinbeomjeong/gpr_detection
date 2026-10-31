@@ -19,6 +19,7 @@
 | 2026-10-30 | v1.6 (M2-5 회귀 판정) | 사용자 결정 반영:<br>- R5 기준을 같은 (1)–(3)을 거친 이상 배경의 꼭짓점 포락선 피크로 바꾸고 필터 이동은 별도 기록(M15 밴드패스 −0.055 ns)<br>- R13을 R13a-1(json 광선 시각 픽, εr 9±0.1·d ±1 cm), R13a-2(현재 경로 픽·json h, εr ≤20 %·d ≤5 cm, 날개 지연 −13 % 기록, 기본 격자·전체 픽), R13b로 나눔<br>- R6 실측 −1.49 cm, R2·R13b $h_\text{est}$ +0.049 m<br>- §12 표 3 굴절 9.00에 "h_est 0.330 상쇄" 주석<br>- §7 R 미상 편향 문구 +14 → +17 %(R11 M01·M06 +16.5 %)<br>- §14 Δh 여유 0.011 m<br>- 근거: `analysis/processing/regression_failures_m2_5.py` |
 | 2026-10-30 | v1.7 (band v1.1 반영 대조) | §3 `bandpass_px` 주기 범위 하한 4 → 2.2 px(AIHub 반송파 2.44–4.83 px 실측, 근거 `analysis/processing/aihub_period_px_check.py`), §10 해당 행, §13 filters 행에 `dominant_period_px`·`FittingBranch.period_px` |
 | 2026-10-31 | v1.7 (용어) | 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(`ApexSeed`→`ApexCandidate`, `find_apex_seed`→`find_apex_candidate`, `no_apex_seed`→`no_apex_candidate`, `seed_rel`→`candidate_rel`). 내용 변경 없음. 난수 시드(`seed=0`, `random_state`)는 그대로 |
+| 2026-10-31 | v1.8 (M2-9 개선 A, 경계 통계로 확정) | §5-7 신설: 꼭짓점 위치 힌트(`apex_hint`, 힌트 창 ±3 트레이스·±0.5 주기, 창 밖으로 되돌아가지 않음), 박스 위 끝 2 샘플 거부 + `apex_at_box_top`, 위 여유 축소안 기각, 합성 회귀 무영향 기준, 시험 A1–A7. 확정 근거: 4TU 재선정의 76.5 %가 탐색 위 끝 0–2 샘플(위 끝 경계 효과), 판정식은 정수 피크 인덱스 ≤ 2, A1(b) 힌트 없음은 strict xfail 유지, A2 경계 효과 재현 시험, candidates csv 진단 열. 보완(2026-10-31): 힌트 창 사건 인정에 잡음 바닥 $k\hat\sigma_n$($k$ 5, 레일리 꼬리)과 박스 최대 −26 dB 하한, A3·A4는 SNR 20 dB 자료로 확정 |
 
 ---
 
@@ -232,6 +233,68 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
      - 영점이 실패해서 $t_z$가 없으면 뮤트 없이 추적하고 `mute_unavailable`를 붙인다. 이때 깊이는 §10대로 내지 않고 꼭짓점 위치만 남는다.
 5. `pick_mode`는 `"envelope"`(기본), `"signed_max"`, `"signed_min"` 중 하나다. **영점 검출과 같은 모드를 강제한다**(API에서 하나의 인자로 공유).
 6. 꼭짓점이 박스 좌우 경계 3 트레이스 안에 있으면 `apex_at_box_edge` 플래그를 붙인다.
+
+### 5-7. 꼭짓점 위치 힌트와 박스 위 끝 거부 (v1.8, M2-9 개선 A — 2026-10-31 경계 통계로 확정)
+
+**배경**: M2-8 4TU에서 `ok` 꼭짓점 후보의 91 %가 박스 안 재선정으로 약 3 ns(= 박스 위 여유 $1.5/f_c$) 이르게 옮겨졌다. 깊이는 중앙 −0.124 m 얕아졌다(`depth_4tu_v1.md` 판정 절, `depth_4tu_v1_diagnose.csv`). 원인은 "박스 안 가장 이른 첫 피크 ≥ $0.3E_\text{max}$" 규칙(항목 2)이 박스 위 여유 안의 얕은 층·클러터를 고르는 것이다. 합성은 박스 위에 다른 사건이 없어 이를 드러내지 못했다.
+
+1. **꼭짓점 위치 힌트**(선택 인자 `apex_hint`)
+   - 힌트는 `ApexHint(trace: int, sample: float)`(L0)다. 4TU 평가처럼 꼭짓점 후보가 이미 있는 경로에서만 준다.
+   - 힌트가 있으면 항목 2의 탐색을 힌트 창 $|j-j_h|\le3$ 트레이스, $|k-k_h|\le0.5/(f_c\Delta t)$ 샘플로 제한한다. 넓힌 박스·뮤트와 교집합을 쓰고, 스케일이 없으면 $\max(2,\ 0.5P_\text{px})$ px다.
+   - 문턱의 $E_\text{max}$는 **힌트 창 안의 최대**다. 박스 전체 최대를 쓰면 더 강한 얕은 사건 때문에 힌트 꼭짓점이 문턱에 못 미칠 수 있다.
+   - 힌트 창 안의 첫 피크 가운데 가장 이른 것을 꼭짓점으로 두고, 추적(항목 3)은 지금처럼 넓힌 박스 전체에서 한다.
+   - **사건 인정 조건(v1.8 보완, 2026-10-31)**: 창 최대가 바로 문턱의 기준이 되면 사건이 없는 창에서도 잡음 피크가 "창 최대의 30 %"를 넘어 조용히 꼭짓점이 된다(시험 A3·A4 실패: SNR 20 dB, 힌트 +3 ns·+5 ns에서 `ok`, 깊이 0.713·0.830 m). 그래서 창 안 후보 피크는 다음 두 조건을 **모두** 만족해야 사건으로 인정한다.
+     - (i) 잡음 바닥: $E_\text{peak}\ge k\,\hat\sigma_n$, $k=5$. $\hat\sigma_n=1.4826\,\mathrm{MAD}$는 넓힌 박스 트레이스에서 탐색 위 끝부터 기록 끝까지의 배경 제거 진폭으로 구한다(사건은 드물어 MAD는 잡음+클러터 수준이다). 근거: 가우스 잡음의 포락선은 레일리 분포라 $P(E>k\sigma)=e^{-k^2/2}$다. $k=5$이면 $3.7\times10^{-6}$이고, 힌트 창 표본 약 $10^3$개에서 창당 오경보가 약 0.4 %다. 클러터가 많은 자료에서는 $\hat\sigma_n$이 커져 더 엄격해지는 쪽이다.
+     - (ii) 퇴화 방지: $E_\text{peak}\ge r\,E_\text{box,max}$, $r=0.05$(넓힌 박스 최대의 −26 dB). 잡음 없는 자료에서 $\hat\sigma_n\to0$일 때 수치 부엽이 인정되는 것만 막는다. 강한 얕은 클러터가 꼭짓점보다 20배까지 커도 꼭짓점을 놓치지 않는 값이다(**가정**, 4TU 값으로 정하지 않음).
+     - 두 값은 힌트 경로에만 쓴다. 힌트 없는 경로(항목 2와 기존 규칙)는 바뀌지 않는다.
+   - 힌트 창에 위 조건을 넘는 피크가 없으면 박스 전체로 되돌아가지 않는다. 픽 없음 + `no_apex_candidate` + `apex_hint_unmatched`, `status="fit_failed"`로 둔다. 조용한 재선정을 막기 위해서다.
+   - **힌트가 없으면**(실제 검출 박스 경로) 항목 2를 그대로 쓰고 아래 2만 더한다.
+2. **박스 위 끝 거부**(힌트 유무와 무관, 실제 검출 박스 견고성)
+   - **판정식(확정)**: 탐색 창 위 끝 $k_\text{top}$을 정한다. 넓힌 박스의 $k_0$와 뮤트 선 중 늦은 쪽이다. 트레이스마다 `find_peaks`가 낸 **정수 피크 인덱스** $k_p$가 $k_p-k_\text{top}\le g$이면 그 피크를 버리고, 그 트레이스에서 문턱을 넘는 다음 피크를 본다.
+   - $g$ = 2 샘플(스케일 있음)이고, 스케일이 없으면 1 px다. 4TU에서 2 샘플은 0.2–0.4 ns($0.1$–$0.2/f_c$)다.
+   - 정수 인덱스로 판정하는 이유: 포물선 보간 오프셋이 ±0.5로 잘리므로 정수 인덱스 1–2의 피크는 보간 뒤 0.5–2.5 샘플에 놓인다. `find_peaks`는 인덱스 0을 피크로 내지 않는다. 그래서 "인덱스 ≤ 2"가 위 끝에서 잘린 꼬리·리플 피크를 정확히 가리킨다. `find_peaks` 창에 경계 여유를 두는 방식은 위 끝 아래 사건의 상승부까지 잘라 같은 효과를 확인하기 어려우므로 쓰지 않는다.
+   - 버린 피크가 원래 규칙이면 꼭짓점이 됐을 경우 `apex_at_box_top` 플래그를 붙인다.
+   - **확정 근거**(python-expert 1단계, 4TU `ok` 3,573행, 수정 전 코드): 재선정 꼭짓점의 `apex_sample − 탐색 위 끝` 분위(0/5/25/50/75/95/100 %)는 0.50/0.51/0.59/0.87/1.85/31.3/71.0 샘플이다. **76.5 %가 0–2 샘플 안**이고, 0.25 주기 안 85.3 %, 0.5 주기 안 88.6 %다. dt별·현장별(53–91 %)로 고르게 높다. 재현: `analysis/processing/fourtu_apex_boundary_stats.py`(입력: 커밋된 `depth_4tu_v1_candidates.csv`·`fourtu_lines_v1.csv`, 개선 A 수정 전 실행 결과). 이것이 주된 유형("위 끝 경계 효과")이다. 생성 원인(창 위에서 잘린 사건의 하강 꼬리에 실측 고주파·잡음 리플이 얹혀 창 첫머리에서 첫 피크가 됨)은 **추정**이다. 깨끗한 합성으로는 재현되지 않았다(시험 A2 재지정 이유).
+   - 5 샘플 이상 떨어진 약 14 %(창 안의 실제 얕은 사건, 합성 재현 A1과 같은 두 번째 유형)는 2로 풀리지 않는다. 4TU 평가 경로의 해법은 1(힌트)이다.
+   - 근거(물리): 검출 박스 위 끝은 보이는 파형 시작에 그려지므로 꼭짓점 피크는 그보다 약 0.25–0.5 주기 아래에 있다. 위 끝 2 샘플 안의 피크는 박스 안 쌍곡선의 꼭짓점일 가능성이 낮다.
+3. **대안과 기각 이유**: 박스 위 여유를 $1.5/f_c$에서 $0.5/f_c$로 줄이는 안은 기각한다.
+   - (a) 증상만 줄인다. $0.5/f_c$ 안의 클러터도 여전히 잡힌다.
+   - (b) 실제 검출 박스는 여유를 우리가 정하지 못한다.
+   - (c) 꼭짓점 포락선 주엽은 약 ±0.6 주기라, 여유를 줄이면 앞엽이 잘려 영점과 위상 기준이 어긋날 수 있다(§0-4).
+   - (d) 4TU 결과를 보고 숫자를 바꾸는 것이라 튜닝 금지 원칙에 어긋난다.
+4. **합성 회귀 무영향 기준**(수정 뒤 모두 통과해야 함)
+   - 힌트 없이: U1–U8, Z1–Z7, R1–R13(R13a-1·a-2·b), UB1–UB15, BR1–BR7가 지금 기준 그대로 통과해야 한다. 깊이·시각 수치는 수정 전과 **차 ≤ 1 mm, ≤ 0.01 ns**, 꼭짓점 트레이스는 동일해야 한다. 합성 회귀 실행에서 `apex_at_box_top`은 0건이어야 한다.
+   - 정답 꼭짓점을 힌트로 준 합성 20개(§11-2 박스): 힌트 없을 때와 깊이 차 ≤ 1 mm.
+5. **구현 명세(python-expert)**
+   - `depth/picks.py`
+     - `ApexHint` dataclass 추가.
+     - `find_apex_candidate(signal, box, candidate_rel, *, top_guard: int, hint: ApexHint | None = None, hint_halfwidth: tuple[int, float] | None = None, peak_floor: float = 0.0) -> tuple[ApexCandidate | None, tuple[str, ...]]`. 플래그 `apex_at_box_top`, `apex_hint_unmatched`를 돌려준다. 피크 문턱은 $\max(0.3\cdot\text{창 최대},\ \texttt{peak\_floor})$다(구현 확인).
+     - `noise_sigma(section, searched) -> float`: 1항 (i)의 $\hat\sigma_n$(넓힌 박스 트레이스, 탐색 위 끝 ~ 기록 끝, 1.4826·MAD).
+     - `extract_picks(..., apex_hint: ApexHint | None = None)`. 힌트가 있을 때만 `peak_floor` = `hint_peak_floor` = $\max(k\hat\sigma_n,\ r\,E_\text{box,max})$로 넘긴다. 힌트가 없으면 0이라 기존 경로와 같다.
+   - `depth/estimate.py`: `estimate_depth(..., apex_hint: ApexHint | None = None)`로 그대로 넘긴다.
+   - `depth/config.py`: `hint_traces=3`, `hint_periods=0.5`, `top_guard_samples=2`, `top_guard_px=1`, `hint_noise_k=5.0`, `hint_box_rel_floor=0.05`(v1.8 보완).
+   - `scripts/eval_depth_4tu.py`
+     - 꼭짓점 후보를 `apex_hint`로 넘긴다. `candidate_moved` 기준(3 트레이스, 0.5 주기)은 그대로 둔다(힌트 창과 같아 거의 항상 False가 된다는 점을 md에 적는다).
+     - candidates csv에 진단 열 `box_k0`(넓힌 박스 위 끝), `search_k0`(뮤트 반영 탐색 위 끝 $k_\text{top}$), `apex_minus_search_k0`(샘플)을 더한다. 재평가 리포트에서 위 끝 경계 효과가 사라졌는지 보려는 것이다.
+   - 띠 갈래([B])는 이번 변경 범위 밖이다. [B] §3-3에는 이미 `top_at_window_edge`가 있다.
+6. **시험**(`tests/depth/`)
+
+   | ID | 내용 | 통과 기준 |
+   |---|---|---|
+   | A1 (두 번째 유형 재현, `test_apex_box_top.py`) | 공기결합 단일 사건 500 MHz, εr 9, d 0.6, h 0.05. 꼭짓점 2.5 ns 위에 진폭 2배 층(폭 ±1.0 m, 측선 401 트레이스; 측선 전체 층은 median 배경 제거로 지워짐). 박스는 `candidate_box`와 같음 | **(a) 힌트 = 참 꼭짓점**: 꼭짓점이 참 꼭짓점 ±3 트레이스·±0.5 주기 안, 깊이 ±2 cm, `apex_at_box_edge` 없음 → xfail 해제. **(b) 힌트 없음: `xfail(strict=True)` 유지가 확정 기대값.** 층 피크가 위 끝에서 9.6 샘플 아래라 2로는 풀리지 않는다(사유 문자열: "second type: shallow event inside the top margin; only apex_hint (5-7 item 1) resolves it") |
+   | A2a (판정식 단위 시험, 2단계 전 strict xfail) | `find_apex_candidate`에 포락선 배열을 직접 만들어 넣는다. 모든 열에서 창 인덱스 1에 피크 $0.8E_\text{max}$, 인덱스 30에 참 꼭짓점 피크 $1.0E_\text{max}$, 그 사이는 낮은 값이다. 경계 대조: 인덱스 3의 피크는 거부되지 않아야 한다 | 수정 전: 인덱스 1을 고름 → xfail(strict). 수정 뒤: 인덱스 30을 고르고 `apex_at_box_top`. 대조(인덱스 3)는 그대로 선택되고 플래그가 없다 |
+   | A2b (종단간 근사, 2단계 전 strict xfail) | 같은 생성기, **Δt 0.098 ns**(4TU). 진폭 2배 얕은 수평 사건(폭 ±1.0 m)의 포락선 피크를 탐색 창 위 끝 **아래** 인덱스 1–2(0.1–0.2 ns)에 둔다. 사건 앞부분이 박스 위 끝에서 잘린 꼴이다. 참 꼭짓점은 그 2.5 ns 아래에 둔다(A1 기하) | 수정 전: 꼭짓점이 위 끝 2 샘플 안 → xfail(strict). 수정 뒤(힌트 없음): 위 끝 피크를 거부하고 참 꼭짓점 ±3 트레이스·±0.5 주기, 깊이 ±2 cm, `apex_at_box_top` |
+   | A3 (v1.8 보완으로 확정) | U1 자료(§11-1 생성기, **SNR 20 dB 그대로**, 시드 0)와 같은 자료의 잡음 없는 판. 꼭짓점 트레이스에 힌트를 시각 +3 ns, +5 ns, −2 ns로 준다. 양성 대조로 참 꼭짓점 +0.3 ns 힌트도 둔다 | 세 어긋난 힌트 모두(두 자료 모두) `no_apex_candidate` + `apex_hint_unmatched`, 박스 전체로 되돌아가지 않음. 양성 대조는 `ok`, 꼭짓점 ±1 트레이스·±0.5 주기 |
+   | A4 (확정) | 스케일 없음, U7 자료 **SNR 20 dB 그대로**. 참 꼭짓점 힌트와, 시각 +60 px(약 3 ns 상당) 어긋난 힌트 | 참 힌트: 힌트 창 $\max(2,0.5P_\text{px})$ px, 꼭짓점 ±1 트레이스·±2 px. 어긋난 힌트: `apex_hint_unmatched` |
+   | A5 | 합성 회귀 무영향(위 4) | 수정 전후 결과 csv 비교(`tools\pyinspect\output_compare.py`)에서 깊이 ≤ 1 mm, 시각 ≤ 0.01 ns, `apex_at_box_top` 0건 |
+   | A6 | 정답 힌트 합성 20개 | 힌트 없을 때와 깊이 차 ≤ 1 mm |
+   | A7 (하한 (ii)) | 잡음 없는 U1 자료. MAD 구간에 쌍곡선·필터 꼬리가 들어가 $\hat\sigma_n$은 0이 아니다(실측 $5\hat\sigma_n$ = 0.018, 박스 최대 0.919의 약 2 %) | $k\hat\sigma_n < r\,E_\text{box,max}$이고 `hint_peak_floor` $= r\,E_\text{box,max}$임을 단언(하한 (ii)가 실제로 작동함을 확인) |
+
+   - A2 재지정 이유(2026-10-31, python-expert 1단계 시도): "얕은 사건 피크를 위 끝 0.3 ns **위**에 두고 하강 꼬리에 리플을 얹는" 원래 조건은 결함을 만들지 못했다. 지연 0.1–0.6 ns·부호 ±·리플 0.5–1.0배, 넓힌 박스 99열 모두에서 인덱스 ≤ 2 피크가 0개였다.
+     - 같은 $f_c$ Ricker의 합은 dewow·밴드패스 뒤 주기(2 ns) 규모로 매끄러워, 0.05–0.1 ns 안에 극대가 생기지 않는다.
+     - 따라서 4TU 첫 번째 유형(잘린 꼬리의 리플)의 실제 생성 원인은 실측 고주파·잡음으로 **추정**하며, 합성으로 재현하지 못했다.
+     - 판정식 자체는 A2a로 시험하고, 종단간은 A2b(앞이 잘린 사건)로 근사한다. 잡음 기반 재현(고정 시드 잡음, 고주파 성분)은 결정적이지 않아 시험 기준으로 쓰지 않는다.
+   - 실측 확인은 4TU 재평가에서 한다. candidates csv의 `apex_minus_search_k0` 분포에서 0–2 샘플 비율(수정 전 76.5 %)이 어떻게 바뀌는지 보고한다. 기대값은 재평가 사전 등록 때 적는다.
 
 ---
 
@@ -540,12 +603,12 @@ Z6·Z7 주석(v1.2):
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
 | `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
 | `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값, v1.4 `refraction_h_margin_m=0.06` 추가 — §7 2a Δh, 가정), `zero_config()` |
-| `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config) -> HyperbolaPicks`(§13-4), `widen_box`, `find_apex_candidate`(첫 피크 꼭짓점 후보), `mute_sample`, 추적 |
+| `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config, period_px=None, apex_hint=None) -> HyperbolaPicks`(§13-4; v1.8 `apex_hint`, 힌트 있을 때만 `peak_floor` 전달), `ApexHint(trace, sample)`, `find_apex_candidate(signal, box, candidate_rel, *, top_guard, hint=None, hint_halfwidth=None, peak_floor=0.0) -> tuple[ApexCandidate \| None, flags]`(첫 피크 꼭짓점 후보, 위 끝 거부 `apex_at_box_top`, `apex_hint_unmatched`, §5-7), `noise_sigma(section, searched) -> float`(§5-7 1항 (i)), `widen_box`, `mute_sample`, 추적 |
 | `src/gpr_detection/depth/hyperbola.py` | `hyperbola_time`(§6-1 식), `ransac_init -> RansacInit`, `fit_hyperbola(R fixed) -> HyperbolaFit`, `apex_vertex -> ApexVertex`, `fit_curvature(picks, *, radius_m, air_gap, v_fallback, config) -> CurvatureFit`, `fixed_velocity_apex(picks, config) -> ApexVertex` (§13-4) |
 | `src/gpr_detection/depth/refraction.py` | `leg_time(x_antenna, h, px, pz, v)`, `reflection_times(x_mid_m, *, offset_m, h, x0_m, d_top_m, radius_m, v)`(송신 기준 ns), `surface_reflection_time(h, offset_m)`, `refraction_qc(x_m, tau_ns, *, x0_m, tau_apex_ns, h_m, offset_m, radius_m, config) -> RefractionQC`(`eps_fit`, `v_fit`, `d_top_m`, `rms_ns`, `n_picks`, `h_m`, `offset_m`) (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
 | `src/gpr_detection/depth/velocity.py` | (v1.4) `VelocityRule`(StrEnum: `none`, `meta_fixed`, `curvature_R_fixed`; 띠 규칙은 M2-6b에서 추가), `VelocityChoice`([B] §8-2 필드와 같음: `v_rule`, `v_m_per_ns`, `sigma_v`, `eps_r_used`, `v_sources`, `alt_meta_v`, `bias_notes`, `flags`; 속성 `has_velocity`), `meta_velocity(radargram)`, `select_hyperbola_velocity(radargram, curvature, config) -> VelocityChoice`(§7) |
 | `src/gpr_detection/depth/result.py` | (v1.4) `DepthStatus`(§2 집합 + `no_velocity`), `AltDepth`, `DepthResult`(§2 필드 + `target_class`, `eps_r_refraction_qc`, `eps_r_refraction_qc_range`(lo, hi), `sigma_zero_ns`, `sigma_apex_ns`; 목록형 필드는 tuple) |
-| `src/gpr_detection/depth/estimate.py` | `prepare_depth_inputs(radargram, config, *, exclude_traces=None) -> DepthInputs(branch, zero)`(측선당 한 번), `estimate_depth(radargram, box, config, *, inputs=None) -> DepthResult`(§7 결정표, §8 `depth_from_time`, §9 `depth_uncertainty`) |
+| `src/gpr_detection/depth/estimate.py` | `prepare_depth_inputs(radargram, config, *, exclude_traces=None) -> DepthInputs(branch, zero)`(측선당 한 번), `estimate_depth(radargram, box, config, *, inputs=None, apex_hint=None) -> DepthResult`(v1.8 `apex_hint`는 `extract_picks`로 그대로 전달; §7 결정표, §8 `depth_from_time`, §9 `depth_uncertainty`) |
 | `tests/depth/` | §11-1 단위 시험, §11-2 회귀 시험(합성 npy 읽기, `@pytest.mark.synthetic`) |
 
 ### 13-1. `ZeroResult` 필드 정본 (v1.1)

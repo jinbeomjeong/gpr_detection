@@ -22,7 +22,7 @@ from gpr_detection.depth.hyperbola import (
     fit_curvature,
     fixed_velocity_apex,
 )
-from gpr_detection.depth.picks import HyperbolaPicks, extract_picks
+from gpr_detection.depth.picks import ApexHint, HyperbolaPicks, extract_picks
 from gpr_detection.depth.refraction import refraction_qc
 from gpr_detection.depth.result import AltDepth, AltDepthLabel, DepthResult, DepthStatus
 from gpr_detection.depth.velocity import (
@@ -303,6 +303,7 @@ def estimate_depth(
     config: DepthConfig = DEFAULT_DEPTH_CONFIG,
     *,
     inputs: DepthInputs | None = None,
+    apex_hint: ApexHint | None = None,
 ) -> DepthResult:
     """Pipe-top depth of one ``pipe_hyperbola`` box (spec_depth_v1 sections 2-10).
 
@@ -312,6 +313,8 @@ def estimate_depth(
         config: All depth settings.
         inputs: Preprocessing and zero of this radargram from
             :func:`prepare_depth_inputs`; computed here when ``None``.
+        apex_hint: Known apex (L0) limiting the apex search (section 5-7 item 1);
+            no peak in its window gives ``fit_failed`` with ``apex_hint_unmatched``.
 
     Returns:
         One :class:`DepthResult`. Statuses: ``no_scale`` (apex pixel only),
@@ -333,6 +336,8 @@ def estimate_depth(
         dx_m=radargram.dx_m,
         f_c_hz=radargram.f_c_hz,
         config=config,
+        apex_hint=apex_hint,
+        period_px=inputs.branch.period_px,
     )
     flags = [
         *inputs.branch.flags,

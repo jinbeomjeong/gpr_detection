@@ -32,7 +32,7 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 
 ## 작업 운영
 - 로드맵 단계나 체크리스트 단위 작업이 끝나면 먼저 **integrity-checker로 무결성 점검**(그 작업이 바꾼 파일 ↔ 관련 문서·코드·체크리스트)을 하고 지적을 반영한다. 그다음 git 커밋하고 바로 `origin`(**공개** 저장소, 주소는 git 설정에만 둔다)에 push한다(메시지: 한국어 요약 + 단계/항목). push 전에 비밀 정보·데이터 파일이 섞이지 않았는지 확인한다.
-- 작업을 띄우기 전에 CPU·GPU·메모리 현황을 확인해 배치한다. 무거운 작업이 겹치거나 GPU 작업(학습 등)을 띄울 때는 compute-scheduler-expert 배치표(CPU 묶음 + GPU 순서·batch·worker 권고)를 따른다. GPU는 한 번에 한 계열 작업만.
+- 작업을 띄우기 전에 CPU·GPU·메모리 현황을 확인해 배치한다. **자원 유동 배분(2026-10-31)**: 메인 세션 작업과 서브에이전트가 띄우는 모든 서브프로세스는 시작 직전 `~/.claude/tools/cpu-scheduler/status.py`로 현황을 보고 규모를 정한다 — 여유(대상 코어 < 20 %, 다른 세션 예약 없음)면 최대(Normal, 필요한 만큼 병렬 — 단 독립 CPU 작업 3개 이상이면 배치표, GPU 허용), 일부 사용 중이면 빈 코어만 affinity·BelowNormal, 포화면 최소(단일 프로세스·1코어·BelowNormal·BLAS 스레드 1) 또는 대기. 긴 작업은 단계 사이에 다시 확인하고, 실행 중 프로세스의 affinity 변경은 사용자 승인 뒤에만. 에이전트 지시문에 그 시점 판단을 적는다. 무거운 작업이 겹치거나 GPU 작업(학습 등)을 띄울 때는 compute-scheduler-expert 배치표(CPU 묶음 + GPU 순서·batch·worker 권고)를 따른다. GPU는 한 번에 한 계열 작업만.
 - 30분 넘게 CPU 묶음·GPU를 점유하는 학습·변환은 전역 규칙의 세션 간 예약(`~/.claude/tools/cpu-scheduler/reserve.py`, make_runner `--reserve-owner gpr_detection:<작업> --mask <마스크> --reserve-ttl-min <가장 긴 단계보다 길게>`; `reserve.py add`를 직접 쓸 때도 `--ttl-min`을 같게, 기본 120분)을 따른다. 자원 대기 자동 시작은 `make_runner.py`(affinity·우선순위, 필요하면 `--job-*`로 Job 객체가 붙은 러너 .ps1 생성)에 대기 조건을 `--wait-args`(`wait_until.py` 조건)로 넣어 하고, 실행 중 현황은 `status.py`로 본다.
 
 ## 전역 보조 도구 (2026-10-30)

@@ -46,6 +46,17 @@ class DepthConfig:
             ``(1 + this) eps_hi`` of the refraction QC interval flags it.
         refraction_h_margin_m: The QC interval also runs at ``h_est`` minus this
             (direct-wave interference biases ``h_est`` high; assumed, v1.4).
+        hint_traces: Apex-hint window half-width in traces (section 5-7, v1.8).
+        hint_periods: Apex-hint window half-height in periods ``1 / f_c``
+            (no scale: ``max(2, hint_periods * P_px)`` px).
+        top_guard_samples: An integer peak index ``k_p - k_top`` at or below this
+            is rejected as a box-top boundary peak (section 5-7 item 2).
+        top_guard_px: The same guard without a physical scale (pixels).
+        hint_noise_k: Hint-window peaks must reach ``k sigma_n`` (``1.4826 MAD``
+            of the background-removed box below the search top; v1.8 supplement).
+        hint_box_rel_floor: Hint-window peaks must also reach this fraction of
+            the widened-box maximum (-26 dB); it matters only on noise-free data
+            where ``sigma_n`` is 0.
     """
 
     a_max_m: float = 1.0
@@ -76,6 +87,12 @@ class DepthConfig:
     refraction_eps_step: float = 0.25
     meta_eps_suspect_rel: float = 0.3
     refraction_h_margin_m: float = 0.06
+    hint_traces: int = 3
+    hint_periods: float = 0.5
+    top_guard_samples: int = 2
+    top_guard_px: int = 1
+    hint_noise_k: float = 5.0
+    hint_box_rel_floor: float = 0.05
 
     def zero_config(self) -> ZeroConfig:
         """The time-zero settings implied by these depth settings."""
