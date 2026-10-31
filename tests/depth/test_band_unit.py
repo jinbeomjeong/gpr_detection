@@ -1,4 +1,4 @@
-"""Unit tests of ``pipe_band`` depth (spec_band_depth_v1 section 9-1, UB1-UB19).
+"""Unit tests of ``pipe_band`` depth (spec_band_depth_v1 section 9-1, UB1-UB22).
 
 Analytic B-scans from ``synthetic_bscan``: 400 MHz Ricker, dt 0.05 ns, dx
 0.02 m, SNR 20 dB, eps_r 9, d_top 0.6 m, R 0.05 m, ground-coupled, 200
@@ -14,6 +14,8 @@ import numpy as np
 import pytest
 
 from gpr_detection.depth.band import (
+    LAYER_AMBIGUITY_NOTE,
+    PROTECTIVE_PLATE_NOTE,
     band_exclude_traces,
     estimate_band_depths,
     extract_band_picks,
@@ -478,6 +480,42 @@ def test_ub14_shallow_band_is_kept_out_of_the_zero() -> None:
     geometric_ns = T_SRC_NS + surface_ns
     assert without.t_zero_ns == pytest.approx(T_SRC_NS + band_tau, abs=0.15)
     assert 0.0 < with_mask.t_zero_ns - geometric_ns <= 0.2  # Z7 window
+
+
+def test_ub20_layer_inside_the_window_is_flagged_not_corrected() -> None:
+    """Band spec 13-1 R2: a layer one period above the band top is picked first."""
+    layer = (np.full(N_TRACES, TAU_FLAT_NS - PERIOD_NS), _amplitude(BAND_TRACES))
+    (result,) = _estimate(_radargram([_flat_band(), layer]), [_flat_box()])
+    assert "band_top_multi_event" in result.flags
+    assert LAYER_AMBIGUITY_NOTE in result.bias_notes
+    assert result.depth_top_m < D_TOP_M - 0.02
+
+
+def test_ub21_single_band_has_the_plate_note_only() -> None:
+    """Relies on the Ricker envelope having no later lobe above 0.3 E_box."""
+    (result,) = _estimate(_radargram([_flat_band()]), [_flat_box()])
+    assert result.band.bg_mode == "masked_median"
+    assert "band_top_multi_event" not in result.flags
+    assert PROTECTIVE_PLATE_NOTE in result.bias_notes
+    assert LAYER_AMBIGUITY_NOTE not in result.bias_notes
+
+
+def test_ub22_plate_note_without_background_and_without_scale() -> None:
+    full_line = (np.full(N_TRACES, TAU_FLAT_NS), np.ones(N_TRACES))
+    box = _box(0, N_TRACES - 1, TAU_FLAT_NS, TAU_FLAT_NS)
+    (no_background,) = _estimate(_radargram([full_line]), [box])
+    assert "bg_none" in no_background.flags
+    assert PROTECTIVE_PLATE_NOTE in no_background.bias_notes
+    assert LAYER_AMBIGUITY_NOTE in no_background.bias_notes
+    assert no_background.bias_notes.count(LAYER_AMBIGUITY_NOTE) == 1
+
+    radargram = _radargram([_flat_band()], dt_ns=None, dx_m=None, f_c_hz=None)
+    zero = find_time_zero(radargram, prepare_fitting_branch(radargram).filtered)
+    (no_scale,) = estimate_band_depths(radargram, [_flat_box()], zero)
+    assert no_scale.status == "no_scale"
+    assert PROTECTIVE_PLATE_NOTE in no_scale.bias_notes
+    assert no_scale.depth_top_m is None and no_scale.t0_ns is None
+    assert no_scale.band.x_ref_m is None and no_scale.band.t_band_ns is None
 
 
 def test_ub15_pick_mode_mismatch_is_refused() -> None:

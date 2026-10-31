@@ -10,7 +10,8 @@ spec_depth_v1 applied trace by trace:
    margin (:func:`masked_background`); the plain moving median would erase a
    long band (section 3-2).
 3. Picks: per trace, the first envelope peak above 0.3 x the box maximum in a
-   window widened one period upwards (:func:`extract_band_picks`, 3-3).
+   window widened one period upwards (:func:`extract_band_picks`, 3-3). A
+   second event within two periods sets ``band_top_multi_event`` (13 R2).
 4. Fragments of one band are merged (:func:`group_band_boxes`, 3-4).
 5. A flat / sloped / curved model gives the representative time
    (:func:`fit_band_profile`, 3-5); the depth uses a borrowed velocity
@@ -18,7 +19,8 @@ spec_depth_v1 applied trace by trace:
 
 Without a physical scale everything runs in pixels and no m or ns field is
 filled (QA-4). Lateral-offset and oblique-neighbour biases are reported as
-notes only, never corrected (user decision Q2).
+notes only, never corrected (user decision Q2); so are a possible protective
+plate and a layer picked instead of the pipe top (band spec 13 R2-R3).
 """
 
 import math
@@ -89,6 +91,21 @@ MULTIPLE_REL = 0.5
 MULTIPLE_RATIO_TOLERANCE = 0.1
 INNER_REFLECTION_PERIODS = 2.0
 """Later-event flags (section 3-3 item 6), information only."""
+
+MULTI_EVENT_PERIODS = 2.0
+"""``band_top_multi_event`` search length after the first pick (band spec 13 R2)."""
+
+# Band spec 13-2: the wording is fixed by the spec, character for character.
+PROTECTIVE_PLATE_NOTE = (
+    "protective_plate_possible: under a steel protective plate (city gas KGS "
+    "FS451/FS551, KOGAS GSM-2121) the band is the plate, not the pipe; the pipe top "
+    "is >= 0.3 m deeper (>= 0.1 m under the KGS 2022 exception); not corrected"
+)
+LAYER_AMBIGUITY_NOTE = (
+    "band_top_layer_ambiguity: a layer within ~1.4 periods (short wavelet) or "
+    "~2 periods (ringing wavelet) of the pipe top can be picked instead; "
+    "bias -1.2..+0.5 periods (synthetic band_top_synthetic_v1); not corrected"
+)
 
 VERTEX_EDGE_TRACES = 5
 """A curved-model vertex must be at least 5 traces inside the pick range."""
@@ -324,6 +341,31 @@ def _later_event_flags(
     return flags
 
 
+def _multi_event_samples(
+    dt_ns: float | None, f_c_hz: float | None, period_px: float | None
+) -> float | None:
+    """Search length of the multi-event check in samples; ``None`` skips it."""
+    if dt_ns is not None and f_c_hz is not None:
+        return MULTI_EVENT_PERIODS * _HZ_PER_GHZ / f_c_hz / dt_ns
+    if period_px is not None:
+        return MULTI_EVENT_PERIODS * period_px
+    return None
+
+
+def _has_later_event(
+    signal: np.ndarray, k_first: float, threshold: float, span_samples: float
+) -> bool:
+    """Another peak ``>= threshold`` in ``(k_first + 2, k_first + span]`` (13 R2)."""
+    start = int(k_first) + 2
+    last = int(k_first + span_samples)
+    if last <= start:
+        return False
+    # One sample past ``last`` so that a peak exactly at ``last`` is detectable;
+    # find_peaks never reports the first or last element of its input.
+    peaks, _ = find_peaks(signal[start : last + 2], height=threshold)
+    return bool(np.any(peaks <= last - start))
+
+
 # ----------------------------------------------------------------- picks
 
 
@@ -339,6 +381,7 @@ def extract_band_picks(
     member_traces: np.ndarray | None = None,
     member_indices: tuple[int, ...] = (),
     bg_mode: BandBackgroundMode = "masked_median",
+    period_px: float | None = None,
 ) -> BandPicks:
     """First-envelope-peak band-top picks (section 3-3).
 
@@ -354,6 +397,9 @@ def extract_band_picks(
             denominator); default every box trace.
         member_indices: Input box indices merged into ``box``.
         bg_mode: Background mode recorded in the result.
+        period_px: No-scale dominant period; sets the ``band_top_multi_event``
+            search length when ``dt_ns`` or ``f_c_hz`` is missing (band spec
+            13 R2). Without either the check is skipped.
     """
     p_up, p_down = _window_padding(box, dt_ns, f_c_hz, cfg)
     k_lo = max(box.k0 - p_up, k_mute or 0)
@@ -364,6 +410,7 @@ def extract_band_picks(
     inner_samples = None
     if dt_ns is not None and f_c_hz is not None:
         inner_samples = INNER_REFLECTION_PERIODS * _HZ_PER_GHZ / f_c_hz / dt_ns
+    multi_event_samples = _multi_event_samples(dt_ns, f_c_hz, period_px)
 
     traces, k_picks, amplitudes, trace_flags = [], [], [], []
     edge_hits = 0
@@ -383,12 +430,20 @@ def extract_band_picks(
         trace_flags.extend(
             _later_event_flags(signal[:, column], k, k_zero, e_box, inner_samples)
         )
+        if multi_event_samples is not None and _has_later_event(
+            signal[:, column], k, threshold, multi_event_samples
+        ):
+            trace_flags.append("band_top_multi_event")
 
     n_picks = len(traces)
     flags = []
     if n_picks and edge_hits / n_picks > EDGE_FLAG_FRACTION:
         flags.append("top_at_window_edge")
-    for name in ("surface_multiple_candidate", "inner_reflection_candidate"):
+    for name in (
+        "surface_multiple_candidate",
+        "inner_reflection_candidate",
+        "band_top_multi_event",
+    ):
         if n_picks and trace_flags.count(name) / n_picks > EDGE_FLAG_FRACTION:
             flags.append(name)
 
@@ -966,6 +1021,7 @@ def _picks_for(
         member_traces=_member_traces(member_boxes),
         member_indices=members,
         bg_mode=mode,
+        period_px=context.period_px,
     )
 
 
@@ -1295,6 +1351,19 @@ def _depth_profile(
     return tuple(points)
 
 
+def _band_top_notes(picks: BandPicks) -> tuple[str, ...]:
+    """Band spec 13 R2-R3: notes on what the band top may be instead of the pipe.
+
+    The plate note goes on every result because a plate cannot be told apart
+    from a pipe by the band alone. Without background removal no layer can be
+    erased, so the layer note is added even when no second event was seen.
+    """
+    notes = [PROTECTIVE_PLATE_NOTE]
+    if "band_top_multi_event" in picks.flags or picks.bg_mode == "none":
+        notes.append(LAYER_AMBIGUITY_NOTE)
+    return tuple(notes)
+
+
 def _assemble(
     context: _BandContext,
     group: _GroupResult,
@@ -1321,7 +1390,7 @@ def _assemble(
         "zero_rule": zero.zero_rule,
         "zero_event_label": zero.zero_event_label,
         "n_picks": picks.n_picks,
-        "bias_notes": zero.bias_notes,
+        "bias_notes": _unique([*zero.bias_notes, *_band_top_notes(picks)]),
     }
     scaled = radargram.has_physical_scale
     if not scaled:
@@ -1448,6 +1517,8 @@ def _unique(flags: list[str]) -> tuple[str, ...]:
 
 
 __all__ = [
+    "LAYER_AMBIGUITY_NOTE",
+    "PROTECTIVE_PLATE_NOTE",
     "BandConfig",
     "BandFit",
     "BandPicks",

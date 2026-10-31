@@ -201,14 +201,14 @@ def _quantiles(values: Sequence[float]) -> str:
     return " / ".join(f"{value:.2f}" for value in q)
 
 
-CURRENT_SPEC_VERSION = "v1.4"
+CURRENT_SPEC_VERSION = "v1.5"
 """Band spec version the current code implements.
 
 Taken from the change history of ``docs/processing/spec_band_depth_v1.md``;
 bump it (and move the old current column into ``PREVIOUS_RUNS``) when the band
 spec changes what this check measures.
 """
-CURRENT_RUN_SUMMARY = "S1 겹침 판정 + G 32 px"
+CURRENT_RUN_SUMMARY = "R2 다중 사건 표시 + R3 보호판 문구"
 """What the current spec version changed, shown in the current column header."""
 
 PREVIOUS_RUNS = {
@@ -236,11 +236,20 @@ PREVIOUS_RUNS = {
         "sigma_res_over_period": "0.08 / 0.35 / 0.52 / 0.84 / 1.52",
         "results_and_fragments": "51 / 6",
     },
+    "v1.4 (S1 겹침 판정 + G 32 px)": {
+        "inconsistent_picks": "41/50",
+        "band_concave": "20/50",
+        "confidence": "0.00 / 0.00 / 0.00 / 0.00 / 0.29",
+        "skipped": "0/50 결과, 0장",
+        "sigma_res_over_period": "0.08 / 0.36 / 0.55 / 0.86 / 1.52",
+        "results_and_fragments": "50 / 8",
+    },
 }
 """Frozen earlier runs on the same 40 crops (seed 0), kept for the comparison table.
 
 v1.0 and v1.1 ran on 2026-10-30; v1.3 is the run published in the report before
-the v1.4 rerun (2026-10-31). Values are copied from the report, not recomputed.
+the v1.4 rerun, and v1.4 the one published before the v1.5 rerun (both
+2026-10-31). Values are copied from the report, not recomputed.
 """
 
 COMPARISON_ROW_LABELS = {

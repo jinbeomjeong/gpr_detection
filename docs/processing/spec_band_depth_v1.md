@@ -19,10 +19,10 @@
   - §9-1: UB16–UB19 추가
   - §11: 스케일 있는 입력의 검출 px 항, 묶음 안 창(S3) 미결 추가
   - 구현 명세는 [BC] §4-3
-- **v1.5 (승인 2026-10-31, 사용자 결정) — 코드 변경분은 구현 대기, 현재 코드는 v1.4**: gprMax 띠 상단 합성 판정([BC] §8, `band_top_synthetic_v1.md`) 반영. 개정 R1–R5의 정본은 §13이다.
-  - 코드가 필요 없는 R1(띠 상단 정의), R4(S3 불채택), R5(얕은 띠 미결)는 본문 §0·§11에도 옮겼다.
-  - 코드가 필요한 **R2(`band_top_multi_event`·`LAYER_AMBIGUITY_NOTE`)와 R3(`PROTECTIVE_PLATE_NOTE`)는 구현 대기**다. 본문 §3-3·§6-2 플래그 목록에는 아직 넣지 않았다. python-expert 구현이 끝나면 옮긴다.
-  - 그때까지 코드 출력에는 이 플래그·문구가 없다.
+- **v1.5 (승인 2026-10-31, 사용자 결정; 구현 완료 2026-10-31)**: gprMax 띠 상단 합성 판정([BC] §8, `band_top_synthetic_v1.md`) 반영. 개정 R1–R5의 근거와 확정 문구는 §13이다.
+  - R1(띠 상단 정의), R4(S3 불채택), R5(얕은 띠 미결): 본문 §0·§11
+  - R2(`band_top_multi_event`·`LAYER_AMBIGUITY_NOTE`), R3(`PROTECTIVE_PLATE_NOTE`): python-expert 구현 완료(`depth/band.py`, UB20–UB22). 본문 §1-3·§3-3 단계 6·§6-2·§6-3에 반영
+  - R2 다중 사건 표시는 층·관 내부 반사·울림·다중반사를 구분하지 않는다(§13-4 한계)
 
 ---
 
@@ -109,6 +109,8 @@ $$d_\text{top}=\frac{v\,\tau_\text{ref}}{2},\qquad \tau_\text{ref}=t_{b,\text{re
 | 물 찬 관 하단 반사 | $4R\sqrt{\varepsilon_\text{in}}/c$ (R 0.1, εr 81 → 12 ns) 뒤의 강한 사건 | – | 첫 피크 규칙으로 배제([S] §5-2와 같은 근거) |
 | 관 경사 $\alpha$ | $\cos\alpha$, 10 %에서 −0.5 %(표 B4) | − | 보정 없음, 경사 보고 |
 | 배경 제거 | median이 띠를 지움(표 A2) | − (실패) | masked median(§3-2) |
+| (v1.5 R2) 창 범위 안 지층 | 층이 관 위 약 1.4 주기(짧은 파형)·약 2 주기(울림 파형) 안이거나 아래 약 1.5 주기(울림) 안에 있고 배경으로 지워지지 않으면 층이나 합쳐진 포락선을 픽한다. 층이 관에 1 주기 이내로 붙은 경우 위 −1.19 ~ +0.06, 아래 −0.63 ~ +0.54 주기([BC] §8-2) | ± (대개 −) | 보정 없음. `band_top_multi_event` 또는 `bg_none`이면 `LAYER_AMBIGUITY_NOTE`(§13-2) |
+| (v1.5 R3) 강판 보호판 | 띠 = 판. 깊이 오차 ≈ −(판 높이), 규격 0.3 m 이상(예외 0.1 m)([BC] §8-5) | − | 보정 없음. 모든 `pipe_band` 결과에 `PROTECTIVE_PLATE_NOTE`(§13-2) |
 
 ---
 
@@ -162,6 +164,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 4. 트레이스마다 창 안 `find_peaks(E, height=0.3·E_box)`의 **첫 피크**를 고르고 포물선 보간으로 $t_{b,j}$를 잡는다. 0.3은 [S] §5-2 꼭짓점 후보 문턱과 같다.
 5. 고른 피크가 창 위 끝 2 샘플 안이면 그 트레이스에 `top_at_window_edge`를 기록한다. 이런 트레이스가 30 %를 넘으면 결과 플래그로 올린다.
 6. **다중 사건 표시**(정보용): 같은 트레이스에서 첫 피크 뒤 $E\ge0.5E_\text{box}$인 피크 $t_2$가 있고, $|\tau_2/\tau_1-2|<0.1$이면 `surface_multiple_candidate`를 붙인다. $\tau_2-\tau_1<2/f_c$이면 `inner_reflection_candidate`를 붙인다. 깊이에는 첫 피크만 쓴다.
+   - (v1.5 R2) **창 안 다중 사건**: 첫 픽 $k_1$ 뒤 $(k_1+2,\ k_1+2/f_c]$ 샘플(스케일 없으면 $2P_\text{px}$, 둘 다 없으면 생략) 안에 포락선 $\ge$ `candidate_rel`·$E_\text{box}$(0.3)인 피크가 또 있는 트레이스를 센다(`MULTI_EVENT_PERIODS` = 2.0). 픽 트레이스의 30 %를 넘으면 `band_top_multi_event`를 붙인다. 이 플래그가 있거나 `bg_mode == "none"`이면 `bias_notes`에 `LAYER_AMBIGUITY_NOTE`를 넣는다. 정보용이고 상태·깊이는 바꾸지 않는다. 한계는 §13-4다(층·관 내부 반사·울림을 구분하지 않음).
    - v1.1 확인: $t_2$는 첫 피크 뒤 **트레이스 끝까지** 찾는다(창으로 자르지 않는다. 비율·간격 조건이 이미 사건을 좁힌다).
    - 결과 플래그는 `top_at_window_edge`와 같이 해당 트레이스가 픽 트레이스의 30 %를 넘을 때만 올린다.
 7. `pick_mode`는 영점과 같아야 한다([S] §5-5). 기본값은 `"envelope"`이고, `"onset"`은 API에 두지 않는다(표 A3).
@@ -327,7 +330,7 @@ $$b(t)=\operatorname*{median}_{j\in\mathcal O}a_j(t),\qquad \mathcal O=\{j: |j-i
 
 - v1.1: `band_in_zero_zone`·`inconsistent_picks`는 `DepthStatus` 값으로 구현됐다([S] §2 집합 + `no_velocity` + 이 둘). 스케일이 없으면 모든 실패보다 `no_scale`이 우선하고, 실패 사유는 같은 이름의 플래그로 남는다(`insufficient_picks`, `inconsistent_picks` 등; v1.3 확인 — [S] `estimate_depth`가 스케일 없음을 먼저 반환하는 것과 같은 규칙). 스케일이 없으면 뮤트가 없으므로 `band_in_zero_zone`은 생기지 않는다.
 
-공통 플래그(일부): `zero_band_overlap`, `bg_none`, `band_bg_removed_upstream`, `top_at_window_edge`, `surface_multiple_candidate`, `inner_reflection_candidate`, `band_oblique_large`, `crossing_outside_box`, `band_concave`, `steep_band`, `slope_may_include_zero_drift`, `touches_profile_edge_left/right`, `fragment_of_group`, `zero_px_unverified`, `v_assumed`, `meta_eps_unverified`, `amplitude_processed`, `dt_hypothesis_A/B`.
+공통 플래그(일부): `zero_band_overlap`, `bg_none`, `band_bg_removed_upstream`, `top_at_window_edge`, `surface_multiple_candidate`, `inner_reflection_candidate`, `band_top_multi_event`(v1.5 R2), `band_oblique_large`, `crossing_outside_box`, `band_concave`, `steep_band`, `slope_may_include_zero_drift`, `touches_profile_edge_left/right`, `fragment_of_group`, `zero_px_unverified`, `v_assumed`, `meta_eps_unverified`, `amplitude_processed`, `dt_hypothesis_A/B`.
 
 ### 6-3. 불확도
 
@@ -340,6 +343,7 @@ $$\sigma_d=\sqrt{\Big(d\,\frac{\sigma_v}{v}\Big)^2+\Big(\frac v2\Big)^2\big(\sig
 | $\sigma_b$ | `flat`·`sloped`: $\max\big(0.05\ \text{ns},\ \sigma_\text{res}/\sqrt{n_\text{eff}}\big)$, $n_\text{eff}=\max(1,\ n_\text{picks}\Delta x/0.2\ \text{m})$. `curved`: 꼭짓점 시각의 공분산 전파값과 0.05 ns 중 큰 값 | 이웃 트레이스 픽은 발자국(약 0.2 m, **가정**) 안에서 상관된다 |
 | 측방 이격(합산하지 않음) | `lateral_bias_max_m` $=\sqrt{d_c^2+y_\text{max}^2}-d_c$. $y_\text{max}=\lambda/4+d_\text{top}/\sqrt{\varepsilon_r+1}$ (안테나 발자국 반경, $\lambda=v/f_c$) | 발자국 식은 Conyers & Goodman(1997)의 경험식이다. **프로젝트 근거 문서에 아직 없음 → 가정**. 500 MHz, εr 9, $d$ 0.6 m에서 $y_\text{max}$ 0.24 m, 상한 약 +4–5 cm(R 0.1 → +4.0, R 0 → +4.6) |
 | 계통(합산하지 않음) | 기준점 상단/중심 $\pm R$, 영점 편향 부호, 이웃 v 편향 | `bias_notes` |
+| (v1.5) 지층 모호성·보호판(합산하지 않음) | `LAYER_AMBIGUITY_NOTE`(조건부, §3-3 단계 6), `PROTECTIVE_PLATE_NOTE`(모든 `pipe_band` 결과, 상태·스케일 무관). 문구는 §13-2 | `bias_notes` |
 
 ### 6-4. 신뢰도 점수
 
@@ -545,7 +549,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | UB14 | 영점 탐색 창 안의 얕은 띠(v1.1: **d 0.1 m**, 공기결합 모의 500 MHz·h 0.3 m, 띠가 측선 60 %). 0.15 m에서 바꾼 이유: 창 끝이 $t_\text{dir}+2h_\text{max}/c+0.5/f_c\approx3.33+3.34+1.0=7.7$ ns인데, 0.15 m 띠는 $5.03+2\cdot0.15/0.0999=8.0$ ns로 창 밖이라 시험이 성립하지 않는다. 0.1 m면 7.0 ns로 창 안이다 | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록 |
 | UB15 | `pick_mode` 불일치 | `ValueError` |
 | UB16 (v1.4) | 평탄 띠(트레이스 40–180, 진폭 1). 박스 A = 40–160, B = 120–180(x 겹침 41 트레이스), 둘 다 같은 τ의 `_box` | 결과 1개, `member_indices == (0, 1)`, `trace_range == (40, 180)`, 깊이 ±2 cm. 현재 코드도 통과(회귀 보호) |
-| UB17 (v1.4) | 경사율 5 % 띠(UB3 식, 중심 트레이스 100, 트레이스 30–170). A = `_box(40, 160, τ[40], τ[160])`가 B = `_box(60, 100, τ[60], τ[100])`를 포함 | 결과 1개, `member_indices == (0, 1)`, `model == "sloped"`, $|g-0.05|\le0.005$. **현재 코드에서는 결과 2개로 실패해야 한다**(끝 비교: A 오른쪽 끝 ≈ 158과 B 왼쪽 끝 ≈ 62의 차 ≈ 96 × 0.02 × 1.0 ns/m ≈ 1.9 ns > 허용 1.25 ns). 고치기 전 실패를 기록 |
+| UB17 (v1.4) | 경사율 5 % 띠(UB3 식, 중심 트레이스 100, 트레이스 30–170). A = `_box(40, 160, τ[40], τ[160])`가 B = `_box(60, 100, τ[60], τ[100])`를 포함 | 결과 1개, `member_indices == (0, 1)`, `model == "sloped"`, $|g-0.05|\le0.005$. **v1.4 구현 전 코드에서는 결과 2개로 실패해야 한다**(2026-10-31 확인됨. 끝 비교: A 오른쪽 끝 ≈ 158과 B 왼쪽 끝 ≈ 62의 차 ≈ 96 × 0.02 × 1.0 ns/m ≈ 1.9 ns > 허용 1.25 ns). 고치기 전 실패를 기록 |
 | UB18 (v1.4) | 진폭 1인 두 평탄 띠: τ₁ = `TAU_FLAT_NS`(트레이스 40–160), τ₂ = τ₁ + 6 ns(트레이스 100–180). A = `_box(40, 160, τ₁, τ₂)`(두 띠를 세로로 모두 덮음), B = `_box(100, 180, τ₂, τ₂)`. B의 세로 범위가 A 안에 들어가므로 시간 겹침 100 % → 후보 | 결과 2개(공유 트레이스 100–160에서 A는 τ₁, B는 τ₂를 픽 → Δ ≈ 6 ns > 1.25 ns), 두 결과 모두 `fragment_of_group`. 6 ns는 B 창 위 여유(0.4 + 1 주기 = 3.5 ns)보다 커서 B 창이 τ₁ 포락선에 닿지 않게 고른 값이다 |
 | UB19 (v1.4) | 스케일 없음(`dt_ns=dx_m=f_c_hz=None`, UB11 방식 영점), 평탄 띠(트레이스 40–170, 박스는 모두 τ = `TAU_FLAT_NS`의 `_box`). (a) `_box(40, 90)` + `_box(111, 170)`(간격 20 px) (b) `_box(40, 80)` + `_box(121, 170)`(간격 40 px) (c) (a)를 `replace(cfg, merge_gap_px=8)`로 | (a) 결과 1개, `member_indices == (0, 1)` (b) 결과 2개 (c) 결과 2개. 모두 `status == "no_scale"`. `DEFAULT_BAND_CONFIG.merge_gap_px == 32` 단언 |
 
@@ -622,7 +626,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 
 | 대상 | `일치` | `허용 일치` | `불일치` |
 |---|---|---|---|
-| 단위 시험 UB1–UB19 | 전부 통과 | – | 하나라도 실패 |
+| 단위 시험 UB1–UB22 (UB20–UB22는 §13-3) | 전부 통과 | – | 하나라도 실패 |
 | 의사 띠 BR1–BR7 | 전부 통과 | BR1만 0.5–1 cm | 그 밖 |
 | 3D P01–P07 (`meta_fixed`) | $|d-d_\text{top}|\le2$ cm (P04는 표 B1 예측 ±1 cm, P05는 $|\theta_\text{est}-\theta|\le2°$, θ ≤ 20°) | ≤ 10 cm | > 10 cm |
 
@@ -726,12 +730,12 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 
 ---
 
-## 13. v1.5 (승인 2026-10-31) — 합성 띠 상단 판정 반영. **R2·R3 구현 대기(코드는 v1.4)**
+## 13. v1.5 (승인·구현 완료 2026-10-31) — 합성 띠 상단 판정 반영
 
 | ID | 상태 |
 |---|---|
 | R1, R4, R5 | 승인. 코드 변경 없음. 본문 §0·§11에 반영했다 |
-| R2, R3 | 승인, **구현 대기**(python-expert, §13-3). 구현 전까지 코드 출력에 `band_top_multi_event`·`LAYER_AMBIGUITY_NOTE`·`PROTECTIVE_PLATE_NOTE`가 없다 |
+| R2, R3 | 승인, **구현 완료(2026-10-31, python-expert, `depth/band.py`, UB20–UB22)**. 본문 §1-3·§3-3 단계 6·§6-2·§6-3에 반영했다 |
 
 근거: [BC] `docs/processing/band_box_convention_depth.md` §8, `docs/processing/band_top_synthetic_v1.md`(2D 격자·젖은 박층·울림·보호판, 3D 확인 §10), 판정 스크립트 `analysis/processing/band_top_synthetic_judge.py`, AIHub 파형 `analysis/processing/aihub_wavelet_length.py`.
 
@@ -740,8 +744,8 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | ID | 위치 | 내용 | 코드 |
 |---|---|---|---|
 | R1 | §0 결론 0(반영됨) | **띠 상단 정의**: "관 단독 응답(관 있음 − 관 없음)의 첫 포락선 피크. 지층·보호판 반사는 관이 아니다." 관 상단 지연은 층이 있어도 ±0.03 ns(2D), ≤ 0.12 ns(3D)였다. 픽 규칙 수치(문턱 0.3 $E_\text{box}$, 창 위 1 주기·아래 0.5 주기, 첫 피크)는 **바꾸지 않는다**. 창 위 여유를 줄이면 박스를 낮게 그린 경우(δ +1 P)의 복원을 잃는다([BC] 표 8-3 masked 100 %) | 없음 |
-| R2 | 구현 후 §1-3 표, §3-3 단계 6, §6-2 플래그(미반영, 구현 대기) | **창 안 다중 사건 표시**. 트레이스마다 첫 픽 $k_1$ 뒤 $(k_1+2,\ k_1+2/f_c]$(스케일 없으면 $2P_\text{px}$) 안에 포락선 $\ge$ `candidate_rel`·$E_\text{box}$인 피크가 또 있으면 그 트레이스를 표시한다. 픽 트레이스의 30 %를 넘으면 플래그 `band_top_multi_event`와 `bias_notes` `"band_top_layer_ambiguity: ..."`(13-2)를 붙인다. `bg_mode == "none"`이면 플래그와 무관하게 같은 bias_note를 붙인다(층을 지울 수 없음). 깊이는 보정하지 않는다 | 있음 |
-| R3 | 구현 후 §1-3 표, §6-3 계통(미반영, 구현 대기) | **보호판 bias_notes**: 모든 `pipe_band` 결과(상태 무관, 스케일 없음 포함)에 13-2의 `PROTECTIVE_PLATE_NOTE`를 붙인다. 판 유무는 띠만으로 가를 수 없다(2D 판 픽 15/15, 3D 판 아래 관 신호 0.05–4.5 %) | 있음 |
+| R2 | §1-3 표, §3-3 단계 6, §6-2 플래그(반영됨) | **창 안 다중 사건 표시**. 트레이스마다 첫 픽 $k_1$ 뒤 $(k_1+2,\ k_1+2/f_c]$(스케일 없으면 $2P_\text{px}$) 안에 포락선 $\ge$ `candidate_rel`·$E_\text{box}$인 피크가 또 있으면 그 트레이스를 표시한다. 픽 트레이스의 30 %를 넘으면 플래그 `band_top_multi_event`와 `bias_notes` `"band_top_layer_ambiguity: ..."`(13-2)를 붙인다. `bg_mode == "none"`이면 플래그와 무관하게 같은 bias_note를 붙인다(층을 지울 수 없음). 깊이는 보정하지 않는다 | 있음 |
+| R3 | §1-3 표, §6-3 계통(반영됨) | **보호판 bias_notes**: 모든 `pipe_band` 결과(상태 무관, 스케일 없음 포함)에 13-2의 `PROTECTIVE_PLATE_NOTE`를 붙인다. 판 유무는 띠만으로 가를 수 없다(2D 판 픽 15/15, 3D 판 아래 관 신호 0.05–4.5 %) | 있음 |
 | R4 | §11 S3 줄(반영됨) | **S3(묶음 안 조각별 창) 불채택 기록**: 사전 기준(칸 평균 +10 %p, 최악 −5 %p) 대비 평균 0.0 ~ +6.4 %p, 나빠진 칸 0, 대표값 차 ≤ 2 %p. 현행 합집합 창 유지. §11의 S3 줄을 "판정 완료(불채택)"로 바꿨다 | 없음 |
 | R5 | §11 R5 줄(반영됨) | 울림 파형 장비(AIHub 판정: 울림 쪽, 대역폭 0.33)에서 직접파 울림 꼬리 안(약 4.5 주기)의 얕은 띠는 미확인 → 미결 추가 | 없음 |
 
@@ -760,7 +764,7 @@ LAYER_AMBIGUITY_NOTE = (
 )
 ```
 
-### 13-3. python-expert 구현 명세 — **구현 대기**(승인 2026-10-31, 착수 시점은 사용자가 정함)
+### 13-3. python-expert 구현 명세 — 구현 완료(2026-10-31)
 
 | 파일 | 변경 |
 |---|---|
@@ -775,3 +779,26 @@ LAYER_AMBIGUITY_NOTE = (
 
 - 실행: `conda run -n gpr-dev python -I -m pytest tests/depth -q` 전부 통과. 합성 회귀 BR1–BR7 수치 변화 없음(문구·플래그만 추가).
 - 재측정(판정 없음): `scripts/check_band_picks_aihub.py --count 40`의 `band_top_multi_event` 빈도를 보고.
+- 구현 결과(python-expert 보고, 2026-10-31)
+  - pytest 447 통과, 1 실패(명세 판 표시 시험)였고, 변경 이력 v1.5 표제를 구현 완료로 바꾼 뒤 전체 **448 통과**(2 xfailed, 2026-10-31 메인 세션 재실행).
+  - UB21 전제 확인: UB1 첫 피크 뒤 최대 피크 0.115 < 0.3.
+  - 문구 상수가 §13-2와 문자 단위로 같다.
+  - BR1–BR7 수치는 그대로이고, 6행에 `band_top_multi_event`만 새로 붙었다(§13-4).
+  - AIHub train_pool 40장: QA-4 위반 0, `band_top_multi_event` 22/50, `PROTECTIVE_PLATE_NOTE` 50/50, `LAYER_AMBIGUITY_NOTE` 28/50.
+
+### 13-4. 한계 — 다중 사건 표시는 원인을 구분하지 않는다 (물리 판정 2026-10-31)
+
+- **현상**: 층이 없는 합성 회귀(BR, 2D gprMax 의사 띠)에서도 6행에 `band_top_multi_event`가 붙었다.
+  - M13 공기 찬 PVC ×2, M14 물 찬 PVC ×2, M16 PEC, M20(공기결합 h 0.3 m)
+  - 그래서 `LAYER_AMBIGUITY_NOTE`도 붙는다.
+- **원인(물리)**: 첫 픽 뒤 2 주기 안에 포락선 0.3 $E_\text{box}$ 이상인 사건이 실제로 있다.
+  - 공기 찬 PVC: 관 하단·내벽 반사가 상단 뒤 $4R/c$(R 0.1 m에서 1.33 ns = 0.67 주기)에 온다(§1-3 관 재질 줄).
+  - 물 찬 PVC: 관 하단 반사는 약 12 ns 뒤라 창 밖이다. 2 주기 안의 사건은 물 경계 안쪽 다중반사나 관 측면 회절로 추정한다(**가정**, 미확인).
+  - PEC M16: 관 둘레를 도는 회절파(creeping wave)로 추정한다(**가정**, 미확인).
+  - M20: 공기층 다중반사·지표 반사 꼬리로 추정한다(**가정**).
+  - 이 사건들은 첫 피크 **뒤**에 있다. 첫 피크 규칙이 관 상단을 이미 잡았으므로 깊이(BR 수치)는 바뀌지 않았다.
+- **판정: 받아들인다(코드·문구 변경 없음).**
+  - 플래그와 문구는 "첫 픽 뒤 2 주기 안에 다른 강한 사건이 있어 첫 픽이 관이 아닐 **수 있다**"는 정보용 경고다. 상태·깊이를 바꾸지 않는다.
+  - `LAYER_AMBIGUITY_NOTE`는 "can be picked instead"로 가능성만 말한다. 층이 없을 때 붙어도 거짓 진술이 아니다.
+  - 층 위 관(층이 첫 픽)과 PVC 내부 반사(관이 첫 픽)는 단일 트레이스의 시각·진폭만으로 가를 수 없다. 합성에서 층/관 진폭비는 0.3–5.9이고 PVC 하단/상단 비도 그 범위에 든다. 조건을 좁히면 R2가 막으려던 층 위 관 경우를 놓친다.
+- **사용상 주의**: `band_top_multi_event`는 층 존재의 증거가 아니라 모호성의 표시다. 플라스틱 관(공기·물), 공기결합, 울림 파형 자료에서는 층이 없어도 자주 붙는다(AIHub 22/50). 이 플래그의 빈도로 층 유무나 픽 정확도를 추정하지 않는다. 층 판단에는 배경 경로(masked 여부)와 바깥 트레이스의 같은 시각 사건 유무를 쓴다(구현 없음, 필요 시 다음 개정).

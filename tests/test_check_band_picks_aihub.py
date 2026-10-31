@@ -51,7 +51,7 @@ def test_current_column_counts_flags_and_results(script: ModuleType) -> None:
     assert set(column) == set(script.COMPARISON_ROW_LABELS)
 
 
-def test_table_keeps_frozen_v13_column_next_to_current(script: ModuleType) -> None:
+def test_table_keeps_frozen_columns_next_to_current(script: ModuleType) -> None:
     current = dict.fromkeys(script.COMPARISON_ROW_LABELS, "X")
 
     lines = script.comparison_table(current, n_boxes=53)
@@ -62,11 +62,17 @@ def test_table_keeps_frozen_v13_column_next_to_current(script: ModuleType) -> No
         "v1.0 (고정 1/2/2/3/1 px)",
         "v1.1 (P_px 기준, 하한 4 px)",
         "v1.3 (P_px 기준, 하한 2.2 px)",
+        "v1.4 (S1 겹침 판정 + G 32 px)",
         f"{script.CURRENT_SPEC_VERSION} ({script.CURRENT_RUN_SUMMARY}, 이번)",
     ]
-    assert lines[1] == "|---|---|---|---|---|"
-    assert lines[2] == "| flag `inconsistent_picks` | 30/51 | 39/51 | 42/51 | X |"
-    fragments_row = "| 박스 53개 → 결과 / `fragment_of_group` | - | - | 51 / 6 | X |"
+    assert lines[1] == "|---|---|---|---|---|---|"
+    inconsistent_row = (
+        "| flag `inconsistent_picks` | 30/51 | 39/51 | 42/51 | 41/50 | X |"
+    )
+    assert lines[2] == inconsistent_row
+    fragments_row = (
+        "| 박스 53개 → 결과 / `fragment_of_group` | - | - | 51 / 6 | 50 / 8 | X |"
+    )
     assert lines[-1] == fragments_row
 
 

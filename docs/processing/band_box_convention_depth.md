@@ -15,7 +15,7 @@
 | D4 | §0 확인 1의 (가)를 채택했다. 재라벨 규칙("위 끝 = 첫 반사")은 지금 적용하지 않는다. §7 판정 뒤 다시 본다 | – (D6에서 종결) |
 | D5 (2026-10-31) | **S3(묶음 안 조각별 창) 불채택**, 현행 합집합 창 유지. 근거: gprMax 합성 판정 칸 평균 C − B = 0.0 ~ +6.4 %p로 사전 기준(+10 %p) 미달, 나빠진 칸 0, 대표 깊이 차 ≤ 2 %p | §4-4, §8-4, `spec_band_depth_v1.md` v1.5 R4(§11 종결) |
 | D6 (2026-10-31) | **D4 재라벨 규칙("위 끝 = 첫 반사") 미적용**(종결). 근거: 층을 지우는 배경이면 박스 위 끝 δ −1.5 ~ +1 P 전 범위에서 정답률 100 %(울림 97.3 %)라 필요가 없다. 국소 층이면 젖은 박층·울림은 어떤 δ로도 90 % 미만(40–72 %, 52–59 %)이고, Ricker는 δ ≥ +0.5 P에서만 90 % 안팎(89.7–91.7 %)이다. 즉 라벨을 첫 반사보다 낮게 그려야만 겨우 닿는다. "첫 반사" 위치(δ ≈ −0.33 P Ricker, −0.9 P 울림)는 오히려 나쁜 쪽이다 | §8-3 |
-| D7 (2026-10-31) | **명세 v1.5(R1–R5) 승인.** R2·R3(플래그·bias_notes) 코드는 **구현 대기**이고 현재 코드는 v1.4다 | `spec_band_depth_v1.md` 변경 이력·§13, 이 문서 §8-8 |
+| D7 (2026-10-31) | **명세 v1.5(R1–R5) 승인.** R2·R3(플래그·bias_notes) 코드는 **구현 완료(2026-10-31)**(python-expert, UB20–UB22) | `spec_band_depth_v1.md` 변경 이력·§13, 이 문서 §8-8 |
 
 ---
 
@@ -335,7 +335,7 @@
 | v1.4 재측정 (표 1·5 v1.4 블록, `depth_band_aihub_trainpool_v1.md` v1.4 열·절) | **완료**(gpr-processing-expert). 물리 판정: S1·S2 기대대로 동작(§4-6) |
 | `docs/experiments/band_merge_v2_compare.md` §10-2 후속 (나)·결정 기록 | 메인 세션 |
 | 재라벨 규칙("위 끝 = 첫 반사") | **미적용으로 종결**(D6, §8-3) |
-| 명세 v1.5 (R1–R5) | 승인(D7). R2·R3 코드는 **구현 대기**(python-expert, `spec_band_depth_v1.md` §13-3) |
+| 명세 v1.5 (R1–R5) | 승인(D7). R2·R3 코드는 **구현 완료(2026-10-31)**(python-expert, `spec_band_depth_v1.md` §13-3). 다중 사건 표시의 한계는 §13-4 |
 
 ### 4-6. v1.4 물리 판정 (S1·S2가 기대대로 동작하는가) — **일치**
 
@@ -495,7 +495,7 @@
   - §7-5의 "1 P" 경계는 창 범위(1.4 P)보다 좁게 잡은 것이었다. 1.5 P 밖 층만 보면 Ricker·젖은 박층은 모든 경로에서, 울림은 masked에서 통과한다.
 - **판정**: 정의는 채택한다. 픽 규칙(문턱 0.3, 창 위 1 P)은 바꾸지 않는다.
   - 창 위 여유를 줄이면 박스를 낮게 그린 경우($\delta=+1$)의 복원을 잃는다(Q2 masked에서 δ +1도 100 %).
-  - 대신 개정안은 **모호성 표시**다(v1.5 승인 R2, 구현 대기). 이 경우 층과 관은 국소 정보만으로 가를 수 없다.
+  - 대신 개정안은 **모호성 표시**다(v1.5 R2, 구현 완료 2026-10-31). 이 경우 층과 관은 국소 정보만으로 가를 수 없다.
 - **층이 관에 1 P 이내로 붙은 칸**(δ = 0, direct·none)의 편향(Q4, `bias_notes` 후보)
 
   | 세트 | 층 위 | 층 아래 |
@@ -569,7 +569,7 @@
 - 규격(`docs/research/buried_pipe_protective_plate.md`)
   - KGS FS451/FS551: 관 정상부 위 0.3 m 이상, 예외 0.1 m 이상(2022 신설)
   - KOGAS-GSM-2121: 직상부 0.3 m 이상
-- **확정 `bias_notes` 문구**(v1.5 승인 R3, 구현 대기): `"protective_plate_possible: under a steel protective plate (city gas KGS FS451/FS551, KOGAS GSM-2121) the band is the plate, not the pipe; the pipe top is >= 0.3 m deeper (>= 0.1 m under the KGS 2022 exception); not corrected"`
+- **확정 `bias_notes` 문구**(v1.5 R3, 구현 완료 2026-10-31): `"protective_plate_possible: under a steel protective plate (city gas KGS FS451/FS551, KOGAS GSM-2121) the band is the plate, not the pipe; the pipe top is >= 0.3 m deeper (>= 0.1 m under the KGS 2022 exception); not corrected"`
 
 ### 8-6. AIHub 장비 파형 — **울림 쪽에 가깝다. AIHub 정책 근거는 울림(RL·RK) 결과로 한다**
 
@@ -605,7 +605,7 @@
 | 보호판 | **띠 = 판**(2D·3D). 문구 확정(R3) | 판 15/15, 깊이 −(판 높이) = −4.3 ~ −30.6 cm |
 | AIHub 파형 | **울림 쪽**. AIHub 정책 근거는 RL·RK | 대역폭 0.33(울림 0.34, Ricker 0.92) |
 
-### 8-8. 명세 v1.5(승인)와 python-expert 구현 명세(구현 대기)
+### 8-8. 명세 v1.5(승인)와 python-expert 구현 명세(구현 완료 2026-10-31)
 
 - [B] `spec_band_depth_v1.md` §13 **v1.5(승인 2026-10-31, D7)**에 R1–R5를 적었다.
   - R1: 정의 문구
@@ -614,6 +614,10 @@
   - R4: S3 불채택 기록
   - R5: 얕은 띠 미결
 - R1·R4·R5는 코드 변경이 없어 [B] 본문 §0·§11에 반영했다.
-- 코드 변경은 R2·R3뿐이고 **구현 대기**다(현재 코드는 v1.4). python-expert 명세는 [B] §13-3(UB20–UB22)이다.
+- 코드 변경은 R2·R3뿐이고 **구현 완료(2026-10-31)**다. python-expert 명세는 [B] §13-3(UB20–UB22)이다.
+- 구현 뒤 확인(2026-10-31)
+  - 층 없는 합성 회귀 6행(PVC 공기·물, PEC M16, 공기결합 M20)에도 `band_top_multi_event`가 붙었다.
+  - 물리 판정: 첫 픽 뒤 2 주기 안의 실제 사건(관 내부 반사 등)이고, 깊이는 바뀌지 않았다. 표시는 원인을 구분하지 않는 정보용 경고로 **받아들인다**(코드·문구 변경 없음, [B] §13-4).
+  - AIHub train_pool 40장 빈도는 22/50이다.
 
 [AU-v2]: ../datasets/audit_pipe_band_shape_v2.md
