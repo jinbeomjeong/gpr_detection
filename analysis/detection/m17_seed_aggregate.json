@@ -1,0 +1,1458 @@
+{
+  "variants": {
+    "last_crop": {
+      "per_strength": {
+        "0": {
+          "pipe": {
+            "seed0": 78.10226550169237,
+            "seed1": 73.8416586519544,
+            "mean": 75.97196207682339,
+            "diff_s0_minus_s1": 4.260606849737968,
+            "sd": 3.012703995419571
+          },
+          "map50": {
+            "seed0": 84.35211471176977,
+            "seed1": 82.37875530367037,
+            "mean": 83.36543500772007,
+            "diff_s0_minus_s1": 1.9733594080993981,
+            "sd": 1.395375819185356
+          },
+          "map50_95": {
+            "seed0": 39.86235331676695,
+            "seed1": 38.282536672967495,
+            "mean": 39.072444994867226,
+            "diff_s0_minus_s1": 1.5798166437994539,
+            "sd": 1.1170990618619663
+          },
+          "pipe_hyperbola": {
+            "seed0": 97.11190576243663,
+            "seed1": 90.87981721057288,
+            "mean": 93.99586148650477,
+            "diff_s0_minus_s1": 6.232088551863754,
+            "sd": 4.406752075977911
+          },
+          "pipe_band": {
+            "seed0": 59.092625240948095,
+            "seed1": 56.803500093335934,
+            "mean": 57.94806266714201,
+            "diff_s0_minus_s1": 2.289125147612161,
+            "sd": 1.6186559148612156
+          },
+          "cavity": {
+            "seed0": 89.82387627133684,
+            "seed1": 88.8612410329252,
+            "mean": 89.34255865213102,
+            "diff_s0_minus_s1": 0.9626352384116501,
+            "sd": 0.6806859048900067
+          },
+          "manhole": {
+            "seed0": 91.38005157235752,
+            "seed1": 92.9704628778475,
+            "mean": 92.17525722510251,
+            "diff_s0_minus_s1": -1.5904113054899796,
+            "sd": 1.1245906189877144
+          }
+        },
+        "1": {
+          "pipe": {
+            "seed0": 71.37577152466632,
+            "seed1": 76.87902160541394,
+            "mean": 74.12739656504013,
+            "diff_s0_minus_s1": -5.50325008074762,
+            "sd": 3.891385450662057
+          },
+          "map50": {
+            "seed0": 80.7283191892979,
+            "seed1": 83.24643999285274,
+            "mean": 81.98737959107532,
+            "diff_s0_minus_s1": -2.5181208035548366,
+            "sd": 1.780580296040543
+          },
+          "map50_95": {
+            "seed0": 38.499945342230724,
+            "seed1": 40.04799787981174,
+            "mean": 39.27397161102123,
+            "diff_s0_minus_s1": -1.5480525375810146,
+            "sd": 1.0946384469565782
+          },
+          "pipe_hyperbola": {
+            "seed0": 94.09016906083745,
+            "seed1": 97.15274536567591,
+            "mean": 95.62145721325669,
+            "diff_s0_minus_s1": -3.0625763048384584,
+            "sd": 2.165568473052513
+          },
+          "pipe_band": {
+            "seed0": 48.661373988495185,
+            "seed1": 56.60529784515198,
+            "mean": 52.63333591682358,
+            "diff_s0_minus_s1": -7.943923856656795,
+            "sd": 5.617202428271611
+          },
+          "cavity": {
+            "seed0": 87.36577464341052,
+            "seed1": 85.82457557423136,
+            "mean": 86.59517510882094,
+            "diff_s0_minus_s1": 1.5411990691791573,
+            "sd": 1.0897923129749771
+          },
+          "manhole": {
+            "seed0": 92.79595906444844,
+            "seed1": 93.40314118635176,
+            "mean": 93.0995501254001,
+            "diff_s0_minus_s1": -0.6071821219033211,
+            "sd": 0.4293425958130753
+          }
+        }
+      },
+      "pipe_mean_gap_pp": 1.8445655117832587,
+      "highest": "0",
+      "decision": "0"
+    },
+    "last_image": {
+      "per_strength": {
+        "0": {
+          "pipe": {
+            "seed0": 76.67773241760821,
+            "seed1": 73.9845449592377,
+            "mean": 75.33113868842295,
+            "diff_s0_minus_s1": 2.6931874583705167,
+            "sd": 1.904371114820355
+          },
+          "map50": {
+            "seed0": 83.52209616497412,
+            "seed1": 82.2349798183648,
+            "mean": 82.87853799166946,
+            "diff_s0_minus_s1": 1.2871163466093094,
+            "sd": 0.9101286968634974
+          },
+          "map50_95": {
+            "seed0": 38.84961003919199,
+            "seed1": 37.429953779258646,
+            "mean": 38.13978190922532,
+            "diff_s0_minus_s1": 1.4196562599333404,
+            "sd": 1.003848568352797
+          },
+          "pipe_hyperbola": {
+            "seed0": 96.89905131843166,
+            "seed1": 93.24542555131798,
+            "mean": 95.07223843487482,
+            "diff_s0_minus_s1": 3.653625767113681,
+            "sd": 2.5835035558439854
+          },
+          "pipe_band": {
+            "seed0": 56.456413516784764,
+            "seed1": 54.72366436715741,
+            "mean": 55.59003894197109,
+            "diff_s0_minus_s1": 1.7327491496273524,
+            "sd": 1.2252386737967245
+          },
+          "cavity": {
+            "seed0": 88.95355878406228,
+            "seed1": 88.14342961988615,
+            "mean": 88.54849420197422,
+            "diff_s0_minus_s1": 0.8101291641761321,
+            "sd": 0.5728478256259328
+          },
+          "manhole": {
+            "seed0": 91.77936104061773,
+            "seed1": 92.82739973509769,
+            "mean": 92.30338038785771,
+            "diff_s0_minus_s1": -1.0480386944799562,
+            "sd": 0.7410752678126733
+          }
+        },
+        "1": {
+          "pipe": {
+            "seed0": 71.91011053924181,
+            "seed1": 75.99368688809432,
+            "mean": 73.95189871366807,
+            "diff_s0_minus_s1": -4.083576348852503,
+            "sd": 2.8875245277666077
+          },
+          "map50": {
+            "seed0": 80.89005941688457,
+            "seed1": 82.45323358193289,
+            "mean": 81.67164649940872,
+            "diff_s0_minus_s1": -1.5631741650483235,
+            "sd": 1.105331052281289
+          },
+          "map50_95": {
+            "seed0": 37.92183976903566,
+            "seed1": 39.10688068039747,
+            "mean": 38.51436022471656,
+            "diff_s0_minus_s1": -1.18504091136181,
+            "sd": 0.8379504644074222
+          },
+          "pipe_hyperbola": {
+            "seed0": 95.32811360391507,
+            "seed1": 96.71199773501077,
+            "mean": 96.02005566946292,
+            "diff_s0_minus_s1": -1.383884131095698,
+            "sd": 0.9785538534742212
+          },
+          "pipe_band": {
+            "seed0": 48.492107474568556,
+            "seed1": 55.27537604117785,
+            "mean": 51.8837417578732,
+            "diff_s0_minus_s1": -6.783268566609294,
+            "sd": 4.796495202058984
+          },
+          "cavity": {
+            "seed0": 87.36043838444623,
+            "seed1": 85.85742265857475,
+            "mean": 86.60893052151049,
+            "diff_s0_minus_s1": 1.503015725871478,
+            "sd": 1.0627926119937432
+          },
+          "manhole": {
+            "seed0": 92.37957820460844,
+            "seed1": 91.96813789296819,
+            "mean": 92.1738580487883,
+            "diff_s0_minus_s1": 0.4114403116402485,
+            "sd": 0.29093223441432614
+          }
+        }
+      },
+      "pipe_mean_gap_pp": 1.3792399747548814,
+      "highest": "0",
+      "decision": "0"
+    },
+    "best_crop": {
+      "per_strength": {
+        "0": {
+          "pipe": {
+            "seed0": 76.92647132708214,
+            "seed1": 76.0349582900034,
+            "mean": 76.48071480854277,
+            "diff_s0_minus_s1": 0.8915130370787381,
+            "sd": 0.6303949140345897
+          },
+          "map50": {
+            "seed0": 83.67455583984444,
+            "seed1": 82.8952557192481,
+            "mean": 83.28490577954628,
+            "diff_s0_minus_s1": 0.7793001205963463,
+            "sd": 0.5510483998531708
+          },
+          "map50_95": {
+            "seed0": 40.76361549386082,
+            "seed1": 39.3562592442006,
+            "mean": 40.059937369030706,
+            "diff_s0_minus_s1": 1.4073562496602179,
+            "sd": 0.9951511476800078
+          },
+          "pipe_hyperbola": {
+            "seed0": 97.466805633412,
+            "seed1": 95.3007768247342,
+            "mean": 96.3837912290731,
+            "diff_s0_minus_s1": 2.166028808677794,
+            "sd": 1.531613658861487
+          },
+          "pipe_band": {
+            "seed0": 56.3861370207523,
+            "seed1": 56.76913975527261,
+            "mean": 56.57763838801246,
+            "diff_s0_minus_s1": -0.38300273452031064,
+            "sd": 0.27082383079230266
+          },
+          "cavity": {
+            "seed0": 87.92516469461957,
+            "seed1": 86.1032255723082,
+            "mean": 87.01419513346389,
+            "diff_s0_minus_s1": 1.8219391223113632,
+            "sd": 1.2883055082954316
+          },
+          "manhole": {
+            "seed0": 92.92011601059393,
+            "seed1": 93.4078807246774,
+            "mean": 93.16399836763566,
+            "diff_s0_minus_s1": -0.4877647140834682,
+            "sd": 0.3449017369519379
+          }
+        },
+        "1": {
+          "pipe": {
+            "seed0": 72.29915619037787,
+            "seed1": 76.20725295429112,
+            "mean": 74.2532045723345,
+            "diff_s0_minus_s1": -3.9080967639132496,
+            "sd": 2.7634417232962605
+          },
+          "map50": {
+            "seed0": 81.48585507632129,
+            "seed1": 82.63418328346816,
+            "mean": 82.06001917989472,
+            "diff_s0_minus_s1": -1.148328207146875,
+            "sd": 0.8119906623013458
+          },
+          "map50_95": {
+            "seed0": 39.439435343082444,
+            "seed1": 39.743759602053316,
+            "mean": 39.591597472567884,
+            "diff_s0_minus_s1": -0.30432425897087256,
+            "sd": 0.215189747197875
+          },
+          "pipe_hyperbola": {
+            "seed0": 94.59135115169576,
+            "seed1": 94.50553649770042,
+            "mean": 94.5484438246981,
+            "diff_s0_minus_s1": 0.08581465399534238,
+            "sd": 0.06068012376528385
+          },
+          "pipe_band": {
+            "seed0": 50.00696122905997,
+            "seed1": 57.9089694108818,
+            "mean": 53.95796531997088,
+            "diff_s0_minus_s1": -7.902008181821834,
+            "sd": 5.5875635703578
+          },
+          "cavity": {
+            "seed0": 87.72264526272211,
+            "seed1": 84.55521796982187,
+            "mean": 86.13893161627199,
+            "diff_s0_minus_s1": 3.1674272929002427,
+            "sd": 2.2397093177251106
+          },
+          "manhole": {
+            "seed0": 93.62246266180729,
+            "seed1": 93.56700925546858,
+            "mean": 93.59473595863793,
+            "diff_s0_minus_s1": 0.05545340633871376,
+            "sd": 0.03921147966199758
+          }
+        }
+      },
+      "pipe_mean_gap_pp": 2.227510236208275,
+      "highest": "0",
+      "decision": "0"
+    },
+    "best_image": {
+      "per_strength": {
+        "0": {
+          "pipe": {
+            "seed0": 75.60190504033734,
+            "seed1": 74.93287780061625,
+            "mean": 75.2673914204768,
+            "diff_s0_minus_s1": 0.669027239721089,
+            "sd": 0.47307369800529997
+          },
+          "map50": {
+            "seed0": 82.96116255438929,
+            "seed1": 81.93292889663135,
+            "mean": 82.44704572551032,
+            "diff_s0_minus_s1": 1.0282336577579372,
+            "sd": 0.7270709920448851
+          },
+          "map50_95": {
+            "seed0": 39.8558275850556,
+            "seed1": 38.33962327527934,
+            "mean": 39.09772543016747,
+            "diff_s0_minus_s1": 1.5162043097762634,
+            "sd": 1.0721183491070647
+          },
+          "pipe_hyperbola": {
+            "seed0": 96.49463521818738,
+            "seed1": 94.9880918626883,
+            "mean": 95.74136354043785,
+            "diff_s0_minus_s1": 1.5065433554990904,
+            "sd": 1.0652870228249423
+          },
+          "pipe_band": {
+            "seed0": 54.709174862487295,
+            "seed1": 54.877663738544214,
+            "mean": 54.79341930051575,
+            "diff_s0_minus_s1": -0.16848887605691942,
+            "sd": 0.11913962681434745
+          },
+          "cavity": {
+            "seed0": 87.10883130370442,
+            "seed1": 85.81762720668809,
+            "mean": 86.46322925519625,
+            "diff_s0_minus_s1": 1.2912040970163332,
+            "sd": 0.913019172896102
+          },
+          "manhole": {
+            "seed0": 93.53200883317804,
+            "seed1": 92.04833277860483,
+            "mean": 92.79017080589144,
+            "diff_s0_minus_s1": 1.483676054573209,
+            "sd": 1.0491173992728182
+          }
+        },
+        "1": {
+          "pipe": {
+            "seed0": 72.68492544080236,
+            "seed1": 75.299726463828,
+            "mean": 73.99232595231518,
+            "diff_s0_minus_s1": -2.6148010230256347,
+            "sd": 1.848943534834948
+          },
+          "map50": {
+            "seed0": 81.57943765644255,
+            "seed1": 82.01490023204836,
+            "mean": 81.79716894424546,
+            "diff_s0_minus_s1": -0.43546257560581125,
+            "sd": 0.3079185401638288
+          },
+          "map50_95": {
+            "seed0": 39.09227775908414,
+            "seed1": 39.365986278869634,
+            "mean": 39.229132018976884,
+            "diff_s0_minus_s1": -0.2737085197854938,
+            "sd": 0.193541150408855
+          },
+          "pipe_hyperbola": {
+            "seed0": 96.18667564457944,
+            "seed1": 94.1951966945797,
+            "mean": 95.19093616957957,
+            "diff_s0_minus_s1": 1.9914789499997312,
+            "sd": 1.4081882701350754
+          },
+          "pipe_band": {
+            "seed0": 49.18317523702528,
+            "seed1": 56.404256233076275,
+            "mean": 52.79371573505078,
+            "diff_s0_minus_s1": -7.221080996050993,
+            "sd": 5.106075339804966
+          },
+          "cavity": {
+            "seed0": 87.97708883159132,
+            "seed1": 84.60374208134398,
+            "mean": 86.29041545646766,
+            "diff_s0_minus_s1": 3.373346750247336,
+            "sd": 2.3853163623934943
+          },
+          "manhole": {
+            "seed0": 92.97081091257418,
+            "seed1": 92.85640591919348,
+            "mean": 92.91360841588383,
+            "diff_s0_minus_s1": 0.11440499338070254,
+            "sd": 0.08089654662109684
+          }
+        }
+      },
+      "pipe_mean_gap_pp": 1.275065468161614,
+      "highest": "0",
+      "decision": "0"
+    }
+  },
+  "runs": {
+    "last_crop": {
+      "0|0": {
+        "strength": "0",
+        "seed": 0,
+        "run": "m17_aug0",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0\\eval\\last_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "ae49c50de60377cfdae4d797214584a5a4cec996fac273bea3f689d3a917198f",
+        "ap50": {
+          "pipe_hyperbola": 97.11190576243663,
+          "pipe_band": 59.092625240948095,
+          "cavity": 89.82387627133684,
+          "manhole": 91.38005157235752
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 78.10226550169237,
+        "map50": 84.35211471176977,
+        "map50_95": 39.86235331676695,
+        "confusion_conf0.25": {
+          "band_tp": 644,
+          "band_fn_to_bg": 322,
+          "bg_fp_band": 377,
+          "bg_fp": {
+            "pipe_hyperbola": 8,
+            "pipe_band": 377,
+            "cavity": 67,
+            "manhole": 94
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 322,
+            "cavity": 40,
+            "manhole": 26
+          },
+          "bg_fp_band_conf0.001": 6686
+        }
+      },
+      "0.5|0": {
+        "strength": "0.5",
+        "seed": 0,
+        "run": "m17_aug0.5",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0.5\\eval\\last_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "3ca552be5fba18a922bedf70588e48c1cd28ba037e97040d94b80f63ef83f459",
+        "ap50": {
+          "pipe_hyperbola": 98.05388669871755,
+          "pipe_band": 57.40018151290314,
+          "cavity": 86.94002758286442,
+          "manhole": 92.47321416913113
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 77.72703410581035,
+        "map50": 83.71682749090405,
+        "map50_95": 40.35354370577798,
+        "confusion_conf0.25": {
+          "band_tp": 627,
+          "band_fn_to_bg": 339,
+          "bg_fp_band": 388,
+          "bg_fp": {
+            "pipe_hyperbola": 13,
+            "pipe_band": 388,
+            "cavity": 75,
+            "manhole": 102
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 1,
+            "pipe_band": 339,
+            "cavity": 43,
+            "manhole": 23
+          },
+          "bg_fp_band_conf0.001": 6937
+        }
+      },
+      "1|0": {
+        "strength": "1",
+        "seed": 0,
+        "run": "m17_aug1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1\\eval\\last_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "0cb37fda69887c5327018202d40d820cf7f32b8746f5b775c983b12230677c30",
+        "ap50": {
+          "pipe_hyperbola": 94.09016906083745,
+          "pipe_band": 48.661373988495185,
+          "cavity": 87.36577464341052,
+          "manhole": 92.79595906444844
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 71.37577152466632,
+        "map50": 80.7283191892979,
+        "map50_95": 38.499945342230724,
+        "confusion_conf0.25": {
+          "band_tp": 630,
+          "band_fn_to_bg": 336,
+          "bg_fp_band": 539,
+          "bg_fp": {
+            "pipe_hyperbola": 16,
+            "pipe_band": 539,
+            "cavity": 80,
+            "manhole": 93
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 4,
+            "pipe_band": 336,
+            "cavity": 46,
+            "manhole": 21
+          },
+          "bg_fp_band_conf0.001": 7872
+        }
+      },
+      "2|0": {
+        "strength": "2",
+        "seed": 0,
+        "run": "m17_aug2",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug2\\eval\\last_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "706054fb189d19300331c610352f1896c814c5c84f6c714aca2510abc83fcc58",
+        "ap50": {
+          "pipe_hyperbola": 95.29592091452595,
+          "pipe_band": 53.8022594463025,
+          "cavity": 88.3776830007251,
+          "manhole": 94.8475043576398
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 74.54909018041423,
+        "map50": 83.08084192979834,
+        "map50_95": 39.716320933748264,
+        "confusion_conf0.25": {
+          "band_tp": 654,
+          "band_fn_to_bg": 312,
+          "bg_fp_band": 492,
+          "bg_fp": {
+            "pipe_hyperbola": 11,
+            "pipe_band": 492,
+            "cavity": 65,
+            "manhole": 104
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 312,
+            "cavity": 40,
+            "manhole": 21
+          },
+          "bg_fp_band_conf0.001": 7945
+        }
+      },
+      "0|1": {
+        "strength": "0",
+        "seed": 1,
+        "run": "m17_aug0_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0_s1\\eval\\last_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "23a6733d7b2c2935f675032c7c982a8fa75c003d57397da2c0840d72a42599b0",
+        "ap50": {
+          "pipe_hyperbola": 90.87981721057288,
+          "pipe_band": 56.803500093335934,
+          "cavity": 88.8612410329252,
+          "manhole": 92.9704628778475
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 73.8416586519544,
+        "map50": 82.37875530367037,
+        "map50_95": 38.282536672967495,
+        "confusion_conf0.25": {
+          "band_tp": 663,
+          "band_fn_to_bg": 303,
+          "bg_fp_band": 549,
+          "bg_fp": {
+            "pipe_hyperbola": 14,
+            "pipe_band": 549,
+            "cavity": 75,
+            "manhole": 85
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 303,
+            "cavity": 43,
+            "manhole": 22
+          },
+          "bg_fp_band_conf0.001": 7281
+        }
+      },
+      "1|1": {
+        "strength": "1",
+        "seed": 1,
+        "run": "m17_aug1_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1_s1\\eval\\last_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "1baaa072fa4d847105a1388869144d878c731e84f39274bd14dc778cce0c8020",
+        "ap50": {
+          "pipe_hyperbola": 97.15274536567591,
+          "pipe_band": 56.60529784515198,
+          "cavity": 85.82457557423136,
+          "manhole": 93.40314118635176
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 76.87902160541394,
+        "map50": 83.24643999285274,
+        "map50_95": 40.04799787981174,
+        "confusion_conf0.25": {
+          "band_tp": 687,
+          "band_fn_to_bg": 278,
+          "bg_fp_band": 553,
+          "bg_fp": {
+            "pipe_hyperbola": 11,
+            "pipe_band": 553,
+            "cavity": 75,
+            "manhole": 90
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 3,
+            "pipe_band": 278,
+            "cavity": 42,
+            "manhole": 21
+          },
+          "bg_fp_band_conf0.001": 8459
+        }
+      }
+    },
+    "last_image": {
+      "0|0": {
+        "strength": "0",
+        "seed": 0,
+        "run": "m17_aug0",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0\\eval\\last_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "ae49c50de60377cfdae4d797214584a5a4cec996fac273bea3f689d3a917198f",
+        "ap50": {
+          "pipe_hyperbola": 96.89905131843166,
+          "pipe_band": 56.456413516784764,
+          "cavity": 88.95355878406228,
+          "manhole": 91.77936104061773
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 76.67773241760821,
+        "map50": 83.52209616497412,
+        "map50_95": 38.84961003919199,
+        "confusion_conf0.25": {
+          "band_tp": 1756,
+          "band_fn_to_bg": 893,
+          "bg_fp_band": 1138,
+          "bg_fp": {
+            "pipe_hyperbola": 24,
+            "pipe_band": 1138,
+            "cavity": 184,
+            "manhole": 265
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 7,
+            "pipe_band": 893,
+            "cavity": 103,
+            "manhole": 65
+          },
+          "bg_fp_band_conf0.001": 17370
+        }
+      },
+      "0.5|0": {
+        "strength": "0.5",
+        "seed": 0,
+        "run": "m17_aug0.5",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0.5\\eval\\last_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "3ca552be5fba18a922bedf70588e48c1cd28ba037e97040d94b80f63ef83f459",
+        "ap50": {
+          "pipe_hyperbola": 97.87979823139996,
+          "pipe_band": 56.39871944873575,
+          "cavity": 86.92135376325172,
+          "manhole": 92.00983192048945
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 77.13925884006785,
+        "map50": 83.30242584096922,
+        "map50_95": 38.313774082287345,
+        "confusion_conf0.25": {
+          "band_tp": 1681,
+          "band_fn_to_bg": 967,
+          "bg_fp_band": 1096,
+          "bg_fp": {
+            "pipe_hyperbola": 31,
+            "pipe_band": 1096,
+            "cavity": 217,
+            "manhole": 273
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 967,
+            "cavity": 116,
+            "manhole": 65
+          },
+          "bg_fp_band_conf0.001": 17987
+        }
+      },
+      "1|0": {
+        "strength": "1",
+        "seed": 0,
+        "run": "m17_aug1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1\\eval\\last_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "0cb37fda69887c5327018202d40d820cf7f32b8746f5b775c983b12230677c30",
+        "ap50": {
+          "pipe_hyperbola": 95.32811360391507,
+          "pipe_band": 48.492107474568556,
+          "cavity": 87.36043838444623,
+          "manhole": 92.37957820460844
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 71.91011053924181,
+        "map50": 80.89005941688457,
+        "map50_95": 37.92183976903566,
+        "confusion_conf0.25": {
+          "band_tp": 1666,
+          "band_fn_to_bg": 983,
+          "bg_fp_band": 1485,
+          "bg_fp": {
+            "pipe_hyperbola": 40,
+            "pipe_band": 1485,
+            "cavity": 195,
+            "manhole": 263
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 6,
+            "pipe_band": 983,
+            "cavity": 115,
+            "manhole": 60
+          },
+          "bg_fp_band_conf0.001": 20317
+        }
+      },
+      "2|0": {
+        "strength": "2",
+        "seed": 0,
+        "run": "m17_aug2",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug2\\eval\\last_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "706054fb189d19300331c610352f1896c814c5c84f6c714aca2510abc83fcc58",
+        "ap50": {
+          "pipe_hyperbola": 95.44056886385445,
+          "pipe_band": 52.26592316429952,
+          "cavity": 87.55549021189724,
+          "manhole": 94.36517330184208
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 73.85324601407699,
+        "map50": 82.40678888547332,
+        "map50_95": 39.00645335748129,
+        "confusion_conf0.25": {
+          "band_tp": 1758,
+          "band_fn_to_bg": 891,
+          "bg_fp_band": 1445,
+          "bg_fp": {
+            "pipe_hyperbola": 27,
+            "pipe_band": 1445,
+            "cavity": 172,
+            "manhole": 306
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 5,
+            "pipe_band": 891,
+            "cavity": 115,
+            "manhole": 52
+          },
+          "bg_fp_band_conf0.001": 21244
+        }
+      },
+      "0|1": {
+        "strength": "0",
+        "seed": 1,
+        "run": "m17_aug0_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0_s1\\eval\\last_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "23a6733d7b2c2935f675032c7c982a8fa75c003d57397da2c0840d72a42599b0",
+        "ap50": {
+          "pipe_hyperbola": 93.24542555131798,
+          "pipe_band": 54.72366436715741,
+          "cavity": 88.14342961988615,
+          "manhole": 92.82739973509769
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 73.9845449592377,
+        "map50": 82.2349798183648,
+        "map50_95": 37.429953779258646,
+        "confusion_conf0.25": {
+          "band_tp": 1788,
+          "band_fn_to_bg": 861,
+          "bg_fp_band": 1500,
+          "bg_fp": {
+            "pipe_hyperbola": 43,
+            "pipe_band": 1500,
+            "cavity": 198,
+            "manhole": 258
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 6,
+            "pipe_band": 861,
+            "cavity": 113,
+            "manhole": 58
+          },
+          "bg_fp_band_conf0.001": 18497
+        }
+      },
+      "1|1": {
+        "strength": "1",
+        "seed": 1,
+        "run": "m17_aug1_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1_s1\\eval\\last_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "1baaa072fa4d847105a1388869144d878c731e84f39274bd14dc778cce0c8020",
+        "ap50": {
+          "pipe_hyperbola": 96.71199773501077,
+          "pipe_band": 55.27537604117785,
+          "cavity": 85.85742265857475,
+          "manhole": 91.96813789296819
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 75.99368688809432,
+        "map50": 82.45323358193289,
+        "map50_95": 39.10688068039747,
+        "confusion_conf0.25": {
+          "band_tp": 1878,
+          "band_fn_to_bg": 770,
+          "bg_fp_band": 1504,
+          "bg_fp": {
+            "pipe_hyperbola": 27,
+            "pipe_band": 1504,
+            "cavity": 198,
+            "manhole": 280
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 6,
+            "pipe_band": 770,
+            "cavity": 118,
+            "manhole": 57
+          },
+          "bg_fp_band_conf0.001": 21498
+        }
+      }
+    },
+    "best_crop": {
+      "0|0": {
+        "strength": "0",
+        "seed": 0,
+        "run": "m17_aug0",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0\\eval\\best_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "c5a287487f87d93697f5875c08883ceb95e663c9362a1b0cbbe6e34ad024f5bb",
+        "ap50": {
+          "pipe_hyperbola": 97.466805633412,
+          "pipe_band": 56.3861370207523,
+          "cavity": 87.92516469461957,
+          "manhole": 92.92011601059393
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 76.92647132708214,
+        "map50": 83.67455583984444,
+        "map50_95": 40.76361549386082,
+        "confusion_conf0.25": {
+          "band_tp": 667,
+          "band_fn_to_bg": 299,
+          "bg_fp_band": 464,
+          "bg_fp": {
+            "pipe_hyperbola": 8,
+            "pipe_band": 464,
+            "cavity": 90,
+            "manhole": 97
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 1,
+            "pipe_band": 299,
+            "cavity": 45,
+            "manhole": 23
+          },
+          "bg_fp_band_conf0.001": 7699
+        }
+      },
+      "0.5|0": {
+        "strength": "0.5",
+        "seed": 0,
+        "run": "m17_aug0.5",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0.5\\eval\\best_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "bf6f11941836a3535468fbb44fd0f0bae5982962066575ce8e1d9616ec93b5c6",
+        "ap50": {
+          "pipe_hyperbola": 93.99153418641467,
+          "pipe_band": 56.55841408728697,
+          "cavity": 88.45507163000634,
+          "manhole": 92.63977029410722
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 75.27497413685083,
+        "map50": 82.9111975494538,
+        "map50_95": 40.86504044215305,
+        "confusion_conf0.25": {
+          "band_tp": 571,
+          "band_fn_to_bg": 395,
+          "bg_fp_band": 318,
+          "bg_fp": {
+            "pipe_hyperbola": 12,
+            "pipe_band": 318,
+            "cavity": 91,
+            "manhole": 92
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 395,
+            "cavity": 37,
+            "manhole": 20
+          },
+          "bg_fp_band_conf0.001": 9307
+        }
+      },
+      "1|0": {
+        "strength": "1",
+        "seed": 0,
+        "run": "m17_aug1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1\\eval\\best_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "1bcf8090ff97a62b12b300c9654f92cc61d5b390c39ae448cb35d133dd49a472",
+        "ap50": {
+          "pipe_hyperbola": 94.59135115169576,
+          "pipe_band": 50.00696122905997,
+          "cavity": 87.72264526272211,
+          "manhole": 93.62246266180729
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 72.29915619037787,
+        "map50": 81.48585507632129,
+        "map50_95": 39.439435343082444,
+        "confusion_conf0.25": {
+          "band_tp": 627,
+          "band_fn_to_bg": 339,
+          "bg_fp_band": 560,
+          "bg_fp": {
+            "pipe_hyperbola": 16,
+            "pipe_band": 560,
+            "cavity": 102,
+            "manhole": 95
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 4,
+            "pipe_band": 339,
+            "cavity": 43,
+            "manhole": 16
+          },
+          "bg_fp_band_conf0.001": 8657
+        }
+      },
+      "2|0": {
+        "strength": "2",
+        "seed": 0,
+        "run": "m17_aug2",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug2\\eval\\best_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "9a4088b8c6161c2bbf551b3767ceef5f5575f4b4b1fb8104fe78dfd372e8041b",
+        "ap50": {
+          "pipe_hyperbola": 97.86389933285977,
+          "pipe_band": 53.447769813854364,
+          "cavity": 87.39168382495455,
+          "manhole": 95.60327863956302
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 75.65583457335707,
+        "map50": 83.57665790280792,
+        "map50_95": 40.40628285984521,
+        "confusion_conf0.25": {
+          "band_tp": 611,
+          "band_fn_to_bg": 355,
+          "bg_fp_band": 438,
+          "bg_fp": {
+            "pipe_hyperbola": 12,
+            "pipe_band": 438,
+            "cavity": 76,
+            "manhole": 98
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 3,
+            "pipe_band": 355,
+            "cavity": 37,
+            "manhole": 15
+          },
+          "bg_fp_band_conf0.001": 7677
+        }
+      },
+      "0|1": {
+        "strength": "0",
+        "seed": 1,
+        "run": "m17_aug0_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0_s1\\eval\\best_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "bf16b2bc13331007f8b4f889ec80d4e4669b8a71d6de8dde01112383ae69289a",
+        "ap50": {
+          "pipe_hyperbola": 95.3007768247342,
+          "pipe_band": 56.76913975527261,
+          "cavity": 86.1032255723082,
+          "manhole": 93.4078807246774
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 76.0349582900034,
+        "map50": 82.8952557192481,
+        "map50_95": 39.3562592442006,
+        "confusion_conf0.25": {
+          "band_tp": 636,
+          "band_fn_to_bg": 329,
+          "bg_fp_band": 529,
+          "bg_fp": {
+            "pipe_hyperbola": 34,
+            "pipe_band": 529,
+            "cavity": 87,
+            "manhole": 163
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 329,
+            "cavity": 45,
+            "manhole": 17
+          },
+          "bg_fp_band_conf0.001": 9688
+        }
+      },
+      "1|1": {
+        "strength": "1",
+        "seed": 1,
+        "run": "m17_aug1_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1_s1\\eval\\best_crop\\metrics.json",
+        "count": 1298,
+        "eval_images_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+        "weights_sha256": "69f712f0271b18322d870a80b161f6a36de65a48e2d28e324da4066290bdf1fd",
+        "ap50": {
+          "pipe_hyperbola": 94.50553649770042,
+          "pipe_band": 57.9089694108818,
+          "cavity": 84.55521796982187,
+          "manhole": 93.56700925546858
+        },
+        "instances": {
+          "pipe_hyperbola": 71,
+          "pipe_band": 966,
+          "cavity": 365,
+          "manhole": 408
+        },
+        "pipe": 76.20725295429112,
+        "map50": 82.63418328346816,
+        "map50_95": 39.743759602053316,
+        "confusion_conf0.25": {
+          "band_tp": 665,
+          "band_fn_to_bg": 300,
+          "bg_fp_band": 485,
+          "bg_fp": {
+            "pipe_hyperbola": 20,
+            "pipe_band": 485,
+            "cavity": 60,
+            "manhole": 103
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 4,
+            "pipe_band": 300,
+            "cavity": 52,
+            "manhole": 19
+          },
+          "bg_fp_band_conf0.001": 11133
+        }
+      }
+    },
+    "best_image": {
+      "0|0": {
+        "strength": "0",
+        "seed": 0,
+        "run": "m17_aug0",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0\\eval\\best_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "c5a287487f87d93697f5875c08883ceb95e663c9362a1b0cbbe6e34ad024f5bb",
+        "ap50": {
+          "pipe_hyperbola": 96.49463521818738,
+          "pipe_band": 54.709174862487295,
+          "cavity": 87.10883130370442,
+          "manhole": 93.53200883317804
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 75.60190504033734,
+        "map50": 82.96116255438929,
+        "map50_95": 39.8558275850556,
+        "confusion_conf0.25": {
+          "band_tp": 1764,
+          "band_fn_to_bg": 884,
+          "bg_fp_band": 1276,
+          "bg_fp": {
+            "pipe_hyperbola": 37,
+            "pipe_band": 1276,
+            "cavity": 228,
+            "manhole": 260
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 5,
+            "pipe_band": 884,
+            "cavity": 110,
+            "manhole": 60
+          },
+          "bg_fp_band_conf0.001": 19273
+        }
+      },
+      "0.5|0": {
+        "strength": "0.5",
+        "seed": 0,
+        "run": "m17_aug0.5",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0.5\\eval\\best_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "bf6f11941836a3535468fbb44fd0f0bae5982962066575ce8e1d9616ec93b5c6",
+        "ap50": {
+          "pipe_hyperbola": 95.42628096502114,
+          "pipe_band": 53.88491738586614,
+          "cavity": 88.39225544818133,
+          "manhole": 92.44346072723918
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 74.65559917544364,
+        "map50": 82.53672863157695,
+        "map50_95": 39.31119823237426,
+        "confusion_conf0.25": {
+          "band_tp": 1480,
+          "band_fn_to_bg": 1169,
+          "bg_fp_band": 835,
+          "bg_fp": {
+            "pipe_hyperbola": 31,
+            "pipe_band": 835,
+            "cavity": 250,
+            "manhole": 274
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 3,
+            "pipe_band": 1169,
+            "cavity": 114,
+            "manhole": 55
+          },
+          "bg_fp_band_conf0.001": 23840
+        }
+      },
+      "1|0": {
+        "strength": "1",
+        "seed": 0,
+        "run": "m17_aug1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1\\eval\\best_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "1bcf8090ff97a62b12b300c9654f92cc61d5b390c39ae448cb35d133dd49a472",
+        "ap50": {
+          "pipe_hyperbola": 96.18667564457944,
+          "pipe_band": 49.18317523702528,
+          "cavity": 87.97708883159132,
+          "manhole": 92.97081091257418
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 72.68492544080236,
+        "map50": 81.57943765644255,
+        "map50_95": 39.09227775908414,
+        "confusion_conf0.25": {
+          "band_tp": 1658,
+          "band_fn_to_bg": 991,
+          "bg_fp_band": 1395,
+          "bg_fp": {
+            "pipe_hyperbola": 37,
+            "pipe_band": 1395,
+            "cavity": 248,
+            "manhole": 268
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 5,
+            "pipe_band": 991,
+            "cavity": 108,
+            "manhole": 48
+          },
+          "bg_fp_band_conf0.001": 22051
+        }
+      },
+      "2|0": {
+        "strength": "2",
+        "seed": 0,
+        "run": "m17_aug2",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug2\\eval\\best_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "9a4088b8c6161c2bbf551b3767ceef5f5575f4b4b1fb8104fe78dfd372e8041b",
+        "ap50": {
+          "pipe_hyperbola": 98.00375327560799,
+          "pipe_band": 51.615990747101904,
+          "cavity": 87.65105992607602,
+          "manhole": 94.8205566080807
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 74.80987201135494,
+        "map50": 83.02284013921664,
+        "map50_95": 39.592091938236216,
+        "confusion_conf0.25": {
+          "band_tp": 1651,
+          "band_fn_to_bg": 998,
+          "bg_fp_band": 1258,
+          "bg_fp": {
+            "pipe_hyperbola": 26,
+            "pipe_band": 1258,
+            "cavity": 195,
+            "manhole": 282
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 8,
+            "pipe_band": 998,
+            "cavity": 105,
+            "manhole": 44
+          },
+          "bg_fp_band_conf0.001": 20484
+        }
+      },
+      "0|1": {
+        "strength": "0",
+        "seed": 1,
+        "run": "m17_aug0_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0_s1\\eval\\best_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "bf16b2bc13331007f8b4f889ec80d4e4669b8a71d6de8dde01112383ae69289a",
+        "ap50": {
+          "pipe_hyperbola": 94.9880918626883,
+          "pipe_band": 54.877663738544214,
+          "cavity": 85.81762720668809,
+          "manhole": 92.04833277860483
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 74.93287780061625,
+        "map50": 81.93292889663135,
+        "map50_95": 38.33962327527934,
+        "confusion_conf0.25": {
+          "band_tp": 1721,
+          "band_fn_to_bg": 927,
+          "bg_fp_band": 1478,
+          "bg_fp": {
+            "pipe_hyperbola": 81,
+            "pipe_band": 1478,
+            "cavity": 232,
+            "manhole": 447
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 2,
+            "pipe_band": 927,
+            "cavity": 119,
+            "manhole": 43
+          },
+          "bg_fp_band_conf0.001": 25867
+        }
+      },
+      "1|1": {
+        "strength": "1",
+        "seed": 1,
+        "run": "m17_aug1_s1",
+        "path": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug1_s1\\eval\\best_image\\metrics.json",
+        "count": 3525,
+        "eval_images_sha256": "861f8b5e926a78c13e84581f68a526ad54420f449532b571d0e7648537453f8d",
+        "weights_sha256": "69f712f0271b18322d870a80b161f6a36de65a48e2d28e324da4066290bdf1fd",
+        "ap50": {
+          "pipe_hyperbola": 94.1951966945797,
+          "pipe_band": 56.404256233076275,
+          "cavity": 84.60374208134398,
+          "manhole": 92.85640591919348
+        },
+        "instances": {
+          "pipe_hyperbola": 185,
+          "pipe_band": 2649,
+          "cavity": 986,
+          "manhole": 1118
+        },
+        "pipe": 75.299726463828,
+        "map50": 82.01490023204836,
+        "map50_95": 39.365986278869634,
+        "confusion_conf0.25": {
+          "band_tp": 1784,
+          "band_fn_to_bg": 864,
+          "bg_fp_band": 1400,
+          "bg_fp": {
+            "pipe_hyperbola": 41,
+            "pipe_band": 1400,
+            "cavity": 168,
+            "manhole": 291
+          },
+          "gt_missed": {
+            "pipe_hyperbola": 9,
+            "pipe_band": 864,
+            "cavity": 140,
+            "manhole": 47
+          },
+          "bg_fp_band_conf0.001": 28502
+        }
+      }
+    }
+  }
+}

@@ -12,5 +12,7 @@ YOLO11m scratch, imgsz 256, 1 channel, AIHub fold0 (train 11,276 img), batch 64,
 - Val curve near-saturated by ~epoch 20 of 30 but mAP50 still +0.1-0.25 %p/epoch over 21-30 (val box loss flat from ~13, val cls min at 28-30) -> M1-10 budget set to 50 epoch (user, 2026-10-30).
 
 Recurring FP pattern: pipe_band (AIHub lpipe) has ~7x more background->pipe_band FPs than GT in the M1-7 confusion matrix (crop-level fold0) — but that matrix was at conf 0.001 (Ultralytics 8.4.192 fills the CM with the val `conf`, val.py:266; match IoU 0.45), so the ratio is NOT an operating-threshold FP rate; re-measure at conf 0.25. AP50 only 49-59 %; suspected fragmented/inconsistent band boxes. Pipe_hyperbola has only 71 crop-level instances in fold0 val -> noisy AP.
+- Re-measured 2026-10-31 at conf 0.25 (scripts/eval_detector.py --confusion-conf 0.25, 6 M1-7 runs): background->pipe_band FP = 0.39-0.57x GT (377-553 of 966), band recall 0.65-0.71.
+- Seed noise (fold0, 30 ep, same config, seed 0 vs 1): pipe 2-class AP50 mean differs 4.3-5.5 %p, pipe_band up to 7.9 %p, pipe_hyperbola up to 6.2 %p, overall mAP50 2.0-2.5 %p. Strength ranking flipped between seeds.
 
-**How to apply:** use 30 s/epoch (fold0 size) for time estimates; scale by train size for other folds. Treat pipe_band AP differences of a few %p as noise until label audit.
+**How to apply:** use 30 s/epoch (fold0 size) for time estimates; scale by train size for other folds. Treat pipe-AP differences under ~5 %p from single runs as noise; need multiple seeds/folds before claiming a difference.

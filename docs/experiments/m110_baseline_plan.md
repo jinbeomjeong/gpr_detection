@@ -49,7 +49,7 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
 
 ## 4. 실행 순서와 재개
 
-1. **선행 조건**: (a) **M1-9 smoke 통과 뒤 시작**(아래 3). (b) 체크리스트상 M1-0b(디코딩 재측정)는 M1-10 시작 전에 한다. (c) GPU에 다른 학습이 없을 것(M1-7 seed 1 반복은 사용자 결정으로 보류 — 재요청 시 실행, 현재 gpr_detection 예약 없음). (d) 학습 단계는 `--on-existing archive`로 실행한다(§8 A).
+1. **선행 조건**: (a) **M1-9 smoke 통과 뒤 시작**(아래 3). (b) 체크리스트상 M1-0b(디코딩 재측정)는 M1-10 시작 전에 한다. (c) GPU에 다른 학습이 없을 것(M1-7 seed 1 반복은 2026-10-31 13:42 완료, 예약 해제됨). (d) 학습 단계는 `--on-existing archive`로 실행한다(§8 A).
 2. **한 fold씩 순차**: fold 0 → 1 → 2 → 3 → 4. make_runner 러너 하나에 5단계로 넣고 `--skip-done`, 실패하면 멈춘다. smoke는 이 러너에 넣지 않는다.
 3. **M1-9 smoke — 별도 단독 실행(사용자가 지시할 때)**. 설정 `configs/train_yolo11m_smoke.yaml`(m110 설정과 epochs 3만 다름: AdamW·lr0 0.00125·momentum 0.9·warmup_bias_lr 0·patience 0·strength 0·batch 64·workers 2·fold 0·seed 0). run 이름 `yolo11m_aihubv1_<YYYYMMDD>_smoke_fold0`, 로그 `runs/logs/m19_smoke.log`. 예상 약 3–4분(첫 epoch 약 45 s + 2 × 30 s + 시작·마지막 검증 약 1분, conda 시작 포함).
    - 실행(cwd `C:\workspace\gpr_detection`, 마스크 0xFF 권장):
@@ -89,7 +89,7 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
 ## 6. 시드 정책 (사용자 결정 2026-10-30)
 - 분할 seed: 20261029(매니페스트 고정).
 - 학습 seed: **모든 fold 0**. M1-7 fold 0 seed 0과 이어지고, fold 사이 차이가 데이터만으로 생긴다. 각 fold 폴더의 `gpr_train_settings.yaml`(`ultralytics.seed`, `augment_seed`)에 기록되고, 결과 표에도 적는다.
-- 실행 간 변동(같은 fold, 다른 seed)은 아직 재지 않았다(M1-7 seed 1 반복은 보류, 사용자 재요청 시 실행). fold 표준편차에는 seed 변동이 섞여 있다는 점을 결과 문서에 적는다.
+- 실행 간 변동(같은 fold, 다른 seed)은 M1-7 fold 0에서 쟀다(`m17_augmentation_strength.md` §8-4): 관로 평균 SD 3.0·3.9 %p, mAP50 SD 1.4·1.8 %p(강도 0·1, seed 0·1). M1-10 fold 간 편차 해석 때 이 값을 잡음 하한으로 본다. fold 표준편차에는 seed 변동이 섞여 있다는 점을 결과 문서에 적는다.
 - M4-3 RF-DETR도 fold마다 같은 seed(0)를 쓴다.
 
 ## 7. 산출물 경로
