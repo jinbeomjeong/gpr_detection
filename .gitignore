@@ -37,4 +37,5 @@ analysis/data/out/*_out.txt
 docs/datasets/figures/pipe_band_shape/
 analysis/data/out/pipe_*.csv
 analysis/data/out/pipe_band_shape_report*.txt
+docs/experiments/figures/m17_pipe_band_fp_gallery_*.png
 analysis/data/out/pb*_std*.txt

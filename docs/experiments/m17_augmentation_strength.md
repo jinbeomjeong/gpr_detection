@@ -162,6 +162,19 @@ pwsh -NoProfile -File scripts/ops/run_m17_sweep.ps1 -Strengths 1 -Epochs 30 -Bat
 - 강도 1의 두 시드 평균 오검출 546개는 강도 0 평균 463개보다 18 % 많지만, 강도 0 안의 시드 차이(377 ↔ 549)가 더 크다. 증강 강도보다 pipe_band 박스 규약(띠 조각·경계 모호) 쪽 오차원이 크다는 §4 결론은 유지하고, 라벨 형태 감사(gpr-dataset-curator) 권고도 유지한다.
 - 그림: 각 `runs/detect/<실행>/eval/last_crop/confusion_conf0.25/confusion_matrix.png`(conf 0.25), 같은 폴더 위 `confusion_matrix.png`(conf 0.001), 사례 `val_batch*_pred.jpg`.
 
+#### 8-5-1. 가시화 (2026-10-31)
+| 그림 | 내용 |
+|---|---|
+| [`figures/m17_pipe_band_fp_bars.png`](figures/m17_pipe_band_fp_bars.png) | 여섯 실행의 클래스별 배경→클래스 오검출 수(위)와 오검출/정답 비(아래), 정답 인스턴스 수 기준선, 실행마다 pipe_band ÷ 다른 3클래스 최대값 |
+| [`figures/m17_pipe_band_fp_confusion.png`](figures/m17_pipe_band_fp_confusion.png) | 강도 0 seed 0·1의 conf 0.25 혼동 행렬(정규화 없음, background 포함) |
+| [`figures/m17_pipe_band_fp_gallery_fragment.png`](figures/m17_pipe_band_fp_gallery_fragment.png) · [`_no_gt`](figures/m17_pipe_band_fp_gallery_no_gt.png) · [`_duplicate`](figures/m17_pipe_band_fp_gallery_duplicate.png) | `m17_aug0` `last.pt`의 pipe_band 배경 오검출 사례(범주별 신뢰도 상위 16장 + 무작위 16장, seed 0). **AIHub 원본 영상 포함 — `.gitignore` 대상이라 공개 저장소(clone)에서는 이 3개 링크가 깨진다. 로컬에서 `analysis/detection/m17_pipe_band_fp_gallery.py`로 다시 만든다** |
+
+스크립트 `analysis/detection/m17_pipe_band_fp_plots.py`(그림 1·2, CPU), `analysis/detection/m17_pipe_band_fp_gallery.py`(그림 3, GPU 0, `YOLO.val` 경로·batch 64, 약 35 s, RSS 정점 6.4 GB). 오검출 목록 `analysis/detection/m17_pipe_band_fp_list.csv`(377행, 박스·conf·범주·가장 가까운 정답 클래스·IoU), 요약 `analysis/detection/m17_pipe_band_fp_summary.json`. 갤러리 스크립트가 재구성한 혼동 행렬은 `confusion_matrix_conf0.25.csv`와 25칸 모두 같다(Ultralytics 8.4.192 매칭 재현).
+
+- pipe_band 오검출은 같은 실행의 다른 클래스 최대값의 **×3.8(강도 0.5)–×6.5(강도 0 seed 1)** 이다. 다만 정답 수로 나누면 pipe_band 0.39–0.57, 다른 클래스 0.11–0.25로, 같은 실행 안 비율 차이는 ×1.6–×2.7로 줄어든다(pipe_band 정답이 966개로 가장 많다).
+- `m17_aug0`의 배경→pipe_band 377개 범주(crop 1,298장): **조각 띠 223개(59 %)** — 정답 pipe_band와 겹치나 IoU < 0.45, 예측 면적의 중앙값 77 %가 정답 박스 안 / **중복 95개(25 %)** — 다른 예측이 이미 가져간 정답과 IoU ≥ 0.45 / **정답 없는 곳 59개(16 %)** / 다른 클래스 정답과만 겹침 0개. 조각 띠 : 정답 없는 곳 = **3.8 : 1**. 정답 없는 곳 59개 중 58개는 pipe_band 정답이 있는 영상에 있고, 25개는 그 정답 띠와 같은 깊이 행(세로 겹침)에 놓인다 — 라벨 박스 밖으로 이어진 띠일 가능성.
+- 오검출 377개 중 **356개가 한 세션 `NM_20220922(111046)`**(이 fold 정답 pipe_band 966개 중 934개, 이 세션 검증 crop 469장)에서, 20개가 `NM_20221102(134306)`(정답 32)에서, 나머지 1개가 `NM_20221017(143803)`에서 나왔다. 갤러리에서도 정답 pipe_band가 한 띠를 여러 개 짧은 박스로 나눠 그은 경우가 많다. 따라서 이 FP는 모델의 배경 환각보다 **띠 라벨 분할 규약과 매칭(IoU 0.45) 사이의 불일치**가 주원인으로 보이며, fold 0의 pipe_band 지표는 사실상 한 세션의 라벨 규약을 잰 값이다. 라벨 형태 감사(gpr-dataset-curator)는 이 CSV로 한다.
+
 ## 부록. `best.pt` 민감도(crop 단위, %)
 | 강도 | pipe_hyperbola | pipe_band | 관로 평균 | cavity | manhole | mAP50 | mAP50-95 |
 |---|---|---|---|---|---|---|---|

@@ -1,0 +1,181 @@
+{
+  "status": "ok",
+  "n_images": 1298,
+  "weights": "C:\\workspace\\gpr_detection\\runs\\detect\\m17_aug0\\weights\\last.pt",
+  "bg_fp_band": 377,
+  "bg_fp_band_ref": 377,
+  "cm": [
+    [
+      69,
+      0,
+      0,
+      0,
+      8
+    ],
+    [
+      0,
+      644,
+      0,
+      0,
+      377
+    ],
+    [
+      0,
+      0,
+      325,
+      0,
+      67
+    ],
+    [
+      0,
+      0,
+      0,
+      382,
+      94
+    ],
+    [
+      2,
+      322,
+      40,
+      26,
+      0
+    ]
+  ],
+  "cm_minus_ref": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "val_cm_minus_ref": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "val_save_dir": "C:\\workspace\\gpr_detection\\runs\\analysis\\m17_pipe_band_fp_val",
+  "categories": {
+    "duplicate": 95,
+    "fragment": 223,
+    "other_class": 0,
+    "no_gt": 59
+  },
+  "conf_median": {
+    "duplicate": 0.3298642039299011,
+    "fragment": 0.3964044451713562,
+    "other_class": null,
+    "no_gt": 0.36699995398521423
+  },
+  "fragment_pred_area_in_band_gt_median": 0.774623827140953,
+  "other_class_nearest": {},
+  "no_gt_in_images_without_band_gt": 1,
+  "images_with_band_fp": 268,
+  "images_with_band_gt": 501,
+  "no_gt_same_rows_as_band_gt": 25,
+  "sessions": {
+    "NM_20220922(111046)": {
+      "fp_band": 356,
+      "gt_band": 934,
+      "images": 469
+    },
+    "NM_20221102(134306)": {
+      "fp_band": 20,
+      "gt_band": 32,
+      "images": 55
+    },
+    "NM_20221017(143803)": {
+      "fp_band": 1,
+      "gt_band": 0,
+      "images": 25
+    },
+    "(other sessions)": {
+      "fp_band": 0,
+      "gt_band": 0,
+      "count": 305,
+      "images": 749
+    }
+  },
+  "galleries": [
+    {
+      "images_in_category": 93,
+      "top": 16,
+      "random": 16,
+      "out": "C:\\workspace\\gpr_detection\\docs\\experiments\\figures\\m17_pipe_band_fp_gallery_duplicate.png"
+    },
+    {
+      "images_in_category": 164,
+      "top": 16,
+      "random": 16,
+      "out": "C:\\workspace\\gpr_detection\\docs\\experiments\\figures\\m17_pipe_band_fp_gallery_fragment.png"
+    },
+    {
+      "images_in_category": 50,
+      "top": 16,
+      "random": 16,
+      "out": "C:\\workspace\\gpr_detection\\docs\\experiments\\figures\\m17_pipe_band_fp_gallery_no_gt.png"
+    }
+  ],
+  "csv": "C:\\workspace\\gpr_detection\\analysis\\detection\\m17_pipe_band_fp_list.csv"
+}
