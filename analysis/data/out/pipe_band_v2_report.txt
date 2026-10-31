@@ -1,0 +1,58 @@
+FP rows 377 gain copies used: {'1.0': 336, '0.5': 35, '0.25': 6}
+band crops 1518 multi-box 550 same-depth gapped pair crops 466 gap<=8 403 gap>8 170 gap>8 only (no gap<=8) 63
+G=0: boxes 2279
+G=8: boxes 1795
+G=16: boxes 1727
+G=32: boxes 1696
+
+== FP category x v1 fragmentation (rows=category)
+             n  crops  in_band_crop  multi  frag_any  frag8  frag_gt8_only
+category                                                                  
+duplicate   95     93            95     63        54     47              7
+fragment   223    164           223    111        83     64             19
+no_gt       59     50            58     26        24     19              5
+
+FP -> IoU>=0.45 with a merged GT box (would become matchable / duplicate under merge)
+ G=8: {'duplicate': 71, 'fragment': 7, 'no_gt': 0}
+ G=16: {'duplicate': 69, 'fragment': 10, 'no_gt': 0}
+ G=32: {'duplicate': 69, 'fragment': 9, 'no_gt': 0}
+fragment FP crops: 164 of which crop has frag8: 50 has any gapped same-depth pair: 62 multi-box but no gapped pair: 23 single-box crop: 79
+fragment FP by session: {'NM_2022-09-22_(11_10_46)': 216, 'NM_2022-11-02_(13_43_06)': 7}
+fold0 band crops 501 frag8 crops 212 frag_any 253
+fold0: share of fragment-FP crops among fragmented band crops: 164 / 253
+session NM_2022-09-22_(11_10_46) FPs: 356 band crops in fold0: 469
+
+== no_gt FP: 59 in band-GT crops: 58
+same-row (y overlap>0 with a GT band box): 25
+  gap_to_gt quantiles (px) 10/25/50/75/90: [3.6, 6.0, 11.4, 22.5, 36.6]
+  gap<=8: 11  8-32: 10  >32: 4
+  by session: {'NM_2022-09-22_(11_10_46)': 19, 'NM_2022-11-02_(13_43_06)': 6}
+
+== per-session pipe_band stats by fold
+fold                  session  boxes  crops  files  multi_frac  frag_any_frac  frag8_frac  frag_gt8_only_frac
+  f0 NM_2022-09-22_(11_10_46)    934    469   1281        0.64           0.54        0.45                0.09
+  f0 NM_2022-11-02_(13_43_06)     32     32     86        0.00           0.00        0.00                0.00
+  f1 NM_2022-11-02_(14_26_27)    503    409   1111        0.19           0.11        0.10                0.00
+  f2 NM_2022-10-19_(13_09_55)    199    199    542        0.00           0.00        0.00                0.00
+  f2 NM_2022-11-02_(13_48_44)     59     47    125        0.23           0.23        0.23                0.00
+  f3 NM_2022-10-19_(11_08_11)     25     15     42        0.67           0.67        0.67                0.00
+  f3 NM_2022-10-19_(12_23_21)     19     14     36        0.29           0.29        0.29                0.00
+  f3 NM_2022-10-19_(12_38_08)     12      9     25        0.33           0.33        0.33                0.00
+  f3 NM_2022-10-19_(11_18_03)      6      5      9        0.20           0.20        0.20                0.00
+  f4 NM_2022-10-19_(12_33_02)    174    111    296        0.47           0.46        0.39                0.07
+  f4 NM_2022-11-02_(14_16_20)     15      8     23        0.75           0.75        0.62                0.12
+test NM_2022-10-19_(12_47_20)    201    136    357        0.41           0.40        0.35                0.06
+test NM_2022-10-19_(11_03_51)    100     64    173        0.45           0.45        0.41                0.05
+
+== per-fold concentration
+      sessions  boxes  crops  files  top_boxes  top_share  frag_any_crops  frag8_crops  multi_crops
+fold                                                                                               
+f0           2    966    501   1367        934      0.967             253          212          301
+f1           1    503    409   1111        503      1.000              43           41           77
+f2           2    258    246    667        199      0.771              11           11           11
+f3           4     62     43    112         25      0.403              18           18           18
+f4           2    189    119    319        174      0.921              57           48           58
+test         2    301    200    530        201      0.668              84           73           85
+
+crop lines 4118 overlapping consecutive crop pairs (in v1 subset) 1363 exactly adjacent 0
+crop width distribution: {256.0: 6243}

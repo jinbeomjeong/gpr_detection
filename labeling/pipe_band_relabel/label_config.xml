@@ -1,0 +1,19 @@
+<!-- pipe_band relabel (AIHub lpipe), draft 2026-10-31. Class order is fixed by category = YOLO index (data.yaml). -->
+<!-- Only pipe_band is edited; the other three labels exist so that unchanged v1 boxes stay visible and survive export. -->
+<View>
+  <Header value="$crop_key  |  $session  |  fold $fold  |  tier $tier  |  wave $wave"/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false"
+         brightnessControl="true" contrastControl="true" defaultZoom="fit"/>
+  <RectangleLabels name="label" toName="image" strokeWidth="2" opacity="0.15" fillOpacity="0.1">
+    <Label value="pipe_hyperbola" category="0" background="#3b82f6" hotkey="2"/>
+    <Label value="pipe_band" category="1" background="#e11d48" hotkey="1"/>
+    <Label value="cavity" category="2" background="#16a34a" hotkey="3"/>
+    <Label value="manhole" category="3" background="#f59e0b" hotkey="4"/>
+  </RectangleLabels>
+  <Choices name="flag" toName="image" choice="multiple" showInline="true">
+    <Choice value="unclear" hotkey="u"/>
+    <Choice value="no_band_here" hotkey="n"/>
+    <Choice value="check_neighbor_crop" hotkey="c"/>
+  </Choices>
+  <TextArea name="note" toName="image" rows="1" placeholder="memo (optional)" editable="true"/>
+</View>

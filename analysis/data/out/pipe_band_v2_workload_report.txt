@@ -1,0 +1,35 @@
+band boxes 2279 crops 1518
+G8: boxes 1795 (-21.2%), crops changed 407, blocked-by-height 0
+G16: boxes 1727 (-24.2%), crops changed 448, blocked-by-height 0
+G32: boxes 1696 (-25.6%), crops changed 463, blocked-by-height 0
+G32+h<=1.5x: boxes 1696 (-25.6%), crops changed 463, blocked-by-height 0
+G32+h<=1.25x: boxes 1730 (-24.1%), crops changed 439, blocked-by-height 39
+G16+h<=1.5x: boxes 1727 (-24.2%), crops changed 448, blocked-by-height 0
+band box h p50/p95/max: [16.3, 21.4, 32.5]
+fold                  session  crops  files  A_gapped  B_multi  C_single  C_single_edge
+  f0 NM_2022-09-22_(11_10_46)    469   1281       253       48       168             50
+  f0 NM_2022-11-02_(13_43_06)     32     86         0        0        32              0
+  f1 NM_2022-11-02_(14_26_27)    409   1111        43       34       332             12
+  f2 NM_2022-10-19_(13_09_55)    199    542         0        0       199              0
+  f2 NM_2022-11-02_(13_48_44)     47    125        11        0        36              1
+  f3 NM_2022-10-19_(11_08_11)     15     42        10        0         5              0
+  f3 NM_2022-10-19_(12_23_21)     14     36         4        0        10              0
+  f3 NM_2022-10-19_(12_38_08)      9     25         3        0         6              2
+  f3 NM_2022-10-19_(11_18_03)      5      9         1        0         4              0
+  f4 NM_2022-10-19_(12_33_02)    111    296        51        1        59             29
+  f4 NM_2022-11-02_(14_16_20)      8     23         6        0         2              0
+test NM_2022-10-19_(12_47_20)    136    357        55        1        80              1
+test NM_2022-10-19_(11_03_51)     64    173        29        0        35              0
+TOTAL {'crops': 1518, 'files': 4106, 'A_gapped': 466, 'B_multi': 84, 'C_single': 968, 'C_single_edge': 95}
+by fold:
+      crops  files  A_gapped  B_multi  C_single
+fold                                           
+f0      501   1367       253       48       200
+f1      409   1111        43       34       332
+f2      246    667        11        0       235
+f3       43    112        18        0        25
+f4      119    319        57        1        61
+test    200    530        84        1       115
+
+band crops 1518 (x256 = 388608 px), union over band crops 205905 px = 804 crop-equivalents, lines 123; union incl. non-band v1 crops on same lines 246612 px = 963 eq
+contiguous islands: 306 len p50/p90/max px: [471, 1427, 2424] islands single crop-sized (<=256): 84

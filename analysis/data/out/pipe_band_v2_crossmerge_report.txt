@@ -1,0 +1,4 @@
+G=0: clipped boxes 7235 (before 2279), crops with changed box count 1404, width p50/p90 77/150, full-width(>=95%) 0.8%, components 2279, chain len p50/p90/max 103/187/255, height inflation p50/p95/max 1.00/1.00/1.00
+G=8: clipped boxes 2597 (before 2279), crops with changed box count 918, width p50/p90 184/256, full-width(>=95%) 30.6%, components 662, chain len p50/p90/max 200/643/2194, height inflation p50/p95/max 1.00/1.39/2.16
+G=16: clipped boxes 2417 (before 2279), crops with changed box count 895, width p50/p90 195/256, full-width(>=95%) 37.1%, components 584, chain len p50/p90/max 230/724/2203, height inflation p50/p95/max 1.03/1.47/2.16
+G=32: clipped boxes 2318 (before 2279), crops with changed box count 877, width p50/p90 205/256, full-width(>=95%) 41.5%, components 537, chain len p50/p90/max 254/783/2290, height inflation p50/p95/max 1.05/1.53/2.16

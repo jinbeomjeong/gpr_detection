@@ -1,1 +1,2 @@
 - [AIHub XML 함정](aihub_xml_pitfalls.md) — filename/source 불일치, Val 세션 100% 중복, lpipe 수평·tpipe 쌍곡선
+- [AIHub crop 겹침·band 라벨](aihub_crop_overlap_band.md) — 같은 측선 crop이 겹치고 band 라벨 불일치, 인접 쌍 기준, LS 서버 상태

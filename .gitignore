@@ -39,3 +39,6 @@ analysis/data/out/pipe_*.csv
 analysis/data/out/pipe_band_shape_report*.txt
 docs/experiments/figures/m17_pipe_band_fp_gallery_*.png
 analysis/data/out/pb*_std*.txt
+
+# pipe_band 재라벨 가져오기 파일(AIHub 라벨 박스 좌표 포함) - 로컬 전용
+labeling/pipe_band_relabel/local/
