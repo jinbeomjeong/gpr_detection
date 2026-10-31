@@ -1,0 +1,1639 @@
+{
+ "common": {
+  "dx_m": 0.005,
+  "fc_hz": 500000000.0,
+  "period_ns": 2.0,
+  "eps_soil": 9.0,
+  "sigma_soil": 0.001,
+  "antenna_offset_m": 0.1,
+  "pipe_top_depth_m": 0.6,
+  "grid2d": {
+   "lx": 3.0,
+   "ly": 1.45,
+   "ys": 1.2,
+   "pml": 20,
+   "tw_ns": 30.0,
+   "xc": 1.5
+  },
+  "grid3d": {
+   "lx": 1.2,
+   "ly": 1.2,
+   "lz": 1.2,
+   "air": 0.15,
+   "pml": 10,
+   "tw_ns": 24.0
+  },
+  "pipes": {
+   "pec": {
+    "kind": "pec",
+    "od": 0.1
+   },
+   "pvc": {
+    "kind": "pvc_air",
+    "od": 0.2,
+    "wall": 0.01,
+    "eps": 3.0
+   }
+  },
+  "wavelet": "gprMax ricker current, Hertzian dipole, peak at sqrt(2)/f"
+ },
+ "models": [
+  {
+   "id": "K0r",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": null,
+   "role": "homog_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "wavelet": "ring"
+  },
+  {
+   "id": "RK_PEC",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": "K0r",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "wavelet": "ring"
+  },
+  {
+   "id": "RK_PVC",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": "K0r",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "wavelet": "ring"
+  },
+  {
+   "id": "RL_PEC_A05_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.573
+   ],
+   "layer_eps_r": [
+    9.0,
+    30.8916
+   ],
+   "bg_id": "RG_PEC_A05_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.469070007269396,
+   "layer_tau_vertical_ns": [
+    11.467933592912468
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.0962381315768062,
+   "eps_eff_to_top": 9.70391626431484,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A05_R10"
+  },
+  {
+   "id": "RG_PEC_A05_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.573
+   ],
+   "layer_eps_r": [
+    9.0,
+    30.8916
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    11.467933592912468
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A05_R10"
+  },
+  {
+   "id": "RL_PEC_A10_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5452
+   ],
+   "layer_eps_r": [
+    9.0,
+    29.9122
+   ],
+   "bg_id": "RG_PEC_A10_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.9110147080951,
+   "layer_tau_vertical_ns": [
+    10.911548682121952
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09294389535840353,
+   "eps_eff_to_top": 10.403983757173974,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A10_R10"
+  },
+  {
+   "id": "RG_PEC_A10_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5452
+   ],
+   "layer_eps_r": [
+    9.0,
+    29.9122
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.911548682121952
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A10_R10"
+  },
+  {
+   "id": "RL_PEC_A15_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5164
+   ],
+   "layer_eps_r": [
+    9.0,
+    28.9108
+   ],
+   "bg_id": "RG_PEC_A15_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 13.33393696270043,
+   "layer_tau_vertical_ns": [
+    10.335149925619543
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.08999592568622526,
+   "eps_eff_to_top": 11.096747627553562,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A15_R10"
+  },
+  {
+   "id": "RG_PEC_A15_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5164
+   ],
+   "layer_eps_r": [
+    9.0,
+    28.9108
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.335149925619543
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A15_R10"
+  },
+  {
+   "id": "RL_PEC_A20_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4865
+   ],
+   "layer_eps_r": [
+    9.0,
+    27.8839
+   ],
+   "bg_id": "RG_PEC_A20_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 13.735096108842143,
+   "layer_tau_vertical_ns": [
+    9.736735938834059
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.08736742651749518,
+   "eps_eff_to_top": 11.7744957992609,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A20_R10"
+  },
+  {
+   "id": "RG_PEC_A20_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4865
+   ],
+   "layer_eps_r": [
+    9.0,
+    27.8839
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    9.736735938834059
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A20_R10"
+  },
+  {
+   "id": "RL_PEC_A30_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4227
+   ],
+   "layer_eps_r": [
+    9.0,
+    25.7358
+   ],
+   "bg_id": "RG_PEC_A30_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 14.460344633651001,
+   "layer_tau_vertical_ns": [
+    8.459852582415534
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.08298557402341936,
+   "eps_eff_to_top": 13.05077195520081,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A30_R10"
+  },
+  {
+   "id": "RG_PEC_A30_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4227
+   ],
+   "layer_eps_r": [
+    9.0,
+    25.7358
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    8.459852582415534
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A30_R10"
+  },
+  {
+   "id": "RL_PEC_B05_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65
+   ],
+   "layer_eps_r": [
+    9.0,
+    33.6632
+   ],
+   "bg_id": "RG_PEC_B05_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    13.008999712727931
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B05_R10"
+  },
+  {
+   "id": "RG_PEC_B05_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65
+   ],
+   "layer_eps_r": [
+    9.0,
+    33.6632
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    13.008999712727931
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B05_R10"
+  },
+  {
+   "id": "RL_PEC_B10_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    35.5198
+   ],
+   "bg_id": "RG_PEC_B10_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B10_R10"
+  },
+  {
+   "id": "RG_PEC_B10_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    35.5198
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B10_R10"
+  },
+  {
+   "id": "RL_PEC_B15_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499
+   ],
+   "layer_eps_r": [
+    9.0,
+    37.4253
+   ],
+   "bg_id": "RG_PEC_B15_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    15.008382899345655
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B15_R10"
+  },
+  {
+   "id": "RG_PEC_B15_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499
+   ],
+   "layer_eps_r": [
+    9.0,
+    37.4253
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    15.008382899345655
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B15_R10"
+  },
+  {
+   "id": "RL_PEC_B20_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    39.3832
+   ],
+   "bg_id": "RG_PEC_B20_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B20_R10"
+  },
+  {
+   "id": "RG_PEC_B20_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    39.3832
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B20_R10"
+  },
+  {
+   "id": "RL_PEC_B30_R10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998
+   ],
+   "layer_eps_r": [
+    9.0,
+    40.0
+   ],
+   "bg_id": "RG_PEC_B30_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    18.008458371557836
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B30_R10"
+  },
+  {
+   "id": "RG_PEC_B30_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998
+   ],
+   "layer_eps_r": [
+    9.0,
+    40.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    18.008458371557836
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B30_R10"
+  },
+  {
+   "id": "RL_PVC_A05_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5648
+   ],
+   "layer_eps_r": [
+    9.0,
+    18.0936
+   ],
+   "bg_id": "RG_PVC_A05_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.30270265970483,
+   "layer_tau_vertical_ns": [
+    11.303820058074978
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.0975395433988966,
+   "eps_eff_to_top": 9.446696644397402,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A05_R10"
+  },
+  {
+   "id": "RG_PVC_A05_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5648
+   ],
+   "layer_eps_r": [
+    9.0,
+    18.0936
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    11.303820058074978
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A05_R10"
+  },
+  {
+   "id": "RL_PVC_A10_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5287
+   ],
+   "layer_eps_r": [
+    9.0,
+    17.6805
+   ],
+   "bg_id": "RG_PVC_A10_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.581394364281135,
+   "layer_tau_vertical_ns": [
+    10.581320227875779
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09537893537514629,
+   "eps_eff_to_top": 9.87953410620545,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A10_R10"
+  },
+  {
+   "id": "RG_PVC_A10_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5287
+   ],
+   "layer_eps_r": [
+    9.0,
+    17.6805
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.581320227875779
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A10_R10"
+  },
+  {
+   "id": "RL_PVC_A15_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4917
+   ],
+   "layer_eps_r": [
+    9.0,
+    17.2532
+   ],
+   "bg_id": "RG_PVC_A15_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.841853420899303,
+   "layer_tau_vertical_ns": [
+    9.840807936535883
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09344445545898195,
+   "eps_eff_to_top": 10.29281888183534,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A15_R10"
+  },
+  {
+   "id": "RG_PVC_A15_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4917
+   ],
+   "layer_eps_r": [
+    9.0,
+    17.2532
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    9.840807936535883
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A15_R10"
+  },
+  {
+   "id": "RL_PVC_A20_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4538
+   ],
+   "layer_eps_r": [
+    9.0,
+    16.8094
+   ],
+   "bg_id": "RG_PVC_A20_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 13.081111615847025,
+   "layer_tau_vertical_ns": [
+    9.082283184055285
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09173532305513456,
+   "eps_eff_to_top": 10.67992533376961,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A20_R10"
+  },
+  {
+   "id": "RG_PVC_A20_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4538
+   ],
+   "layer_eps_r": [
+    9.0,
+    16.8094
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    9.082283184055285
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A20_R10"
+  },
+  {
+   "id": "RL_PVC_A30_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3742
+   ],
+   "layer_eps_r": [
+    9.0,
+    15.8596
+   ],
+   "bg_id": "RG_PVC_A30_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 13.488187740045113,
+   "layer_tau_vertical_ns": [
+    7.48918106538891
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.08896673319850947,
+   "eps_eff_to_top": 11.35497332103072,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A30_R10"
+  },
+  {
+   "id": "RG_PVC_A30_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3742
+   ],
+   "layer_eps_r": [
+    9.0,
+    15.8596
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    7.48918106538891
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A30_R10"
+  },
+  {
+   "id": "RL_PVC_B05_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65
+   ],
+   "layer_eps_r": [
+    9.0,
+    19.0592
+   ],
+   "bg_id": "RG_PVC_B05_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    13.008999712727931
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B05_R10"
+  },
+  {
+   "id": "RG_PVC_B05_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65
+   ],
+   "layer_eps_r": [
+    9.0,
+    19.0592
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    13.008999712727931
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B05_R10"
+  },
+  {
+   "id": "RL_PVC_B10_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    19.6203
+   ],
+   "bg_id": "RG_PVC_B10_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B10_R10"
+  },
+  {
+   "id": "RG_PVC_B10_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    19.6203
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B10_R10"
+  },
+  {
+   "id": "RL_PVC_B15_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499
+   ],
+   "layer_eps_r": [
+    9.0,
+    20.1789
+   ],
+   "bg_id": "RG_PVC_B15_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    15.008382899345655
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B15_R10"
+  },
+  {
+   "id": "RG_PVC_B15_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499
+   ],
+   "layer_eps_r": [
+    9.0,
+    20.1789
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    15.008382899345655
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B15_R10"
+  },
+  {
+   "id": "RL_PVC_B20_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    20.7358
+   ],
+   "bg_id": "RG_PVC_B20_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B20_R10"
+  },
+  {
+   "id": "RG_PVC_B20_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    20.7358
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B20_R10"
+  },
+  {
+   "id": "RL_PVC_B30_R10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998
+   ],
+   "layer_eps_r": [
+    9.0,
+    21.8476
+   ],
+   "bg_id": "RG_PVC_B30_R10",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    18.008458371557836
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B30_R10"
+  },
+  {
+   "id": "RG_PVC_B30_R10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998
+   ],
+   "layer_eps_r": [
+    9.0,
+    21.8476
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    18.008458371557836
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "ratio_target": 1.0,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B30_R10"
+  },
+  {
+   "id": "RL_PEC_A10_R03",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5157
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.6585
+   ],
+   "bg_id": "RG_PEC_A10_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.322052240635081,
+   "layer_tau_vertical_ns": [
+    10.321140233621223
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09738637497759478,
+   "eps_eff_to_top": 9.476435372747853,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A10_R03"
+  },
+  {
+   "id": "RG_PEC_A10_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5157
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.6585
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.321140233621223
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A10_R03"
+  },
+  {
+   "id": "RL_PEC_A20_R03",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4289
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.2824
+   ],
+   "bg_id": "RG_PEC_A20_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.58431541734785,
+   "layer_tau_vertical_ns": [
+    8.583938425829245
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09535679615482019,
+   "eps_eff_to_top": 9.884122149891844,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A20_R03"
+  },
+  {
+   "id": "RG_PEC_A20_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4289
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.2824
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    8.583938425829245
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_A20_R03"
+  },
+  {
+   "id": "RL_PEC_B10_R03",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    13.3959
+   ],
+   "bg_id": "RG_PEC_B10_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B10_R03"
+  },
+  {
+   "id": "RG_PEC_B10_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    13.3959
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B10_R03"
+  },
+  {
+   "id": "RL_PEC_B20_R03",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    13.7714
+   ],
+   "bg_id": "RG_PEC_B20_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B20_R03"
+  },
+  {
+   "id": "RG_PEC_B20_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    13.7714
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PEC_B20_R03"
+  },
+  {
+   "id": "RL_PVC_A10_R03",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5094
+   ],
+   "layer_eps_r": [
+    9.0,
+    10.9612
+   ],
+   "bg_id": "RG_PVC_A10_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.196142635865648,
+   "layer_tau_vertical_ns": [
+    10.19505300563632
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.0983917649889659,
+   "eps_eff_to_top": 9.283759973735613,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A10_R03"
+  },
+  {
+   "id": "RG_PVC_A10_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5094
+   ],
+   "layer_eps_r": [
+    9.0,
+    10.9612
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.19505300563632
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A10_R03"
+  },
+  {
+   "id": "RL_PVC_A20_R03",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4172
+   ],
+   "layer_eps_r": [
+    9.0,
+    10.7574
+   ],
+   "bg_id": "RG_PVC_A20_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.349584414820564,
+   "layer_tau_vertical_ns": [
+    8.349776431000143
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09716926170891198,
+   "eps_eff_to_top": 9.518830640528142,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A20_R03"
+  },
+  {
+   "id": "RG_PVC_A20_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4172
+   ],
+   "layer_eps_r": [
+    9.0,
+    10.7574
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    8.349776431000143
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_A20_R03"
+  },
+  {
+   "id": "RL_PVC_B10_R03",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    11.3404
+   ],
+   "bg_id": "RG_PVC_B10_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B10_R03"
+  },
+  {
+   "id": "RG_PVC_B10_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999
+   ],
+   "layer_eps_r": [
+    9.0,
+    11.3404
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    14.007690613751198
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B10_R03"
+  },
+  {
+   "id": "RL_PVC_B20_R03",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    11.5232
+   ],
+   "bg_id": "RG_PVC_B20_R03",
+   "homog_bg_id": "K0r",
+   "role": "ring",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B20_R03"
+  },
+  {
+   "id": "RG_PVC_B20_R03",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999
+   ],
+   "layer_eps_r": [
+    9.0,
+    11.5232
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0r",
+   "role": "ring_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    16.009075184940112
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "ratio_target": 0.3,
+   "wavelet": "ring",
+   "geometry_of": "L_PVC_B20_R03"
+  }
+ ]
+}

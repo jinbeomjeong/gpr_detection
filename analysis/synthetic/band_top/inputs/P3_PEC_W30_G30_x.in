@@ -1,0 +1,15 @@
+#title: P3_PEC_W30_G30_x 3D pec under plate W30 G30 dipole x
+#domain: 1.2 1.2 1.2
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 24.000e-9
+#pml_cells: 10
+
+#material: 9.0 0.001 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: x 0.5500 0.6000 1.0500 src_wave
+#rx: 0.6500 0.6000 1.0500 rx1 Ex
+
+#box: 0 0 0 1.2 1.2 1.0500 soil
+#box: 0 0.4500 0.7450 1.2 0.7500 0.7500 pec
+#cylinder: 0 0.6000 0.4000 1.2 0.6000 0.4000 0.0500 pec

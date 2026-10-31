@@ -13,7 +13,12 @@ import pytest
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SPEC_PATH = PROJECT_ROOT / "docs" / "processing" / "spec_band_depth_v1.md"
-SPEC_VERSION_ENTRY = re.compile(r"^- \*\*(v(\d+)\.(\d+)) \(", re.MULTILINE)
+# Group 1: version label, 2-3: major/minor, 4: rest of the bold entry heading.
+SPEC_VERSION_ENTRY = re.compile(r"^- \*\*(v(\d+)\.(\d+)) (\(.*?)\*\*", re.MULTILINE)
+# Marker the spec owner puts in the heading of an approved but unimplemented
+# revision, e.g. "코드 변경분은 구현 대기, 현재 코드는 v1.4".
+PENDING_IMPLEMENTATION_MARK = "구현 대기"
+STATED_CODE_VERSION = re.compile(r"현재 코드는 (v\d+\.\d+)")
 
 
 @pytest.fixture
@@ -71,11 +76,34 @@ def test_only_the_current_column_is_marked_as_this_run(script: ModuleType) -> No
         assert not label.startswith(f"{script.CURRENT_SPEC_VERSION} ")
 
 
-def test_current_version_is_latest_band_spec_entry(script: ModuleType) -> None:
+def test_current_version_is_latest_implemented_band_spec_entry(
+    script: ModuleType,
+) -> None:
+    """``CURRENT_SPEC_VERSION`` must be the newest *implemented* spec revision.
+
+    A change-history entry whose bold heading contains "구현 대기" is approved
+    but not yet in the code, so it is skipped. If such a heading also states
+    "현재 코드는 vX.Y", that version must equal ``CURRENT_SPEC_VERSION``.
+
+    When the pending revision (v1.5: R2, R3) is implemented: the spec owner
+    removes the "구현 대기" mark, ``CURRENT_SPEC_VERSION`` is raised to that
+    revision, and the old current column moves into ``PREVIOUS_RUNS``.
+    """
     entries = SPEC_VERSION_ENTRY.findall(SPEC_PATH.read_text(encoding="utf-8"))
     assert entries, "band spec change history not found"
-    latest = max(entries, key=lambda entry: (int(entry[1]), int(entry[2])))[0]
-    assert latest == script.CURRENT_SPEC_VERSION
+
+    implemented = []
+    for label, major, minor, heading in entries:
+        if PENDING_IMPLEMENTATION_MARK not in heading:
+            implemented.append((int(major), int(minor), label))
+            continue
+        stated = STATED_CODE_VERSION.search(heading)
+        if stated:
+            assert stated.group(1) == script.CURRENT_SPEC_VERSION, label
+
+    assert implemented, "no implemented band spec revision found"
+    latest_implemented = max(implemented)[2]
+    assert latest_implemented == script.CURRENT_SPEC_VERSION
 
 
 def test_merge_writes_markers_for_a_new_report(script: ModuleType) -> None:

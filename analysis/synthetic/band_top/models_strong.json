@@ -1,0 +1,2072 @@
+{
+ "common": {
+  "dx_m": 0.005,
+  "fc_hz": 500000000.0,
+  "period_ns": 2.0,
+  "eps_soil": 9.0,
+  "sigma_soil": 0.001,
+  "antenna_offset_m": 0.1,
+  "pipe_top_depth_m": 0.6,
+  "grid2d": {
+   "lx": 3.0,
+   "ly": 1.45,
+   "ys": 1.2,
+   "pml": 20,
+   "tw_ns": 30.0,
+   "xc": 1.5
+  },
+  "grid3d": {
+   "lx": 1.2,
+   "ly": 1.2,
+   "lz": 1.2,
+   "air": 0.15,
+   "pml": 10,
+   "tw_ns": 24.0
+  },
+  "pipes": {
+   "pec": {
+    "kind": "pec",
+    "od": 0.1
+   },
+   "pvc": {
+    "kind": "pvc_air",
+    "od": 0.2,
+    "wall": 0.01,
+    "eps": 3.0
+   }
+  },
+  "wavelet": "gprMax ricker current, Hertzian dipole, peak at sqrt(2)/f"
+ },
+ "models": [
+  {
+   "id": "W_PEC_A05",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5725,
+    0.595
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_A05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    11.457926670056525,
+    12.508653569930702
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_A05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5725,
+    0.595
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    11.457926670056525,
+    12.508653569930702
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_A10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5301,
+    0.5526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_A10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490147,
+   "layer_tau_vertical_ns": [
+    10.609339611872425,
+    11.660066511746603
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09517220888888889,
+   "eps_eff_to_top": 9.9225,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_A10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5301,
+    0.5526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.609339611872425,
+    11.660066511746603
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_A15",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4801,
+    0.5026
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_A15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    9.60864732627797,
+    10.65937422615215
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_A15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4801,
+    0.5026
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    9.60864732627797,
+    10.65937422615215
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_A20",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4301,
+    0.4526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_A20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    8.607955040683512,
+    9.658681940557692
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_A20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4301,
+    0.4526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    8.607955040683512,
+    9.658681940557692
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_A30",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3302,
+    0.3527
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_A30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    6.608571854065789,
+    7.659298753939969
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_A30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3302,
+    0.3527
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    6.608571854065789,
+    7.659298753939969
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_B05",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65,
+    0.6725
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_B05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    13.008999712727931,
+    14.059726612602109
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_B05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65,
+    0.6725
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    13.008999712727931,
+    14.059726612602109
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_B10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999,
+    0.7224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_B10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    14.007690613751198,
+    15.05841751362538
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_B10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999,
+    0.7224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    14.007690613751198,
+    15.05841751362538
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_B15",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499,
+    0.7724
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_B15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    15.008382899345655,
+    16.059109799219833
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_B15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499,
+    0.7724
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    15.008382899345655,
+    16.059109799219833
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_B20",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999,
+    0.8224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_B20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    16.009075184940112,
+    17.05980208481429
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_B20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999,
+    0.8224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    16.009075184940112,
+    17.05980208481429
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PEC_B30",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998,
+    0.9223
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PEC_B30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    18.008458371557836,
+    19.059185271432014
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PEC_B30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998,
+    0.9223
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    18.008458371557836,
+    19.059185271432014
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_A05",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5725,
+    0.595
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_A05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    11.457926670056525,
+    12.508653569930702
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_A05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5725,
+    0.595
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    11.457926670056525,
+    12.508653569930702
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_A10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5301,
+    0.5526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_A10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490147,
+   "layer_tau_vertical_ns": [
+    10.609339611872425,
+    11.660066511746603
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09517220888888889,
+   "eps_eff_to_top": 9.9225,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_A10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5301,
+    0.5526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.609339611872425,
+    11.660066511746603
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_A15",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4801,
+    0.5026
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_A15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    9.60864732627797,
+    10.65937422615215
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_A15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4801,
+    0.5026
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    9.60864732627797,
+    10.65937422615215
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_A20",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4301,
+    0.4526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_A20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    8.607955040683512,
+    9.658681940557692
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_A20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4301,
+    0.4526
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    8.607955040683512,
+    9.658681940557692
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_A30",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3302,
+    0.3527
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_A30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.608722798490149,
+   "layer_tau_vertical_ns": [
+    6.608571854065789,
+    7.659298753939969
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09517220888888887,
+   "eps_eff_to_top": 9.922500000000003,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_A30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3302,
+    0.3527
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    6.608571854065789,
+    7.659298753939969
+   ],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_B05",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65,
+    0.6725
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_B05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    13.008999712727931,
+    14.059726612602109
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_B05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.65,
+    0.6725
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    13.008999712727931,
+    14.059726612602109
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_B10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999,
+    0.7224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_B10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    14.007690613751198,
+    15.05841751362538
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_B10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6999,
+    0.7224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    14.007690613751198,
+    15.05841751362538
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_B15",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499,
+    0.7724
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_B15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    15.008382899345655,
+    16.059109799219833
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_B15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7499,
+    0.7724
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    15.008382899345655,
+    16.059109799219833
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_B20",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999,
+    0.8224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_B20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    16.009075184940112,
+    17.05980208481429
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_B20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.7999,
+    0.8224
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    16.009075184940112,
+    17.05980208481429
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "W_PVC_B30",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998,
+    0.9223
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": "GW_PVC_B30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    18.008458371557836,
+    19.059185271432014
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "GW_PVC_B30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.8998,
+    0.9223
+   ],
+   "layer_eps_r": [
+    9.0,
+    49.0,
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    18.008458371557836,
+    19.059185271432014
+   ],
+   "layer_side": "below",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "tuned_wet_bed",
+   "bed_eps_r": 49.0,
+   "bed_thickness_m": 0.0225
+  },
+  {
+   "id": "PL_PEC_W40_A05",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.55
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W40_A05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    11.008307427133476
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.55,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W40_A05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.55,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W40_A10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5001
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W40_A10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    10.008307427133474
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.5001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W40_A10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.5001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W40_A15",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4501
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W40_A15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    9.008307427133474
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4501,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W40_A15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4501,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W40_A20",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4001
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W40_A20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    8.008307427133476
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W40_A20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W40_A30",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3002
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W40_A30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    6.008307427133475
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.3002,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W40_A30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.3002,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PVC_W40_A05",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.55
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PVC_W40_A05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    11.008307427133476
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.55,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PVC_W40_A05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.55,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PVC_W40_A10",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5001
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PVC_W40_A10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    10.008307427133474
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.5001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PVC_W40_A10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.5001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PVC_W40_A15",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4501
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PVC_W40_A15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    9.008307427133474
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4501,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PVC_W40_A15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4501,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PVC_W40_A20",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4001
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PVC_W40_A20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    8.008307427133476
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PVC_W40_A20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4001,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PVC_W40_A30",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3002
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PVC_W40_A30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    6.008307427133475
+   ],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.3002,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PVC_W40_A30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.3002,
+   "plate_width_m": 0.4,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W20_A05",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.55
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W20_A05",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    11.008307427133476
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.55,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W20_A05",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 0.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.55,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W20_A10",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5001
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W20_A10",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    10.008307427133474
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.5001,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W20_A10",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.5001,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W20_A15",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4501
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W20_A15",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    9.008307427133474
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4501,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W20_A15",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 1.5,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4501,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W20_A20",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.4001
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W20_A20",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    8.008307427133476
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4001,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W20_A20",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 2.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.4001,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "PL_PEC_W20_A30",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.3002
+   ],
+   "layer_eps_r": [
+    9.0,
+    "pec_plate"
+   ],
+   "bg_id": "GPL_PEC_W20_A30",
+   "homog_bg_id": "K0f",
+   "role": "strong",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [
+    6.008307427133475
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0,
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.3002,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  },
+  {
+   "id": "GPL_PEC_W20_A30",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0f",
+   "role": "strong_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "layer_side": "above",
+   "layer_dt_target_P": 3.0,
+   "strong_kind": "steel_plate",
+   "plate_top_depth_m": 0.3002,
+   "plate_width_m": 0.2,
+   "plate_thickness_m": 0.005,
+   "plate_note": "PEC strip across the pipe, centred over it, invariant along the pipe/line; laterally local, so masked median does not remove it"
+  }
+ ]
+}

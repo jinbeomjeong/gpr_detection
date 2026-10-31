@@ -1,0 +1,19 @@
+#title: P3_PVC_W40_G30C10_x 3D pvc under plate W40 G30C10 dipole x
+#domain: 1.2 1.2 1.2
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 24.000e-9
+#pml_cells: 10
+
+#material: 9.0 0.001 1 0 soil
+#material: 3.0 0 1 0 pvc
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: x 0.5500 0.6000 1.0500 src_wave
+#rx: 0.6500 0.6000 1.0500 rx1 Ex
+
+#box: 0 0 0 1.2 1.2 1.0500 soil
+#box: 0 0.4000 0.7450 1.2 0.8000 0.7500 pec
+#box: 0 0.4000 0.6500 1.2 0.4050 0.7500 pec
+#box: 0 0.7950 0.6500 1.2 0.8000 0.7500 pec
+#cylinder: 0 0.6000 0.3500 1.2 0.6000 0.3500 0.1000 pvc
+#cylinder: 0 0.6000 0.3500 1.2 0.6000 0.3500 0.0900 free_space

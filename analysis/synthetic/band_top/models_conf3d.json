@@ -1,0 +1,182 @@
+{
+ "common": {
+  "dx_m": 0.005,
+  "fc_hz": 500000000.0,
+  "period_ns": 2.0,
+  "eps_soil": 9.0,
+  "sigma_soil": 0.001,
+  "antenna_offset_m": 0.1,
+  "pipe_top_depth_m": 0.6,
+  "grid2d": {
+   "lx": 3.0,
+   "ly": 1.45,
+   "ys": 1.2,
+   "pml": 20,
+   "tw_ns": 30.0,
+   "xc": 1.5
+  },
+  "grid3d": {
+   "lx": 1.2,
+   "ly": 1.2,
+   "lz": 1.2,
+   "air": 0.15,
+   "pml": 10,
+   "tw_ns": 24.0
+  },
+  "pipes": {
+   "pec": {
+    "kind": "pec",
+    "od": 0.1
+   },
+   "pvc": {
+    "kind": "pvc_air",
+    "od": 0.2,
+    "wall": 0.01,
+    "eps": 3.0
+   }
+  },
+  "wavelet": "gprMax ricker current, Hertzian dipole, peak at sqrt(2)/f"
+ },
+ "models": [
+  {
+   "id": "T_PEC_A10_x",
+   "dim": 3,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5157
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.6585
+   ],
+   "bg_id": "TG_A10_x",
+   "homog_bg_id": "TG0_x",
+   "role": "conf3d",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.322052240635081,
+   "layer_tau_vertical_ns": [
+    10.321140233621223
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09738637497759478,
+   "eps_eff_to_top": 9.476435372747853,
+   "dipole": "x",
+   "pair_2d": "L_PEC_A10_R03",
+   "pair_2d_5mm": "C5_PEC_A10_R03"
+  },
+  {
+   "id": "TG_A10_x",
+   "dim": 3,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5157
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.6585
+   ],
+   "bg_id": null,
+   "homog_bg_id": "TG0_x",
+   "role": "conf3d_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.321140233621223
+   ],
+   "dipole": "x",
+   "pair_2d": "L_PEC_A10_R03",
+   "pair_2d_5mm": "C5_PEC_A10_R03"
+  },
+  {
+   "id": "TG0_x",
+   "dim": 3,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": null,
+   "role": "conf3d_homog_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "dipole": "x",
+   "pair_2d": "L_PEC_A10_R03",
+   "pair_2d_5mm": "C5_PEC_A10_R03"
+  },
+  {
+   "id": "T_PEC_A10_y",
+   "dim": 3,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5157
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.6585
+   ],
+   "bg_id": "TG_A10_y",
+   "homog_bg_id": "TG0_y",
+   "role": "conf3d",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.322052240635081,
+   "layer_tau_vertical_ns": [
+    10.321140233621223
+   ],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09738637497759478,
+   "eps_eff_to_top": 9.476435372747853,
+   "dipole": "y",
+   "pair_2d": "L_PEC_A10_R03",
+   "pair_2d_5mm": "C5_PEC_A10_R03"
+  },
+  {
+   "id": "TG_A10_y",
+   "dim": 3,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.5157
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.6585
+   ],
+   "bg_id": null,
+   "homog_bg_id": "TG0_y",
+   "role": "conf3d_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    10.321140233621223
+   ],
+   "dipole": "y",
+   "pair_2d": "L_PEC_A10_R03",
+   "pair_2d_5mm": "C5_PEC_A10_R03"
+  },
+  {
+   "id": "TG0_y",
+   "dim": 3,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": null,
+   "role": "conf3d_homog_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [],
+   "dipole": "y",
+   "pair_2d": "L_PEC_A10_R03",
+   "pair_2d_5mm": "C5_PEC_A10_R03"
+  }
+ ]
+}

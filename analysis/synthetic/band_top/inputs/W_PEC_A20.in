@@ -1,0 +1,19 @@
+#title: W_PEC_A20 pec tuned wet bed eps 49.0 T 0.0225 top 0.4301 above 2.0P
+#domain_mode: TM
+#domain: 3.0 1.45 inf
+#dx_dy_dz: 0.0025 0.0025 0.0025
+#time_window: 30.000e-9
+#pml_cells: 40 40 0 40 40 0
+
+#material: 9.0 0.001 1 0 soil
+#material: 49.0000 0.001 1 0 soil2
+#material: 9.0000 0.001 1 0 soil3
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.450 1.200 inf src_wave
+#rx: 1.550 1.200 inf rx1 Ez
+
+#box: 0 0 0 3.0 1.200 inf soil
+#box: 0 0 0 3.0 0.7699 inf soil2
+#box: 0 0 0 3.0 0.7474 inf soil3
+#cylinder: 1.5 0.5500 0 1.5 0.5500 inf 0.0500 pec

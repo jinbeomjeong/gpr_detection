@@ -1,0 +1,152 @@
+{
+ "common": {
+  "dx_m": 0.005,
+  "fc_hz": 500000000.0,
+  "period_ns": 2.0,
+  "eps_soil": 9.0,
+  "sigma_soil": 0.001,
+  "antenna_offset_m": 0.1,
+  "pipe_top_depth_m": 0.6,
+  "grid2d": {
+   "lx": 3.0,
+   "ly": 1.45,
+   "ys": 1.2,
+   "pml": 20,
+   "tw_ns": 30.0,
+   "xc": 1.5
+  },
+  "grid3d": {
+   "lx": 1.2,
+   "ly": 1.2,
+   "lz": 1.2,
+   "air": 0.15,
+   "pml": 10,
+   "tw_ns": 24.0
+  },
+  "pipes": {
+   "pec": {
+    "kind": "pec",
+    "od": 0.1
+   },
+   "pvc": {
+    "kind": "pvc_air",
+    "od": 0.2,
+    "wall": 0.01,
+    "eps": 3.0
+   }
+  },
+  "wavelet": "gprMax ricker current, Hertzian dipole, peak at sqrt(2)/f"
+ },
+ "models": [
+  {
+   "id": "K0",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": null,
+   "role": "homog_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": []
+  },
+  {
+   "id": "K0h",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.1,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": null,
+   "role": "homog_bg",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": []
+  },
+  {
+   "id": "KPEC",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": "K0",
+   "homog_bg_id": "K0",
+   "role": "pipe_homog",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0
+  },
+  {
+   "id": "KPVC",
+   "dim": 2,
+   "pipe": "pvc",
+   "h_m": 0.0,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": "K0",
+   "homog_bg_id": "K0",
+   "role": "pipe_homog",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [],
+   "pipe_outer_diameter_m": 0.2,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0
+  },
+  {
+   "id": "KPECh",
+   "dim": 2,
+   "pipe": "pec",
+   "h_m": 0.1,
+   "layer_interfaces_m": [],
+   "layer_eps_r": [
+    9.0
+   ],
+   "bg_id": "K0h",
+   "homog_bg_id": "K0h",
+   "role": "pipe_homog",
+   "pipe_top_depth_m": 0.6,
+   "tau_top_vertical_ns": 12.008307427133474,
+   "layer_tau_vertical_ns": [],
+   "pipe_outer_diameter_m": 0.1,
+   "v_eff_to_top_m_per_ns": 0.09993081933333332,
+   "eps_eff_to_top": 9.0
+  },
+  {
+   "id": "KL",
+   "dim": 2,
+   "pipe": null,
+   "h_m": 0.0,
+   "layer_interfaces_m": [
+    0.6
+   ],
+   "layer_eps_r": [
+    9.0,
+    12.0
+   ],
+   "bg_id": null,
+   "homog_bg_id": "K0",
+   "role": "layer_ref",
+   "pipe_top_depth_m": null,
+   "tau_top_vertical_ns": null,
+   "layer_tau_vertical_ns": [
+    12.008307427133474
+   ]
+  }
+ ]
+}

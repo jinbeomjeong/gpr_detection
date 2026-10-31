@@ -1,0 +1,15 @@
+#title: GPL_PVC_W40_A20 background pvc steel protection plate width 0.4 m top 0.4001 above 2.0P
+#domain_mode: TM
+#domain: 3.0 1.45 inf
+#dx_dy_dz: 0.0025 0.0025 0.0025
+#time_window: 30.000e-9
+#pml_cells: 40 40 0 40 40 0
+
+#material: 9.0 0.001 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.450 1.200 inf src_wave
+#rx: 1.550 1.200 inf rx1 Ez
+
+#box: 0 0 0 3.0 1.200 inf soil
+#box: 1.3000 0.7949 0 1.7000 0.7999 inf pec

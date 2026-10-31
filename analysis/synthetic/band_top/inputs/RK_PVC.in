@@ -1,0 +1,17 @@
+#title: RK_PVC pvc homogeneous ringing
+#domain_mode: TM
+#domain: 3.0 1.45 inf
+#dx_dy_dz: 0.0025 0.0025 0.0025
+#time_window: 40.000e-9
+#pml_cells: 40 40 0 40 40 0
+
+#material: 9.0 0.001 1 0 soil
+#material: 3.0 0 1 0 pvc
+
+#excitation_file: ring_500MHz.txt linear 0
+#hertzian_dipole: z 1.450 1.200 inf ring_wave
+#rx: 1.550 1.200 inf rx1 Ez
+
+#box: 0 0 0 3.0 1.200 inf soil
+#cylinder: 1.5 0.5000 0 1.5 0.5000 inf 0.1000 pvc
+#cylinder: 1.5 0.5000 0 1.5 0.5000 inf 0.0900 free_space

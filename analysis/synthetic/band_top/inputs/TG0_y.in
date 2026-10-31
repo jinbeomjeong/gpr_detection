@@ -1,0 +1,13 @@
+#title: TG0_y 3D homogeneous background dipole y
+#domain: 1.2 1.2 1.2
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 24.000e-9
+#pml_cells: 10
+
+#material: 9.0 0.001 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: y 0.550 0.600 1.050 src_wave
+#rx: 0.650 0.600 1.050 rx1 Ey
+
+#box: 0 0 0 1.2 1.2 1.050 soil

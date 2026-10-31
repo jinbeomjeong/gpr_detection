@@ -41,6 +41,9 @@ docs/experiments/figures/m17_pipe_band_fp_gallery_*.png
 
 # 외부 원문 자료(규격표준 PDF 등) - 로컬 전용, 문서에는 출처만 적는다
 /ref/
+
+# gprMax 파형 파일(make_inputs.py --stage ring이 생성, 1.1 MB)
+analysis/synthetic/band_top/inputs/ring_500MHz.txt
 analysis/data/out/pb*_std*.txt
 
 # pipe_band 재라벨 가져오기 파일(AIHub 라벨 박스 좌표 포함) - 로컬 전용

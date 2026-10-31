@@ -1,0 +1,16 @@
+#title: G_PVC_B15_R03 background pvc d_top 0.6 layer below dt 1.5P ratio 0.3 eps2 11.43 z 0.750
+#domain_mode: TM
+#domain: 3.0 1.45 inf
+#dx_dy_dz: 0.0025 0.0025 0.0025
+#time_window: 30.000e-9
+#pml_cells: 40 40 0 40 40 0
+
+#material: 9.0 0.001 1 0 soil
+#material: 11.4329 0.001 1 0 soil2
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.450 1.200 inf src_wave
+#rx: 1.550 1.200 inf rx1 Ez
+
+#box: 0 0 0 3.0 1.200 inf soil
+#box: 0 0 0 3.0 0.4501 inf soil2

@@ -1,0 +1,15 @@
+#title: KPECh PEC OD0.1 homogeneous h0.1
+#domain_mode: TM
+#domain: 3.0 1.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 30.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.001 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.450 1.300 inf src_wave
+#rx: 1.550 1.300 inf rx1 Ez
+
+#box: 0 0 0 3.0 1.200 inf soil
+#cylinder: 1.5 0.5500 0 1.5 0.5500 inf 0.0500 pec

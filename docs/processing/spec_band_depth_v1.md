@@ -19,11 +19,16 @@
   - §9-1: UB16–UB19 추가
   - §11: 스케일 있는 입력의 검출 px 항, 묶음 안 창(S3) 미결 추가
   - 구현 명세는 [BC] §4-3
+- **v1.5 (승인 2026-10-31, 사용자 결정) — 코드 변경분은 구현 대기, 현재 코드는 v1.4**: gprMax 띠 상단 합성 판정([BC] §8, `band_top_synthetic_v1.md`) 반영. 개정 R1–R5의 정본은 §13이다.
+  - 코드가 필요 없는 R1(띠 상단 정의), R4(S3 불채택), R5(얕은 띠 미결)는 본문 §0·§11에도 옮겼다.
+  - 코드가 필요한 **R2(`band_top_multi_event`·`LAYER_AMBIGUITY_NOTE`)와 R3(`PROTECTIVE_PLATE_NOTE`)는 구현 대기**다. 본문 §3-3·§6-2 플래그 목록에는 아직 넣지 않았다. python-expert 구현이 끝나면 옮긴다.
+  - 그때까지 코드 출력에는 이 플래그·문구가 없다.
 
 ---
 
 ## 0. 결론 요약
 
+0. (v1.5 R1) **띠 상단의 정의**: 관 단독 응답(관 있음 − 관 없음)의 첫 포락선 피크다. 지층·보호판 반사는 관이 아니다. 현행 픽 규칙은 층을 바깥 트레이스 배경(masked median)으로 지울 수 있을 때, 또는 층이 창 범위(짧은 파형 약 1.4 주기, 울림 파형 약 2 주기 위·1.5 주기 아래) 밖에 있을 때만 이 정의를 구현한다([BC] §8-2·8-3). 보호판이 있으면 띠는 판이다([BC] §8-5).
 1. 측선 바로 아래에서 측선과 평행하게 놓인 관은 **모든 트레이스에서 쌍곡선 꼭짓점 트레이스와 같은 응답**을 낸다. 그래서 띠 상단 시각은 꼭짓점 시각과 물리적으로 같은 양이다. 깊이 식·영점 규칙·위상 기준(포락선 피크)·불확도는 [S]의 꼭짓점 규칙(§6-4, §8, §9)을 그대로 쓴다. gprMax 20개 모델로 만든 의사 띠에서 띠 규칙 깊이와 꼭짓점 규칙 깊이의 차는 **−0.35 ~ +0.14 cm**였다(§10 표 A1).
 2. **배경 제거가 가장 큰 함정이다.** [S] §3 (4)의 이동 median 배경 제거는 창의 절반보다 긴 띠를 지운다. 띠가 측선 전체를 덮으면 진폭이 **0.7–1.6 %**만 남고, 깊이가 **−7.6 ~ −29.6 cm** 틀어진다(표 A2). 띠 갈래는 박스 밖 트레이스로만 배경을 구하는 **masked median**을 쓴다. 박스 밖 트레이스가 모자라면 배경 제거를 하지 않는다.
 3. 띠 상단은 **첫 반사의 포락선 피크**로 잡는다. 포락선 상승점(50 %)을 쓰고 영점은 피크로 두면 피크·피크보다 −2.8 ~ −8.4 cm 얕아진다(표 A3). 둘 다 상승점으로 잡아도 일관된 이득이 없다(지면결합 −0.5 ~ +1.3 cm로 엇갈림, M20은 −3.5 cm 대 −1.2 cm로 나빠짐).
@@ -708,7 +713,8 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | masked median 여유 $m$ 0.1 m, 최소 바깥 30 트레이스 | 가정 | UB2, 3D |
 | 조각 묶기 간격 32 px(v1.4, 8에서 바꿈) / 0.2 m, $|\Delta\tau|$ 허용 | 가정. px 값 근거는 [BC] 표 2·5·6 | AIHub test 박스 점검(§9-4) |
 | (v1.4) 스케일 있는 입력의 검출 px 항 | 검출 박스 쪼개짐은 검출기 입력 px 현상이다. $G=\max(\lceil0.2/\Delta x\rceil,\ \lceil32\,s\rceil)$($s$ = 검출 입력 1 px당 트레이스)를 검토 대상으로만 둠 | M3-2 타일·리사이즈 확정 때 |
-| (v1.4) 묶음 안 탐색 창(S3): 합집합 박스 창 하나 vs 구성 박스별 창 | 현행(합집합) 유지. 합집합 위 끝이 ≥ 5 px 올라간 트레이스의 38.6 %가 이른 겹으로 옮겨 감([BC] 표 3) | 합성 실험([BC] §7, electromagnetic-simulation-expert 설계). 띠 상단 정의도 같은 실험에서 판정 |
+| (v1.4) 묶음 안 탐색 창(S3): 합집합 박스 창 하나 vs 구성 박스별 창 | **판정 완료(v1.5 R4): 불채택, 현행 합집합 창 유지.** 합성 칸 평균 C − B = 0.0 ~ +6.4 %p로 사전 기준 +10 %p에 못 미쳤다. 나빠진 칸은 0, 대표값 차는 ≤ 2 %p다([BC] §8-4) | 종결 |
+| (v1.5 R5) 울림 파형 장비에서 직접파 울림 꼬리 안(약 4.5 주기)의 얕은 띠 | 미확인. 관 깊이 0.6 m(띠 약 16 ns) 구성만 확인했다(배경 없음에서도 층 없는 칸 정답) | 얕은 관(띠 < 직접파 + 4.5 주기) 합성 |
 | (v1.4) 픽이 없어 $\Delta$가 NaN인 후보 | 현행대로 묶임 | 별건. 필요하면 다음 개정에서 "묶지 않음"으로 바꿈 |
 | 발자국 반경 식(측방 이격 상한) | Conyers & Goodman(1997) 경험식, 프로젝트 근거 문서 미등록 | web-research-expert로 출처 확인 또는 P04 |
 | 이웃 v 깊이 근접 조건(±50 %), $\delta_\tau$ 0.05 | 가정 | 광저우 다관 측선 |
@@ -717,3 +723,55 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | `survey_hyperbola_median` $\sigma_v/v\ge0.10$ | 가정 | 광저우 존 내 분산 |
 | 상태 문턱(coverage 0.3, n 5) | 가정 | UB, AIHub |
 | 쌍곡선 쪽(`curvature_R_fixed`) 사교 교차 편향 $1/\sin\theta$(표 B2) 보고 | 이 명세는 띠의 이웃 v 편향(`neighbor_v_oblique_unknown`)으로만 다룬다. `pipe_hyperbola` 결과 자체의 `bias_notes` 반영은 spec_depth_v1 범위 | **핸드오프: M2-9 spec v2**(CHECKLIST M2-9, gpr-processing-expert). 3D P05로 크기 확인 |
+
+---
+
+## 13. v1.5 (승인 2026-10-31) — 합성 띠 상단 판정 반영. **R2·R3 구현 대기(코드는 v1.4)**
+
+| ID | 상태 |
+|---|---|
+| R1, R4, R5 | 승인. 코드 변경 없음. 본문 §0·§11에 반영했다 |
+| R2, R3 | 승인, **구현 대기**(python-expert, §13-3). 구현 전까지 코드 출력에 `band_top_multi_event`·`LAYER_AMBIGUITY_NOTE`·`PROTECTIVE_PLATE_NOTE`가 없다 |
+
+근거: [BC] `docs/processing/band_box_convention_depth.md` §8, `docs/processing/band_top_synthetic_v1.md`(2D 격자·젖은 박층·울림·보호판, 3D 확인 §10), 판정 스크립트 `analysis/processing/band_top_synthetic_judge.py`, AIHub 파형 `analysis/processing/aihub_wavelet_length.py`.
+
+### 13-1. 개정안
+
+| ID | 위치 | 내용 | 코드 |
+|---|---|---|---|
+| R1 | §0 결론 0(반영됨) | **띠 상단 정의**: "관 단독 응답(관 있음 − 관 없음)의 첫 포락선 피크. 지층·보호판 반사는 관이 아니다." 관 상단 지연은 층이 있어도 ±0.03 ns(2D), ≤ 0.12 ns(3D)였다. 픽 규칙 수치(문턱 0.3 $E_\text{box}$, 창 위 1 주기·아래 0.5 주기, 첫 피크)는 **바꾸지 않는다**. 창 위 여유를 줄이면 박스를 낮게 그린 경우(δ +1 P)의 복원을 잃는다([BC] 표 8-3 masked 100 %) | 없음 |
+| R2 | 구현 후 §1-3 표, §3-3 단계 6, §6-2 플래그(미반영, 구현 대기) | **창 안 다중 사건 표시**. 트레이스마다 첫 픽 $k_1$ 뒤 $(k_1+2,\ k_1+2/f_c]$(스케일 없으면 $2P_\text{px}$) 안에 포락선 $\ge$ `candidate_rel`·$E_\text{box}$인 피크가 또 있으면 그 트레이스를 표시한다. 픽 트레이스의 30 %를 넘으면 플래그 `band_top_multi_event`와 `bias_notes` `"band_top_layer_ambiguity: ..."`(13-2)를 붙인다. `bg_mode == "none"`이면 플래그와 무관하게 같은 bias_note를 붙인다(층을 지울 수 없음). 깊이는 보정하지 않는다 | 있음 |
+| R3 | 구현 후 §1-3 표, §6-3 계통(미반영, 구현 대기) | **보호판 bias_notes**: 모든 `pipe_band` 결과(상태 무관, 스케일 없음 포함)에 13-2의 `PROTECTIVE_PLATE_NOTE`를 붙인다. 판 유무는 띠만으로 가를 수 없다(2D 판 픽 15/15, 3D 판 아래 관 신호 0.05–4.5 %) | 있음 |
+| R4 | §11 S3 줄(반영됨) | **S3(묶음 안 조각별 창) 불채택 기록**: 사전 기준(칸 평균 +10 %p, 최악 −5 %p) 대비 평균 0.0 ~ +6.4 %p, 나빠진 칸 0, 대표값 차 ≤ 2 %p. 현행 합집합 창 유지. §11의 S3 줄을 "판정 완료(불채택)"로 바꿨다 | 없음 |
+| R5 | §11 R5 줄(반영됨) | 울림 파형 장비(AIHub 판정: 울림 쪽, 대역폭 0.33)에서 직접파 울림 꼬리 안(약 4.5 주기)의 얕은 띠는 미확인 → 미결 추가 | 없음 |
+
+### 13-2. 확정 문구 (문자열 상수)
+
+```python
+PROTECTIVE_PLATE_NOTE = (
+    "protective_plate_possible: under a steel protective plate (city gas KGS FS451/FS551, "
+    "KOGAS GSM-2121) the band is the plate, not the pipe; the pipe top is >= 0.3 m deeper "
+    "(>= 0.1 m under the KGS 2022 exception); not corrected"
+)
+LAYER_AMBIGUITY_NOTE = (
+    "band_top_layer_ambiguity: a layer within ~1.4 periods (short wavelet) or ~2 periods "
+    "(ringing wavelet) of the pipe top can be picked instead; bias -1.2..+0.5 periods "
+    "(synthetic band_top_synthetic_v1); not corrected"
+)
+```
+
+### 13-3. python-expert 구현 명세 — **구현 대기**(승인 2026-10-31, 착수 시점은 사용자가 정함)
+
+| 파일 | 변경 |
+|---|---|
+| `src/gpr_detection/depth/band.py` | (1) 상수 `PROTECTIVE_PLATE_NOTE`, `LAYER_AMBIGUITY_NOTE`, `MULTI_EVENT_PERIODS = 2.0` 추가, `__all__`에 두 문구 상수 추가. (2) `extract_band_picks`: 기존 `_later_event_flags` 옆에 트레이스별 다중 사건 판정을 추가한다. 창 길이는 스케일 있으면 `MULTI_EVENT_PERIODS / f_c / dt`, 없으면 `MULTI_EVENT_PERIODS * period_px`(키워드 인자 `period_px: float | None = None`을 받음. 둘 다 없으면 판정 생략). 문턱은 `cfg.candidate_rel * e_box`. 픽 트레이스 비율 > `EDGE_FLAG_FRACTION`(0.3)이면 `BandPicks.flags`에 `band_top_multi_event`. (3) `_assemble`: 모든 결과의 `bias_notes`에 `PROTECTIVE_PLATE_NOTE`를 더하고, `band_top_multi_event` 플래그가 있거나 `bg_mode == "none"`이면 `LAYER_AMBIGUITY_NOTE`를 더한다(중복 없이, `no_scale` 경로 포함). `_picks_for`가 스케일 없을 때 `context.period_px`를 넘긴다 |
+| `tests/depth/test_band_unit.py` | UB20–UB22 추가 |
+
+| ID | 구성 | 기대 |
+|---|---|---|
+| UB20 | UB1 평탄 띠 + 같은 트레이스(60–140)에 진폭 1인 층 사건을 τ − 1.0 주기에 추가, 박스는 UB1과 같음(층이 창 안) | `band_top_multi_event` 플래그, `LAYER_AMBIGUITY_NOTE` 포함. 깊이는 층 쪽으로 얕음(보정 안 함 확인: $d < d_\text{true} - 2$ cm) |
+| UB21 | UB1 그대로 | `band_top_multi_event` 없음, `PROTECTIVE_PLATE_NOTE` 포함, `LAYER_AMBIGUITY_NOTE` 없음(bg masked) |
+| UB22 | UB2(측선 100 % 덮음, `bg_none`)와 UB11(스케일 없음) | 둘 다 `PROTECTIVE_PLATE_NOTE`, UB2는 `LAYER_AMBIGUITY_NOTE`도 포함. UB11의 m·ns 필드 None 유지(QA-4) |
+
+- 실행: `conda run -n gpr-dev python -I -m pytest tests/depth -q` 전부 통과. 합성 회귀 BR1–BR7 수치 변화 없음(문구·플래그만 추가).
+- 재측정(판정 없음): `scripts/check_band_picks_aihub.py --count 40`의 `band_top_multi_event` 빈도를 보고.
