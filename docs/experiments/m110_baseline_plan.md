@@ -1,4 +1,6 @@
-# M1-10 YOLO11m 기준선 — 실험 설계 (2026-10-30, 실행 전)
+# M1-10 YOLO11m 기준선 — 실험 설계 (2026-10-30)
+
+> 실행 완료(2026-11-01 10:19–12:46). 결과: [2026-11-01_m110_baseline.md](2026-11-01_m110_baseline.md) — crop·`last.pt` 전체 mAP50 79.78 ± 3.01 %(5-fold).
 
 AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 fold 평균±표준편차를 기준선으로 남긴다. 이 문서는 실행 전 설계이고, 결과는 `docs/experiments/<날짜>_m110_baseline.md`에 따로 쓴다.
 근거: `docs/CHECKLIST.md` M1-10(사용자 결정 2026-10-30), `docs/experiments/m17_augmentation_strength.md`, `docs/experiments/m17_compute_probes.md`, `analysis/detection/m110_epoch_budget.json`, ADR-001·ADR-003, `docs/datasets/dataset_spec_m1.md`.
@@ -39,9 +41,9 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
 - crop 단위 검증 = crop마다 gain 사본 1장(1.0 > 0.5 > 0.25 우선). gain 사본은 독립 표본이 아니므로 판정은 crop 단위로 한다(dataset_spec_m1 §4 항목 3).
 - **fold 간 관로 분포가 크게 다르다.** pipe_band crop 인스턴스는 fold 0에 966개, fold 3에 62개다. pipe_hyperbola는 fold마다 45–147개다. 클래스별 AP의 fold 표준편차는 클 것이고, fold 1·3의 관로 AP는 표본이 적어 흔들린다. 판정 지표(전체 mAP50)는 4클래스 평균이라 영향을 덜 받는다.
 
-## 3. 누수 점검 — 통과 (2026-10-30 재단언)
+## 3. 누수 점검 — 통과 (2026-10-30 재단언, 2026-11-01 러너 재생성 전 다시 단언)
 
-`analysis/detection/m110_leak_check.py`(CPU, 읽기 전용) 결과 `analysis/detection/m110_leak_check.json`:
+`analysis/detection/m110_leak_check.py`(CPU, 읽기 전용) 결과 `analysis/detection/m110_leak_check.json`. 2026-11-01 재실행(단일 프로세스 11 s, 종료 0, `verdict pass`, problems 0)의 json 내용은 2026-10-30과 같다(매니페스트 16,887행, 분할 seed 20261029, fold별 장수·인스턴스 수 §2 표 그대로):
 - fold 0–4·test(−1) 6개 집합의 15쌍 × 4키(`session`, `session_from_name`, `crop_key`, `split_group`)에서 겹침 **0건**.
 - 모든 `crop_key`(gain 사본 묶음)가 fold 하나에만 있다(여러 fold에 걸친 crop 0건).
 - `fold{k}_images.txt`·`test_images.txt`가 매니페스트 fold 집합과 정확히 같고, `fold{k}.yaml`의 train은 나머지 4 fold 목록, val은 fold k 목록이며 train∩val 0건, 클래스 이름 `0 pipe_hyperbola, 1 pipe_band, 2 cavity, 3 manhole`.
@@ -50,7 +52,7 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
 ## 4. 실행 순서와 재개
 
 1. **선행 조건**: (a) **M1-9 smoke 통과 뒤 시작**(아래 3). (b) 체크리스트상 M1-0b(디코딩 재측정)는 M1-10 시작 전에 한다. (c) GPU에 다른 학습이 없을 것(M1-7 seed 1 반복은 2026-10-31 13:42 완료, 예약 해제됨). (d) 학습 단계는 `--on-existing archive`로 실행한다(§8 A).
-2. **한 fold씩 순차**: fold 0 → 1 → 2 → 3 → 4. make_runner 러너 하나에 5단계로 넣고 `--skip-done`, 실패하면 멈춘다. smoke는 이 러너에 넣지 않는다.
+2. **한 fold씩 순차, 평가까지 한 러너(2026-11-01 재생성)**: 러너 `runs/logs/m110_runner_20261101.ps1` 하나에 학습 5단계(fold0 → 4) + 평가 5단계(eval0–4) + 집계 3단계를 순서대로 넣었다(`--skip-done`, `--stop-on-fail` — 어느 단계든 실패하면 뒤 단계를 시작하지 않는다). run 이름 `yolo11m_aihubv1_20261101_fold<k>`. smoke는 이 러너에 넣지 않는다. 2026-10-30 러너(`m110_train_runner.ps1`·`m110_eval_runner.ps1`, run 이름 `..._20261030_...`)는 실행하지 않았고 기록용으로만 둔다 — **새 러너와 함께 띄우지 않는다**.
 3. **M1-9 smoke — 별도 단독 실행(사용자가 지시할 때)**. 설정 `configs/train_yolo11m_smoke.yaml`(m110 설정과 epochs 3만 다름: AdamW·lr0 0.00125·momentum 0.9·warmup_bias_lr 0·patience 0·strength 0·batch 64·workers 2·fold 0·seed 0). run 이름 `yolo11m_aihubv1_<YYYYMMDD>_smoke_fold0`, 로그 `runs/logs/m19_smoke.log`. 예상 약 3–4분(첫 epoch 약 45 s + 2 × 30 s + 시작·마지막 검증 약 1분, conda 시작 포함).
    - 실행(cwd `C:\workspace\gpr_detection`, 마스크 0xFF 권장):
      `C:\ProgramData\miniforge3\Scripts\conda.exe run --no-capture-output -n gpr-dev python -I C:\workspace\gpr_detection\scripts\train_detector.py --config C:\workspace\gpr_detection\configs\train_yolo11m_smoke.yaml --fold 0 --seed 0 --name yolo11m_aihubv1_<YYYYMMDD>_smoke_fold0 2>&1 | Tee-Object C:\workspace\gpr_detection\runs\logs\m19_smoke.log`
@@ -59,7 +61,9 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
    - 검사 스크립트는 M1-7 `m17_aug0`(optimizer auto)에 돌려 보면 불통과(종료 1)로 정상 동작함을 확인했다.
 4. **재개 규칙(fold 단위로 원자적)**: 중간에 멈춘 fold는 이어 받지 않고 **처음부터 다시** 학습한다(Ultralytics resume은 데이터 순서·난수 상태가 끊긴 지점에서 달라져 다른 fold와 조건이 달라진다. 손실은 최대 약 28분). 절차: 학습 단계에 `--on-existing archive`를 붙여 두고 같은 러너를 다시 실행하면 된다. 완료 폴더는 종료 0으로 건너뛰고, 미완료 폴더는 `runs/detect/_incomplete/`로 옮긴 뒤 처음부터 학습한다(`.done`이 있는 단계는 러너가 먼저 건너뜀). 완료 판정: `results.csv` 데이터 행 수 ≥ epochs + `weights/last.pt` 존재. (옵션 없이 다시 돌리면 Ultralytics가 `<run>2`를 만들어 이름 규칙이 깨진다 — 기본 `error`는 이를 막고 종료한다.)
 5. Windows DataLoader 오류가 나면 해당 fold를 `--workers 0`으로 다시 돌리고 결과 문서에 적는다(epoch 시간이 늘어난다).
-6. **5 fold 학습이 모두 끝난 뒤** 평가 러너(§5)를 따로 실행한다. 학습 중 평가 병행 금지: `eval_detector.py`가 돌면 Ultralytics가 `data/aihub_yolo_v1/labels.cache`를 다시 써서 학습 중인 데이터로더와 겹칠 수 있다. 평가 러너 순서: ① 수용 확인(`m17_aug0` 재평가 + `analysis/detection/m110_eval_acceptance.py`) → ② fold 0–4 평가 → ③ 집계. ①이 실패하면 멈춘다.
+6. **평가는 5 fold 학습이 모두 끝난 뒤** 같은 러너의 뒤 단계로 자동 실행된다(§5). 학습 중 평가 병행 금지: `eval_detector.py`가 돌면 Ultralytics가 `data/aihub_yolo_v1/labels.cache`를 다시 써서 학습 중인 데이터로더와 겹칠 수 있다 — 한 러너 안의 순차 단계라 겹치지 않는다. 러너 순서: ① fold 0–4 학습 → ② fold 0–4 평가 → ③ 집계(last·crop, last·image, best·crop). 
+   - 평가 수용 확인(`m17_aug0` 재평가 + `analysis/detection/m110_eval_acceptance.py`)은 **넣지 않았다**(2026-11-01 판단). 근거: 2026-10-31 13:00 M1-7 seed 러너(`runs/logs/m17_seed1_runner_logs/accept_check.log`)에서 통과(crop 1,298장 mAP50 0.8435, image 3,525장 0.8352)했고, 그 뒤 `scripts/eval_detector.py`·`aggregate_folds.py`·`src/gpr_detection/detect/`·`data/splits.py`·gpr-dev 패키지 버전이 바뀌지 않았다(git log·depcheck 2026-11-01). 다시 돌리면 `runs/detect/m17_aug0/eval/`을 덮어쓰기만 한다. 평가 코드가 바뀌면 다시 넣는다.
+   - test는 M4-3까지 봉인(§5-4): 러너에 `--allow-test`·`--fold test` 없음.
 
 ## 5. 평가·판정
 
@@ -97,10 +101,10 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
 |---|---|
 | 설정 | `configs/train_yolo11m_m110.yaml` |
 | M1-9 smoke | 설정 `configs/train_yolo11m_smoke.yaml`, 폴더 `runs/detect/yolo11m_aihubv1_<YYYYMMDD>_smoke_fold0/`, 로그 `runs/logs/m19_smoke.log`, 판정 `analysis/detection/m19_smoke_check.py` |
-| fold 학습 폴더 | `runs/detect/yolo11m_aihubv1_<YYYYMMDD>_fold<k>/`(날짜는 러너를 만든 날로 5 fold 공통). 안에 `weights/last.pt`·`best.pt`, `results.csv`, `args.yaml`, `gpr_train_settings.yaml` |
-| 1채널 데이터 yaml | `runs/detect/_data/yolo11m_aihubv1_<YYYYMMDD>_fold<k>.yaml`(`train_detector.py`가 `data/aihub_yolo_v1/fold<k>.yaml`을 복사하고 `channels: 1` 추가) |
-| 러너·로그(2026-10-30 생성, 미실행) | 학습 `runs/logs/m110_train_runner.ps1`(fold0–4, 마스크 0xFF Normal, `--skip-done` `--stop-on-fail`, 예약 `gpr_detection:m110` TTL 90분 GPU 0, `--job-kill-on-close`, 대기: 코어 0·2·4·6 < 20 %·GPU < 10 %·여유 RAM > 8 GB·0–7 예약 겹침 없음 5회 연속, 12 h 타임아웃). 평가 `runs/logs/m110_eval_runner.ps1`(accept_eval·accept_check·eval0–4·집계 3종 — last·crop, last·image, best·crop; 평가는 모두 `--confusion-conf 0.25`; 예약 `gpr_detection:m110_eval` TTL 30분; 대기에 `--proc-absent m110_train_runner.ps1` — **학습 러너를 띄운 뒤에만** 띄울 것). 로그 `runs/logs/m110_{train,eval}_runner_logs/<id>.log`·`.gpu.csv`·`.done`. 실행: `pwsh -NoProfile -File <러너>`. 배치 판단: compute-scheduler-expert(2026-10-30) |
-| fold 평가 | `runs/detect/yolo11m_aihubv1_<YYYYMMDD>_fold<k>/eval/<last|best>_<crop|image>/`(`metrics.json`, `per_class.csv`, `confusion_matrix.csv`, `eval_images.txt`, `eval_data.yaml`, PNG) |
+| fold 학습 폴더 | `runs/detect/yolo11m_aihubv1_20261101_fold<k>/`(날짜는 러너를 만든 날로 5 fold 공통). 안에 `weights/last.pt`·`best.pt`, `results.csv`, `args.yaml`, `gpr_train_settings.yaml` |
+| 1채널 데이터 yaml | `runs/detect/_data/yolo11m_aihubv1_20261101_fold<k>.yaml`(`train_detector.py`가 `data/aihub_yolo_v1/fold<k>.yaml`을 복사하고 `channels: 1` 추가) |
+| 러너·로그(2026-11-01 생성, **실행 완료 10:19–12:46, 13단계 exit 0**, 실측 학습 fold당 25.2–25.7분·평가 229–253 s) | `runs/logs/m110_runner_20261101.ps1`(단계 정의 `m110_runner_20261101.steps.json`). 13단계: fold0–4 학습(`--on-existing archive`) → eval0–4(기본 `last,best` × `crop,image`, `--confusion-conf 0.25`) → agg_last_crop·agg_last_image·agg_best_crop. 마스크 0xFF Normal, `--skip-done` `--stop-on-fail` `--job-kill-on-close`, `--gpu-log --gpu-counters`, 예약 `gpr_detection:m110` TTL 90분 GPU 0(가장 긴 단계 약 28분보다 길게, 단계마다 갱신), 대기: 코어 0·2·4·6 < 20 %·GPU < 10 %·여유 RAM > 8 GB·0–7 예약 겹침 없음 60 s × 5회 연속, 12 h 타임아웃. 로그 `runs/logs/m110_runner_20261101_logs/<id>.log`·`.gpu.csv`·`.gpucounters.csv`·`.done`, `_wait_until.log`·`_wait_checks.log`, 러너 stdout `runs/logs/m110_runner_20261101.out`. 실행: `Start-Process pwsh -WindowStyle Hidden -ArgumentList '-NoProfile','-File',<러너> -RedirectStandardOutput <.out>`. **예상 시간: 대기 ≥ 5분 + 학습 약 2.24 h(§2 표 합 134분) + 평가 약 21분(fold당 약 4.2분, M1-7 fold 0 평가 실측 244–271 s) + 집계 1분 미만 ≈ 2.7 h**. 2026-10-30 러너(`m110_train_runner.ps1`·`m110_eval_runner.ps1`, `..._20261030_...`)는 미실행 기록용 |
+| fold 평가 | `runs/detect/yolo11m_aihubv1_20261101_fold<k>/eval/<last|best>_<crop|image>/`(`metrics.json`, `per_class.csv`, `confusion_matrix.csv`, `eval_images.txt`, `eval_data.yaml`, PNG) |
 | 평가 수용 확인 | `runs/detect/m17_aug0/eval/last_<crop|image>/`, 판정 `analysis/detection/m110_eval_acceptance.py`(M1-7 문서 값과 0.1 %p 안) |
 | 집계(git 추적) | 판정용 `analysis/detection/m110_fold_summary.json`·`.csv`(last·crop), 참고용 `m110_fold_summary_last_image.json`·`.csv`, `m110_fold_summary_best_crop.json`·`.csv` |
 | 누수 점검 | `analysis/detection/m110_leak_check.py`, `analysis/detection/m110_leak_check.json` |
@@ -117,5 +121,6 @@ AIHub train_pool 세션 그룹 5-fold로 YOLO11m(scratch, 1채널)을 학습해 
 2. 학습 seed — **모든 fold seed 0**(§6).
 3. M1-9 smoke — **따로 실행**. M1-10 러너에 묶지 않고 사용자가 지시할 때 단독 실행(§4-3). M1-10은 smoke 통과 뒤 시작.
 4. `momentum: 0.9` — **유지**(§1 주).
-5. 구현 §8 A·B·C — 완료(2026-10-30). 평가는 5 fold 학습이 끝난 뒤 별도 러너로 한다(§4-6).
+5. 구현 §8 A·B·C — 완료(2026-10-30). 평가는 5 fold 학습이 끝난 뒤 실행한다(§4-6).
+6. 러너 재생성(사용자 2026-11-01) — run 이름 `yolo11m_aihubv1_20261101_fold<k>`, 학습 뒤 평가·집계를 같은 러너에 이어 붙임, `--gpu-log --gpu-counters`, 평가 수용 확인 단계는 뺌(§4-6).
 - 남은 질문: 없음.

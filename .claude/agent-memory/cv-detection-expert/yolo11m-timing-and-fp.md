@@ -18,4 +18,11 @@ Recurring FP pattern: pipe_band (AIHub lpipe) has ~7x more background->pipe_band
 - Label-convention effect (2026-10-31): same m17_aug0 last.pt, only GT swapped to band auto-merge v2 (gap<=32 px): band AP50 59.1 -> 22.5, overall mAP50 84.4 -> 75.2 (crop). Cross-GT numbers are not comparable; judging on the new GT favours models trained on it. eval_detector always writes <run>/eval/, so evaluate against a second GT via a view folder (analysis/detection/band_v2_eval_view.ps1). Eval of one run, last.pt, crop+image, conf-cm 0.25 ~2.3 min.
 - Symmetric bias confirmed (M1-7b, 2026-10-31): training on v2 (only 14.7 % of train band boxes changed) flips band AP50 by ~±27 %p — wins on own GT, loses equally on the other. IoU-AP cannot separate "better detection" from "learned box convention"; need a convention-free metric (x-interval coverage) for band label-rule decisions. v2 train run 942-947 s, VRAM 7.38 GB (same as v1).
 
-**How to apply:** use 30 s/epoch (fold0 size) for time estimates; scale by train size for other folds. Treat pipe-AP differences under ~5 %p from single runs as noise; need multiple seeds/folds before claiming a difference.
+- Full eval_detector default (last,best x crop,image, --confusion-conf 0.25) on fold0 val: 244-271 s per run (M1-7 seed runner 2026-10-31). Use ~4.2 min/fold for M1-10 eval estimates.
+
+- M1-10 measured (2026-11-01, 50 ep, 5 folds): epoch 29.6-29.9 s for ALL folds — epoch time tracks train+val total (14,801 every fold), not train size; run wall 1,512-1,543 s; VRAM target 7.31-7.37 GiB (nvidia-smi 7.44-7.50 GB); eval 229-253 s/fold.
+- 50 ep overfits: val mAP50 peaks epoch 24-36, val box loss min epoch 14-26 then rises; best.pt beats last.pt by 2.1-4.6 %p on every fold. Fold0 50 ep was not better than 30 ep.
+- Band AP across folds tracks val-session label style (single long box sessions fold1/2 -> AP 35-39, FP/GT ~1.0), not instance count, not train/val convention mismatch.
+- eval metrics.json weights.checkpoint_epoch_zero_based = -1 / epochs_completed 0 for last & best (stripped ckpt); take epochs from results.csv.
+
+**How to apply:** use ~29.7 s/epoch for train+val ~14.8k images (scale by train+val total, not train only). Treat pipe-AP differences under ~5 %p from single runs as noise; need multiple seeds/folds before claiming a difference.
