@@ -4,9 +4,11 @@ Validates runs/detect/m17_aug0/weights/last.pt with YOLO.val on eval/last_crop/e
 list, 1,298 images, imgsz 256, conf 0.25, NMS iou 0.7, channels 1) - the same call path as
 scripts/eval_detector.py --confusion-conf 0.25 - and records, by wrapping ConfusionMatrix.process_batch in
 this process, the exact per-image detections and GT boxes behind the matrix (val plots go to
-runs/analysis/m17_pipe_band_fp_val). Predictions are matched to ground truth the way the
-Ultralytics 8.4.192 ConfusionMatrix does (class-agnostic, IoU > 0.45, greedy in descending confidence,
-one-to-one); an unmatched pipe_band prediction is a background FP. The rebuilt 5x5 matrix and the val
+runs/analysis/m17_pipe_band_fp_val). Predictions are matched to ground truth
+with the same rule as the validator's confusion matrix (class-agnostic, greedy
+one-to-one, IoU > 0.45, descending confidence; see
+gpr_detection.detect.band_metrics.greedy_assignment); an unmatched pipe_band
+prediction is a background FP. The rebuilt 5x5 matrix and the val
 matrix are both compared with eval/last_crop/confusion_matrix_conf0.25.csv (exit 1 on any difference).
 
 FP categories (pipe_band predictions left unmatched):
@@ -36,6 +38,8 @@ import matplotlib.patches as mpatches  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
 import numpy as np  # noqa: E402
 from PIL import Image  # noqa: E402
+
+from gpr_detection.detect.band_metrics import UNASSIGNED, greedy_assignment
 
 RUN = "m17_aug0"
 CLASSES = ["pipe_hyperbola", "pipe_band", "cavity", "manhole"]
@@ -84,19 +88,21 @@ def read_gt(label: Path, w: int, h: int) -> tuple[np.ndarray, np.ndarray]:
 
 
 def match(gt_b: np.ndarray, det_b: np.ndarray, det_s: np.ndarray) -> list[tuple[int, int]]:
-    """Ultralytics 8.4.192 ConfusionMatrix.process_batch matching (class-agnostic, greedy one-to-one):
-    detections with any IoU > thr, in descending confidence (stable), each claims its best unclaimed GT."""
-    if len(gt_b) == 0 or len(det_b) == 0:
-        return []
-    iou = iou_matrix(gt_b, det_b)
-    gt_match = np.full(len(gt_b), -1)
-    cand = np.flatnonzero((iou > MATCH_IOU).any(0))
-    for d in cand[np.argsort(-det_s[cand], kind="stable")]:
-        g = iou[:, d].argmax()
-        if iou[g, d] > MATCH_IOU:
-            gt_match[g] = d
-            iou[g] = 0
-    return [(int(g), int(d)) for g, d in enumerate(gt_match) if d >= 0]
+    """(GT index, detection index) pairs of the confusion matrix, sorted by GT index.
+
+    Class-agnostic one-to-one matching: detections, in descending confidence
+    (ties keep their input order), each take the free GT box they overlap most
+    when the IoU is above MATCH_IOU.
+    """
+    score_order = np.argsort(-det_s, kind="stable")
+    ranked_iou = iou_matrix(det_b[score_order], gt_b)
+    gt_of_ranked = greedy_assignment(ranked_iou, MATCH_IOU, is_threshold_inclusive=False)
+    pairs = [
+        (int(gt_index), int(det_index))
+        for gt_index, det_index in zip(gt_of_ranked, score_order, strict=True)
+        if gt_index != UNASSIGNED
+    ]
+    return sorted(pairs)
 
 
 def read_cm_csv(path: Path) -> np.ndarray:

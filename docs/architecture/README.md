@@ -86,7 +86,7 @@ flowchart LR
   subgraph pkg["src/gpr_detection"]
     ioMod["io<br/>Radargram, GridBox, 로더 5종"]
     prepMod["preprocess<br/>filters, timezero, to_image"]
-    detMod["detect<br/>Detector 프로토콜, yolo.py, rfdetr.py"]
+    detMod["detect<br/>Detector 프로토콜, 백엔드 yolo·rfdetr, 평가 yolo_eval·band_metrics"]
     depthMod["depth<br/>picks, hyperbola, refraction, estimate"]
     pipeMod["pipeline<br/>검출→좌표 변환→깊이"]
     cliMod["cli<br/>gpr-detect infer"]
@@ -114,7 +114,7 @@ flowchart LR
 |---|---|---|
 | `io` | `Radargram`(spec §1-1)과 데이터셋별 로더, 원본 격자 박스 `GridBox`. 메타 t0 샘플 → ns 변환. 스케일 없는 입력은 `dt_ns=None` | FR-2, FR-3, QA-4, CON-4 |
 | `preprocess` | `filters`(DC·dewow·bandpass·median 배경 제거·AGC), `timezero`(영점 사건 검출·선택), `to_image`(검출 갈래 영상화와 `ImageGridMap`) | QA-2, QA-8 |
-| `detect` | `Detector` 프로토콜, 백엔드 래퍼(`yolo.py`, M4에 `rfdetr.py`), 증강 어댑터(`yolo_train.py`, 증강 본체는 최상위 `augment.py`). **ultralytics·rfdetr import는 여기에만** | QA-1, QA-7, CRN-4 |
+| `detect` | 두 종류의 파일을 둔다. **백엔드 파일**: 백엔드 래퍼(`yolo.py`, M4에 `rfdetr.py`), 학습 어댑터(`yolo_train.py`, 증강 본체는 최상위 `augment.py`), 백엔드 평가(`yolo_eval.py`) — ultralytics·rfdetr를 함수 안에서 지연 import한다. **백엔드 무관 파일**: `Detector` 프로토콜·계약 타입(`base.py`, `__init__.py`), `pipe_band` 보조 지표(`band_metrics.py`, 2026-11-01: 띠 x구간 합집합·세로 겹침 기준·층 묶기·가로 구간 재현율/정밀도·분절 수·Ultralytics와 같은 결과를 내는 AP50, numpy만 사용, U-3 띠 목표의 계산 근거 `docs/experiments/2026-11-01_m110_baseline.md` §6-1) — 검출 라이브러리를 import하지 않으므로 `gpr-dev`·`gpr-detr` 양쪽에서 같은 코드로 YOLO11m·RF-DETR 예측을 채점한다. **ultralytics·rfdetr import는 `detect/` 안에만**(밖 0건) | QA-1, QA-7, CRN-4, FR-5 |
 | `augment` | 백엔드 공통 B-scan 광도 증강 4종(가우시안 잡음·대비/감마·수평 띠 잡음·트레이스 누락). numpy만 사용(torch·cv2·ultralytics·rfdetr 금지) | QA-1, M1-7 |
 | `depth` | 점 추출·RANSAC·least_squares(R 고정)·굴절 모델·v 결정표·불확도 → `DepthResult`. M2-6b: `band.py`(띠 상단 픽·masked median·flat/sloped/curved)·`velocity.py` 속도 풀(`VelocityEstimate`, `select_band_velocity`) | FR-2, QA-2, QA-3 |
 | `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`·`pipe_band`, `cavity`·`manhole` 제외)와 좌표 변환을 적용. 측선 단위 깊이 호출 순서(ADR-004 결정 7)는 M3-1·M5-1에서 구현 | FR-4, QA-8 |
@@ -124,9 +124,10 @@ flowchart LR
 의존 규칙(정적 검사로 시험한다, CRN-2):
 1. `detect`와 `depth`는 서로 import하지 않는다. 둘을 만나게 하는 곳은 `pipeline`뿐이다.
 2. `io`는 패키지 안 다른 모듈을 import하지 않는다.
-3. `ultralytics`·`rfdetr` import는 `src/gpr_detection/detect/` 아래 백엔드 파일에만, 함수 안 지연 import로 둔다(`gpr-detr` env에 ultralytics가 없다, CON-1).
+3. `ultralytics`·`rfdetr` import는 `src/gpr_detection/detect/` 아래 백엔드 파일에만, 함수 안 지연 import로 둔다(`gpr-detr` env에 ultralytics가 없다, CON-1). "`detect/` 안에만"은 상한이다 — `detect/` 안의 모든 파일이 검출 라이브러리에 의존한다는 뜻이 아니다. 백엔드 무관 파일(`__init__.py`, `base.py`, `band_metrics.py`)은 검출 라이브러리를 import하지 않는다(시험: `tests/test_architecture_rules.py`의 `NEUTRAL_DETECT_MODULES`에 `__init__.py`·`base.py`·`band_metrics.py`가 들어 있고, 런타임 probe도 `band_metrics`를 import한다. `band_metrics.py`의 import 허용 목록은 아래 규칙 6).
 4. `src/`는 `scripts/`를 import하지 않는다(spec §6-1: `ray_geometry` 알고리즘은 `depth/refraction.py`로 옮겨 구현).
 5. `augment`는 torch·cv2·ultralytics·rfdetr를 import하지 않는다(시험: `tests/test_architecture_rules.py`). `detect` → `augment` 의존은 허용(어댑터).
+6. `detect/band_metrics.py`는 표준 라이브러리(`collections`, `dataclasses`)와 numpy만 import한다(시험: `tests/test_band_metrics.py::test_module_imports_numpy_only`, AST 허용 목록). 다만 `gpr_detection.detect.band_metrics`를 import하면 `detect/__init__.py` → `base.py`를 거쳐 cv2도 올라온다 — 두 env 모두 opencv가 있어(`gpr-dev` opencv-python, `gpr-detr` opencv-python-headless) 문제가 없다.
 
 ### 2-3. 두 갈래 데이터 흐름과 좌표 계약
 
@@ -244,7 +245,7 @@ class GridBox:            # io/radargram.py
 
 | 드라이버 | 판정 | 근거·남은 일 |
 |---|---|---|
-| QA-1 | 부분 해결 | 구조(§2-2 규칙 1·3, `InputTransform` 스키마로 백엔드 변환을 표준화)로 대응. M1-8 정적 검사와 M4-4 실제 교체로 확인. 이전 판정 기준은 전체 mAP50 −5 %p 이내 |
+| QA-1 | 부분 해결 | 구조(§2-2 규칙 1·3, `InputTransform` 스키마로 백엔드 변환을 표준화)로 대응. M1-8 정적 검사와 M4-4 실제 교체로 확인. 이전 판정 기준은 전체 mAP50 −5 %p 이내. `pipe_band` 보조 지표(U-3 띠 목표, `band_metrics.py`)는 클래스별 AP50처럼 함께 보고하고 이전 판정 조건에는 넣지 않는다(사용자 결정 2026-11-01, ADR-001 변경 없음) |
 | QA-2 | 부분 해결 | 알고리즘·허용치는 spec_depth_v1에 확정. 구현(M2-1–M2-5) 후 시험으로 판정 — **측정으로 검증** |
 | QA-3 | 부분 해결 | 보고 형식(4조합)과 "4TU 튜닝 없음·13개 현장 전체 시험" 확정, 목표 판정률 미정(U-3). M2-8 |
 | QA-4 | 부분 해결 | 규칙 확정(spec §7 순서 1, U7). 구현 후 시험 |
@@ -259,6 +260,7 @@ class GridBox:            # io/radargram.py
 - R-C: RF-DETR 기본 정사각 리사이즈 → 쌍곡선 왜곡과 비교 불공정(M4-1에서 비율 유지 경로 확인).
 - R-D: 공개 저장소에 YOLO 가중치가 실수로 올라가면 AGPL 산출물이 공개된다. 대응: `.gitignore`(`*.pt`, `*.onnx`, `/runs/`, `/data/`)와 커밋 전 비밀·데이터 점검(CLAUDE.md 작업 운영). 별도 규칙은 추가하지 않는다(사용자 결정 2026-10-29).
 - R-E: test 홀드아웃 뒤 train_pool 5-fold 전면 적용으로 검출 학습 비용이 약 5배다(GPU 1장, CON-2). 30분 넘는 학습은 long-running-task-monitor 규칙을 따른다.
+- R-F: `detect/band_metrics.py`의 AP50 계산(QA-7 관련). 초기 구현을 표준 정의(VOC·COCO) 기반 독자 구현으로 교체했다(python-expert, 2026-11-01). 같은 날 분석 스크립트의 혼동 행렬 매칭(`analysis/detection/m110_band_aux.py`, `m17_pipe_band_fp_gallery.py`)도 `greedy_assignment`로 교체했다. 정의는 101점 선형 보간 + 사다리꼴이다(M1-10 기준선·U-3 목표가 이 값에 묶여 있다). 동작 차이는 IoU가 정확히 문턱인 경계뿐이고, M1-10 실데이터에서는 비트 단위로 같다. Ultralytics와 같다는 것은 시험으로만 확인한다(`tests/test_band_metrics.py::test_ap50_equals_the_ultralytics_validator`(`importorskip`), `tests/test_band_metrics_regression.py`). 대응(사용자 결정 2026-11-01): M5-4 배포 점검에서 사람이 최종 확인한다. 저장소 LICENSE와 git 이력 판단은 U-4와 연결된다.
 
 ## 5. 확인 질문과 답 (2026-10-29 사용자 답변 반영)
 
@@ -292,3 +294,5 @@ class GridBox:            # io/radargram.py
 | 2026-10-30 | ADR-004 추가(§2-3 좌표 결정 이관) | `adr_lint.py` 고아 드라이버 경고 |
 | 2026-10-30 | `pipe_band` 깊이 반영: FR-2, §2-2 `depth`·`pipeline` 책임, §2-3 데이터 흐름 뷰(속도 풀·띠 경로·띠 트레이스 제외 영점 추가, ①–④ 측선 단위 순서), §2-3 계약 규칙 마지막 항목, §3 ADR-002·ADR-004 요약, §6 백로그 | ADR-002 결정 8·ADR-004 결정 7 개정, spec_band_depth_v1(M2-6), 사용자 결정 Q1–Q4 |
 | 2026-10-31 | §2-3 데이터 흐름 뷰 ④ 노드·`FittingBranch.filtered` 연결선 추가, 설명에 같은 `FittingBranch` 공유와 `branch=inputs.branch` 명시 | M2-6b 구현(`depth/band.py`), ADR-004 결정 7 정정, integrity-checker 지적 |
+| 2026-11-01 | `detect/band_metrics.py` 반영: §2-2 모듈 뷰 `detect` 노드 레이블, 모듈 표 `detect` 행(백엔드 파일 / 백엔드 무관 파일 구분, `yolo_eval.py` 누락 보완), 의존 규칙 3 설명·규칙 6 추가, §4 리스크 R-F(대응 상태), §4 QA-1 띠 지표 보고 방식 | python-expert 구현(2026-11-01), U-3 `pipe_band` 목표(사용자 결정 2026-11-01, `docs/experiments/2026-11-01_m110_baseline.md` §6-1) |
+| 2026-11-01 | AP50 독자 구현 교체 반영: 의존 규칙 3의 `NEUTRAL_DETECT_MODULES`·런타임 probe에 `band_metrics.py` 포함, §4 R-F를 사실 중심으로 정리(표준 정의 기반 교체, 분석 스크립트 매칭 `greedy_assignment` 교체, 동등성은 시험으로만, M5-4 사람 최종 확인, LICENSE·git 이력은 U-4 연결) | python-expert 교체·시험 분류 변경(2026-11-01), 사용자 결정 Q1·R-F 문구 완화(2026-11-01) |

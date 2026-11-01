@@ -67,10 +67,10 @@
 - [ ] M5-1 `gpr-detect infer`(입력 → 박스+깊이 JSON/PNG, 스케일 없는 입력은 "스케일 없음") → python-expert
 - [ ] M5-2 ONNX 내보내기·onnxruntime-gpu 추론 일치 검증 → cv-detection-expert
 - [ ] M5-3 README·사용 문서 → python-expert / docs
-- [ ] M5-4 배포물 점검(AGPL 가중치 미포함, 데이터 미포함) → integrity-checker
+- [ ] M5-4 배포물 점검(AGPL 가중치 미포함, 데이터 미포함, Ultralytics 코드 미포함 — `detect/band_metrics.py` `average_precision_50` 독자 구현·출처 주석 확인 포함, `docs/architecture/README.md` §4 R-F) → integrity-checker
 
 ## 사용자 조치·미해결
 - [ ] U-1 AIHub 71327 「구축활용가이드」「데이터 설명서」 다운로드(https://aihub.or.kr/aihubdata/data/view.do?dataSetSn=71327) → 받으면 pdf-document-export / hwp-document-expert로 추출. **2026-10-29 결정: 나중에** — 그때까지 AIHub는 검출에만 쓰고 m 단위 깊이는 내지 않는다
 - [ ] U-2 4TU 깊이 정답 기준점(관 상단/중심) 판단. **2026-10-29 결정: 두 가정 모두 보고**, 한쪽이 뚜렷이 잘 맞으면 그때 확정
-- [ ] U-3 목표치 확정(합성 회귀 허용치는 spec §11로 확정, 4TU 판정률·검출 mAP 목표는 미정. 참고: AIHub 기준 EfficientDet mAP@0.5 0.8457). **2026-10-29 결정: M1-10 기준선과 M2-8 1차 검증을 본 뒤 정한다**. **검출 목표 확정(사용자, 2026-11-01)**: 최종 test 1회(M4-3), crop 단위, 두 조건 모두 충족 — 전체 mAP50 **≥ 76.8 %**, pipe_hyperbola AP50 **≥ 90.9 %**(각각 M1-10 기준선 fold 평균 − 1 SD: 79.78 − 3.01, 93.95 − 3.04, `docs/experiments/2026-11-01_m110_baseline.md` §6). pipe_band는 IoU-AP 목표에서 빼고 박스 분할에 둔감한 보조 지표(띠 가로 구간 포착률 등)로 따로 둔다 — 지표 구현(python-expert)과 기준선 측정 뒤 목표값을 정한다. 남은 것: 띠 보조 지표 목표값, 4TU 깊이 판정률 목표(M2-9 결과 뒤)
-- [ ] U-4 배포 전 Ultralytics 라이선스 판단(사내 사용도 Enterprise 대상이라고 명시됨)
+- [ ] U-3 목표치 확정(합성 회귀 허용치는 spec §11로 확정, 검출 목표는 2026-11-01 확정(아래), **4TU 판정률 목표만 미정**. 참고: AIHub 기준 EfficientDet mAP@0.5 0.8457). 2026-10-29 결정: M1-10 기준선과 M2-8 1차 검증을 본 뒤 정한다. **검출 목표 확정(사용자, 2026-11-01)**: 최종 test 1회(M4-3), crop 단위, 두 조건 모두 충족 — 전체 mAP50 **≥ 76.8 %**, pipe_hyperbola AP50 **≥ 90.9 %**(각각 M1-10 기준선 fold 평균 − 1 SD: 79.78 − 3.01, 93.95 − 3.04, `docs/experiments/2026-11-01_m110_baseline.md` §6). pipe_band는 IoU-AP 목표에서 빼고 박스 분할에 둔감한 보조 지표로 따로 둔다 — **띠 보조 지표 목표 확정(2026-11-01, 같은 규칙 평균 − 1 SD)**: 띠 가로 구간 **재현율 ≥ 64.1 %**, **정밀도 ≥ 49.7 %**(crop·`last.pt`·conf > 0.25·세로 겹침 ≥ 정답 높이 50 %·길이 가중, M1-10 기준선 재현율 69.52 ± 5.43, 정밀도 71.93 ± 22.27, `src/gpr_detection/detect/band_metrics.py`, `analysis/detection/m110_band_aux.*`, 결과 문서 §6-1). 주의: 정밀도 fold 편차가 커서(fold 1·2 약 48 %, 나머지 84–92 %) 목표가 낮은 fold 바로 위에 놓인다. 남은 것: 4TU 깊이 판정률 목표(M2-9 결과 뒤)
+- [ ] U-4 배포 전 Ultralytics 라이선스 판단(사내 사용도 Enterprise 대상이라고 명시됨). **저장소 LICENSE 파일도 이때 함께 정한다**(사용자 결정 2026-11-01: 지금은 LICENSE 없음 — 공개 저장소지만 기본 권리 유보). 관련: Ultralytics 코드를 옮겨 쓴 부분은 독자 구현으로 정리(2026-11-01 `detect/band_metrics.py`, 분석 스크립트 혼동 행렬 매칭 `m110_band_aux.py`·`m17_pipe_band_fp_gallery.py`), M5-4에서 사람 최종 확인. U-4 때 함께 판단: `src/gpr_detection/detect/base.py` `letterbox`의 Ultralytics 호환 동작 상수(패딩 114, `_ULTRALYTICS_PAD_ROUNDING_BIAS` 0.1을 빼는 반올림 보정 — 독자 구조, 상수만 호환)

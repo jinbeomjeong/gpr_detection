@@ -19,7 +19,7 @@ import pytest
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "src" / "gpr_detection"
 DETECTOR_LIBRARIES = ("ultralytics", "rfdetr")
-NEUTRAL_DETECT_MODULES = ("__init__.py", "base.py")
+NEUTRAL_DETECT_MODULES = ("__init__.py", "base.py", "band_metrics.py")
 
 
 @dataclass(frozen=True)
@@ -199,7 +199,7 @@ def test_importing_contract_modules_does_not_load_detector_libraries() -> None:
         "import sys\n"
         "import gpr_detection.detect, gpr_detection.detect.yolo\n"
         "import gpr_detection.detect.yolo_train, gpr_detection.pipeline\n"
-        "import gpr_detection.augment\n"
+        "import gpr_detection.augment, gpr_detection.detect.band_metrics\n"
         "loaded = [n for n in ('ultralytics', 'rfdetr', 'torch') if n in sys.modules]\n"
         "print(','.join(loaded))\n"
     )
