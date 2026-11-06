@@ -1,11 +1,17 @@
-"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 E1-E8, B1-B13).
+"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 E1-E8, B1-B13, C1-C14).
 
 Analytic B-scans and small in-memory tables only; no 4TU data is read.
 """
 
 import argparse
+import ast
+import dataclasses
 import itertools
+import json
+import math
 from dataclasses import dataclass
+from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pandas as pd
@@ -15,7 +21,13 @@ from gpr_detection.depth.estimate import prepare_depth_inputs
 from gpr_detection.depth.refraction import reflection_times
 from gpr_detection.depth.result import DepthResult, DepthStatus
 from gpr_detection.io.radargram import Radargram
-from synthetic_bscan import DT_NS, T_SRC_NS, BScanSpec, make_radargram
+from synthetic_bscan import (
+    DT_NS,
+    T_SRC_NS,
+    BScanSpec,
+    cylinder_times,
+    make_radargram,
+)
 
 
 @pytest.fixture
@@ -538,6 +550,10 @@ def test_e5_variant_trial_counts_per_variant(script) -> None:
     }
     assert script.baseline_trials_for("a", args) == {"activity": 200}
     assert script.baseline_trials_for("b", args) == {"activity": 200}
+    # v1.4: noqc is an auxiliary variant, reported only with the QC on.
+    assert script.VARIANTS == ("main", "a", "b", "noqc")
+    assert script.baseline_trials_for("noqc", args) == {"activity": 200}
+    assert script.variants_for(_args(apex_qc="off")) == ("main", "a", "b")
 
 
 def test_e5_variant_site_baseline_comes_from_the_same_trials(script) -> None:
@@ -611,6 +627,7 @@ def _args(**overrides) -> argparse.Namespace:
         "baseline_trials": 30,
         "baseline_trials_aux": 10,
         "baseline_seed": 0,
+        "apex_qc": "on",
     }
     return argparse.Namespace(**{**values, **overrides})
 
@@ -687,19 +704,7 @@ def test_e5_variant_auxiliary_baselines_report_pass_b_and_p_only(script) -> None
 
 
 def test_e8_site11_diagnostic_rescales_then_follows_the_main_path(script) -> None:
-    groundtruth = pd.DataFrame(
-        {
-            "activity_id": ["011.1"],
-            "trench_no": ["1"],
-            "seq": ["1"],
-            "depth_m": ["1.00"],
-            "code": ["S"],
-        }
-    )
-    metadata = pd.DataFrame(
-        columns=["activity_id", "seq_meta", "diameter_mm", "정답표와 순서 일치"]
-    )
-    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    gt_sets = _site11_gt_sets(script)
     # eps_used 18 -> factor sqrt(18 / 8) = 1.5; one stray depth on one line only.
     candidates = [
         _candidate(script, "011.1", "P1", 0.66, eps_r=18.0),
@@ -739,6 +744,71 @@ def test_e8_site11_diagnostic_rescales_then_follows_the_main_path(script) -> Non
     assert [row["est_depth_m"] for row in main_pairs] == [pytest.approx(0.67)]
 
 
+def _site11_gt_sets(script):
+    """E8 ground truth: one pipe at 1.00 m in activity 011.1."""
+    groundtruth = pd.DataFrame(
+        {
+            "activity_id": ["011.1"],
+            "trench_no": ["1"],
+            "seq": ["1"],
+            "depth_m": ["1.00"],
+            "code": ["S"],
+        }
+    )
+    metadata = pd.DataFrame(
+        columns=["activity_id", "seq_meta", "diameter_mm", "정답표와 순서 일치"]
+    )
+    return script.build_ground_truth_sets(groundtruth, metadata)
+
+
+def _c15_candidates(script) -> list:
+    """E8 candidates (no QC, kept) plus a curvature ``out`` and a record-end one.
+
+    Without the QC the two extra depths 0.40 (P1) and 0.41 (P2) rescale to
+    0.60 / 0.615 m, one cluster supported by both lines.
+    """
+    e8 = [
+        _candidate(script, "011.1", path, depth, eps_r=18.0)
+        for path, depth in (("P1", 0.66), ("P2", 0.68), ("P2", 0.20))
+    ]
+    extra = [
+        ("P1", 0.40, _qc(script, "out")),
+        ("P2", 0.41, _qc(script, "in", at_record_end=True)),
+    ]
+    excluded = [
+        dataclasses.replace(_candidate(script, "011.1", path, depth, eps_r=18.0), qc=qc)
+        for path, depth, qc in extra
+    ]
+    return [*e8, *excluded]
+
+
+@pytest.mark.parametrize(
+    ("apex_qc", "n_main_path", "n_unclustered"),
+    [("on", 1, 3), ("off", 2, 5)],
+)
+def test_c15_site11_diagnostic_drops_qc_excluded_candidates(
+    script, apex_qc, n_main_path, n_unclustered
+) -> None:
+    gt_sets = _site11_gt_sets(script)
+    candidates = _c15_candidates(script)
+    lines = {"011.1": 2}
+    args = _args(apex_qc=apex_qc)
+    rows, summaries = script.site11_diagnostic(candidates, gt_sets, lines, args)
+    assert summaries[("exclude_x", "top", "main_path")].n_est == n_main_path
+    assert summaries[("exclude_x", "top", "unclustered")].n_est == n_unclustered
+    if apex_qc == "off":
+        return
+    (pair,) = [
+        row
+        for row in rows
+        if row["variant"] == "main_path"
+        and (row["gt_set"], row["assumption"]) == ("exclude_x", "top")
+    ]
+    assert pair["est_depth_m"] == pytest.approx(0.67, abs=1e-4)  # same as E8
+    evaluation = script.evaluate_combinations(candidates, gt_sets, lines, args)
+    assert evaluation.estimate_counts["main"]["011.1"] == n_main_path
+
+
 def test_e7_pass_rates_include_the_30_cm_boundary(script) -> None:
     match = script.MatchResult(
         pairs=((0.1, 0, 0.1), (0.3, 1, 0.3), (0.31, 2, 0.31)), missed=1, false_est=0
@@ -746,3 +816,1026 @@ def test_e7_pass_rates_include_the_30_cm_boundary(script) -> None:
     summary = script.summarize({"a": match}, {"a": 4})
     assert summary.pass_a == pytest.approx(2 / 3)
     assert summary.pass_b == pytest.approx(2 / 4)
+
+
+# ----------------------------------------------------------------- C1-C14 (spec 9-2-2)
+#
+# Expected values are the prototype output of analysis/processing/m29c_qc_proto.py
+# (docs/processing/m29c_qc_ctests.csv) and m29c_qc_pure_checks.py, 2026-11-07.
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+QC_CONSTANTS_JSON = PROJECT_ROOT / "docs" / "processing" / "m29c_qc_constants.json"
+SCRIPT_PATH = PROJECT_ROOT / "scripts" / "eval_depth_4tu.py"
+
+QC_F_C_HZ = 500e6
+QC_DT_NS = 0.098
+QC_RECORD_SAMPLES = 512
+QC_LONG_RECORD_SAMPLES = 768
+ZERO_BAND_SCALE = 10.0
+"""Zero band 20 dB above the pipe (direct 30, surface -20): an assumption (9-2-2)."""
+R_ABS_TOL = 0.01
+SEAM_SCORE_ABS_TOL = 0.05
+PURE_ABS_TOL = 1e-4
+QC_FLAG_NAMES = (
+    "curvature_v_out",
+    "curvature_v_unknown",
+    "apex_at_record_end",
+    "apex_on_trace_seam",
+)
+
+
+def _qc_spec(eps_r: float = 9.0, n_samples: int = QC_RECORD_SAMPLES) -> BScanSpec:
+    """Common generator of 9-2-2: 500 MHz, 401 traces, merged zero band."""
+    return BScanSpec(
+        f_c_hz=QC_F_C_HZ,
+        dt_ns=QC_DT_NS,
+        dx_m=0.02,
+        n_traces=401,
+        snr_db=20.0,
+        air_gap_m=0.001,
+        offset_m=0.0,
+        direct_amplitude=3.0 * ZERO_BAND_SCALE,
+        surface_amplitude=-2.0 * ZERO_BAND_SCALE,
+        eps_r=eps_r,
+        n_samples=n_samples,
+    )
+
+
+def _straight_ray_spec(
+    eps_r: float,
+    d_top_m: float,
+    radius_m: float = 0.0,
+    n_samples: int = QC_LONG_RECORD_SAMPLES,
+) -> BScanSpec:
+    """Straight-ray pipe (effective air gap 0) under the merged zero band."""
+    spec = _qc_spec(eps_r, n_samples)
+    spec.d_top_m, spec.radius_m = d_top_m, radius_m
+    spec.pipe_times_ns = cylinder_times(
+        spec.x_m, spec.x0_m, d_top_m, spec.velocity, radius_m
+    )
+    return spec
+
+
+def _true_apex(spec: BScanSpec) -> tuple[int, float]:
+    trace = spec.n_traces // 2
+    return trace, (T_SRC_NS + float(spec.pipe_times_ns[trace])) / spec.dt_ns
+
+
+def _radargram(spec: BScanSpec) -> Radargram:
+    return make_radargram(
+        spec, air_gap="air", eps_r_meta=spec.eps_r, line_id="01.1/PathC"
+    )
+
+
+def _candidate_table(radargram: Radargram, trace: int, sample: float) -> pd.DataFrame:
+    """One auto candidate; ``tau_ns`` from the detected zero like the 4TU csv."""
+    t_zero_ns = prepare_depth_inputs(radargram).zero.t_zero_ns
+    return pd.DataFrame(
+        {
+            "trace": [trace],
+            "sample": [sample],
+            "tau_ns": [sample * radargram.dt_ns - t_zero_ns],
+            "source": ["auto_v1"],
+        }
+    )
+
+
+def _run_one(script, radargram: Radargram, trace: int, sample: float, apex_qc=True):
+    (candidate,) = script.run_line(
+        radargram, _candidate_table(radargram, trace, sample), apex_qc=apex_qc
+    )
+    return candidate
+
+
+def _assert_depth_path_untouched(candidate, radargram: Radargram) -> None:
+    """C12: meta_fixed depth, no QC flag in ``DepthResult.flags``, air kept."""
+    assert candidate.result.v_rule == "meta_fixed"
+    assert not set(candidate.result.flags) & set(QC_FLAG_NAMES)
+    assert radargram.air_gap == "air"
+
+
+def _assert_same_depth_result(first: DepthResult, second: DepthResult) -> None:
+    """Field-wise equality; ``repr`` makes NaN fields compare equal (C11)."""
+    for item in dataclasses.fields(DepthResult):
+        assert repr(getattr(first, item.name)) == repr(getattr(second, item.name)), (
+            item.name
+        )
+
+
+def test_qc_constants_match_the_locked_json(script) -> None:
+    locked = json.loads(QC_CONSTANTS_JSON.read_text(encoding="utf-8"))
+    for name in (
+        "QC_R_LO",
+        "QC_R_HI",
+        "QC_R_TOL",
+        "QC_UNSTABLE_SIGMA_REL",
+        "QC_UNSTABLE_INLIER",
+        "QC_BOUND_REL",
+        "QC_RADIUS_M",
+        "RECORD_END_PERIODS",
+        "SEAM_TIME_PERIODS",
+        "SEAM_AMP_RATIO",
+        "SEAM_NOISE_K",
+        "SEAM_ZERO_HALF_PERIODS",
+        "SEAM_LAG_HALF_PERIODS",
+        "SEAM_REF_HALF_M",
+        "SEAM_APEX_HALF_M",
+    ):
+        assert getattr(script, name) == locked[name], name
+
+
+# C1: (eps_r, R, d) -> r of the prototype; every case in, no flag, depth +-0.01 m.
+C1_EXPECTED_R = {
+    (9.0, 0.0): (0.9969, 0.9970, 0.9980, 0.9981, 0.9988, 0.9987),
+    (16.0, 0.0): (0.9973, 0.9979, 0.9985, 0.9983, 0.9984, 0.9976),
+    (9.0, 0.1): (1.0963, 1.0823, 1.0637, 1.0488, 1.0411, 1.0297),
+    (16.0, 0.1): (1.0981, 1.0833, 1.0656, 1.0508, 1.0411, 1.0289),
+}
+C1_DEPTHS_M = (0.2, 0.3, 0.5, 0.75, 1.0, 1.5)
+C1_CASES = [
+    (eps_r, radius_m, depth_m, expected_r)
+    for (eps_r, radius_m), ratios in C1_EXPECTED_R.items()
+    for depth_m, expected_r in zip(C1_DEPTHS_M, ratios, strict=True)
+]
+
+
+@pytest.mark.parametrize(("eps_r", "radius_m", "depth_m", "expected_r"), C1_CASES)
+def test_c1_c12_c14_true_apex_is_in(
+    script, eps_r, radius_m, depth_m, expected_r
+) -> None:
+    spec = _straight_ray_spec(eps_r, depth_m, radius_m)
+    radargram = _radargram(spec)
+    trace, sample = _true_apex(spec)
+    candidate = _run_one(script, radargram, trace, sample)
+    assert candidate.result.status == "ok"
+    assert candidate.result.depth_top_m == pytest.approx(depth_m, abs=0.01)
+    curvature = candidate.qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("in", "")
+    assert curvature.r == pytest.approx(expected_r, abs=R_ABS_TOL)
+    assert script.QC_R_LO <= curvature.r <= script.QC_R_HI
+    assert candidate.qc.flags == ()
+    assert not candidate.qc.excluded
+    _assert_depth_path_untouched(candidate, radargram)
+    # C14: the QC picks carry the depth result's apex.
+    inputs = prepare_depth_inputs(radargram)
+    box = script.candidate_box(
+        radargram, trace, sample, sample * QC_DT_NS - inputs.zero.t_zero_ns
+    )
+    picks = script.extract_picks(
+        inputs.branch.background_removed,
+        box,
+        inputs.zero,
+        dt_ns=radargram.dt_ns,
+        dx_m=radargram.dx_m,
+        f_c_hz=radargram.f_c_hz,
+        apex_hint=script.ApexHint(trace=trace, sample=sample),
+        period_px=inputs.branch.period_px,
+    )
+    assert (picks.apex.trace, picks.apex.k) == (
+        candidate.result.apex_trace,
+        candidate.result.apex_sample,
+    )
+
+
+def _refraction_spec(air_gap_m: float, radius_m: float, depth_m: float) -> BScanSpec:
+    """E1 generator (amplitudes 3 / -2, offset 0.1 m, refraction times)."""
+    spec = BScanSpec(
+        f_c_hz=QC_F_C_HZ,
+        eps_r=9.0,
+        d_top_m=depth_m,
+        radius_m=radius_m,
+        air_gap_m=air_gap_m,
+        offset_m=0.1,
+        n_traces=401,
+        n_samples=QC_LONG_RECORD_SAMPLES,
+        dt_ns=QC_DT_NS,
+    )
+    spec.pipe_times_ns = reflection_times(
+        spec.x_m,
+        offset_m=0.1,
+        h=air_gap_m,
+        x0_m=spec.x0_m,
+        d_top_m=depth_m,
+        radius_m=radius_m,
+        v=spec.velocity,
+    )
+    return spec
+
+
+C1B_CASES = [
+    (0.02, 0.0, 0.3, "out", 1.8774),
+    (0.02, 0.1, 0.3, "out", 1.8876),
+    (0.05, 0.0, 0.3, "out", 1.8818),
+    (0.05, 0.1, 0.3, "out", 1.8949),
+    (0.02, 0.0, 0.6, "in", 1.4767),
+    (0.02, 0.1, 0.6, "in", 1.4880),
+    (0.05, 0.0, 0.6, "in", 1.4886),
+    (0.05, 0.1, 0.6, "in", 1.5054),
+    (0.02, 0.0, 1.0, "in", 1.2370),
+    (0.02, 0.1, 1.0, "in", 1.2530),
+    (0.05, 0.0, 1.0, "in", 1.2573),
+    (0.05, 0.1, 1.0, "in", 1.2755),
+]
+
+
+@pytest.mark.parametrize(
+    ("air_gap_m", "radius_m", "depth_m", "verdict", "expected_r"), C1B_CASES
+)
+def test_c1b_air_gap_limit_of_the_upper_band_edge(
+    script, air_gap_m, radius_m, depth_m, verdict, expected_r
+) -> None:
+    spec = _refraction_spec(air_gap_m, radius_m, depth_m)
+    radargram = make_radargram(spec, eps_r_meta=9.0, line_id="01.1/PathC1b")
+    candidate = _run_one(script, radargram, *_true_apex(spec))
+    assert candidate.result.status == "ok"  # the depth does not depend on the QC
+    curvature = candidate.qc.curvature
+    assert curvature.verdict == verdict
+    assert curvature.reason == ("r_above" if verdict == "out" else "")
+    assert curvature.r == pytest.approx(expected_r, abs=R_ABS_TOL)
+
+
+def _layer_line(times_ns: np.ndarray, amplitude: np.ndarray) -> Radargram:
+    """C2-C4 background: a pipe at d 1.4 m plus one extra event."""
+    spec = _straight_ray_spec(9.0, 1.4, n_samples=QC_RECORD_SAMPLES)
+    spec.extra_events.append((times_ns, amplitude))
+    return _radargram(spec)
+
+
+def _x_and_mask(half_width_m: float) -> tuple[np.ndarray, float, np.ndarray]:
+    spec = _qc_spec()
+    x_m, x0_m = spec.x_m, spec.x0_m
+    return x_m, x0_m, (np.abs(x_m - x0_m) <= half_width_m).astype(float)
+
+
+LAYER_TIME_NS = 9.0
+CENTRE_TRACE = 200
+
+
+@pytest.mark.parametrize(("amplitude", "inlier_frac"), [(2.0, 0.2755), (0.5, 0.9524)])
+def test_c2_c12_flat_layer_is_out_at_the_upper_v_bound(
+    script, amplitude, inlier_frac
+) -> None:
+    x_m, _, inside = _x_and_mask(1.0)
+    radargram = _layer_line(np.full(len(x_m), LAYER_TIME_NS), amplitude * inside)
+    sample = (T_SRC_NS + LAYER_TIME_NS) / QC_DT_NS
+    candidate = _run_one(script, radargram, CENTRE_TRACE, sample)
+    curvature = candidate.qc.curvature
+    # Order: the v bound (row 6) is checked before the inlier rule (row 8).
+    assert (curvature.verdict, curvature.reason) == ("out", "v_at_upper_bound")
+    assert curvature.r == pytest.approx(3.0001, abs=R_ABS_TOL)
+    assert curvature.inlier_frac == pytest.approx(inlier_frac, abs=PURE_ABS_TOL)
+    assert candidate.qc.excluded
+    assert candidate.qc.flags == ("curvature_v_out",)
+    _assert_depth_path_untouched(candidate, radargram)
+
+
+def test_c2b_wide_arc_is_out_at_the_upper_v_bound(script) -> None:
+    x_m, x0_m, inside = _x_and_mask(1.0)
+    arc_ns = LAYER_TIME_NS + (2 / 0.1) * ((x_m - x0_m) ** 2 / (2 * 20.0))
+    radargram = _layer_line(arc_ns, 2.0 * inside)
+    sample = (T_SRC_NS + LAYER_TIME_NS) / QC_DT_NS
+    curvature = _run_one(script, radargram, CENTRE_TRACE, sample).qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("out", "v_at_upper_bound")
+
+
+CROSSING_TIME_NS = 10.0
+
+
+def _crossing_line(slope_ns_per_m: float, cross: bool) -> Radargram:
+    """C3 X (two dipping events) or C3b V (one event bent at x0)."""
+    spec = _straight_ray_spec(9.0, 1.4, n_samples=QC_RECORD_SAMPLES)
+    x_m, x0_m = spec.x_m, spec.x0_m
+    inside = 1.5 * (np.abs(x_m - x0_m) <= 1.2).astype(float)
+    if cross:
+        for sign in (1.0, -1.0):
+            times = CROSSING_TIME_NS + sign * slope_ns_per_m * (x_m - x0_m)
+            spec.extra_events.append((times, inside))
+    else:
+        times = CROSSING_TIME_NS + slope_ns_per_m * np.abs(x_m - x0_m)
+        spec.extra_events.append((times, inside))
+    return _radargram(spec)
+
+
+@pytest.mark.parametrize(
+    ("slope_ns_per_m", "reason"),
+    [
+        (5.0, "insufficient_picks"),
+        (10.0, "fit_failed"),
+        (15.0, "fit_failed"),
+        (20.0, "insufficient_picks"),
+        (30.0, "insufficient_picks"),
+    ],
+)
+def test_c3_x_crossing_stays_unknown(script, slope_ns_per_m, reason) -> None:
+    radargram = _crossing_line(slope_ns_per_m, cross=True)
+    sample = (T_SRC_NS + CROSSING_TIME_NS) / QC_DT_NS
+    curvature = _run_one(script, radargram, CENTRE_TRACE, sample).qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("unknown", reason)
+
+
+@pytest.mark.parametrize(
+    ("slope_ns_per_m", "expected_r", "inlier_frac"),
+    [(10.0, 1.1636, 0.4242), (20.0, 0.7088, 0.2424)],
+)
+def test_c3b_v_is_unstable(script, slope_ns_per_m, expected_r, inlier_frac) -> None:
+    radargram = _crossing_line(slope_ns_per_m, cross=False)
+    sample = (T_SRC_NS + CROSSING_TIME_NS) / QC_DT_NS
+    curvature = _run_one(script, radargram, CENTRE_TRACE, sample).qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("unknown", "unstable")
+    assert curvature.r == pytest.approx(expected_r, abs=R_ABS_TOL)
+    assert curvature.inlier_frac == pytest.approx(inlier_frac, abs=PURE_ABS_TOL)
+
+
+def test_c4_one_wing_has_insufficient_picks(script) -> None:
+    spec = _straight_ray_spec(9.0, 3.0, n_samples=QC_RECORD_SAMPLES)  # off record
+    x_m, x0_m = spec.x_m, spec.x0_m
+    wing_ns = cylinder_times(x_m, x0_m, 0.5, spec.velocity, 0.0)
+    spec.extra_events.append((wing_ns, (x_m >= x0_m - 1e-9).astype(float)))
+    radargram = _radargram(spec)
+    sample = (T_SRC_NS + float(wing_ns[CENTRE_TRACE])) / QC_DT_NS
+    curvature = _run_one(script, radargram, CENTRE_TRACE, sample).qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("unknown", "insufficient_picks")
+    assert (curvature.n_left, curvature.n_right) == (2, 47)
+
+
+def _record_end_spec(margin_ns: float) -> BScanSpec:
+    """C5: apex ``margin_ns`` above the last sample of a 512-sample record."""
+    apex_time_ns = (QC_RECORD_SAMPLES - 1) * QC_DT_NS - margin_ns
+    depth_m = _qc_spec().velocity * (apex_time_ns - T_SRC_NS) / 2
+    return _straight_ray_spec(9.0, depth_m, n_samples=QC_RECORD_SAMPLES)
+
+
+@pytest.mark.parametrize(
+    ("margin_ns", "at_record_end", "verdict", "reason"),
+    [
+        (0.8, True, "in", ""),
+        (1.5, True, "in", ""),
+        (3.0, True, "unknown", "insufficient_picks"),
+        (6.0, False, "in", ""),
+    ],
+)
+def test_c5_apex_at_the_record_end(
+    script, margin_ns, at_record_end, verdict, reason
+) -> None:
+    spec = _record_end_spec(margin_ns)
+    candidate = _run_one(script, _radargram(spec), *_true_apex(spec))
+    assert candidate.result.status == "ok"
+    assert candidate.qc.record_end_margin_ns == pytest.approx(margin_ns, abs=1e-6)
+    assert candidate.qc.at_record_end is at_record_end
+    assert candidate.qc.excluded is at_record_end
+    curvature = candidate.qc.curvature
+    assert (curvature.verdict, curvature.reason) == (verdict, reason)
+
+
+@pytest.mark.parametrize("dt_ns", [0.098, 0.117, 0.195])
+def test_c5b_record_end_boundary(script, dt_ns) -> None:
+    flags = []
+    for margin_ns in (5.0 - 2e-9, 5.0, 5.0 + 1e-6):
+        sample = QC_RECORD_SAMPLES - 1 - margin_ns / dt_ns
+        flags.append(
+            script.apex_at_record_end(sample, QC_RECORD_SAMPLES, dt_ns, QC_F_C_HZ)
+        )
+    assert flags == [True, False, False]
+
+
+def _ringing(n_samples: int, dt_ns: float) -> np.ndarray:
+    """C6 (g): ringing below the zero band only, ``0.5 sin(...) exp(-(t - 3) / 25)``."""
+    t_ns = np.arange(n_samples) * dt_ns
+    after_source = np.clip(t_ns - T_SRC_NS, 0, None)
+    wave = 0.5 * np.sin(2 * np.pi * 0.35 * (t_ns - T_SRC_NS))
+    return wave * np.exp(-after_source / 25.0) * (t_ns > T_SRC_NS)
+
+
+def _with_seam(data: np.ndarray, split: int, kind: str) -> np.ndarray:
+    seamed = np.array(data, dtype=np.float64)
+    if kind == "gain_2":
+        seamed[:, split:] *= 2.0
+    elif kind == "shift_3":
+        seamed[:, split:] = np.roll(seamed[:, split:], 3, axis=0)
+    elif kind == "dead_trace":
+        seamed[:, split] = 0.0
+    elif kind == "ringing":
+        seamed[:, split:] += _ringing(seamed.shape[0], QC_DT_NS)[:, None]
+    return seamed.astype(np.float32)
+
+
+def _seam_line(kind: str | None, offset: int) -> tuple[Radargram, int, float]:
+    spec = _straight_ray_spec(9.0, 0.5, n_samples=QC_RECORD_SAMPLES)
+    radargram = _radargram(spec)
+    trace, sample = _true_apex(spec)
+    if kind is not None:
+        data = _with_seam(radargram.data, trace + offset, kind)
+        radargram = dataclasses.replace(radargram, data=data)
+    return radargram, trace, sample
+
+
+@pytest.mark.parametrize(
+    ("kind", "offset", "on_seam", "score"),
+    [
+        (None, 0, False, 0.072),
+        ("gain_2", 2, True, 3.11),
+        ("gain_2", 12, False, None),
+        ("shift_3", 2, True, 1.48),
+        ("shift_3", 12, False, None),
+        ("dead_trace", 3, True, math.inf),
+        ("ringing", 2, False, None),  # blocks below the zero band are not seen
+    ],
+)
+def test_c6_trace_seams(script, kind, offset, on_seam, score) -> None:
+    radargram, trace, sample = _seam_line(kind, offset)
+    candidate = _run_one(script, radargram, trace, sample)
+    assert candidate.result.status == "ok"
+    assert candidate.qc.curvature.verdict == "in"
+    assert candidate.qc.on_trace_seam is on_seam
+    assert candidate.qc.excluded is on_seam
+    if score == math.inf:
+        assert candidate.qc.seam_score == math.inf
+    elif score is not None:
+        assert candidate.qc.seam_score == pytest.approx(score, abs=SEAM_SCORE_ABS_TOL)
+
+
+N_PURE_TRACES = 401
+PURE_SPLIT_INDEX = 199
+"""Split j = 200 (between traces 199 and 200) sits at index j - 1."""
+
+
+def _pure_scores(script, lag_ns: np.ndarray, amplitude: np.ndarray) -> np.ndarray:
+    return script.seam_scores(lag_ns, amplitude, QC_F_C_HZ, 0.02)
+
+
+def _step(values: np.ndarray, start: int, add: float = 0.0, factor: float = 1.0):
+    stepped = values.copy()
+    stepped[start:] = stepped[start:] * factor + add
+    return stepped
+
+
+@pytest.mark.parametrize(
+    ("lag_step_ns", "amplitude_factor", "score", "n_seams"),
+    [
+        (0.21, 1.0, 1.0500, 1),
+        (0.19, 1.0, 0.9500, 0),
+        (0.0, 1.26, 1.0357, 1),
+        (0.0, 1.24, 0.9640, 0),
+    ],
+)
+def test_c6b_seam_score_steps(
+    script, lag_step_ns, amplitude_factor, score, n_seams
+) -> None:
+    lag_ns = _step(np.zeros(N_PURE_TRACES), 200, add=lag_step_ns)
+    amplitude = _step(np.ones(N_PURE_TRACES), 200, factor=amplitude_factor)
+    scores = _pure_scores(script, lag_ns, amplitude)
+    assert len(scores) == N_PURE_TRACES - 1
+    assert scores[PURE_SPLIT_INDEX] == pytest.approx(score, abs=PURE_ABS_TOL)
+    assert int(np.sum(scores >= 1)) == n_seams
+    assert np.all(np.delete(scores, PURE_SPLIT_INDEX) == 0)
+
+
+def test_c6b_noise_raises_the_seam_limit(script) -> None:
+    lag_ns = np.random.default_rng(0).normal(0.0, 0.05, N_PURE_TRACES)
+    lag_ns[200:] += 0.21
+    scores = _pure_scores(script, lag_ns, np.ones(N_PURE_TRACES))
+    assert scores[PURE_SPLIT_INDEX] == pytest.approx(0.4175, abs=PURE_ABS_TOL)
+    others = np.delete(scores, [198, 199, 200])
+    assert others.max() == pytest.approx(0.7451, abs=PURE_ABS_TOL)
+    assert int(np.sum(scores >= 1)) == 0
+
+
+def test_c6b_zero_amplitude_is_an_infinite_seam(script) -> None:
+    amplitude = np.ones(N_PURE_TRACES)
+    amplitude[200] = 0.0
+    scores = _pure_scores(script, np.zeros(N_PURE_TRACES), amplitude)
+    assert scores[199] == scores[200] == math.inf
+    assert int(np.sum(scores >= 1)) == 2
+    assert np.all(np.delete(scores, [199, 200]) == 0)
+
+
+def test_c6b_score_exactly_one_is_a_seam(script) -> None:
+    """C6c: a 0.2 ns step is exactly ``theta_t`` (score 1.0); ``s_j >= 1`` is a seam.
+
+    Catches a ``>`` mutant (spec 9-2-2 C6c, listed since v1.4.1).
+    """
+    lag_ns = _step(np.zeros(N_PURE_TRACES), 200, add=0.2)
+    scores = _pure_scores(script, lag_ns, np.ones(N_PURE_TRACES))
+    assert scores[PURE_SPLIT_INDEX] == 1.0
+    line = SimpleNamespace(dt_ns=QC_DT_NS, dx_m=0.02, f_c_hz=QC_F_C_HZ, n_samples=512)
+    row = SimpleNamespace(trace=200, sample=100.0)
+    no_box = DepthResult(status=DepthStatus.ZERO_FAILED)
+    qc = script.candidate_qc(line, None, row, None, no_box, scores)
+    assert (qc.seam_score, qc.seam_split, qc.on_trace_seam) == (1.0, 200, True)
+
+
+def test_c6b_seam_near_window(script) -> None:
+    scores = np.zeros(N_PURE_TRACES - 1)
+    scores[[194, 195, 205, 206]] = [5.0, 2.0, 3.0, 9.0]  # splits 195, 196, 206, 207
+    # Trace 200, J = 5: splits j with 195 <= j - 1 and j <= 205 -> 196..205.
+    assert script.seam_near(scores, 200, 0.02) == (2.0, 196)
+    assert script.seam_near(np.zeros(0), 0, 0.02) == (None, None)
+
+
+def _without_zero_band(script, radargram: Radargram, inputs):
+    """``inputs`` with ``branch.filtered`` zeroed over ``[k0 - L, k1 + L]`` (C6d)."""
+    period_ns = 1e9 / QC_F_C_HZ
+    max_lag = math.ceil(script.SEAM_LAG_HALF_PERIODS * period_ns / QC_DT_NS)
+    filtered = np.array(inputs.branch.filtered, copy=True)
+    k0, k1 = script._zero_band_window(
+        inputs.zero.t_zero_ns, QC_DT_NS, period_ns, filtered.shape[0], max_lag
+    )
+    filtered[k0 - max_lag : k1 + max_lag + 1] = 0.0
+    branch = dataclasses.replace(inputs.branch, filtered=filtered)
+    return dataclasses.replace(inputs, branch=branch)
+
+
+def test_c6d_line_without_zero_band_energy_has_no_seam_rule(script) -> None:
+    radargram, trace, sample = _seam_line(None, 0)
+    inputs = prepare_depth_inputs(radargram)
+    assert script._line_seam_scores(radargram, inputs) is not None
+    degenerate = _without_zero_band(script, radargram, inputs)
+    assert script._line_seam_scores(radargram, degenerate) is None
+
+    row = SimpleNamespace(trace=trace, sample=sample)
+    no_box = DepthResult(status=DepthStatus.ZERO_FAILED)
+    qc = script.candidate_qc(radargram, degenerate, row, None, no_box, None)
+    assert (qc.seam_score, qc.seam_split, qc.on_trace_seam) == (None, None, False)
+    columns = script._qc_columns(qc)
+    assert (columns["seam_score"], columns["seam_split"]) == ("", "")
+    assert columns["apex_on_trace_seam"] is False
+
+
+def test_c7_hint_without_an_event_is_no_apex(script) -> None:
+    radargram, trace, sample = _seam_line(None, 0)
+    candidate = _run_one(script, radargram, trace, sample + 5.0 / QC_DT_NS)
+    assert candidate.result.status == "fit_failed"
+    assert "apex_hint_unmatched" in candidate.result.flags
+    curvature = candidate.qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("unknown", "no_apex")
+
+
+def test_c7_candidate_without_tau_is_no_box(script) -> None:
+    radargram, trace, _ = _seam_line(None, 0)
+    sample = 300.0
+    candidates = pd.DataFrame(
+        {"trace": [trace], "sample": [sample], "tau_ns": [np.nan], "source": ["m"]}
+    )
+    (candidate,) = script.run_line(radargram, candidates)
+    assert candidate.result.status == "zero_failed"
+    curvature = candidate.qc.curvature
+    assert (curvature.verdict, curvature.reason) == ("unknown", "no_box")
+    assert candidate.qc.flags[0] == "curvature_v_unknown"
+    expected_margin_ns = (QC_RECORD_SAMPLES - 1 - sample) * QC_DT_NS
+    assert candidate.qc.record_end_margin_ns == pytest.approx(expected_margin_ns)
+    row = script.candidate_row(candidate, {})
+    assert row["flags"].split()[-1] == "curvature_v_unknown"
+    assert row["qc_reason"] == "no_box"
+
+
+V_META = 0.1
+"""Metadata velocity of the fake fits (m/ns)."""
+
+
+def _fake_fit(
+    v: float = 0.1,
+    x0_m: float = 0.0,
+    inlier_frac: float = 1.0,
+    sigma_v: float = 0.001,
+    converged: bool = True,
+):
+    """Fake ``fit_curvature`` result over 51 picks at x -0.5..0.5 m (C7-C9)."""
+    fit = SimpleNamespace(
+        v_m_per_ns=v,
+        x0_m=x0_m,
+        t0_ns=10.0,
+        sigma_v=sigma_v,
+        inlier_frac=inlier_frac,
+        converged=converged,
+    )
+    x_m = np.linspace(-0.5, 0.5, 51)
+    picks = SimpleNamespace(
+        apex=object(),
+        n_picks=51,
+        n_left=25,
+        n_right=25,
+        x_m=x_m,
+        tau_ns=10.0 + np.abs(x_m),
+        apex_x_m=0.0,
+    )
+    return SimpleNamespace(status="fit_failed", fit=fit), picks
+
+
+@pytest.mark.parametrize(
+    ("fit_args", "verdict", "reason"),
+    [
+        ({"converged": False}, "unknown", "fit_failed"),
+        ({"x0_m": -0.5}, "unknown", "fit_failed"),
+        ({"inlier_frac": 0.49}, "unknown", "unstable"),
+        ({"sigma_v": math.nan}, "unknown", "unstable"),
+        ({"sigma_v": 0.016}, "unknown", "unstable"),
+        ({"sigma_v": 0.0149}, "in", ""),
+        ({"v": 0.069}, "out", "r_below"),  # C8 r 0.69
+        ({"v": 0.161}, "out", "r_above"),  # C8 r 1.61
+        ({"v": 0.2998}, "out", "v_at_upper_bound"),  # C9
+        ({"v": 0.2998, "x0_m": 0.5}, "unknown", "fit_failed"),
+        ({"v": 0.03}, "out", "v_at_lower_bound"),
+        ({"v": 0.2988}, "out", "r_above"),  # 1e-3 below the bound, r 2.988
+    ],
+)
+def test_c7_c8_c9_classify_fake_fits(script, fit_args, verdict, reason) -> None:
+    curvature, picks = _fake_fit(**fit_args)
+    qc = script.classify_curvature(curvature, picks, V_META)
+    assert (qc.verdict, qc.reason) == (verdict, reason)
+
+
+def test_c7_unstable_limits_are_exclusive(script) -> None:
+    """C7c: ``inlier_frac`` 0.5 or ``sigma_v / v_m`` 0.15 is still stable (3-5-2).
+
+    Catches ``<=`` / ``>=`` mutants (spec 9-2-2 C7c, listed since v1.4.1).
+    ``v_m`` 0.125 is a power of two, so ``0.15 * 0.125 / 0.125`` is exactly 0.15.
+    """
+    v_meta = 0.125
+    for fit_args in (
+        {"v": v_meta, "inlier_frac": 0.5},
+        {"v": v_meta, "sigma_v": script.QC_UNSTABLE_SIGMA_REL * v_meta},
+    ):
+        curvature, picks = _fake_fit(**fit_args)
+        qc = script.classify_curvature(curvature, picks, v_meta)
+        assert (qc.verdict, qc.reason) == ("in", ""), fit_args
+
+
+def test_c7d_non_finite_sigma_v_leaves_the_csv_cell_blank(script) -> None:
+    curvature, picks = _fake_fit(sigma_v=math.nan)
+    curvature_qc = script.classify_curvature(curvature, picks, V_META)
+    assert (curvature_qc.verdict, curvature_qc.reason) == ("unknown", "unstable")
+    assert curvature_qc.sigma_v_rel is None
+    qc = script.CandidateQc(
+        curvature=curvature_qc,
+        record_end_margin_ns=10.0,
+        at_record_end=False,
+        seam_score=0.1,
+        seam_split=1,
+        on_trace_seam=False,
+    )
+    columns = script._qc_columns(qc)
+    assert columns["qc_sigma_v_rel"] == ""
+    assert columns["qc_r"] == 1.0
+
+
+@pytest.mark.parametrize(
+    ("ratio", "verdict"),
+    [
+        (0.7, "in"),
+        (1.6, "in"),
+        (0.7 - 1e-13, "in"),
+        (1.6 + 1e-13, "in"),
+        (0.7 - 1e-9, "out"),
+        (1.6 + 1e-9, "out"),
+    ],
+)
+def test_c8_ratio_band_edges(script, ratio, verdict) -> None:
+    assert script.classify_ratio(ratio) == verdict
+
+
+@pytest.mark.parametrize("ratio", [math.nan, math.inf])
+def test_c8_non_finite_ratio_is_rejected(script, ratio) -> None:
+    with pytest.raises(ValueError):
+        script.classify_ratio(ratio)
+
+
+def _qc(script, verdict: str = "in", at_record_end: bool = False):
+    reason = {"in": "", "out": "r_above", "unknown": "insufficient_picks"}[verdict]
+    return script.CandidateQc(
+        curvature=script.CurvatureQc(script.QcVerdict(verdict), reason),
+        record_end_margin_ns=10.0,
+        at_record_end=at_record_end,
+        seam_score=0.1,
+        seam_split=1,
+        on_trace_seam=False,
+    )
+
+
+@dataclass(frozen=True)
+class _DuckQcCandidate:
+    """``estimates_by_activity`` input with a QC (C10)."""
+
+    activity_id: str
+    path: str
+    depth_m: float
+    qc: object
+
+    def depth(self, zero_variant: str) -> float | None:
+        return self.depth_m
+
+
+def _c10_candidates(script) -> list[_DuckQcCandidate]:
+    return [
+        _DuckQcCandidate("01.1", "L1", 0.60, _qc(script, "in")),
+        _DuckQcCandidate("01.1", "L2", 0.61, _qc(script, "out")),
+        _DuckQcCandidate("01.1", "L3", 0.62, _qc(script, "unknown")),
+        _DuckQcCandidate("01.1", "L1", 1.20, _qc(script, "in", at_record_end=True)),
+        _DuckQcCandidate("01.1", "L2", 1.21, _qc(script, "in")),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("variant", "expected"),
+    [("main", [0.61]), ("noqc", [0.61, 1.205]), ("a", [0.61, 1.21])],
+)
+def test_c10_qc_runs_before_clustering(script, variant, expected) -> None:
+    estimates, _ = script.estimates_by_activity(
+        _c10_candidates(script),
+        "detected",
+        variant,
+        {"01.1": 3},
+        width_m=0.10,
+        linkage="complete",
+        min_lines=2,
+    )
+    # main: 1.20 is dropped before clustering, so 1.21 loses its second line.
+    assert estimates["01.1"] == pytest.approx(expected, abs=DEPTH_ABS_TOL)
+
+
+def _c11_lines() -> list[tuple[Radargram, int, float]]:
+    """C1 (eps 9, R 0, d 0.5), C2 (amplitude 2), C5 (0.8 ns) and C6 (b) lines."""
+    straight = _straight_ray_spec(9.0, 0.5)
+    x_m, _, inside = _x_and_mask(1.0)
+    layer = _layer_line(np.full(len(x_m), LAYER_TIME_NS), 2.0 * inside)
+    record_end = _record_end_spec(0.8)
+    return [
+        (_radargram(straight), *_true_apex(straight)),
+        (layer, CENTRE_TRACE, (T_SRC_NS + LAYER_TIME_NS) / QC_DT_NS),
+        (_radargram(record_end), *_true_apex(record_end)),
+        _seam_line("gain_2", 2),
+    ]
+
+
+DEPTH_COLUMNS = (
+    "status",
+    "depth_top_m",
+    "depth_est_m",
+    "depth_act_m",
+    "eps_r_used",
+    "apex_trace",
+    "apex_sample",
+)
+
+
+def test_c11_qc_does_not_change_the_depth(script) -> None:
+    for radargram, trace, sample in _c11_lines():
+        with_qc = _run_one(script, radargram, trace, sample, apex_qc=True)
+        without_qc = _run_one(script, radargram, trace, sample, apex_qc=False)
+        assert with_qc.qc is not None and without_qc.qc is None
+        _assert_same_depth_result(with_qc.result, without_qc.result)
+        row_with = script.candidate_row(with_qc, {})
+        row_without = script.candidate_row(without_qc, {})
+        for column in DEPTH_COLUMNS:
+            assert row_with[column] == row_without[column], column
+
+
+def test_c11b_a_wrong_qc_fit_cannot_reach_the_depth(script, monkeypatch) -> None:
+    spec = _straight_ray_spec(9.0, 0.5)
+    radargram = _radargram(spec)
+    trace, sample = _true_apex(spec)
+    reference = _run_one(script, radargram, trace, sample, apex_qc=False)
+    real_fit_curvature = script.fit_curvature
+
+    def fit_at_quarter_light_speed(picks, **kwargs):
+        curvature = real_fit_curvature(picks, **kwargs)
+        wrong = dataclasses.replace(curvature.fit, v_m_per_ns=0.25)
+        return dataclasses.replace(curvature, fit=wrong)
+
+    monkeypatch.setattr(script, "fit_curvature", fit_at_quarter_light_speed)
+    candidate = _run_one(script, radargram, trace, sample, apex_qc=True)
+    assert (candidate.qc.curvature.verdict, candidate.qc.curvature.reason) == (
+        "out",
+        "r_above",
+    )
+    _assert_same_depth_result(candidate.result, reference.result)
+    assert candidate.depth("detected") == reference.depth("detected")
+
+
+def test_c13_fit_curvature_is_called_only_in_curvature_qc() -> None:
+    tree = ast.parse(SCRIPT_PATH.read_text(encoding="utf-8"))
+    callers = []
+    for function in ast.walk(tree):
+        if not isinstance(function, ast.FunctionDef):
+            continue
+        for node in ast.walk(function):
+            if isinstance(node, ast.Call) and _called_name(node) == "fit_curvature":
+                callers.append(function.name)
+    assert callers == ["curvature_qc"]
+    module_level_calls = [
+        node
+        for statement in tree.body
+        if not isinstance(statement, ast.FunctionDef | ast.ClassDef)
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Call) and _called_name(node) == "fit_curvature"
+    ]
+    assert module_level_calls == []
+
+
+def _called_name(call: ast.Call) -> str | None:
+    if isinstance(call.func, ast.Name):
+        return call.func.id
+    if isinstance(call.func, ast.Attribute):
+        return call.func.attr
+    return None
+
+
+CANDIDATE_CSV_COLUMNS = [
+    "activity_id",
+    "site",
+    "path",
+    "candidate_trace",
+    "candidate_sample",
+    "source",
+    "status",
+    "depth_top_m",
+    "depth_est_m",
+    "depth_act_m",
+    "label_est",
+    "label_act",
+    "eps_r_used",
+    "zero_rule",
+    "t_zero_ns",
+    "h_est_m",
+    "apex_trace",
+    "apex_sample",
+    "candidate_moved",
+    "eps_qc_lo",
+    "eps_qc_hi",
+    "flags",
+    "box_k0",
+    "search_k0",
+    "apex_minus_search_k0",
+    "qc_verdict",
+    "qc_reason",
+    "qc_r",
+    "qc_v_curv_m_per_ns",
+    "qc_sigma_v_rel",
+    "qc_inlier_frac",
+    "qc_n_picks",
+    "qc_n_left",
+    "qc_n_right",
+    "qc_aperture_m",
+    "record_end_margin_ns",
+    "apex_at_record_end",
+    "seam_score",
+    "seam_split",
+    "apex_on_trace_seam",
+    "qc_excluded",
+]
+"""Column order of the candidates csv (spec 8, v1.4)."""
+
+
+def test_c13_candidate_csv_columns_and_flags(script) -> None:
+    radargram, trace, sample = _seam_line("dead_trace", 3)
+    with_qc = _run_one(script, radargram, trace, sample)
+    row = script.candidate_row(with_qc, {})
+    assert list(row) == CANDIDATE_CSV_COLUMNS
+    assert row["seam_score"] == "inf"
+    assert row["apex_on_trace_seam"] is True and row["qc_excluded"] is True
+    assert row["flags"].split()[-1] == "apex_on_trace_seam"
+    without_qc = _run_one(script, radargram, trace, sample, apex_qc=False)
+    row = script.candidate_row(without_qc, {})
+    assert list(row) == CANDIDATE_CSV_COLUMNS
+    assert all(row[column] == "" for column in CANDIDATE_CSV_COLUMNS[25:])
+    assert "apex_on_trace_seam" not in row["flags"].split()
+
+
+def test_c13f_qc_flags_follow_long_line(script) -> None:
+    radargram, trace, sample = _seam_line("dead_trace", 3)
+    candidate = _run_one(script, radargram, trace, sample)
+    lines = {(candidate.activity_id, candidate.path): {"length_m": 35.0}}
+    row = script.candidate_row(candidate, lines)
+    assert row["flags"].split()[-2:] == ["long_line", "apex_on_trace_seam"]
+
+
+def test_c13_cli_apex_qc_option(script) -> None:
+    assert script.parse_args([]).apex_qc == "on"
+    assert script.parse_args(["--apex-qc", "off"]).apex_qc == "off"
+    with pytest.raises(SystemExit) as raised:
+        script.parse_args(["--apex-qc", "maybe"])
+    assert raised.value.code == 2
+
+
+def _qc_candidate(script, path: str, depth: float, qc):
+    return dataclasses.replace(_candidate(script, "01.1", path, depth), qc=qc)
+
+
+def _c13_candidates(script) -> list:
+    """01.1 on 3 lines: pipe at 1.10 m on all, a stray 0.80 m (out) on L1, L2."""
+    return [
+        _qc_candidate(script, "L1", 1.10, _qc(script, "in")),
+        _qc_candidate(script, "L2", 1.11, _qc(script, "unknown")),
+        _qc_candidate(script, "L3", 1.12, _qc(script, "in")),
+        _qc_candidate(script, "L1", 0.80, _qc(script, "out")),
+        _qc_candidate(script, "L2", 0.81, _qc(script, "out")),
+    ]
+
+
+METRIC_COLUMNS = ("n_est", "n_pairs", "mae_m", "pass_a", "pass_b", "false_est")
+
+
+def test_c13_apex_qc_off_restores_the_v131_main_result(script) -> None:
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    candidates = _c13_candidates(script)
+    lines = {"01.1": 3}
+    on = script.evaluate_combinations(candidates, gt_sets, lines, _args())
+    off = script.evaluate_combinations(candidates, gt_sets, lines, _args(apex_qc="off"))
+    assert "noqc" in {row["variant"] for row in on.summary_rows}
+    assert "noqc" not in {row["variant"] for row in off.summary_rows}
+    assert "noqc" not in {row["variant"] for row in off.match_rows}
+    on_main = _main_rows(on.summary_rows)["exclude_x"]
+    off_main = _main_rows(off.summary_rows)["exclude_x"]
+    (on_noqc,) = [
+        row
+        for row in on.summary_rows
+        if (row["scope"], row["gt_set"], row["assumption"], row["zero_variant"])
+        == ("all", "exclude_x", "top", "detected")
+        and row["variant"] == "noqc"
+    ]
+    assert on_main["n_est"] == 1 and off_main["n_est"] == 2
+    for column in METRIC_COLUMNS:
+        assert off_main[column] == on_noqc[column], column
+
+
+def test_c13_md_qc_diagnostic_lines(script) -> None:
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    candidates = _c13_candidates(script)
+    args = _args()
+    evaluation = script.evaluate_combinations(candidates, gt_sets, {"01.1": 3}, args)
+    lines = script._qc_diagnostic_lines(candidates, evaluation, args)
+    assert _line_starting_with(lines, "- `ok` 후보 5개").endswith(
+        "in 2 / out 2 / unknown 1"
+    )
+    reasons = _line_starting_with(lines, "- 사유")
+    assert "out `r_above` 2" in reasons
+    assert "unknown `insufficient_picks` 1" in reasons
+    assert "2/5" in _line_starting_with(lines, "- `qc_excluded`")
+    assert _line_starting_with(lines, "  - 전체 활동").endswith(
+        "1개: main 1 / noqc 2 / 차 -1"
+    )
+    assert _line_starting_with(lines, "  - 정답 활동").endswith(
+        "1개: main 1 / noqc 2 / 차 -1"
+    )
+    assert script.PREREGISTERED_QC_NOTE in _line_starting_with(lines, "- 사전 등록")
+    off_lines = script._qc_diagnostic_lines(
+        candidates, evaluation, _args(apex_qc="off")
+    )
+    assert any("apex_qc=off" in line for line in off_lines)
+
+
+def _c16_candidates(script) -> list:
+    """Four ``ok`` candidates (in / out / two unknown) and one ``fit_failed``."""
+
+    def with_curvature(depth: float, verdict: str, reason: str, r: float | None):
+        curvature = script.CurvatureQc(script.QcVerdict(verdict), reason, r=r)
+        qc = dataclasses.replace(_qc(script), curvature=curvature)
+        return _qc_candidate(script, "L1", depth, qc)
+
+    failed = with_curvature(0.90, "out", "r_below", 0.5)
+    return [
+        with_curvature(1.00, "in", "", 1.0),
+        with_curvature(1.01, "out", "r_above", 1.7),
+        with_curvature(1.02, "unknown", "unstable", 5.0),
+        with_curvature(1.03, "unknown", "insufficient_picks", None),
+        dataclasses.replace(failed, result=DepthResult(status=DepthStatus.FIT_FAILED)),
+    ]
+
+
+def test_c16_md_qc_lines_count_ok_candidates_and_known_verdict_ratios(
+    script,
+) -> None:
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    candidates = _c16_candidates(script)
+    args = _args()
+    evaluation = script.evaluate_combinations(candidates, gt_sets, {"01.1": 3}, args)
+    lines = script._qc_diagnostic_lines(candidates, evaluation, args)
+    assert _line_starting_with(lines, "- `ok` 후보 4개").endswith(
+        "in 1 / out 1 / unknown 2"
+    )
+    ratio_line = _line_starting_with(lines, "- 알려진 r")
+    assert ratio_line.startswith("- 알려진 r 2개")
+    assert ratio_line.endswith("[1.0, 1.07, 1.35, 1.63, 1.7]")
+
+
+def test_c14_a_different_box_or_apex_raises(script) -> None:
+    spec = _straight_ray_spec(9.0, 0.5)
+    radargram = _radargram(spec)
+    trace, sample = _true_apex(spec)
+    candidate = _run_one(script, radargram, trace, sample)
+    inputs = prepare_depth_inputs(radargram)
+    box = script.candidate_box(
+        radargram, trace, sample, sample * QC_DT_NS - inputs.zero.t_zero_ns
+    )
+    hint = script.ApexHint(trace=trace, sample=sample)
+    other_apex = dataclasses.replace(
+        candidate.result, apex_trace=candidate.result.apex_trace + 1
+    )
+    with pytest.raises(RuntimeError):
+        script.curvature_qc(radargram, box, inputs, hint, other_apex)
+    # Box starting 5 traces right of the apex: even widened it misses trace 199.
+    shifted_box = dataclasses.replace(box, i0=trace + 5)
+    with pytest.raises(RuntimeError):
+        script.curvature_qc(radargram, shifted_box, inputs, hint, candidate.result)

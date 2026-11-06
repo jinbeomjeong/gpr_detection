@@ -12,7 +12,9 @@ Variants reported (spec 5):
 * assumption: ``top`` (gt = ``depth_m``) or ``center`` (gt = ``depth_m - R``)
 * zero_variant: ``detected`` (main), ``est`` / ``act`` (metadata zeros)
 * variant: ``main`` (clusters seen on >= 2 parallel lines), ``a`` (clusters,
-  no support filter), ``b`` (every candidate depth, no clustering)
+  no support filter), ``b`` (every candidate depth, no clustering); these three
+  drop the candidates excluded by the apex-candidate QC (3-5, v1.4) before
+  clustering. ``noqc`` is ``main`` without the QC (the v1.3.1 main result).
 * gt_set: ``exclude_x`` (main, code X dropped) or ``include_x``; both come
   from the same run and differ only in the matching step
 
@@ -35,15 +37,33 @@ import time
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from scipy.optimize import linear_sum_assignment
 
-from gpr_detection.depth.config import DepthConfig
-from gpr_detection.depth.estimate import estimate_depth, prepare_depth_inputs
-from gpr_detection.depth.picks import ApexHint, mute_sample
+from gpr_detection.depth.config import DEFAULT_DEPTH_CONFIG, DepthConfig
+from gpr_detection.depth.estimate import (
+    DepthInputs,
+    estimate_depth,
+    prepare_depth_inputs,
+)
+from gpr_detection.depth.hyperbola import (
+    V_MAX_M_PER_NS,
+    V_MIN_M_PER_NS,
+    CurvatureFit,
+    FitStatus,
+    HyperbolaFit,
+    fit_curvature,
+)
+from gpr_detection.depth.picks import (
+    ApexHint,
+    HyperbolaPicks,
+    extract_picks,
+    mute_sample,
+)
 from gpr_detection.depth.result import DepthResult, DepthStatus
 from gpr_detection.io.fourtu import (
     FourTUTable,
@@ -104,14 +124,81 @@ SITE_11_DIAGNOSTIC_EPS = 8.0
 ZERO_VARIANTS = ("detected", "est", "act")
 META_ZERO_KEYS = {"est": "t0_sample_est", "act": "t0_sample_act_median"}
 ASSUMPTIONS = ("top", "center")
-VARIANTS = ("main", "a", "b")
+VARIANTS = ("main", "a", "b", "noqc")
+"""``noqc`` (v1.4): ``main`` without the apex-candidate QC (``--apex-qc on`` only)."""
+NO_QC_VARIANT = "noqc"
 CODE_NOT_A_PIPE = "X"
 SITE11_VARIANTS = ("main_path", "unclustered")
 """Site 11 diagnostic: clustered + support filter, or every candidate."""
 ORDER_MATCH_COLUMN = "정답표와 순서 일치"
 ORDER_MATCH_YES = "예"
 BASELINE_TRIALS_AUX = 200
-"""Trials for the auxiliary variants (a, b) and the global-range baseline (spec 6)."""
+"""Trials for the auxiliary variants (a, b, noqc) and the global-range baseline (6)."""
+
+# Apex-candidate QC (spec 3-5, v1.4). Values are locked in
+# docs/processing/m29c_qc_constants.json; they are not CLI options.
+QC_R_LO = 0.7
+QC_R_HI = 1.6
+QC_R_TOL = 1e-12
+"""Curvature ratio band ``0.7 - tol <= r <= 1.6 + tol`` is ``in`` (3-5-2)."""
+QC_UNSTABLE_SIGMA_REL = 0.15
+QC_UNSTABLE_INLIER = 0.5
+"""``unstable`` when ``inlier_frac < 0.5`` or ``sigma_v / v_m > 0.15``."""
+QC_BOUND_REL = 1e-4  # spec_depth 6-3 boundary rule
+QC_RADIUS_M = 0.0
+"""The QC fit uses R = 0: the pipe radius of a candidate is unknown (3-5-2)."""
+RECORD_END_PERIODS = 2.5
+RECORD_END_TOL_NS = 1e-9
+"""``apex_at_record_end`` when less than 2.5 / f_c - 1e-9 ns is left below (3-5-3)."""
+SEAM_TIME_PERIODS = 0.1
+SEAM_AMP_RATIO = 1.25
+SEAM_NOISE_K = 5.0
+"""Seam score limits: ``max(0.1 / f_c, 5 sigma)`` and ``max(ln 1.25, 5 sigma)``."""
+SEAM_ZERO_HALF_PERIODS = 1.0
+SEAM_LAG_HALF_PERIODS = 0.5
+"""Zero-band window ``t_z +- 1 / f_c``; lags within ``+- 0.5 / f_c`` (3-5-4)."""
+SEAM_REF_HALF_M = BOX_HALF_WIDTH_M
+SEAM_APEX_HALF_M = 0.10
+"""Noise reference over +-0.8 m of splits; seams within +-0.10 m of the apex."""
+SEAM_SCORE_LIMIT = 1.0
+"""A split with ``s_j >= 1`` is a seam (3-5-4 item 6)."""
+QC_FLAG_OUT = "curvature_v_out"
+QC_FLAG_UNKNOWN = "curvature_v_unknown"
+FLAG_RECORD_END = "apex_at_record_end"
+FLAG_SEAM = "apex_on_trace_seam"
+MAD_TO_SIGMA = 1.4826
+TRACE_COUNT_TOL = 1e-9
+"""Trace counts ``ceil(half / dx - 1e-9)``: a quotient a hair above an integer
+must not add a trace (same guard as ``candidate_box``)."""
+QC_R_QUANTILES_PERCENT = (0, 10, 50, 90, 100)
+"""Quantiles of the known curvature ratios in md section 8 (spec 8)."""
+PREREGISTERED_QC_NOTE = (
+    '"QC(B+D)는 후보 단위로 묶기 전에 적용한다. 곡률 v를 구할 수 없는 후보'
+    "(검토 표본에서 약 절반)는 주 결과에 남는다. 수동 검토 라벨로 센 추정으로는 "
+    "자동 후보 정밀도가 약 10.8 %에서 약 15 %로 오른다(목표가 아니라 추정). "
+    "QC는 추정 수를 줄이므로, 추정 수를 같게 맞춘 무작위 기준선도 함께 바뀐다"
+    '(설계상 성질)." QC 없는 결과(`noqc`)를 보조로 함께 보고한다.'
+)
+"""Pre-registration text of spec section 11 item 3, quoted verbatim in md section 8."""
+QC_COLUMNS = (
+    "qc_verdict",
+    "qc_reason",
+    "qc_r",
+    "qc_v_curv_m_per_ns",
+    "qc_sigma_v_rel",
+    "qc_inlier_frac",
+    "qc_n_picks",
+    "qc_n_left",
+    "qc_n_right",
+    "qc_aperture_m",
+    "record_end_margin_ns",
+    "apex_at_record_end",
+    "seam_score",
+    "seam_split",
+    "apex_on_trace_seam",
+    "qc_excluded",
+)
+"""QC columns of the candidates csv, after ``apex_minus_search_k0`` (spec 8)."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -134,6 +221,82 @@ class GtItem:
         return self.depth_m if assumption == "top" else self.depth_m - self.radius_m
 
 
+class QcVerdict(StrEnum):
+    """Curvature QC verdict of one candidate (spec 3-5-2)."""
+
+    IN = "in"
+    OUT = "out"
+    UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True)
+class CurvatureQc:
+    """Curvature QC of one candidate (rule B, spec 3-5-2).
+
+    There is no depth field on purpose (3-5-6): the QC fit never feeds a depth.
+
+    Attributes:
+        verdict: ``in``, ``out`` or ``unknown``.
+        reason: ``""`` for ``in``; ``r_below``, ``r_above``, ``v_at_upper_bound``,
+            ``v_at_lower_bound`` for ``out``; ``no_box``, ``no_apex``,
+            ``insufficient_picks``, ``fit_failed``, ``unstable`` for ``unknown``.
+        r: ``v_curv / v_m``; ``None`` without a converged fit.
+        v_curv_m_per_ns: R = 0 straight-ray curvature velocity (QC only).
+        sigma_v_rel: ``sigma_v / v_m``; ``None`` when not finite.
+        inlier_frac: Inlier fraction of the QC fit.
+        n_picks, n_left, n_right: Pick counts of the depth path's picks.
+        aperture_m: ``max |x - x_apex|`` over the picks.
+    """
+
+    verdict: QcVerdict
+    reason: str
+    r: float | None = None
+    v_curv_m_per_ns: float | None = None
+    sigma_v_rel: float | None = None
+    inlier_frac: float | None = None
+    n_picks: int = 0
+    n_left: int = 0
+    n_right: int = 0
+    aperture_m: float | None = None
+
+
+@dataclass(frozen=True)
+class CandidateQc:
+    """Apex-candidate QC: curvature (B), record end and trace seam (D), spec 3-5."""
+
+    curvature: CurvatureQc
+    record_end_margin_ns: float
+    at_record_end: bool
+    seam_score: float | None
+    """Largest seam score near the apex; ``None`` without a zero."""
+    seam_split: int | None
+    """Split ``j`` (between traces ``j - 1`` and ``j``) of ``seam_score``."""
+    on_trace_seam: bool
+
+    @property
+    def excluded(self) -> bool:
+        """Dropped from the main result before clustering (3-5-5 item 1)."""
+        return (
+            self.curvature.verdict == QcVerdict.OUT
+            or self.at_record_end
+            or self.on_trace_seam
+        )
+
+    @property
+    def flags(self) -> tuple[str, ...]:
+        """QC flags for the candidates csv: curvature, record end, seam."""
+        flags = []
+        if self.curvature.verdict == QcVerdict.OUT:
+            flags.append(QC_FLAG_OUT)
+        elif self.curvature.verdict == QcVerdict.UNKNOWN:
+            flags.append(QC_FLAG_UNKNOWN)
+        if self.at_record_end:
+            flags.append(FLAG_RECORD_END)
+        if self.on_trace_seam:
+            flags.append(FLAG_SEAM)
+        return tuple(flags)
+
+
 @dataclass(frozen=True)
 class CandidateResult:
     """One candidate and its ``estimate_depth`` result (spec 4-2)."""
@@ -149,9 +312,11 @@ class CandidateResult:
     """Top of the (widened) box; ``None`` without a box."""
     search_k0: int | None = None
     """Search top ``k_top``: the later of ``box_k0`` and the mute (5-7 item 2)."""
+    qc: CandidateQc | None = None
+    """Apex-candidate QC (3-5); ``None`` with ``--apex-qc off``."""
 
     def depth(self, zero_variant: str) -> float | None:
-        """Pipe-top depth for the detected zero or a metadata zero."""
+        """Pipe-top depth for the detected zero or a metadata zero (never reads qc)."""
         if self.result.status != "ok":
             return None
         if zero_variant == "detected":
@@ -259,47 +424,442 @@ def _search_top(radargram: Radargram, box: GridBox, zero: ZeroResult) -> int:
     return max(box.k0, mute_sample(zero.t_zero_ns, period_ns, radargram.dt_ns))
 
 
-def run_line(radargram: Radargram, candidates: pd.DataFrame) -> list[CandidateResult]:
+# ----------------------------------------------------------------- apex candidate QC
+# (spec 3-5, v1.4)
+#
+# The QC only decides whether a candidate enters the main result. Its curvature
+# fit never reaches a depth, an uncertainty or a ``DepthResult`` (3-5-6).
+
+
+def _traces_within(half_width_m: float, dx_m: float) -> int:
+    """``ceil(half_width / dx)`` without the float quotient's spurious extra trace."""
+    return math.ceil(half_width_m / dx_m - TRACE_COUNT_TOL)
+
+
+def classify_ratio(r: float) -> QcVerdict:
+    """Rows 9-11 of the 3-5-2 table: ``in`` inside ``[0.7, 1.6]`` (+-1e-12).
+
+    Raises:
+        ValueError: ``r`` is NaN or infinite.
+    """
+    if not math.isfinite(r):
+        raise ValueError(f"curvature ratio must be finite, got {r}")
+    if QC_R_LO - QC_R_TOL <= r <= QC_R_HI + QC_R_TOL:
+        return QcVerdict.IN
+    return QcVerdict.OUT
+
+
+def _near_bound(value: float, low: float, high: float) -> bool:
+    """Within ``QC_BOUND_REL`` of the range from either bound, or outside it."""
+    return min(value - low, high - value) <= QC_BOUND_REL * (high - low)
+
+
+def _fit_verdict(
+    fit: HyperbolaFit, picks: HyperbolaPicks, v_meta: float
+) -> tuple[QcVerdict, str]:
+    """Rows 5-11 of the 3-5-2 table for a converged fit (first matching row wins).
+
+    The velocity-bound rows (6, 7) come before the stability row (8): a flat
+    event fits no hyperbola well, so its inlier fraction is low, yet the bound
+    already says it lies outside the band.
+    """
+    x_m, tau_ns = picks.x_m, picks.tau_ns
+    if _near_bound(fit.x0_m, float(x_m.min()), float(x_m.max())) or _near_bound(
+        fit.t0_ns, 0.0, float(tau_ns.max())
+    ):
+        return QcVerdict.UNKNOWN, "fit_failed"
+    v_bound_margin = QC_BOUND_REL * (V_MAX_M_PER_NS - V_MIN_M_PER_NS)
+    if V_MAX_M_PER_NS - fit.v_m_per_ns <= v_bound_margin:
+        return QcVerdict.OUT, "v_at_upper_bound"
+    if fit.v_m_per_ns - V_MIN_M_PER_NS <= v_bound_margin:
+        return QcVerdict.OUT, "v_at_lower_bound"
+    is_unstable = (
+        fit.inlier_frac < QC_UNSTABLE_INLIER
+        or not math.isfinite(fit.sigma_v)
+        or fit.sigma_v / v_meta > QC_UNSTABLE_SIGMA_REL
+    )
+    if is_unstable:
+        return QcVerdict.UNKNOWN, "unstable"
+    r = fit.v_m_per_ns / v_meta
+    if classify_ratio(r) == QcVerdict.IN:
+        return QcVerdict.IN, ""
+    return QcVerdict.OUT, "r_below" if r < QC_R_LO - QC_R_TOL else "r_above"
+
+
+def classify_curvature(
+    curvature: CurvatureFit, picks: HyperbolaPicks, v_meta: float
+) -> CurvatureQc:
+    """Curvature verdict from a QC fit (rows 2-11 of the 3-5-2 table, pure).
+
+    Args:
+        curvature: ``fit_curvature`` result of the QC (R = 0, ``"ground"``).
+        picks: The picks that were fitted (the depth path's picks).
+        v_meta: Metadata velocity ``v_m`` in m/ns.
+    """
+    counts = {
+        "n_picks": picks.n_picks,
+        "n_left": picks.n_left,
+        "n_right": picks.n_right,
+    }
+    if picks.apex is None:
+        return CurvatureQc(QcVerdict.UNKNOWN, "no_apex", **counts)
+    if curvature.status == FitStatus.INSUFFICIENT_PICKS:
+        return CurvatureQc(QcVerdict.UNKNOWN, "insufficient_picks", **counts)
+    fit = curvature.fit
+    if fit is None or not fit.converged:
+        return CurvatureQc(QcVerdict.UNKNOWN, "fit_failed", **counts)
+    verdict, reason = _fit_verdict(fit, picks, v_meta)
+    sigma_v_rel = fit.sigma_v / v_meta
+    return CurvatureQc(
+        verdict,
+        reason,
+        r=fit.v_m_per_ns / v_meta,
+        v_curv_m_per_ns=fit.v_m_per_ns,
+        sigma_v_rel=sigma_v_rel if math.isfinite(sigma_v_rel) else None,
+        inlier_frac=fit.inlier_frac,
+        aperture_m=float(np.max(np.abs(picks.x_m - picks.apex_x_m))),
+        **counts,
+    )
+
+
+def _check_same_apex(picks: HyperbolaPicks, result: DepthResult) -> None:
+    """The QC must see the depth path's apex (3-5-2 picks); else the contract broke."""
+    if picks.apex is None:
+        return
+    qc_apex = (picks.apex.trace, picks.apex.k)
+    depth_apex = (result.apex_trace, result.apex_sample)
+    if qc_apex != depth_apex:
+        raise RuntimeError(
+            f"QC picks apex {qc_apex} differs from the depth result apex {depth_apex}"
+        )
+
+
+def _qc_meta_velocity(radargram: Radargram, result: DepthResult) -> float:
+    """``v_m = c / sqrt(eps_r_used)``; the metadata eps_r when the depth has none."""
+    eps_r = result.eps_r_used if result.eps_r_used is not None else radargram.eps_r_meta
+    assert eps_r is not None, "candidate_box already needs eps_r_meta"
+    return velocity_from_eps(eps_r)
+
+
+def curvature_qc(
+    radargram: Radargram,
+    box: GridBox,
+    inputs: DepthInputs,
+    hint: ApexHint,
+    result: DepthResult,
+    config: DepthConfig = DEFAULT_DEPTH_CONFIG,
+) -> CurvatureQc:
+    """Curvature QC of one candidate after its depth (rule B, spec 3-5-2).
+
+    Re-extracts the picks with exactly the arguments ``estimate_depth`` used
+    (the code is deterministic, so they are the depth path's picks) and fits
+    ``R = 0`` with the ``"ground"`` label. The radargram is not changed and the
+    fit result goes nowhere but the verdict (3-5-6).
+
+    Raises:
+        RuntimeError: The picks' apex differs from ``result``'s apex.
+    """
+    picks = extract_picks(
+        inputs.branch.background_removed,
+        box,
+        inputs.zero,
+        dt_ns=radargram.dt_ns,
+        dx_m=radargram.dx_m,
+        f_c_hz=radargram.f_c_hz,
+        config=config,
+        apex_hint=hint,
+        period_px=inputs.branch.period_px,
+    )
+    _check_same_apex(picks, result)
+    if picks.apex is not None and inputs.zero.t_zero_ns is None:
+        # Not reachable for 4TU candidates (no zero means no tau_ns, so no box);
+        # without a zero the picks have no time axis to fit.
+        return CurvatureQc(
+            QcVerdict.UNKNOWN,
+            "fit_failed",
+            n_picks=picks.n_picks,
+            n_left=picks.n_left,
+            n_right=picks.n_right,
+        )
+    v_meta = _qc_meta_velocity(radargram, result)
+    curvature = fit_curvature(
+        picks,
+        radius_m=QC_RADIUS_M,
+        air_gap="ground",  # QC-only label; the depth path stays meta_fixed
+        v_fallback=v_meta,
+        config=config,
+    )
+    return classify_curvature(curvature, picks, v_meta)
+
+
+def record_end_margin_ns(sample: float, n_samples: int, dt_ns: float) -> float:
+    """Time left from the candidate sample to the last sample, ``(N - 1 - k) dt``."""
+    return (n_samples - 1 - sample) * dt_ns
+
+
+def apex_at_record_end(
+    sample: float, n_samples: int, dt_ns: float, f_c_hz: float
+) -> bool:
+    """Rule D record end (3-5-3): less than ``2.5 / f_c`` left below the candidate."""
+    end_zone_ns = RECORD_END_PERIODS * 1e9 / f_c_hz
+    margin_ns = record_end_margin_ns(sample, n_samples, dt_ns)
+    return margin_ns < end_zone_ns - RECORD_END_TOL_NS
+
+
+def _zero_band_window(
+    t_zero_ns: float, dt_ns: float, period_ns: float, n_samples: int, max_lag: int
+) -> tuple[int, int]:
+    """Samples ``[k0, k1]`` of ``t_z +- 1 / f_c``, ``max_lag`` inside the record."""
+    half_ns = SEAM_ZERO_HALF_PERIODS * period_ns
+    k0 = math.floor((t_zero_ns - half_ns) / dt_ns)
+    k1 = math.ceil((t_zero_ns + half_ns) / dt_ns)
+    return max(max_lag, k0), min(n_samples - 1 - max_lag, k1)
+
+
+def _parabolic_offsets(correlations: np.ndarray, best: np.ndarray) -> np.ndarray:
+    """Sub-lag offset of each trace's maximum: inner and concave peaks only."""
+    n_traces = correlations.shape[1]
+    offsets = np.zeros(n_traces)
+    columns = np.nonzero((best > 0) & (best < correlations.shape[0] - 1))[0]
+    before = correlations[best[columns] - 1, columns]
+    peak = correlations[best[columns], columns]
+    after = correlations[best[columns] + 1, columns]
+    curvature = before - 2 * peak + after
+    is_concave = curvature < 0
+    offsets[columns[is_concave]] = (
+        0.5 * (before[is_concave] - after[is_concave]) / curvature[is_concave]
+    )
+    return offsets
+
+
+def zero_band_track(
+    filtered: np.ndarray, t_zero_ns: float, dt_ns: float, f_c_hz: float
+) -> tuple[np.ndarray, np.ndarray] | None:
+    """Per-trace zero-band lag (ns) and amplitude (3-5-4 items 1-3).
+
+    The template is the per-sample median of all traces in ``t_z +- 1 / f_c``;
+    every trace is cross-correlated with it over lags within ``+- 0.5 / f_c``.
+    A template without energy (no zero band, v1.4.1) gives no reference event,
+    so there is no track: zero amplitudes would make every split an ``inf`` seam.
+
+    Args:
+        filtered: Fitting-branch ``filtered`` section (signed, before the
+            background removal) ``[n_samples, n_traces]``.
+        t_zero_ns: Detected zero of the line.
+        dt_ns: Sample interval.
+        f_c_hz: Centre frequency.
+
+    Returns:
+        ``(lag_ns, amplitude)``: ``lag * dt`` with parabolic refinement and
+        ``|c(lag*)| / sum(w^2)`` per trace. ``None`` when ``sum(w^2)`` is 0.
+    """
+    period_ns = 1e9 / f_c_hz
+    data = np.asarray(filtered, dtype=float)
+    max_lag = math.ceil(SEAM_LAG_HALF_PERIODS * period_ns / dt_ns)
+    k0, k1 = _zero_band_window(t_zero_ns, dt_ns, period_ns, data.shape[0], max_lag)
+    template = np.median(data[k0 : k1 + 1], axis=1)
+    template_energy = float(template @ template)
+    if template_energy <= 0:
+        return None
+    lags = np.arange(-max_lag, max_lag + 1)
+    correlations = np.empty((len(lags), data.shape[1]))
+    for row, lag in enumerate(lags):
+        correlations[row] = template @ data[k0 + lag : k1 + 1 + lag]
+    best = np.argmax(correlations, axis=0)
+    lag_ns = (lags[best] + _parabolic_offsets(correlations, best)) * dt_ns
+    peak = correlations[best, np.arange(data.shape[1])]
+    return lag_ns, np.abs(peak / template_energy)
+
+
+def _robust_sigma(values: np.ndarray) -> float:
+    """``1.4826 MAD`` of the finite values; 0 when there are none."""
+    finite = values[np.isfinite(values)]
+    if finite.size == 0:
+        return 0.0
+    return MAD_TO_SIGMA * float(np.median(np.abs(finite - np.median(finite))))
+
+
+def _without_split(jumps: np.ndarray, split_index: int, half: int) -> np.ndarray:
+    """Jumps of the splits ``1 <= |m - j| <= half`` around ``split_index``."""
+    low, high = max(0, split_index - half), min(len(jumps), split_index + half + 1)
+    return np.concatenate([jumps[low:split_index], jumps[split_index + 1 : high]])
+
+
+def seam_scores(
+    lag_ns: np.ndarray, amplitude: np.ndarray, f_c_hz: float, dx_m: float
+) -> np.ndarray:
+    """Seam score ``s_j`` per split between traces ``j - 1`` and ``j`` (3-5-4, pure).
+
+    Returns:
+        Array of ``n_traces - 1`` scores; index ``j - 1`` is split ``j``.
+        ``s_j >= 1`` is a seam; a zero amplitude gives ``inf``.
+    """
+    with np.errstate(divide="ignore", invalid="ignore"):
+        gain_jumps = np.diff(np.log(amplitude))
+    gain_jumps[~np.isfinite(gain_jumps)] = np.inf
+    lag_jumps = np.diff(lag_ns)
+    time_floor_ns = SEAM_TIME_PERIODS * 1e9 / f_c_hz
+    gain_floor = math.log(SEAM_AMP_RATIO)
+    reference_half = _traces_within(SEAM_REF_HALF_M, dx_m)
+    scores = np.empty(len(lag_jumps))
+    for index in range(len(lag_jumps)):
+        lag_noise = _robust_sigma(_without_split(lag_jumps, index, reference_half))
+        gain_noise = _robust_sigma(_without_split(gain_jumps, index, reference_half))
+        lag_limit = max(time_floor_ns, SEAM_NOISE_K * lag_noise)
+        gain_limit = max(gain_floor, SEAM_NOISE_K * gain_noise)
+        scores[index] = max(
+            abs(lag_jumps[index]) / lag_limit, abs(gain_jumps[index]) / gain_limit
+        )
+    return scores
+
+
+def seam_near(
+    scores: np.ndarray, trace: int, dx_m: float
+) -> tuple[float | None, int | None]:
+    """Largest ``s_j`` with ``trace - J <= j - 1 and j <= trace + J`` (3-5-4 item 7).
+
+    Returns:
+        ``(score, j)``; ``(None, None)`` when no split is in range. Ties keep
+        the first (shallowest-index) split.
+    """
+    half = _traces_within(SEAM_APEX_HALF_M, dx_m)
+    best_score, best_split = None, None
+    for split in range(max(1, trace - half + 1), min(len(scores), trace + half) + 1):
+        score = float(scores[split - 1])
+        if math.isnan(score):
+            continue
+        if best_score is None or score > best_score:
+            best_score, best_split = score, split
+    return best_score, best_split
+
+
+def _line_seam_scores(radargram: Radargram, inputs: DepthInputs) -> np.ndarray | None:
+    """Seam scores of one line (3-5-4).
+
+    ``None`` (no seam rule on the line) without a zero or without zero-band
+    energy (v1.4.1).
+    """
+    t_zero_ns = inputs.zero.t_zero_ns
+    if t_zero_ns is None or radargram.dt_ns is None or radargram.dx_m is None:
+        return None
+    assert radargram.f_c_hz is not None
+    track = zero_band_track(
+        inputs.branch.filtered, t_zero_ns, radargram.dt_ns, radargram.f_c_hz
+    )
+    if track is None:
+        return None
+    lag_ns, amplitude = track
+    return seam_scores(lag_ns, amplitude, radargram.f_c_hz, radargram.dx_m)
+
+
+def candidate_qc(
+    radargram: Radargram,
+    inputs: DepthInputs,
+    candidate_row: object,
+    box: GridBox | None,
+    result: DepthResult,
+    seam_scores_line: np.ndarray | None,
+) -> CandidateQc:
+    """Rules B and D for one candidate (spec 3-5-2 to 3-5-4).
+
+    Args:
+        radargram: The line.
+        inputs: Its ``prepare_depth_inputs`` result (the one ``result`` used).
+        candidate_row: Candidate csv row with ``trace`` and ``sample``.
+        box: The candidate box; ``None`` without ``tau_ns`` (curvature ``no_box``).
+        result: The candidate's ``DepthResult`` (read only).
+        seam_scores_line: :func:`seam_scores` of the line, ``None`` without a zero.
+    """
+    assert radargram.dt_ns is not None and radargram.dx_m is not None
+    assert radargram.f_c_hz is not None
+    trace, sample = round(float(candidate_row.trace)), float(candidate_row.sample)
+    if box is None:
+        curvature = CurvatureQc(QcVerdict.UNKNOWN, "no_box")
+    else:
+        hint = ApexHint(trace=trace, sample=sample)
+        curvature = curvature_qc(radargram, box, inputs, hint, result)
+    seam_score, seam_split = (
+        (None, None)
+        if seam_scores_line is None
+        else seam_near(seam_scores_line, trace, radargram.dx_m)
+    )
+    return CandidateQc(
+        curvature=curvature,
+        record_end_margin_ns=record_end_margin_ns(
+            sample, radargram.n_samples, radargram.dt_ns
+        ),
+        at_record_end=apex_at_record_end(
+            sample, radargram.n_samples, radargram.dt_ns, radargram.f_c_hz
+        ),
+        seam_score=seam_score,
+        seam_split=seam_split,
+        on_trace_seam=seam_score is not None and seam_score >= SEAM_SCORE_LIMIT,
+    )
+
+
+# ----------------------------------------------------------------- depth per candidate
+
+
+def _run_candidate(
+    radargram: Radargram,
+    inputs: DepthInputs,
+    candidate: object,
+    seam_scores_line: np.ndarray | None,
+    apex_qc: bool,
+) -> CandidateResult:
+    """``estimate_depth`` for one candidate, then (optionally) its QC."""
+    config = DepthConfig()
+    activity_id, path = radargram.line_id.split("/", 1)
+    trace, sample = round(float(candidate.trace)), float(candidate.sample)
+    tau_ns = float(candidate.tau_ns)
+    box = None
+    if math.isnan(tau_ns):
+        result = DepthResult(
+            status=DepthStatus.ZERO_FAILED, flags=("candidate_tau_missing",)
+        )
+    else:
+        box = candidate_box(radargram, trace, sample, tau_ns)
+        hint = ApexHint(trace=trace, sample=sample)
+        result = estimate_depth(radargram, box, config, inputs=inputs, apex_hint=hint)
+    # The QC runs only after the DepthResult exists and never replaces it (3-5-6).
+    qc = (
+        candidate_qc(radargram, inputs, candidate, box, result, seam_scores_line)
+        if apex_qc
+        else None
+    )
+    return CandidateResult(
+        activity_id=activity_id,
+        path=path,
+        candidate_trace=trace,
+        candidate_sample=sample,
+        source=str(candidate.source),
+        result=result,
+        candidate_moved=_candidate_moved(radargram, trace, sample, result),
+        box_k0=None if box is None else box.k0,
+        search_k0=None if box is None else _search_top(radargram, box, inputs.zero),
+        qc=qc,
+    )
+
+
+def run_line(
+    radargram: Radargram, candidates: pd.DataFrame, *, apex_qc: bool = True
+) -> list[CandidateResult]:
     """One zero per line, ``estimate_depth`` per candidate, default settings (4-2).
 
     The candidate is passed as ``apex_hint`` (spec_depth_v1 5-7 item 1).
 
     A candidate without ``tau_ns`` (manual candidate on a line whose zero
     failed) gets no box and counts as ``zero_failed`` (spec v1.1).
+
+    With ``apex_qc`` every candidate also gets its QC (3-5); the zero-band seam
+    scores are computed once per line.
     """
-    config = DepthConfig()
-    inputs = prepare_depth_inputs(radargram, config)
-    activity_id, path = radargram.line_id.split("/", 1)
-    results = []
-    for candidate in candidates.itertuples(index=False):
-        trace, sample = round(float(candidate.trace)), float(candidate.sample)
-        tau_ns = float(candidate.tau_ns)
-        box_k0 = search_k0 = None
-        if math.isnan(tau_ns):
-            result = DepthResult(
-                status=DepthStatus.ZERO_FAILED, flags=("candidate_tau_missing",)
-            )
-        else:
-            box = candidate_box(radargram, trace, sample, tau_ns)
-            hint = ApexHint(trace=trace, sample=sample)
-            result = estimate_depth(
-                radargram, box, config, inputs=inputs, apex_hint=hint
-            )
-            box_k0, search_k0 = box.k0, _search_top(radargram, box, inputs.zero)
-        results.append(
-            CandidateResult(
-                activity_id=activity_id,
-                path=path,
-                candidate_trace=trace,
-                candidate_sample=sample,
-                source=str(candidate.source),
-                result=result,
-                candidate_moved=_candidate_moved(radargram, trace, sample, result),
-                box_k0=box_k0,
-                search_k0=search_k0,
-            )
-        )
-    return results
+    inputs = prepare_depth_inputs(radargram, DepthConfig())
+    seam_scores_line = _line_seam_scores(radargram, inputs) if apex_qc else None
+    return [
+        _run_candidate(radargram, inputs, candidate, seam_scores_line, apex_qc)
+        for candidate in candidates.itertuples(index=False)
+    ]
 
 
 # ----------------------------------------------------------------- ground truth
@@ -671,11 +1231,22 @@ def estimates_by_activity(
     width_m: float,
     linkage: str,
     min_lines: int,
+    apex_qc: bool = True,
 ) -> tuple[dict[str, list[float]], list[dict[str, object]]]:
-    """Per-activity estimates for one zero variant and variant (4-3)."""
+    """Per-activity estimates for one zero variant and variant (4-3, 3-5-5).
+
+    With ``apex_qc``, every variant but ``noqc`` drops the QC-excluded
+    candidates **before** clustering, so an excluded candidate never lends its
+    line to another candidate's support. Candidates without a ``qc`` attribute
+    (or ``qc`` ``None``) are kept. ``noqc`` then clusters and filters like
+    ``main``.
+    """
+    applies_qc = apex_qc and variant != NO_QC_VARIANT
     depths: dict[str, list[float]] = defaultdict(list)
     lines: dict[str, list[str]] = defaultdict(list)
     for candidate in candidates:
+        if applies_qc and _is_qc_excluded(candidate):
+            continue
         depth = candidate.depth(zero_variant)
         if depth is not None:
             depths[candidate.activity_id].append(depth)
@@ -690,9 +1261,8 @@ def estimates_by_activity(
             depths.get(activity, []), lines.get(activity, []), width_m, linkage
         )
         kept = supported(clusters, lines_per_activity[activity], min_lines)
-        estimates[activity] = [
-            c.depth_m for c in (kept if variant == "main" else clusters)
-        ]
+        uses_support = variant in ("main", NO_QC_VARIANT)
+        estimates[activity] = [c.depth_m for c in (kept if uses_support else clusters)]
         if variant == "main":
             for index, cluster in enumerate(clusters):
                 cluster_rows.append(
@@ -711,6 +1281,23 @@ def estimates_by_activity(
                     }
                 )
     return estimates, cluster_rows
+
+
+def _is_qc_excluded(candidate: object) -> bool:
+    qc = getattr(candidate, "qc", None)
+    return qc is not None and qc.excluded
+
+
+def apex_qc_enabled(args: argparse.Namespace) -> bool:
+    """``--apex-qc on`` (the default)."""
+    return args.apex_qc == "on"
+
+
+def variants_for(args: argparse.Namespace) -> tuple[str, ...]:
+    """Reported variants: ``noqc`` only exists when the QC runs (3-5-5 item 7)."""
+    if apex_qc_enabled(args):
+        return VARIANTS
+    return tuple(v for v in VARIANTS if v != NO_QC_VARIANT)
 
 
 @dataclass(frozen=True)
@@ -752,6 +1339,7 @@ def compare_with_single_linkage(
         width_m=args.cluster_width_m,
         linkage="single",
         min_lines=args.min_support_lines,
+        apex_qc=apex_qc_enabled(args),
     )
     return LinkageComparison(
         complete_counts={a: len(v) for a, v in complete_estimates.items()},
@@ -776,6 +1364,10 @@ class Evaluation:
     site11_summaries: dict[tuple[str, str, str], Summary] = field(default_factory=dict)
     multi_trench_activities: list[str] = field(default_factory=list)
     linkage_comparison: LinkageComparison | None = None
+    estimate_counts: dict[str, dict[str, int]] = field(default_factory=dict)
+    """Detected-zero estimate count per activity, keyed by ``main`` / ``noqc``."""
+    gt_activities: frozenset[str] = frozenset()
+    """Activities with ground truth in the main set (``exclude_x``)."""
 
 
 @dataclass(frozen=True)
@@ -847,7 +1439,7 @@ def baseline_trials_for(variant: str, args: argparse.Namespace) -> dict[str, int
     """Trials per baseline mode (spec 6, v1.1).
 
     Main variant: activity range ``--baseline-trials``, global range
-    ``--baseline-trials-aux``. Auxiliary variants: activity range
+    ``--baseline-trials-aux``. Auxiliary variants (a, b, noqc): activity range
     ``--baseline-trials-aux`` only.
     """
     if variant == "main":
@@ -865,9 +1457,9 @@ def evaluate_combinations(
 
     Depths and clusters do not depend on the gt set; only matching does.
     """
-    evaluation = Evaluation()
+    evaluation = Evaluation(gt_activities=frozenset(gt_sets["exclude_x"]))
     for zero_variant in ZERO_VARIANTS:
-        for variant in VARIANTS:
+        for variant in variants_for(args):
             estimates, cluster_rows = estimates_by_activity(
                 candidates,
                 zero_variant,
@@ -876,8 +1468,13 @@ def evaluate_combinations(
                 width_m=args.cluster_width_m,
                 linkage=args.cluster_linkage,
                 min_lines=args.min_support_lines,
+                apex_qc=apex_qc_enabled(args),
             )
             evaluation.cluster_rows.extend(cluster_rows)
+            if zero_variant == "detected" and variant in ("main", NO_QC_VARIANT):
+                evaluation.estimate_counts[variant] = {
+                    a: len(v) for a, v in estimates.items()
+                }
             if zero_variant == "detected" and variant == "main":
                 main_gt = gt_sets["exclude_x"]
                 evaluation.no_gt_counts = {
@@ -991,17 +1588,23 @@ def site11_estimates(
     width_m: float,
     linkage: str,
     min_lines: int,
+    apex_qc: bool = True,
 ) -> dict[str, list[Site11Estimate]]:
     """Site 11 estimates per activity: rescale first, then the 4-3 path.
 
     ``main_path`` clusters the rescaled depths and applies the support filter
     exactly like the main result; ``unclustered`` keeps every candidate.
+    With ``apex_qc`` both drop the QC-excluded candidates before rescaling
+    (3-5-5 item 8), so they see the candidate sets of ``main`` and ``b``. The
+    QC verdicts are the run's (metadata eps_r), never re-judged at eps_r 8.
     """
     scaled: dict[str, list[float]] = defaultdict(list)
     unscaled: dict[str, list[float]] = defaultdict(list)
     paths: dict[str, list[str]] = defaultdict(list)
     for candidate in candidates:
         if site_of_activity(candidate.activity_id) != SITE_LONG_DT:
+            continue
+        if apex_qc and _is_qc_excluded(candidate):
             continue
         depth_eps8 = _depth_at_eps8(candidate)
         depth = candidate.depth("detected")
@@ -1059,6 +1662,7 @@ def site11_diagnostic(
             width_m=args.cluster_width_m,
             linkage=args.cluster_linkage,
             min_lines=args.min_support_lines,
+            apex_qc=apex_qc_enabled(args),
         )
         for gt_set, ground_truth in gt_sets.items():
             for assumption in ASSUMPTIONS:
@@ -1112,6 +1716,8 @@ def candidate_row(
     flags = list(result.flags)
     if float(line.get("length_m", 0) or 0) >= LONG_LINE_M:
         flags.append("long_line")
+    if candidate.qc is not None:
+        flags.extend(candidate.qc.flags)  # only here, never in DepthResult.flags
     return {
         "activity_id": candidate.activity_id,
         "site": site_of_activity(candidate.activity_id),
@@ -1140,6 +1746,41 @@ def candidate_row(
         "eps_qc_hi": "" if qc is None else round(qc[1], 3),
         "flags": " ".join(flags),
         **_box_top_columns(candidate),
+        **_qc_columns(candidate.qc),
+    }
+
+
+def _rounded(value: float | None, digits: int) -> object:
+    """Blank for a missing value, ``inf`` spelled out, else rounded."""
+    if value is None:
+        return ""
+    if math.isinf(value):
+        return "inf"
+    return round(value, digits)
+
+
+def _qc_columns(qc: CandidateQc | None) -> dict[str, object]:
+    """Candidates csv QC columns (spec 8); all blank with ``--apex-qc off``."""
+    if qc is None:
+        return dict.fromkeys(QC_COLUMNS, "")
+    curvature = qc.curvature
+    return {
+        "qc_verdict": curvature.verdict.value,
+        "qc_reason": curvature.reason,
+        "qc_r": _rounded(curvature.r, 4),
+        "qc_v_curv_m_per_ns": _rounded(curvature.v_curv_m_per_ns, 4),
+        "qc_sigma_v_rel": _rounded(curvature.sigma_v_rel, 4),
+        "qc_inlier_frac": _rounded(curvature.inlier_frac, 4),
+        "qc_n_picks": curvature.n_picks,
+        "qc_n_left": curvature.n_left,
+        "qc_n_right": curvature.n_right,
+        "qc_aperture_m": _rounded(curvature.aperture_m, 3),
+        "record_end_margin_ns": _rounded(qc.record_end_margin_ns, 3),
+        "apex_at_record_end": qc.at_record_end,
+        "seam_score": _rounded(qc.seam_score, 3),
+        "seam_split": "" if qc.seam_split is None else qc.seam_split,
+        "apex_on_trace_seam": qc.on_trace_seam,
+        "qc_excluded": qc.excluded,
     }
 
 
@@ -1257,6 +1898,149 @@ def _cluster_diagnostic_lines(
     ]
 
 
+def _qc_setting(args: argparse.Namespace) -> str:
+    """md run-condition line of the apex-candidate QC (spec 8 item 1)."""
+    if not apex_qc_enabled(args):
+        return "- 꼭짓점 후보 QC: `apex_qc=off`(주 결과 = v1.3.1 경로, `noqc` 없음)"
+    return (
+        f"- 꼭짓점 후보 QC: `apex_qc=on`, 곡률 띠 {QC_R_LO}-{QC_R_HI}"
+        f"(R {QC_RADIUS_M} m, unstable: 정상점 < {QC_UNSTABLE_INLIER} 또는 "
+        f"sigma_v/v_m > {QC_UNSTABLE_SIGMA_REL}), "
+        f"기록 끝 T_end {RECORD_END_PERIODS} 주기, "
+        f"이음 theta_t {SEAM_TIME_PERIODS} 주기·theta_A ln {SEAM_AMP_RATIO}·"
+        f"k {SEAM_NOISE_K:g}(이음 창 ±{SEAM_APEX_HALF_M} m). "
+        "묶기 전에 out·기록 끝·이음 후보를 뺌"
+    )
+
+
+def _noqc_table_lines(
+    noqc_rows: Sequence[Mapping[str, object]],
+    columns: Sequence[str],
+    args: argparse.Namespace,
+) -> list[str]:
+    """``noqc`` rows right under the main table, same format (spec 5, v1.4)."""
+    if not apex_qc_enabled(args):
+        return []
+    return [
+        "### 보조: QC 없음 (`noqc` = v1.3.1 주 결과 경로, 지지 필터, 전체, X 제외)",
+        "",
+        *_md_table(noqc_rows, columns),
+        "",
+    ]
+
+
+def _verdict_phrase(qcs: Sequence[CandidateQc]) -> str:
+    counts = Counter(qc.curvature.verdict.value for qc in qcs)
+    return " / ".join(f"{v.value} {counts.get(v.value, 0)}" for v in QcVerdict)
+
+
+def _reason_phrase(qcs: Sequence[CandidateQc]) -> str:
+    counts = Counter(
+        (qc.curvature.verdict.value, qc.curvature.reason)
+        for qc in qcs
+        if qc.curvature.verdict != QcVerdict.IN
+    )
+    if not counts:
+        return "없음"
+    return ", ".join(
+        f"{verdict} `{reason}` {n}" for (verdict, reason), n in sorted(counts.items())
+    )
+
+
+def _grouped_verdict_lines(
+    label: str, keyed_qcs: Sequence[tuple[object, CandidateQc]]
+) -> list[str]:
+    """One md sub-line per group (source or site): verdict counts."""
+    groups: dict[object, list[CandidateQc]] = defaultdict(list)
+    for key, qc in keyed_qcs:
+        groups[key].append(qc)
+    return [
+        f"  - {label} {key}: {_verdict_phrase(qcs)}"
+        for key, qcs in sorted(groups.items(), key=lambda item: str(item[0]))
+    ]
+
+
+def _ratio_quantile_phrase(qcs: Sequence[CandidateQc]) -> str:
+    """Quantiles of ``r`` over the ``in`` and ``out`` verdicts (spec 8, v1.4.1).
+
+    An ``unknown`` verdict may still carry an ``r`` (``unstable`` fits), but
+    that ``r`` is not trusted, so it stays out of the quantiles.
+    """
+    ratios = [
+        qc.curvature.r
+        for qc in qcs
+        if qc.curvature.verdict != QcVerdict.UNKNOWN and qc.curvature.r is not None
+    ]
+    if not ratios:
+        return "알려진 r 없음"
+    percent_labels = "/".join(str(p) for p in QC_R_QUANTILES_PERCENT)
+    quantiles = np.percentile(ratios, QC_R_QUANTILES_PERCENT).round(4).tolist()
+    return f"알려진 r {len(ratios)}개, 분위({percent_labels} %): {quantiles}"
+
+
+def _rule_d_phrase(qcs: Sequence[CandidateQc]) -> str:
+    """Rule D counts and their overlap with a curvature ``out``."""
+    record_end = [qc for qc in qcs if qc.at_record_end]
+    seam = [qc for qc in qcs if qc.on_trace_seam]
+    both = sum(qc.at_record_end and qc.on_trace_seam for qc in qcs)
+
+    def with_out(selected: Sequence[CandidateQc]) -> int:
+        return sum(qc.curvature.verdict == QcVerdict.OUT for qc in selected)
+
+    return (
+        f"`{FLAG_RECORD_END}` {len(record_end)}(B out과 겹침 {with_out(record_end)}), "
+        f"`{FLAG_SEAM}` {len(seam)}(B out과 겹침 {with_out(seam)}), 둘 다 {both}"
+    )
+
+
+def _estimate_count_phrase(
+    label: str, evaluation: Evaluation, activities: Sequence[str]
+) -> str:
+    main_total = sum(evaluation.estimate_counts["main"].get(a, 0) for a in activities)
+    noqc_total = sum(
+        evaluation.estimate_counts[NO_QC_VARIANT].get(a, 0) for a in activities
+    )
+    return (
+        f"  - {label} {len(activities)}개: main {main_total} / noqc {noqc_total} "
+        f"/ 차 {main_total - noqc_total:+d}"
+    )
+
+
+def _qc_diagnostic_lines(
+    candidates: Sequence[CandidateResult],
+    evaluation: Evaluation,
+    args: argparse.Namespace,
+) -> list[str]:
+    """md section 8 (v1.4): QC verdicts of the ``ok`` candidates, never re-tuned."""
+    header = ["## 꼭짓점 후보 QC 진단 (v1.4, 판정에 쓰지 않음)", ""]
+    if not apex_qc_enabled(args):
+        return [*header, "- `apex_qc=off`: QC를 계산하지 않았다.", ""]
+    ok = [c for c in candidates if c.result.status == "ok" and c.qc is not None]
+    qcs = [c.qc for c in ok if c.qc is not None]
+    activities = sorted(evaluation.estimate_counts.get("main", {}))
+    gt_activities = [a for a in activities if a in evaluation.gt_activities]
+    excluded = sum(qc.excluded for qc in qcs)
+    return [
+        *header,
+        f"- `ok` 후보 {len(qcs)}개의 곡률 판정: {_verdict_phrase(qcs)}",
+        f"- 사유: {_reason_phrase(qcs)}",
+        "- 출처별:",
+        *_grouped_verdict_lines("source", [(c.source, c.qc) for c in ok]),
+        "- 현장별:",
+        *_grouped_verdict_lines(
+            "site", [(site_of_activity(c.activity_id), c.qc) for c in ok]
+        ),
+        f"- {_ratio_quantile_phrase(qcs)}",
+        f"- D 플래그: {_rule_d_phrase(qcs)}",
+        f"- `qc_excluded`: {excluded}/{len(qcs)}",
+        "- 추정 수(검출 영점, 지지 필터 뒤):",
+        _estimate_count_phrase("전체 활동", evaluation, activities),
+        _estimate_count_phrase("정답 활동(`exclude_x`)", evaluation, gt_activities),
+        f"- 사전 등록 문구(spec §11 항목 3): {PREREGISTERED_QC_NOTE}",
+        "",
+    ]
+
+
 def write_markdown(
     path: Path,
     evaluation: Evaluation,
@@ -1270,6 +2054,13 @@ def write_markdown(
     main_variant = [r for r in evaluation.summary_rows if r["variant"] == "main"]
     main_rows = [
         r for r in main_variant if r["scope"] == "all" and r["gt_set"] == "exclude_x"
+    ]
+    noqc_rows = [
+        r
+        for r in evaluation.summary_rows
+        if r["variant"] == NO_QC_VARIANT
+        and r["scope"] == "all"
+        and r["gt_set"] == "exclude_x"
     ]
     with_x_rows = [
         r for r in main_variant if r["scope"] == "all" and r["gt_set"] == "include_x"
@@ -1330,8 +2121,9 @@ def write_markdown(
         "- 설정: `DepthConfig()` 기본값(4TU 튜닝 없음), "
         f"{_clustering_setting(args)}, 지지 측선 >= {args.min_support_lines}, "
         f"`default_rng({args.baseline_seed})`, 기준선 시행: 주 결과 조합 활동 범위 "
-        f"{args.baseline_trials}회, 보조 조합(a, b)과 전역 범위 "
-        f"{args.baseline_trials_aux}회(현장별 값은 같은 시행에서 집계)",
+        f"{args.baseline_trials}회, 보조 조합({', '.join(variants_for(args)[1:])})과 "
+        f"전역 범위 {args.baseline_trials_aux}회(현장별 값은 같은 시행에서 집계)",
+        _qc_setting(args),
         "- 정답 집합: 주 결과 `exclude_x`(code X 제외), 보조 `include_x` "
         "(같은 실행의 매칭 단계에서만 다름, summary·matches의 `gt_set` 열)",
         f"- 꼭짓점 후보 {len(candidates)}개, "
@@ -1342,6 +2134,7 @@ def write_markdown(
         "",
         *_md_table(main_rows, columns),
         "",
+        *_noqc_table_lines(noqc_rows, columns, args),
         "## 보조: X 포함 (지지 필터, 전체)",
         "",
         *_md_table(with_x_rows, columns),
@@ -1388,7 +2181,9 @@ def write_markdown(
         "",
         "## 가정·한계",
         "",
-        "- 보조 결과(a: 지지 필터 없음, b: 묶지 않음)와 t0 est/act는 csv에 있다.",
+        "- 보조 결과(a: 지지 필터 없음, b: 묶지 않음"
+        + (", noqc: QC 없음" if apex_qc_enabled(args) else "")
+        + ")와 t0 est/act는 csv에 있다.",
         "- 꼭짓점 후보를 `apex_hint`로 넘긴다(spec_depth_v1 §5-7). 힌트 창"
         "(±3 트레이스·±0.5 주기)이 `candidate_moved` 기준과 같으므로 "
         "`candidate_moved`는 거의 항상 False다. 위 끝 경계 효과는 "
@@ -1401,6 +2196,7 @@ def write_markdown(
         "- 무작위 기준선 주 = 활동별 정답 범위, 보조 = 전역 0.2-2.0 m.",
         "- 메타 eps_r은 실측 보증이 없다. 현장 1·4·7·12·13은 헤더 기본값과 같다.",
         "",
+        *_qc_diagnostic_lines(candidates, evaluation, args),
     ]
     path.write_text("\n".join(lines), encoding="utf-8")
 
@@ -1442,6 +2238,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="trials of variants a/b and of the global-range baseline",
     )
     parser.add_argument("--baseline-seed", type=int, default=BASELINE_SEED)
+    parser.add_argument(
+        "--apex-qc",
+        choices=("on", "off"),
+        default="on",
+        help="apex-candidate QC before clustering (v1.4); off = v1.3.1 main result",
+    )
     parser.add_argument(
         "--dry-run",
         action="store_true",
@@ -1514,7 +2316,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         ["activity_id", "path"], sort=True
     ):
         radargram = load_fourtu_radargram(root, activity, path, T0Choice.BOTH)
-        candidates.extend(run_line(radargram, group))
+        candidates.extend(run_line(radargram, group, apex_qc=apex_qc_enabled(args)))
         LOGGER.info("%s/%s: %d candidates", activity, path, len(group))
 
     evaluation = evaluate_combinations(candidates, gt_sets, lines_per_activity, args)

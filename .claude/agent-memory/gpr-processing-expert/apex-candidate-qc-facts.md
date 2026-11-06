@@ -1,0 +1,23 @@
+---
+name: apex-candidate-qc-facts
+description: 4TU apex-candidate precision and curvature-v QC facts from the blinded M2-9 C review (2026-11-06) - auto precision ~10 %, +-30 % band miscentred, unknown caps rejection, one-sided tracking of real apexes
+metadata:
+  type: project
+---
+
+Blinded review of 169 candidates (39 manual + 10 auto per site, seed 20261106; docs/processing/m29c_apex_review.md):
+
+- Auto candidates are only ~11 % true apexes (14/130; ~8 % site-weighted), not "about half". Main false types: layers (48/130), short arcs/clutter, limb crossings, wing offsets, trace seams (9), record-end noise (7). Manual candidates of 04.1 and 011.14 were all non-apex.
+- Straight-ray curvature ratio r = v_curv/v_meta of true apexes is one-sided high (median 1.07; R=0 bias, air gap, oblique), largest when shallow; all true apexes cut by +-30 % had r 1.35-1.98 at d_c <= 0.57 m. Layers sit high (median 1.65), crossings/one wing low (0.66).
+- 60 % of false candidates get curvature_v_unknown (mostly insufficient_picks) -> "unknown kept" caps rejection at ~25 % and leaves precision unchanged. 11/41 true apexes are also insufficient_picks from one-sided tracking failure.
+- Ray-model r at h>=0.05 m does not match observed true-apex r -> effective air gap ~0 again (consistent with [[fourtu-zero-band]]); the ray model jumps between h=0 and h=0.02 (h << lambda), treat it as an upper bound.
+- QC curvature run: fit_curvature(..., air_gap="ground") on purpose; never a depth.
+- Blinded re-read of 30 (2026-11-07, seed 20261107): T-vs-false kappa 0.91 (29/30), 9-type kappa 0.72. The only T flip was a manual candidate ~0.2 m off the apex with picks on one side only. So "one-sided picks" can mean the candidate is off the apex, not that the tracker failed: check the apex offset before blaming the tracker. False-subtype disagreements come from overlapping definitions (W/U, C/A, B/A, L/C, C/X) and the undefined 0.10-0.15 m T/W gap. Fix: precedence N > A > event types > U, and a single T/W threshold.
+
+- B+D spec work (2026-11-07, spec_eval v1.4 3-5): a straight-ray fit stuck at v = 0.2998 (x0, t0 interior) means picks flatter than any soil hyperbola (flat layers, record-end ridges) -> treat as out, not unknown; 10/13 review fit_failed were this, none T. Record-end: fitting-branch envelope RMS rises up to 1.9x within ~1.8 periods of the record end (Hilbert wrap), forming a flat ridge; all N candidates sat at the selection-window bottom (record end - 16 samples). Seam detection: adjacent-trace difference ratio and block-median cross-correlation both false-alarm on synthetic nulls (wings, noise-dominated rows); per-trace template match of the zero band (lag + log-amplitude jump, physical floor + 5 sigma MAD) has zero null alarms but only catches zero-band seams - 9/10 label-A blocks change only below the zero band.
+- Synthetic air-coupled lines for QC need the zero band ~20 dB above the pipe (direct 30 / surface -20); with the default 3/-2 the zero-band tracker jitters.
+- Implementation verify (2026-11-07, spec v1.4.1): spec C1-C14 alone miss strict/non-strict boundary mutants (unstable `>=`/`<=`, seam `>`); exact-boundary tests need values exact in float (v_m 0.125, step 0.2 ns). Mutation runs: copy script + tests (conftest, synthetic_bscan) + constants json into a scratch tree, ~35-45 s per mutant on one core. Site-11 eps8 diagnostic must reuse the QC exclusions of the meta-eps run (re-judging at eps 8 scales r by 0.64-0.73 and changes the candidate set).
+- Hash locks (m29c_qc_constants.json): Python write_text on Windows writes CRLF, so the untracked working copy hashes differently by bytes; the lock hashes read_text (universal newlines) = LF text, which matches the repo copy (.gitattributes eol=lf). Always state "LF basis" next to a locked hash and hash decoded text, not bytes.
+
+**Why:** these decide how candidate QC (M2-9 C spec) should be built; re-deriving needs the full blind review.
+**How to apply:** when specifying or verifying candidate QC, prefer asymmetric/depth-dependent upper bounds, mechanistic rules (record end, seams), and fix one-sided tracking before requiring curvature-known. Related: [[zero-and-apex-pitfalls]].

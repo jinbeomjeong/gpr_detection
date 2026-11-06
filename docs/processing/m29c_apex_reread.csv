@@ -1,0 +1,31 @@
+reread_id,blind_id,activity_id,site,path,source,first_type,first_confidence,first_comment,reread_type,reread_confidence,reread_comment,agree,T_first,T_reread,T_flip,curv_flag,r,unknown_reason,pick_n_left,pick_n_right,d_cand_m,weight
+R01,G157,05.8,5,Path1,auto_v1,T,high,,T,high,clear hyperbola apex at x~-0.05 m; both wings to +-1 m; first lobe,True,True,True,False,in,0.7097,,16,27,1.0297,4.8
+R02,G121,02.5,2,Path16,auto_v1,A,medium,trace block,A,medium,candidate inside a trace block (-0.15..+0.2 m) of different character under strong shallow layers,True,False,False,False,unknown,3.0001,fit_failed,36,19,0.2355,4.0
+R03,G004,07.4,7,Path8,auto_v1,W,low,about 2 ns above the top of a deeper broad arc (x~+0.1),U,medium,left half padded (record start); no distinct event at candidate; arcs above and layers below,False,False,False,False,unknown,0.6069,unstable,23,19,0.7191,4.0
+R04,G023,01.1,1,Path10,manual_v0,T,high,,T,high,clear hyperbola apex at x~-0.05 m; both wings visible,True,True,True,False,unknown,,insufficient_picks,2,12,0.6183,4.8
+R05,G123,04.7,4,Path6,auto_v1,L,high,,L,high,continuous layer across window with small step at +0.3 m,True,False,False,False,in,1.0981,,17,17,0.9896,4.2
+R06,G136,02.4,2,Path8,auto_v1,C,low,small steep shallow arc,C,low,short arc ~0.4 m wide at candidate; clear hyperbola elsewhere (+0.6 m),True,False,False,False,in,0.7403,,6,11,0.2756,8.5
+R07,G005,01.1,1,Path5,manual_v0,T,high,,T,medium,small hyperbola apex at x~0; wings ~0.3 m then cut by discontinuity/other hyperbola,True,True,True,False,in,1.2492,,17,15,0.373,4.8
+R08,G135,06.2,6,Path10,auto_v1,C,low,,A,medium,candidate inside a shallow trace block (-0.15..+0.75 m),False,False,False,False,in,0.7246,,11,4,0.2444,8.5
+R09,G114,01.1,1,Path1,manual_v0,T,high,,T,high,clear hyperbola apex at x~-0.05 m; second hyperbola at +1 m,True,True,True,False,in,1.0753,,24,14,0.6861,4.8
+R10,G143,01.1,1,Path6,manual_v0,T,medium,fainter upper arc at ~19 ns,W,low,arc apex near x~+0.15..0.2 m; candidate on left wing near apex; overlapping events,False,True,False,True,unknown,,insufficient_picks,30,0,1.0285,6.0
+R11,G130,01.1,1,Path2,manual_v0,T,high,,T,high,clear hyperbola apex at x~-0.05 m,True,True,True,False,in,1.0297,,20,22,0.7113,4.8
+R12,G158,06.6,6,Path7,auto_v1,U,low,,U,medium,right half padded (record end in x); no event at candidate,True,False,False,False,unknown,,insufficient_picks,1,5,0.4556,9.0
+R13,G046,01.1,1,Path10,auto_v1,X,low,limbs under a large hyperbola,X,low,dipping wings/lines crossing near candidate; big hyperbola apex at +0.25 m much earlier,True,False,False,False,in,0.8485,,14,15,1.081,9.0
+R14,G073,07.1,7,Path7,auto_v1,A,low,seam at x=0 in the surface band,A,medium,candidate at block boundary (surface step and trace character change at x~0),True,False,False,False,unknown,,insufficient_picks,0,0,0.266,6.0
+R15,G067,08.3,8,Path5,auto_v1,W,medium,apex at x~-0.4,W,low,faint arc; apex likely at x~-0.2..-0.3 m; candidate on right dipping wing,True,False,False,False,in,1.0961,,5,16,0.4063,3.5
+R16,G137,07.2,7,Path7,auto_v1,L,low,,C,low,short weak arc in clutter; short line (padded both sides),False,False,False,False,unknown,0.8103,unstable,10,43,0.5352,5.5
+R17,G020,09.3,9,Path3,auto_v1,L,high,,L,high,strong continuous slightly dipping layer,True,False,False,False,unknown,3.7498,fit_failed,50,46,0.8068,4.2
+R18,G018,04.1,4,Path3,auto_v1,W,medium,apex at x~-0.35,W,medium,arc apex at x~-0.3 m; candidate on right wing,True,False,False,False,in,0.7295,,11,13,0.6165,3.5
+R19,G053,011.6,11,Profile_6040,auto_v1,L,high,,L,high,continuous layered reflections across window,True,False,False,False,out,3.3907,,49,49,0.9116,4.2
+R20,G060,05.7,5,Path9,auto_v1,L,low,,C,low,shallow clutter of small chevrons; no distinct event,False,False,False,False,unknown,,insufficient_picks,9,0,0.4144,5.5
+R21,G142,02.5,2,Path5,auto_v1,N,low,record end,N,high,candidate within ~1.6 ns of record end,True,False,False,False,unknown,3.0001,fit_failed,23,13,2.3533,7.0
+R22,G150,01.1,1,Path1,manual_v0,T,medium,,T,high,clear hyperbola apex at x~-0.05 m; several hyperbolas nearby,True,True,True,False,in,1.2136,,17,22,0.4437,6.0
+R23,G036,02.4,2,Path3,auto_v1,C,medium,weak small arc with dipping lines,X,low,crossing dipping lines near candidate in clutter,False,False,False,False,unknown,,insufficient_picks,2,1,0.5452,3.0
+R24,G039,05.10,5,Path1,auto_v1,T,low,broad flat top ~0.8 m; seams,T,medium,flat-topped arc apex at x~-0.1 m; wings ~0.45 m then trace-block boundaries,True,True,True,False,in,1.0692,,22,22,0.9324,4.0
+R25,G002,05.1,5,Path1,auto_v1,B,medium,finite flat band about -1.1..0.3 m,A,medium,candidate at block boundary x~0 where a left flat layer ends,False,False,False,False,out,2.0768,,41,19,0.3588,1.0
+R26,G139,05.3,5,Path1,auto_v1,L,medium,,L,medium,wavy shallow layer across window,True,False,False,False,unknown,1.4232,unstable,33,32,0.4891,11.0
+R27,G115,011.16,11,Profile_6448,auto_v1,L,high,,L,medium,layer with slight bump near candidate,True,False,False,False,unknown,2.1559,unstable,14,11,0.3369,4.2
+R28,G048,06.1,6,Path8,auto_v1,X,medium,,X,low,inverted-V crossing of steep wing and short flat segment,True,False,False,False,unknown,,insufficient_picks,33,0,0.4925,7.0
+R29,G016,08.5,8,Path1,auto_v1,L,high,pavement base,L,high,strong undulating pavement layer across window,True,False,False,False,unknown,,insufficient_picks,34,2,0.2137,4.2
+R30,G095,011.2,11,Profile_6063,auto_v1,L,medium,,L,low,weak sloping layer; block boundary at -0.45 m not at candidate,True,False,False,False,unknown,4.1666,fit_failed,21,6,0.2911,11.0

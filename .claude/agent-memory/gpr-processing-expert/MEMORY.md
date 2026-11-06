@@ -1,3 +1,4 @@
 - [4TU zero band facts](fourtu-zero-band.md) — single merged band, meta t0 = +/- lobes, hyperbola shape says h <~ 0.1 m, eps meta = header default
 - [Zero/apex picking pitfalls](zero-and-apex-pitfalls.md) — merged events, argmax|mean| picks direct wave, first-peak apex candidate, median bg, boxcar-dewow ghost lobes, polarity-dependent event split, surface-zero interference bias
+- [Apex candidate QC facts](apex-candidate-qc-facts.md) — auto precision ~10 %, +-30 % curvature band miscentred, unknown caps rejection, one-sided tracking, kappa 0.91, v-bound=flat, record-end ridge, zero-band seam detector
 - [Band depth pitfalls](band-depth-pitfalls.md) — median bg erases long bands, pseudo-band, oblique 1/sin bias, no parallel truth, pick follows box top, overlapping detector boxes

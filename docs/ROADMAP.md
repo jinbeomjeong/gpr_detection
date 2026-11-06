@@ -34,7 +34,7 @@ flowchart LR
 - M1 학습 데이터·설정: AIHub B-scan 4클래스(공동·맨홀은 관로 규모로 축소, gain 세 벌 사용), 모로코는 평가 전용, YOLO11m은 사전학습 없이 scratch·imgsz 256, epoch는 M1-9 smoke 뒤 결정(CHECKLIST "M1 결정 사항").
 - 검출 학습·비교는 AIHub test 세션 홀드아웃(약 15 %, 관로 비중 10–25 %) 뒤 나머지를 세션 그룹 5-fold(기준선 포함)로, 이전 판정은 전체 mAP50 fold 평균 −5 %p 이내면 `이전 가능`(두 등급, ADR-001·003). 좌표 역변환은 pipeline이 L2→L1→L0로 공통 처리(README §2-3). 4TU는 깊이 튜닝 없이 13개 현장 전체를 시험에만 쓴다.
 - 검출은 YOLO11m 초안 → 성능 확보 후 Apache 계열(1순위 RF-DETR N/S/M/L)로 이전. YOLO 의존은 `detect/`에만.
-- 깊이는 물리 기반 쌍곡선 피팅. 공기결합(4TU)은 지표 반사 영점, v는 메타 εr 고정 또는 굴절 모델(곡률 피팅 금지). 반경은 피팅 미지수로 넣지 않는다.
+- 깊이는 물리 기반 쌍곡선 피팅. 공기결합(4TU)은 지표 반사 영점, v는 메타 εr 고정 또는 굴절 모델(곡률 피팅 금지 — 단 꼭짓점 후보 QC용 곡률 v 검사는 허용, 깊이에는 쓰지 않음, 2026-11-06 M2-9 C). 반경은 피팅 미지수로 넣지 않는다.
 - 클래스 4개: `pipe_hyperbola`(tpipe·모로코 pipe), `pipe_band`(lpipe), `cavity`, `manhole`. 깊이 피팅은 `pipe_hyperbola`에만.
 - 분할: AIHub는 세션(`source`) 단위·gain 사본 묶음, 모로코는 제공 그룹 단위·회전·탄성 사본 제외(`aug_transform` 기준), 4TU는 현장 단위.
 - 증강: 상하 반전·회전·mosaic·색상 증강 금지(`docs/experiments/augmentation_policy.md`).

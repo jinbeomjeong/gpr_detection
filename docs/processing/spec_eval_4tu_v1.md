@@ -3,8 +3,8 @@
 - 작성: gpr-processing-expert, 2026-10-31 (spec 모드, 체크리스트 M2-8 준비)
 - 받는 쪽: python-expert(`scripts/eval_depth_4tu.py` 구현·시험), 메인 세션(실행 승인)
 - 기준 문서: `docs/processing/spec_depth_v1.md`(이하 [S], v1.7), `docs/processing/fourtu_explore.md`(이하 [FX]), `docs/datasets/readme_4tu.md`(이하 [R4])
-- 상태: v1.2로 M2-8 실행·판정 완료(2026-10-31, 불합격 — `depth_4tu_v1.md`). v1.3·v1.3.1은 M2-9 개선 B(묶기) 명세이며 구현·시험 완료(2026-11-06), 4TU 재평가는 M2-9 A–E 뒤 1회. 이 문서의 수치는 입력 목록·꼭짓점 후보·폭 유도뿐이다(정답 깊이는 꼭짓점 후보 선정과 폭 유도에 쓰지 않았다).
-- 변경 이력: 2026-11-06 v1.3.1(M2-9 개선 B 구현 판정 반영) — 입력 검사·공통 정렬 키를 `single`에도 적용(§4-3-1 항목 1·7), `n_lines`는 원래 측선 값으로 셈(§4-3 항목 1), clusters csv `span_m` 소수 6자리와 md 폭 초과 개수가 반올림 값 기준임(§8·§9-1), §4-3-2의 "v1.2 대비 추정 수"를 §9-1 md 진단에 넣음(같은 깊이를 `single`로 다시 묶어 셈, 판정 미사용), 시험 B4에 `single` 경계 2건, B11에 inf, B13(출력·CLI 배관) 추가. 2026-11-06 v1.3(M2-9 개선 B, 구현 전 명세) — §4-3 묶기를 단일 연결(이웃 간격 0.10 m)에서 **완전 연결(묶음 안 모든 쌍의 깊이 차 ≤ 폭 $W$)**로 바꿈, 동률·경계·순서 무관 규칙, 지지 필터와의 상호작용(§4-3-2). §4-4 폭 유도(측선 간 같은 관 깊이 반복의 흩어짐 예산 → $W$ = 0.10 m 고정, 깊이 의존 폭과 비교·기각). §8 clusters csv에 `span_m`·`linkage`·`width_m`. §9-1 CLI `--cluster-width-m`·`--cluster-linkage`, `cluster_depths` 계약. §9-2 E2 기대값 개정, 시험 B1–B12. §10 가정 표. 근거 스크립트 `analysis/processing/cluster_width_v1.py`(4TU 레이더그램·정답 미사용). 2026-10-31 v1.2(커밋 전 정합) — 사용자 결정 5(실행 시점·점검·튜닝 없이 보고), 현장 11 진단 csv `depth_4tu_v1_site11.csv`, 기준선 MAE·판정률 A 열 추가와 전역 기준선 실제 열 이름, `multi_trench` 열, 정답 함수 실제 이름, CLI `--lines`·`--dry-run`, 시험 E1b·E5/E6 변형·E8, `n_peaks`. 2026-10-31 v1.1(구현 대조) — 정답 활동 93·정답 388행·무정답 32(08.1·013.6 깊이 전부 빈칸), `candidate_box`에 `tau_ns`, 기준선 시행 횟수 구분(주 1,000·보조 200), X 포함·제외를 한 번 실행으로, 현장 11 εr 8 진단은 주 결과 경로. 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(영문 식별자 `apex_candidate`; 파일 `fourtu_seeds_v1*` → `fourtu_apex_candidates_v1*`, 열 `seed_*` → `candidate_*`. 난수 시드는 그대로)
+- 상태: v1.2로 M2-8 실행·판정 완료(2026-10-31, 불합격 — `depth_4tu_v1.md`). v1.3·v1.3.1은 M2-9 개선 B(묶기) 명세이며 구현·시험 완료(2026-11-06). **v1.4는 M2-9 개선 C(꼭짓점 후보 QC, 규칙 B+D) 명세이고, v1.4.1은 그 구현 판정(2026-11-07) 반영이고, v1.4.2는 문서 정리(동작 불변)다.** 4TU 재평가는 M2-9 A–E 뒤 1회. 이 문서의 수치는 입력 목록·꼭짓점 후보·폭 유도·QC 문턱 유도(합성)뿐이다(정답 깊이는 꼭짓점 후보 선정, 폭 유도, QC 문턱 유도에 쓰지 않았다).
+- 변경 이력: 2026-11-07 v1.4.2(문서 정리, 동작 불변 — 코드·시험·§11 문구 변경 없음) — §9-2-2 제목을 C1–C16으로, C6c·C7c 시험 함수 이름 표기, §9-1 `zero_band_track` 반환형을 코드와 같게 `… | None`, §4-2 "곡률 피팅 금지"를 깊이용으로 한정하고 QC 예외(§3-5) 지시, 같은 절 `candidate_moved`를 "꼭짓점 이동 표시"로 이름 붙여 §3-5 QC와 구분(열 이름 불변), §3-5 상수 json SHA-256이 LF 기준임을 명시, §8 md ⑧의 사전 등록 문구 범위를 §11 항목 3(`PREREGISTERED_QC_NOTE`)으로 확정. 2026-11-07 v1.4.1(M2-9 개선 C 구현 판정 반영) — 구현 모호점 확정: §3-5-2 $v_m$ 출처(`eps_r_used`, 없으면 메타 εr), 영점 없는데 꼭짓점이 있는 방어 분기 = unknown `fit_failed`(4TU 도달 불가), $\sigma_v$ 비유한 → `qc_sigma_v_rel` 빈칸·판정 unstable, $K$·$J$ = $\lceil x/\Delta x-10^{-9}\rceil$(§3-5-4), 영점 띠 본뜨기 에너지 0이면 이음 규칙 미계산(§3-5-4), candidates csv `flags` 순서(깊이 플래그 → `long_line` → QC 플래그, §8), md ⑧ 집계 범위(`ok` 후보, 분위는 판정에 $r$을 쓴 in·out 후보만, §8), `DEFAULT_DEPTH_CONFIG` 사용(§9-1). **현장 11 진단(§7)에 QC 적용**(주 결과 경로와 같게, QC 판정은 메타 εr 실행 값 그대로). 구현자 추가 시험 2개를 C6c·C7c로 등재, 시험 C6d(퇴화 영점 띠)·C7d(비유한 $\sigma_v$ 출력)·C13f(flags 순서)·C15(현장 11 QC)·C16(md ⑧ 범위) 신설, 판별력 확인 결과(§9-2-2, 돌연변이 33개 중 28개 검출). 2026-11-07 v1.4(M2-9 개선 C, 구현 전 명세) — §3-5 꼭짓점 후보 QC 신설: 곡률 QC(B, 비대칭 띠 $0.7\le r\le1.6$, 깊이 경로 픽 재사용, $R=0$ 고정, 판정 순서·사유 코드, v 경계 규칙), 기록 끝 규칙 `apex_at_record_end`(기록 끝 2.5 주기), 트레이스 이음 규칙 `apex_on_trace_seam`(영점 띠 시간·진폭 도약), 주 결과 제외·보조 `noqc`, 묶기·지지 필터와의 순서, 곡률 값이 깊이로 흐르지 않는 코드 계약, 수동 검토 라벨로 센 효과 추정. §3-4 정밀도 실측 반영. §5·§6 `noqc` 변형. §8 candidates csv QC 열·md ⑧. §9-1 CLI `--apex-qc`·함수 계약, §9-2-2 재현 시험 C1–C14. §10 가정 행. §11 재평가 사전 등록 메모 신설(B 문구와 C 문구를 한곳에 모음). 근거 스크립트 `analysis/processing/m29c_qc_proto.py`(합성만)·`m29c_qc_effect.py`(검토 표본, 라벨은 효과 세기에만). 2026-11-06 v1.3.1(M2-9 개선 B 구현 판정 반영) — 입력 검사·공통 정렬 키를 `single`에도 적용(§4-3-1 항목 1·7), `n_lines`는 원래 측선 값으로 셈(§4-3 항목 1), clusters csv `span_m` 소수 6자리와 md 폭 초과 개수가 반올림 값 기준임(§8·§9-1), §4-3-2의 "v1.2 대비 추정 수"를 §9-1 md 진단에 넣음(같은 깊이를 `single`로 다시 묶어 셈, 판정 미사용), 시험 B4에 `single` 경계 2건, B11에 inf, B13(출력·CLI 배관) 추가. 2026-11-06 v1.3(M2-9 개선 B, 구현 전 명세) — §4-3 묶기를 단일 연결(이웃 간격 0.10 m)에서 **완전 연결(묶음 안 모든 쌍의 깊이 차 ≤ 폭 $W$)**로 바꿈, 동률·경계·순서 무관 규칙, 지지 필터와의 상호작용(§4-3-2). §4-4 폭 유도(측선 간 같은 관 깊이 반복의 흩어짐 예산 → $W$ = 0.10 m 고정, 깊이 의존 폭과 비교·기각). §8 clusters csv에 `span_m`·`linkage`·`width_m`. §9-1 CLI `--cluster-width-m`·`--cluster-linkage`, `cluster_depths` 계약. §9-2 E2 기대값 개정, 시험 B1–B12. §10 가정 표. 근거 스크립트 `analysis/processing/cluster_width_v1.py`(4TU 레이더그램·정답 미사용). 2026-10-31 v1.2(커밋 전 정합) — 사용자 결정 5(실행 시점·점검·튜닝 없이 보고), 현장 11 진단 csv `depth_4tu_v1_site11.csv`, 기준선 MAE·판정률 A 열 추가와 전역 기준선 실제 열 이름, `multi_trench` 열, 정답 함수 실제 이름, CLI `--lines`·`--dry-run`, 시험 E1b·E5/E6 변형·E8, `n_peaks`. 2026-10-31 v1.1(구현 대조) — 정답 활동 93·정답 388행·무정답 32(08.1·013.6 깊이 전부 빈칸), `candidate_box`에 `tau_ns`, 기준선 시행 횟수 구분(주 1,000·보조 200), X 포함·제외를 한 번 실행으로, 현장 11 εr 8 진단은 주 결과 경로. 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(영문 식별자 `apex_candidate`; 파일 `fourtu_seeds_v1*` → `fourtu_apex_candidates_v1*`, 열 `seed_*` → `candidate_*`. 난수 시드는 그대로)
 - 사용자 결정(2026-10-31):
   1. 범위는 13개 현장 전체 활동이다.
   2. 매칭은 활동 단위 헝가리안이고 게이트가 없다. 누락(짝 없는 정답)과 오검출(짝 없는 추정)은 따로 센다. 지표는 MAE와 제186조 ±30 cm 판정률이다. 무작위 깊이 기준선(P8)을 같은 방식으로 돌린다. 상단/중심 두 가정과 t0 두 값(`t0_sample_est`, `t0_sample_act_median`)을 모두 보고한다. **4TU로 튜닝하지 않는다**(합성 기본값 그대로).
@@ -12,6 +12,7 @@
   4. (준비 결과 질문 1–4, 모두 권고안) **주 결과 = 평행 측선 반복 지지 묶음**(같은 활동 평행 측선 ≥2에서 깊이 ±0.10 m 반복 — v1.3부터 묶기는 완전 연결·폭 상한 0.10 m, 결정 6·§4-3; 지지 필터 없음·묶지 않음은 보조, 무작위 기준선은 같은 추정 수) · 정답 처리 §2 제안대로(빈 깊이 8행 제외, code X는 주 결과 제외·보조 포함, U 포함, 011.7 두 트렌치 합집합+표시) · 무작위 기준선 주 = 활동별 정답 범위 균등, 보조 = 전역 0.2–2.0 m · 정답 없는 활동 30개(v1.1: 32 = 정답표 없음 30 + 깊이 전부 빈칸 2)는 추정 개수만 보고(오검출로 세지 않음).
   5. (2026-10-31) 실행은 사용자가 다시 지시할 때 한다. 30분을 넘으면 15분 간격으로 점검한다. **결과가 나빠도 튜닝하지 않고 있는 그대로 보고·커밋한다.** 원인 분석은 gpr-processing-expert가 하고, 개선은 M2-9·후속 과제로 제안한다.
   6. (2026-11-06, M2-9 개선 B) 묶기는 **완전 연결**이고 입력 순서와 무관하며 결정적이어야 한다. 묶기 기준은 **깊이만**이다(측선 안 수평 위치 $x$는 쓰지 않음). 폭 상한은 **물리 근거로 다시 정한다**(꼭짓점·영점 시각 불확도, εr 불확도 등). 4TU 판정 결과(판정률·MAE·bias)를 보고 고르지 않는다. 4TU에서 쓸 수 있는 값은 장비 메타(dt, $f_c$, `eps_r_used`, 측선 수)뿐이다. 0.10 m는 비교 기준으로 함께 보고한다.
+  7. (2026-11-07, M2-9 개선 C) 꼭짓점 후보 QC는 **규칙 B+D**다. B: 곡률 비 $r=v_\text{curv}/v_m$가 0.7–1.6 밖이면 주 결과에서 빼고 `curvature_v_out`을 단다. 빼지 않은 결과(QC 없음)는 보조로 보고한다. 곡률 v를 구할 수 없으면 **유지**하고 `curvature_v_unknown`과 사유를 단다. D: 기록 끝(`apex_at_record_end`)·트레이스 블록 이음(`apex_on_trace_seam`) 결정론 규칙. D의 기준은 4TU 정답·M2-8 결과를 보지 않고 물리·자료 형식 근거로 정한다. 수동 검토 라벨은 효과 추정에만 쓰고 문턱 결정에는 쓰지 않는다(Youden 등 라벨 맞춤 금지). 곡률 v는 QC에만 쓰고 깊이에는 쓰지 않는다(CLAUDE.md 깊이 규약). 진짜 기준은 T만이다. 날개 추적 실패 원인 분석(spec_depth §5-3)은 이번 범위 밖이고, 개선 뒤 E(unknown 제외)를 다시 검토한다.
 
 ---
 
@@ -94,8 +95,168 @@
   - 뚜렷한 쌍곡선 꼭짓점(01.1, 03.1, 013.1 등)은 잡는다.
   - 기울어진 층의 굴곡점, 두 날개의 교차점, 수평 층의 요철에도 꼭짓점 후보가 놓인다(07.1, 09.1, 012.1).
   - **정밀도는 측정하지 않았다.** 대략 절반 수준으로 보인다(**가정**, 눈 점검 13측선).
+  - (v1.4) 정답을 가린 수동 검토(`m29c_apex_review.md`, 자동 후보 130개 층화 표본)에서 자동 후보의 진짜 꼭짓점(T) 비율은 **10.8 %**(14/130, 이항 95 % 약 6–17 %, 현장 후보 수 가중 약 8 %)였다. 위 "절반" 가정은 틀렸다. 이 값은 재평가 사전 등록에 넣는다(§11).
 - V자 판별 시험은 4TU의 얕고 뾰족한 실제 꼭짓점도 V로 판정했다(1배 비교 시 수동 꼭짓점 후보 14개 거부). 그래서 2배로 완화했고, 결과적으로 효과가 없다.
-- 대책은 실행 단계에서 정한다(§4-3 지지 측선 수 필터, 확인 필요 질문 1).
+- 대책은 실행 단계에서 정한다(§4-3 지지 측선 수 필터, 확인 필요 질문 1). v1.4부터 꼭짓점 후보 QC(§3-5)를 묶기 전에 적용한다.
+
+### 3-5. 꼭짓점 후보 QC (v1.4, M2-9 개선 C — 규칙 B+D)
+
+근거 스크립트:
+- `conda run -n gpr-dev python -I analysis/processing/m29c_qc_proto.py`(합성만, 단일 프로세스, 약 3분, 시드: E부 `default_rng(0)`, S부 `default_rng(1)`, C부 `tests/synthetic_bscan.py` 잡음 시드 0). 출력: [`m29c_qc_edge.csv`](m29c_qc_edge.csv)(기록 끝 영역), [`m29c_qc_seam_null.csv`](m29c_qc_seam_null.csv)·[`m29c_qc_seam_power.csv`](m29c_qc_seam_power.csv)(이음 검출 null·검출력), [`m29c_qc_ctests.csv`](m29c_qc_ctests.csv)(시험 C 기대값), [`m29c_qc_constants.json`](m29c_qc_constants.json)(문턱 잠금, 2026-11-07 01:06:28 KST, SHA-256 `6a88bd8d…ec56ba8c` — LF 줄바꿈 기준(저장소 `.gitattributes` eol=lf). `m29c_qc_effect.py`는 `read_text`(범용 줄바꿈)로 읽은 텍스트를 해시하므로 CRLF 작업 사본에서도 같은 값이 나오지만, 파일 바이트를 직접 해시하면 CRLF 사본은 다르다).
+- `conda run -n gpr-dev python -I analysis/processing/m29c_qc_effect.py`(검토 표본 169개, 약 1분). 잠근 상수의 해시를 확인한 뒤 돈다. 출력: [`m29c_qc_effect.csv`](m29c_qc_effect.csv)·[`m29c_qc_effect.json`](m29c_qc_effect.json). 검토 라벨은 규칙이 T와 거짓을 몇 개 남기는지 세는 데만 쓴다(§3-5-7).
+- 4TU 정답 깊이표, M2-8 매칭·판정 결과는 어느 스크립트도 읽지 않는다.
+
+#### 3-5-1. 원칙
+
+1. QC는 꼭짓점 후보를 **주 결과에 넣을지**만 정한다. 깊이 값, 깊이 규칙(spec_depth v1.8), 속도 규칙(`meta_fixed`)은 바뀌지 않는다.
+2. 곡률 피팅은 QC 판정 전용이다. 결과(속도·꼭짓점·t0)는 깊이·불확도·`DepthResult`로 흐르지 않는다. 코드 계약은 §3-5-6이다.
+3. 판정은 결정론적이다. 문턱은 물리·자료 형식(500 MHz, dt, 512 샘플, 공기결합 영점 띠, 처리 갈래)과 합성 null 분포로 정했다. 4TU 값·라벨로 고르지 않았다.
+4. 제외는 후보 단위다. 묶기(§4-3)와 지지 필터 **전에** 적용한다(§3-5-5).
+
+#### 3-5-2. 곡률 QC (규칙 B)
+
+**픽**: 깊이 경로의 픽을 그대로 쓴다. `run_line`이 `estimate_depth`를 부른 뒤, 같은 인자(박스 = `candidate_box`, `inputs.zero`, `inputs.branch.background_removed`, `dt_ns`, `dx_m`, `f_c_hz`, `DepthConfig()`, `apex_hint` = 후보, `period_px`)로 `extract_picks`를 한 번 더 부른다. 코드가 결정적이므로 픽은 깊이 경로와 같다. 꼭짓점이 있으면 `(picks.apex.trace, picks.apex.k) == (result.apex_trace, result.apex_sample)`을 확인하고, 다르면 `RuntimeError`를 낸다(계약 위반). `src/`에서 픽을 돌려받도록 바꾸는 안은 쓰지 않는다. `src/` 계약을 건드리고, 픽 계산 비용(후보당 수 ms)은 측선 전처리에 비해 작기 때문이다.
+
+**피팅**: `fit_curvature(picks, radius_m=0.0, air_gap="ground", v_fallback=v_m, config=DepthConfig())`.
+- 반경은 **0으로 고정**한다. 후보마다 관경을 알 수 없고(관경은 정답표 순서로만 대응, §1), 반경을 미지수로 넣지 않는다(정의서 규칙). $R>0$의 편향은 위 끝 1.6에 들어 있다.
+- `air_gap="ground"`는 QC 우회용 라벨이다. 측선 `Radargram`을 복사하거나 `air_gap`을 바꾸지 않는다. 깊이 경로는 계속 `meta_fixed`다(spec_depth §7 순서 2).
+- (v1.4.1) $v_m$의 εr은 `DepthResult.eps_r_used`이고, 비어 있으면(꼭짓점은 있으나 깊이 상태가 `ok`가 아닌 후보 등) 측선 메타 εr(`eps_r_meta`)이다. `meta_fixed`에서 `eps_r_used` = $(c/v_\text{meta})^2$이므로 두 값은 부동소수 왕복 오차 안에서 같다.
+- (v1.4.1) 측선 영점이 없는데 픽에 꼭짓점이 있으면(시간축이 없어 피팅 불가) 순서 4의 unknown `fit_failed`로 둔다. 4TU에서는 영점 실패 측선의 후보에 `tau_ns`가 없어 박스가 없으므로(순서 1 `no_box`) 도달하지 않는 방어 분기다. 별도 사유 코드를 만들지 않는다.
+- (v1.4.1) 수렴한 피팅이 있으면 판정과 무관하게 $r$·$v_\text{curv}$·$f_\text{in}$을 csv에 적는다(순서 5 `fit_failed`·순서 8 `unstable` 포함). $\sigma_v/v_m$이 유한하지 않으면 `qc_sigma_v_rel`은 빈칸이고 판정은 순서 8 `unstable`이다.
+
+$$r=\frac{v_\text{curv}}{v_m},\qquad v_m=\frac{c}{\sqrt{\varepsilon_{r,\text{used}}}},\qquad \text{in}\iff 0.7-\epsilon_r\le r\le 1.6+\epsilon_r,\ \ \epsilon_r=10^{-12}$$
+
+| 기호 | 뜻 | 단위 |
+|---|---|---|
+| $v_\text{curv}$ | 직선 광선 $R=0$ 곡률 피팅 속도(QC 전용) | m/ns |
+| $v_m$ | 메타 속도 | m/ns |
+| $r$ | 곡률 비 | – |
+| $\sigma_v$ | $v_\text{curv}$ 표준오차(spec_depth §6-3 정상점 공분산) | m/ns |
+| $f_\text{in}$ | 정상점 비율 `inlier_frac` | – |
+| $\beta$ | 경계 판정 비율 $10^{-4}$(spec_depth §6-3과 같음) | – |
+
+**판정 순서**(위에서 처음 걸리는 줄로 끝낸다):
+
+| 순서 | 조건 | 판정 | `qc_reason` |
+|---|---|---|---|
+| 1 | 후보 `tau_ns` 빈칸(박스 없음) | unknown | `no_box` |
+| 2 | 픽에 꼭짓점 없음(힌트 창 불일치, 영점 영역 등) | unknown | `no_apex` |
+| 3 | `fit_curvature` 상태 `insufficient_picks`(픽 9개 미만 또는 한쪽 3개 미만, spec_depth §5-4) | unknown | `insufficient_picks` |
+| 4 | 피팅 없음 또는 `converged` 거짓 | unknown | `fit_failed` |
+| 5 | $x_0$ 또는 $t_0$가 경계에 붙음(범위의 $\beta$ 안; $x_0\in[\min x,\max x]$, $t_0\in[0,\max\tau]$) | unknown | `fit_failed` |
+| 6 | $v_\text{curv}$가 위 경계 $V_\text{max}$ = 0.2998 m/ns에 붙음($V_\text{max}-v\le\beta(V_\text{max}-V_\text{min})$) | **out** | `v_at_upper_bound` |
+| 7 | $v_\text{curv}$가 아래 경계 $V_\text{min}$ = 0.03 m/ns에 붙음 | **out** | `v_at_lower_bound` |
+| 8 | $f_\text{in}<0.5$, 또는 $\sigma_v$가 유한하지 않음, 또는 $\sigma_v/v_m>0.15$ | unknown | `unstable` |
+| 9 | $r<0.7-\epsilon_r$ | out | `r_below` |
+| 10 | $r>1.6+\epsilon_r$ | out | `r_above` |
+| 11 | 나머지 | in | (빈칸) |
+
+- 플래그: out → `curvature_v_out`, unknown → `curvature_v_unknown`(사유는 `qc_reason` 열). in은 플래그 없음.
+- **위 끝 1.6의 물리 근거**(사용자 결정 7): 직선 광선 $R=0$ 피팅의 $r$은 진짜 직각 관에서 한쪽(위)으로 치우친다. 관경 $R$ 0.1 m와 공기층 $h\le0.05$ m, $d\ge0.3$ m(εr 9, 반개구 0.3 m)에서 광선 모형 $r$은 최대 **1.452**다(`m29c_refraction_bias.csv`: $h$ 0.05, $R$ 0.1, $d$ 0.3). 여기에 메타 εr 불확도 15 %가 $v$로 7.5 %(1.075배) 들어가 $1.452\times1.075=1.561$이고, 소수 첫째 자리로 올려 1.6이다.
+- **아래 끝 0.7**: 진짜 직각 관에서 $r<1$을 만드는 메커니즘은 εr 과대(최대 $1/1.075=0.93$)와 픽 잡음뿐이다. 0.7은 2026-10-31 결정(±30 %)의 아래 끝을 그대로 둔 것이다. 낮은 $r$은 한쪽 날개·V 교차·클러터의 특징이다(`m29c_apex_review.md` §5).
+- **unstable 기준 0.15**: $2\sigma_v/v_m>0.30$이면 95 % 구간이 $r=1$에서 가까운 띠 끝(0.7)까지의 거리 0.30보다 넓어 in/out을 가를 수 없다. 기준은 수동 검토 곡률 계산 전에 정한 값(2026-11-06)을 그대로 쓴다. 정상점 비율 0.5도 같다.
+- **v 경계 규칙(순서 6·7, v1.4에서 정함)**: $x_0$·$t_0$가 안쪽인데 $v$가 피팅 경계에 붙은 것은 "구할 수 없음"이 아니라 **띠 밖이라는 정보**다.
+  - 위 경계: $r\ge V_\text{max}/v_m=\sqrt{\varepsilon_{r,\text{used}}}\ge\sqrt{8.16}=2.86>1.6$(4TU 메타 최소 εr). 픽이 빛의 속도 쌍곡선보다 평평하다. 평탄 층·넓은 호의 특징이다(시험 C2·C2b).
+  - 아래 경계: $r\le0.03\sqrt{\varepsilon_r}/0.2998$, εr 49 미만에서 0.7 아래다.
+  - 경계 판정은 정상점 비율·$\sigma_v$ 검사보다 먼저 한다. 평탄한 픽은 어떤 쌍곡선과도 날개에서 크게 어긋나 $f_\text{in}$이 낮다(C2: 0.28). 그래서 순서를 바꾸면 평탄 층이 unknown으로 남는다.
+  - 공개 사항: 이 규칙은 합성 평탄 층(C2) 기대에서 나왔다. 명세 작성 중 검토 csv의 `fit_failed` 13건 중 10건이 $v$ 위 경계(N 4, L 5, A 1, T 0)임을 확인했다. 라벨은 효과를 세는 데만 썼다. 검토 때의 정의(경계 = `fit_failed` = 유지)와 달라지므로 §3-5-7에 두 정의의 수치를 함께 둔다. **사용자 확인 항목**이다(§10).
+- **한계(시험 C1b)**: 합성에서 픽 반개구가 약 1.0 m까지 이어지면, 공기층 $h$ 0.02–0.05 m·$d$ 0.3 m의 진짜 꼭짓점은 $r$ 1.88–1.89로 out이 된다($d$ 0.6 m는 1.48–1.51로 in). 위 끝 근거는 반개구 0.3 m(4TU 진짜 꼭짓점 픽 반개구 중앙값 0.34 m)를 썼다. 4TU 진짜 꼭짓점의 관측 $r$ 중앙값은 1.07로 실효 공기층 ≈ 0과 맞다(검토 §5). 그래서 이 손실은 얕은 관에서 일부 생길 수 있다. 수동 검토에서 B가 뺀 T는 2/41(G043 1.98, G133 1.82, 둘 다 얕음)이었다.
+- **곡률 v를 구할 수 없으면 유지**(사용자 결정): unknown은 주 결과에 남는다. 후보의 약 절반이 unknown이 될 것으로 본다(검토 표본: T 15/41, 거짓 67/128). 한쪽 날개 추적 실패(spec_depth §5-3)가 주된 원인이며 원인 분석은 **후속 항목**이다. 개선 뒤 E(unknown 제외)를 다시 검토한다.
+
+#### 3-5-3. 기록 끝 규칙 `apex_at_record_end` (규칙 D)
+
+$$m_\text{end}=(N-1-k_c)\,\Delta t,\qquad \texttt{apex\_at\_record\_end}\iff m_\text{end}<T_\text{end}-10^{-9},\qquad T_\text{end}=\frac{2.5}{f_c}$$
+
+| 기호 | 뜻 | 단위 |
+|---|---|---|
+| $N$ | 측선 샘플 수(4TU 512) | 개 |
+| $k_c$ | 후보 샘플(후보 csv `sample`, 실수) | 샘플 |
+| $\Delta t$ | 샘플 간격 | ns |
+| $m_\text{end}$ | 후보에서 기록 끝까지 남은 시간 | ns |
+| $T_\text{end}$ | 기록 끝 영역 길이. 500 MHz에서 **5.0 ns**(dt 0.098: 51.0 샘플, 0.117: 42.7, 0.195: 25.6) | ns |
+
+유도(`m29c_qc_edge.csv`):
+1. 꼭짓점 포락선 주엽은 약 ±0.6 주기다(spec_depth §5-7 3(c)). 꼭짓점 피크 시각이 맞으려면 주엽 아래쪽 0.6 주기가 기록 안에 있어야 한다.
+2. 처리 갈래(DC, 가우스 dewow, 영위상 밴드패스, median 배경 제거, Hilbert 포락선)는 기록 끝에서 포락선 수준을 바꾼다. 정상(stationary) 잡음 512 샘플 기록에서 트레이스 방향 포락선 RMS를 기록 가운데 절반의 중앙값으로 나눈 비가 1 ± 0.1을 벗어나는 끝 구간 길이 $T_\text{edge}$를 쟀다(트레이스 1,200개).
+
+   | dt (ns) | 백색 잡음 | Ricker 대역 잡음 |
+   |---|---|---|
+   | 0.098 | 3.63 ns (1.81 주기) | 2.35 ns (1.18) |
+   | 0.117 | 3.28 ns (1.64) | 1.64 ns (0.82) |
+   | 0.195 | 2.93 ns (1.46) | 1.76 ns (0.88) |
+
+   기록 끝 포락선은 백색 잡음에서 최대 1.9배까지 오른다(Hilbert 변환의 원형 경계). 이렇게 오른 끝 띠는 트레이스마다 같은 시각에 있어서 수평 능선처럼 보인다. 추적기가 이것을 평탄 픽으로 따라간다.
+3. $T_\text{end}=0.6/f_c+\max T_\text{edge}=1.2+3.63=4.83$ ns를 0.5 주기 단위로 올려 **2.5 주기**로 둔다.
+4. 후보 선정(§3-1 항목 2)은 기록 끝 16 샘플 전까지만 찾았다. 그 아래 끝에 붙은 피크(창 경계 극대, spec_depth §5-7 항목 2와 같은 메커니즘)는 $m_\text{end}\approx1.5$–1.6 ns라 이 규칙에 모두 걸린다. 별도 규칙이 필요 없다.
+- 경계: $m_\text{end}=T_\text{end}$이면 걸리지 않는다(부동소수 $10^{-9}$ ns 흡수).
+- 비용: 기록 끝 5 ns 안의 진짜 꼭짓점도 주 결과에서 빠진다. 4TU 50 ns 창, 영점 약 4 ns에서 꼭짓점 $\tau$ > 약 41 ns, 즉 εr 9에서 깊이 약 2.0 m 이상, εr 16에서 약 1.5 m 이상이다. 깨끗한 합성(C5)에서는 이 영역 꼭짓점도 깊이가 맞는다. 규칙은 실측 끝 영역의 처리 왜곡에 대한 보수적 결정이다.
+- 영점이 없어도(`tau_ns` 빈칸) 계산할 수 있다. 판정은 후보 csv의 `sample`로 하고 깊이 경로 꼭짓점에 의존하지 않는다.
+
+#### 3-5-4. 트레이스 이음 규칙 `apex_on_trace_seam` (규칙 D)
+
+**무엇을 잡나**: 공기결합 자료의 모든 트레이스에는 영점 띠(직접파 + 지표 반사)가 있다. 이 띠는 안테나와 지표가 만든 기준 사건이고 가장 강하다. 연속 측정이면 트레이스 간격 0.02 m에서 띠의 시각과 진폭은 연속이다. 한 트레이스 사이에서 띠가 도약하면 자료 이음(획득 중단·재시작, 이득·스택 변경, 죽은 트레이스, 급한 지표 단차)이다. 이음 위의 "꼭짓점"은 사건이 끊긴 자리의 가장 이른 점일 수 있다(검토 A 유형).
+
+**영점 띠 추적**(측선마다 한 번, `inputs.branch.filtered` = (1)–(3) 처리 뒤·배경 제거 전·부호 있는 자료):
+1. 창 $[t_z-1/f_c,\ t_z+1/f_c]$를 샘플 $k_0=\lfloor(t_z-1/f_c)/\Delta t\rfloor$, $k_1=\lceil(t_z+1/f_c)/\Delta t\rceil$로 잡는다. 지연 범위 $L=\lceil0.5/(f_c\Delta t)\rceil$ 샘플이 기록 안에 들도록 $k_0\ge L$, $k_1\le N-1-L$로 자른다. $t_z$는 측선 검출 영점이다.
+2. 본뜨기 $w(k)$ = 창 안 모든 트레이스의 샘플별 median.
+3. 트레이스 $i$마다 $c_i(\ell)=\sum_{k=k_0}^{k_1}w(k)\,a(k+\ell,i)$, $\ell\in[-L,L]$의 최대 $\ell_i^*$를 찾고, 안쪽이고 오목하면 포물선 보간한다. 지연 $\tau_i=\ell_i\Delta t$ (ns), 진폭 $A_i=|c_i(\ell_i^*)|/\sum w^2$.
+4. 이음 $j$(트레이스 $j-1$과 $j$ 사이, $j=1..n-1$): $\delta_j=\tau_j-\tau_{j-1}$, $g_j=\ln A_j-\ln A_{j-1}$($A=0$이면 $|g_j|=\infty$).
+5. 국소 잡음: $j$를 뺀 $1\le|m-j|\le K$ 이음의 $\delta_m$, $g_m$(유한값)으로 $\hat\sigma=1.4826\,\mathrm{MAD}$. $K=\lceil0.8/\Delta x-10^{-9}\rceil$ = 40(박스 반폭; v1.4.1: $10^{-9}$은 0.8/0.02 같은 몫이 부동소수로 정수를 살짝 넘어 한 트레이스가 더해지는 것을 막는다. `candidate_box`와 같은 처리, 아래 $J$도 같음).
+6. 점수 $s_j=\max\!\left(\dfrac{|\delta_j|}{\max(\theta_t,\ 5\hat\sigma_\delta)},\ \dfrac{|g_j|}{\max(\theta_A,\ 5\hat\sigma_g)}\right)$, $\theta_t=0.1/f_c$ (0.2 ns), $\theta_A=\ln1.25$. $s_j\ge1$이면 이음이다.
+7. 후보 $i_c$(후보 csv `trace`)는 $i_c-J\le j-1$이고 $j\le i_c+J$인 이음이 하나라도 있으면 `apex_on_trace_seam`이다. $J=\lceil0.10/\Delta x-10^{-9}\rceil$ = 5(꼭짓점 시각 창 ±0.10 m, spec_depth §6-4). csv에는 그 범위의 최대 $s_j$(`seam_score`)와 그 $j$(`seam_split`)를 적는다.
+
+**문턱 근거**
+- $\theta_t$ = 0.1 주기: 연속 지표에서 트레이스 간 영점 띠 시각 변화는 $2\Delta h/c$다. 10 % 경사(0.02 m마다 2 mm)에서 0.013 ns다. 0.2 ns 도약은 0.02 m 사이 약 3 cm 지표 단차(연석 수준) 또는 획득 시간 기준 이동이다. 둘 다 꼭짓점 기하를 깬다.
+- $\theta_A$ = ln 1.25: 영점 띠 진폭은 안테나 바닥 면적(약 0.2–0.3 m 이상)에 걸친 지표 반사의 평균이다. 0.02 m 이동은 그 면적의 10 % 이하만 바꾼다. 공기–토양 반사계수는 εr 4–25에서 0.33–0.67(최대 2배)이다. 그래서 물리적인 한 트레이스 변화는 $|\ln|$ 0.07 이하다. 0.22는 그 3배다.
+- $5\hat\sigma$: spec_depth §5-7 힌트 잡음 바닥과 같은 $k$ = 5다. 가우스 도약에서 이음당 오경보 확률 약 $6\times10^{-7}$이다. 잡음이 큰 측선에서 문턱이 저절로 올라간다.
+- 합성 null(`m29c_qc_seam_null.csv`): 4TU형 연속 측선 64개(dt 0.098/0.195 × εr 9/16 × SNR 20/6 dB × 고정 울림 유무 × 4회; 얕은 가파른 관 $d$ 0.1–0.4 m, 깊은 관, 유한 층, 경사 층 ±8 ns/m, 영점 띠는 관보다 20 dB 강함 — **가정**)에서 이음 0개, 최대 점수 0.574였다.
+- 합성 검출력(`m29c_qc_seam_power.csv`, 같은 측선 16개에 이음 주입): 시간 이동 ≥ 3 샘플(dt 0.098에서 0.29 ns)·20 트레이스 블록 이동·이득 ≥ 1.5배·죽은 트레이스는 16/16 검출이다. 시간 이동 2 샘플(0.196 ns, 문턱과 같음)과 이득 1.25배(문턱과 같음)는 경계라 일부만 잡는다. **영점 띠 아래에서만 성질이 바뀌는 블록**(울림 추가, `block_background`)은 0/16이다.
+- 한계: 이 규칙은 영점 띠에 드러나는 이음만 잡는다. 수동 검토의 A 라벨 10개 중 1개만 걸렸다(§3-5-7). 나머지는 영점 띠 아래에서만 성질이 바뀌거나 사건이 끊기는 블록으로 보인다. 그런 이음은 곡률 QC(B)나 지지 필터에 맡긴다. 라벨에 맞춰 문턱을 낮추지 않았다.
+- 영점이 없으면($t_z$ 없음) 계산하지 않는다(`seam_score` 빈칸, 플래그 없음). 그런 후보는 깊이도 없다.
+- (v1.4.1) 본뜨기 에너지 $\sum w^2=0$(창 안 median이 모두 0, 영점 띠가 없는 퇴화 측선)이면 기준 사건이 없으므로 영점이 없을 때와 같이 계산하지 않는다(측선 전체 `seam_score` 빈칸, 플래그 없음). 모든 $A_i=0$으로 두어 측선의 모든 이음이 무한 점수가 되는 처리는 쓰지 않는다. 4TU에서는 생기지 않는 방어 분기다.
+
+#### 3-5-5. 주 결과·보조 결과와 순서
+
+1. 후보마다 `qc_excluded` = (`curvature_v_out`) 또는 (`apex_at_record_end`) 또는 (`apex_on_trace_seam`).
+2. **주 결과**(`main`)와 보조 a·b: `status == "ok"`이고 `qc_excluded`가 거짓인 후보 깊이만 묶기(§4-3, 완전 연결 $W$ 0.10 m) → 지지 필터(`n_lines` ≥ 2) → 매칭.
+3. **보조 `noqc`**(v1.4 신설): QC를 적용하지 않은 v1.3.1 경로(`ok` 후보 전부 → 묶기 → 지지 필터). "제외하지 않은 결과"가 이것이다. 같은 실행에서 같은 깊이로 만든다(깊이 재계산 없음).
+4. 순서 근거: 묶기 뒤에 QC로 묶음을 지우면, 거짓 후보가 다른 측선 후보의 지지(`n_lines`)를 이미 채워 준 뒤다. 그래서 거짓 후보는 묶기 전에 뺀다. 활동 측선 수(지지 필터 적용 여부를 정하는 값)는 메타 측선 수 그대로다. QC로 후보가 사라진 측선도 센다.
+5. unknown 후보는 주 결과에 남는다. md ⑧에 unknown 비율과 사유를 낸다(사용자 결정).
+6. 무작위 기준선(§6)은 변형마다 그 변형의 추정 수로 뽑는다. QC가 추정 수를 줄이면 주 결과 기준선도 그만큼 바뀐다(설계상 성질, §11).
+7. `--apex-qc off`이면 QC를 계산하지 않고 주 결과가 v1.3.1과 같다. 이때 `noqc` 변형은 내지 않고 QC 열은 빈칸이다.
+8. (v1.4.1) 현장 11 진단(§7)의 `main_path`와 `unclustered`도 `qc_excluded` 후보를 환산·묶기 **전에** 뺀다(각각 주 결과 `main`·보조 `b`와 같은 후보 집합). QC 판정은 실행 값(메타 εr의 $v_m$)으로 낸 것을 그대로 쓰고, εr 8 환산으로 다시 판정하지 않는다. 진단의 목적은 "같은 후보 집합에서 εr만 바꾸면 bias가 어떻게 되나"이기 때문이다. QC를 εr 8로 다시 돌리면 $r$이 $\sqrt{8/\varepsilon_\text{used}}$ = 0.64–0.73배가 되어 후보 집합까지 바뀐다. `--apex-qc off`이면 v1.3.1과 같다. 현장 11 진단에는 `noqc` 변형을 두지 않는다.
+
+#### 3-5-6. 코드 계약 — 곡률 QC 값은 깊이로 흐르지 않는다
+
+1. `estimate_depth`를 먼저 부르고, 그 `DepthResult`를 만든 뒤에 QC를 계산한다. QC 함수는 `DepthResult`를 읽기만 하고(꼭짓점 일치 확인), 새 `DepthResult`를 만들지 않는다.
+2. QC 결과형 `CandidateQc`·`CurvatureQc`에는 깊이 필드가 없다. `CandidateResult.depth()`는 `qc`를 읽지 않는다. QC가 영향을 주는 곳은 `estimates_by_activity`의 후보 포함 여부(§3-5-5)와 csv·md 진단뿐이다.
+3. `fit_curvature`는 `scripts/eval_depth_4tu.py`에서 `curvature_qc` 안에서만 부른다(시험 C13이 AST로 확인). 측선 `Radargram`을 `dataclasses.replace`로 바꾸지 않는다.
+4. QC 플래그(`curvature_v_out` 등)는 `DepthResult.flags`에 넣지 않는다. candidates csv `flags` 열에서만 깊이 플래그 뒤에 붙인다.
+5. 시험: C11(QC 켬/끔에서 `DepthResult` 동일), C11b(QC의 `fit_curvature`를 엉뚱한 값으로 바꿔도 깊이 동일), C12(`v_rule == "meta_fixed"`, `DepthResult.flags`에 QC 플래그 없음).
+
+#### 3-5-7. 효과 추정 (수동 검토 라벨로 센 값 — 추정)
+
+검토 표본 169개(수동 39 + 자동 130, `m29c_apex_review.md`)에 잠근 규칙을 자료로 적용했다(`m29c_qc_effect.py`). 라벨은 T와 거짓을 세는 데만 썼다. 곡률 비는 검토 실행과 최대 $5\times10^{-5}$ 차이로 재현됐다. 표본은 현장 균등 할당이라 비율은 가중하지 않은 값이다. T는 자동 14개뿐이라 불확도가 크다.
+
+| 규칙 | T 남김 (전체) | 거짓 거름 (전체) | T 남김 (자동) | 거짓 거름 (자동) | 남은 자동 후보의 T 비율 |
+|---|---|---|---|---|---|
+| 규칙 전 | 41/41 | 0/128 | 14/14 | 0/116 | 10.8 % |
+| B, 검토 때 정의(v 경계 = 유지) | 39/41 | 27/128 | 13/14 | 26/116 | 12.6 % |
+| B, v1.4 정의(v 경계 → out) | 39/41 | 37/128 | 13/14 | 35/116 | 13.8 % |
+| D 기록 끝 | 41/41 | 7/128 | 14/14 | 7/116 | 11.4 % |
+| D 이음 | 41/41 | 5/128 | 14/14 | 5/116 | 11.2 % |
+| D 둘 중 하나 | 41/41 | 11/128 | 14/14 | 11/116 | 11.8 % |
+| **B+D (v1.4)** | **39/41** | **43/128** | **13/14** | **41/116** | **14.8 %** |
+| B(검토 정의)+D | 39/41 | 37/128 | 13/14 | 36/116 | 14.0 % |
+| 참고: 검토 §6 B+D 라벨 상한(N·A 라벨 제외) | 39/41 | 42/128 | 13/14 | 40/116 | 14.6 % |
+| 민감도: B+D, G143 = W | 38/40 | 43/129 | 13/14 | 41/116 | 14.8 % |
+| 진단: B+D + unknown 제외(E) | 24/41 | 105/128 | 10/14 | 95/116 | 32.3 % |
+
+- D 기록 끝은 N 라벨 7/7을 잡고 다른 유형은 하나도 잡지 않았다($m_\text{end}$ 1.52–1.62 ns, 모두 선정 창 아래 끝).
+- D 이음은 5개(A 1, L 2, N 1, U 1)를 잡았고 T는 0이다. A 라벨 10개 중 9개는 영점 띠 이음이 없다(§3-5-4 한계).
+- B+D로 빠지는 T 2개는 모두 B(`r_above`)이고 D는 T를 빼지 않았다.
+- unknown은 T 15/41, 거짓 67/128이다(`insufficient_picks` T 11). 자동 후보 정밀도를 크게 올리는 것은 여전히 E뿐이고, E는 T를 절반 가까이 잃는다. 추적 개선 뒤 다시 본다.
+- **결론(추정)**: B+D는 자동 후보 정밀도를 약 10.8 %에서 약 15 %로 올린다. 판정률을 바꿀 만큼 크지 않을 수 있다. 판정률 상한은 후보 생성에서 제한된다(§11).
 
 ## 4. 박스 공급과 깊이 실행
 
@@ -112,13 +273,14 @@
 ### 4-2. `estimate_depth` 설정
 
 - 측선마다 `prepare_depth_inputs(radargram, DepthConfig())`를 한 번 한다(띠 박스가 없으므로 `exclude_traces=None`). 꼭짓점 후보마다 `estimate_depth(radargram, box, DepthConfig(), inputs=...)`를 부른다. **설정은 전부 기본값이고 4TU로 바꾸지 않는다.**
-- 공기결합이므로 v는 `meta_fixed`이고 곡률 피팅은 금지다([S] §7 순서 2). 영점은 [S] §4-2 규칙을 따른다(대부분 `air_single_event` = 띠 포락선 피크, 현장 9 등은 `air_surface_late`).
+- 공기결합이므로 v는 `meta_fixed`이고 깊이용 곡률 피팅은 금지다([S] §7 순서 2; QC 전용 예외는 §3-5 — 곡률 v는 주 결과 포함 여부 판정에만 쓰고 깊이로 흐르지 않음, §3-5-6). 영점은 [S] §4-2 규칙을 따른다(대부분 `air_single_event` = 띠 포락선 피크, 현장 9 등은 `air_surface_late`).
 - 2a 굴절 QC는 `air_surface_late` 측선에서 자동으로 돈다. 구간과 `meta_eps_suspect`를 보고만 하고 깊이에는 쓰지 않는다.
 - t0 세 가지(보고 대상):
   - 주 결과 `depth_top_m`(검출 영점)
   - `alt_depths["t0_sample_est"]`, `alt_depths["t0_sample_act_median"]`(같은 꼭짓점·같은 v, 메타 영점). 라벨은 [S] §4-3(`merged` 등)
-- 꼭짓점 후보 QC: 결과 `apex_trace`가 꼭짓점 후보에서 3 트레이스보다 멀거나 `apex_sample`이 $0.5/(f_c\Delta t)$ 샘플보다 멀면 `candidate_moved` 표시를 단다(제외하지 않고 개수만 보고).
+- 꼭짓점 이동 표시(v1.0부터, 열 `candidate_moved`): 결과 `apex_trace`가 꼭짓점 후보에서 3 트레이스보다 멀거나 `apex_sample`이 $0.5/(f_c\Delta t)$ 샘플보다 멀면 `candidate_moved` 표시를 단다(제외하지 않고 개수만 보고). §3-5 꼭짓점 후보 QC(B+D, `qc_*` 열·`qc_excluded`)와는 별개이며 QC 판정에 쓰지 않는다.
 - `status != "ok"`인 꼭짓점 후보는 깊이가 없다. 상태별 개수를 보고한다.
+- (v1.4) 꼭짓점 후보 QC(§3-5)는 `estimate_depth` 뒤에 후보마다 계산한다. 깊이 설정과 값은 바뀌지 않는다. 주 결과에서 뺄지만 정한다.
 
 ### 4-3. 활동 단위 묶기 (측선 간 같은 관)
 
@@ -262,6 +424,7 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
 
 - 판정 문구는 "합격률 n/N"이다(정의서 verify 규칙). 판정률 A·B와 n/N을 함께 쓴다.
 - 보고 조합: {상단, 중심} × {검출 영점, est, act} × {주 결과(지지 필터), 보조 a, b}. 표는 주 결과를 먼저 보이고 나머지는 csv에 둔다.
+- (v1.4) 변형은 `main`(QC → 묶기 → 지지 필터), `a`(QC → 묶기, 지지 필터 없음), `b`(QC, 묶지 않음), `noqc`(QC 없음 → 묶기 → 지지 필터 = v1.3.1 주 결과)다. md ② 주 결과 표 바로 아래에 `noqc` 행을 같은 형식으로 둔다(사용자 결정 7의 "제외하지 않은 결과는 보조로 보고").
 
 ## 6. 무작위 깊이 기준선 (P8)
 
@@ -270,7 +433,7 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
 - 같은 헝가리안·지표를 적용한다. `numpy.random.default_rng(0)`.
 - 시행 횟수(v1.1, 비용 구분):
   - **주 결과 조합**(지지 필터 묶음 × 상단/중심 × 영점 3 = 6조합): 활동 범위 기준선 **1,000회**. 현장별 값은 같은 시행에서 현장별로 집계한다(추가 시행 없음).
-  - 보조 조합(지지 필터 없음, 묶지 않음): 200회.
+  - 보조 조합(지지 필터 없음, 묶지 않음, v1.4 `noqc`): 200회.
   - 전역 범위 보조 기준선: 주 결과 조합에만 200회, 전체와 현장별.
   - 시행 횟수를 md 실행 조건에 적는다.
 - 보고: 기준선 MAE·판정률 A·B의 평균과 2.5/97.5 % 분위, 그리고 $p$ = (기준선 판정률 B ≥ 관측 판정률 B인 시행 비율). v1.2: 활동 범위 기준선은 세 지표를 모두 csv 열로 낸다(§8). 이미 계산되는 값이고, 게이트 없는 매칭의 관대함은 MAE·판정률 A에서도 드러나기 때문이다.
@@ -278,7 +441,7 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
 
 ## 7. 별도 보고
 
-- **현장 11**(dt 0.195 ns, 앞 약 48 샘플 뮤트, εr 15.18/17.36/19.46): [FX]에서 꼭짓점 깊이가 정답보다 약 0.22 m 얕았고 메타 εr 과대 후보였다. 현장 11은 표를 따로 내고 bias 부호를 본다. 진단 전용으로 "εr 8로 바꾼 깊이"(×$\sqrt{\varepsilon_\text{used}/8}$)도 함께 내되, **판정과 기본값에는 쓰지 않는다**(튜닝 금지). v1.1: 진단은 주 결과와 같은 경로로 한다(꼭짓점 후보 깊이를 먼저 배율 조정 → §4-3 묶기·지지 필터 → 매칭). 그래야 현장 11 주 결과 표와 바로 비교된다. 묶지 않은 결과는 보조 열로만 낸다.
+- **현장 11**(dt 0.195 ns, 앞 약 48 샘플 뮤트, εr 15.18/17.36/19.46): [FX]에서 꼭짓점 깊이가 정답보다 약 0.22 m 얕았고 메타 εr 과대 후보였다. 현장 11은 표를 따로 내고 bias 부호를 본다. 진단 전용으로 "εr 8로 바꾼 깊이"(×$\sqrt{\varepsilon_\text{used}/8}$)도 함께 내되, **판정과 기본값에는 쓰지 않는다**(튜닝 금지). v1.1: 진단은 주 결과와 같은 경로로 한다(꼭짓점 후보 깊이를 먼저 배율 조정 → §4-3 묶기·지지 필터 → 매칭). 그래야 현장 11 주 결과 표와 바로 비교된다. 묶지 않은 결과는 보조 열로만 낸다. v1.4.1: 주 결과 경로에 꼭짓점 후보 QC가 들어갔으므로 진단도 QC 제외 후보를 먼저 뺀다(§3-5-5 항목 8).
 - **현장 9**(`air_surface_late` 33측선, dt 0.098/0.117/0.195 혼재): $h_\text{est}$ 분포, 2a 구간, `meta_eps_suspect` 개수를 보고한다.
 - εr 메타가 헤더 기본값과 같은 현장(1·4·7·12·13, 2의 85 %): [FX] P5 `eps_meta_equals_header_default` 후보로 표시만 한다.
 - 측선 30 m 이상(50개): 결과 csv에 `long_line` 표시만 한다(깊이에는 영향 없음, x 미사용).
@@ -289,13 +452,13 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
 
 | 파일 | 행 | 열 |
 |---|---|---|
-| `depth_4tu_v1_candidates.csv` | 꼭짓점 후보 | `activity_id, site, path, candidate_trace, candidate_sample, source, status, depth_top_m, depth_est_m, depth_act_m, label_est, label_act, eps_r_used, zero_rule, t_zero_ns, h_est_m, apex_trace, apex_sample, candidate_moved, eps_qc_lo, eps_qc_hi, flags`. `flags`에 `candidate_tau_missing`(수동 꼭짓점 후보의 `tau_ns` 빈칸 → `zero_failed`, v1.1) |
+| `depth_4tu_v1_candidates.csv` | 꼭짓점 후보 | `activity_id, site, path, candidate_trace, candidate_sample, source, status, depth_top_m, depth_est_m, depth_act_m, label_est, label_act, eps_r_used, zero_rule, t_zero_ns, h_est_m, apex_trace, apex_sample, candidate_moved, eps_qc_lo, eps_qc_hi, flags`. `flags`에 `candidate_tau_missing`(수동 꼭짓점 후보의 `tau_ns` 빈칸 → `zero_failed`, v1.1). 그 뒤 spec_depth §5-7 진단 열 `box_k0, search_k0, apex_minus_search_k0`. **v1.4 QC 열**(그 뒤에 이 순서로): `qc_verdict`(in/out/unknown), `qc_reason`(§3-5-2 표, in은 빈칸), `qc_r`(소수 4자리), `qc_v_curv_m_per_ns`(4자리), `qc_sigma_v_rel`($\sigma_v/v_m$, 4자리), `qc_inlier_frac`(4자리), `qc_n_picks`, `qc_n_left`, `qc_n_right`, `qc_aperture_m`(픽 $\max\lvert x-x_a\rvert$, 3자리), `record_end_margin_ns`(3자리), `apex_at_record_end`, `seam_score`(3자리, 무한이면 `inf`), `seam_split`, `apex_on_trace_seam`, `qc_excluded`. 값이 없으면 빈칸. `--apex-qc off`이면 QC 열은 모두 빈칸. `flags`에는 깊이 플래그 뒤에 `curvature_v_out`/`curvature_v_unknown`, `apex_at_record_end`, `apex_on_trace_seam`을 붙인다. v1.4.1: 순서는 `DepthResult.flags` → `long_line`(측선 표시, §7) → QC 플래그(곡률, 기록 끝, 이음 순)다 |
 | `depth_4tu_v1_clusters.csv` | 활동 × t0 × 묶음 | `activity_id, site, zero_variant, cluster_id, depth_m, n_lines, n_apex_candidates, kept_by_support, span_m, linkage, width_m`. v1.3: `span_m`(묶음 $\max-\min$, m), `linkage`(`complete`/`single`), `width_m`(실행에 쓴 $W$)를 추가한다. `span_m`은 소수 6자리(μm)로 반올림한다(v1.3.1). `cluster_id`는 §4-3-1 항목 4 순서다. 행은 `main` 변형에서만 쓴다(지지 필터 전 모든 묶음 + `kept_by_support`) |
 | `depth_4tu_v1_matches.csv` | 짝 | `activity_id, site, gt_set, multi_trench, assumption, zero_variant, variant, est_depth_m, gt_depth_m, gt_code, radius_known, error_m, within_30cm` |
-| `depth_4tu_v1_summary.csv` | 조합 × (전체·현장) | `scope, gt_set, assumption, zero_variant, variant, n_activities, n_gt, n_est, n_pairs, mae_m, bias_m, med_abs_m, p90_abs_m, pass_a, pass_b, missed, false_est, baseline_mae_mean, baseline_mae_p025, baseline_mae_p975, baseline_pass_a_mean, baseline_pass_a_p025, baseline_pass_a_p975, baseline_pass_b_mean, baseline_pass_b_p025, baseline_pass_b_p975, baseline_p, baseline_global_pass_b_mean, baseline_global_pass_b_p025, baseline_global_pass_b_p975, baseline_global_p`. `baseline_mae_*`·`baseline_pass_a_*`는 v1.2 추가, `baseline_global_*`는 주 결과 조합에만 채운다(v1.1) |
-| `depth_4tu_v1_site11.csv`(v1.2) | 현장 11 진단 짝 | `activity_id, gt_set, assumption, zero_variant, variant(main_path / unclustered), est_depth_m, est_depth_eps8_m, gt_depth_m, error_eps8_m, within_30cm_eps8`. 진단 전용이고 판정에 쓰지 않는다(§7). md에는 요약 표만 둔다 |
+| `depth_4tu_v1_summary.csv` | 조합 × (전체·현장) | `scope, gt_set, assumption, zero_variant, variant, n_activities, n_gt, n_est, n_pairs, mae_m, bias_m, med_abs_m, p90_abs_m, pass_a, pass_b, missed, false_est, baseline_mae_mean, baseline_mae_p025, baseline_mae_p975, baseline_pass_a_mean, baseline_pass_a_p025, baseline_pass_a_p975, baseline_pass_b_mean, baseline_pass_b_p025, baseline_pass_b_p975, baseline_p, baseline_global_pass_b_mean, baseline_global_pass_b_p025, baseline_global_pass_b_p975, baseline_global_p`. `baseline_mae_*`·`baseline_pass_a_*`는 v1.2 추가, `baseline_global_*`는 주 결과 조합에만 채운다(v1.1). v1.4: `variant` 값에 `noqc`가 더해진다(matches csv도 같음, 열은 그대로) |
+| `depth_4tu_v1_site11.csv`(v1.2) | 현장 11 진단 짝 | `activity_id, gt_set, assumption, zero_variant, variant(main_path / unclustered), est_depth_m, est_depth_eps8_m, gt_depth_m, error_eps8_m, within_30cm_eps8`. 진단 전용이고 판정에 쓰지 않는다(§7). md에는 요약 표만 둔다. v1.4.1: `--apex-qc on`이면 QC 제외 후보는 두 variant 모두에서 빠진다(§3-5-5 항목 8, 열은 그대로) |
 | dry-run JSON(v1.1, 파일 아님·stdout) | – | 위 개수에 더해 `activities_without_gt`(32), `gt_items_include_x`(389), `candidates_without_tau` |
-| `depth_4tu_v1.md` | – | ① 실행 조건(커밋, 설정, 시드) ② 주 결과 표(상단/중심 × 영점 3) ③ 기준선 비교 ④ 현장별 표 ⑤ 현장 11·9 별도 ⑥ 상태·`candidate_moved`·꼭짓점 후보 출처(auto/manual)별 개수 ⑦ 가정·한계 |
+| `depth_4tu_v1.md` | – | ① 실행 조건(커밋, 설정, 시드) ② 주 결과 표(상단/중심 × 영점 3) ③ 기준선 비교 ④ 현장별 표 ⑤ 현장 11·9 별도 ⑥ 상태·`candidate_moved`·꼭짓점 후보 출처(auto/manual)별 개수 ⑦ 가정·한계 ⑧ (v1.4) 꼭짓점 후보 QC 진단: `ok` 후보의 판정(in/out/unknown)과 사유별 개수(전체·출처별·현장별), 알려진 $r$의 분위(0/10/50/90/100 %), D 플래그 개수와 B와의 겹침, `qc_excluded` 개수, 주 결과(`main`)와 `noqc`의 추정 수(전체·정답 활동), §11 **항목 3**(꼭짓점 후보 QC) 사전 등록 문구를 그대로 인용(코드 상수 `PREREGISTERED_QC_NOTE`, v1.4.2 범위 확정). §11 항목 1(묶기)·2(후보 정밀도)·4·5는 md ⑧에 넣지 않고 §11과 재평가 사전 등록 문서에 둔다. v1.4.1: ⑧의 모든 개수·분위는 `status == "ok"` 후보만 센다(깊이가 없는 후보는 어느 변형에도 들어가지 않음). "알려진 $r$"은 판정에 $r$을 쓴 후보, 곧 판정이 in 또는 out인 후보의 $r$이다(unknown의 `fit_failed`·`unstable` $r$은 csv에만 있고 분위에서 뺀다; out의 `v_at_*_bound` $r$은 넣는다). D와 B의 겹침 = D 플래그가 있는 후보 중 곡률 판정이 out인 개수, "둘 다" = 기록 끝과 이음이 모두 걸린 개수. ① 실행 조건에 `apex_qc`(on/off)와 QC 상수(띠 0.7–1.6, $T_\text{end}$ 2.5 주기, $\theta_t$·$\theta_A$·$k$)를 적는다. QC 진단 값으로 문턱을 다시 고르지 않는다 |
 
 ## 9. python-expert 구현 명세
 
@@ -311,6 +474,7 @@ python -I scripts/eval_depth_4tu.py
     [--activities 01.1,04.1] [--cluster-width-m 0.10] [--cluster-linkage complete]
     [--min-support-lines 2]
     [--baseline-trials 1000] [--baseline-trials-aux 200] [--baseline-seed 0]
+    [--apex-qc {on,off}]                          (v1.4, default on; QC constants are not CLI options)
 ```
 
 함수(스크립트 안, `src/` 변경 없음):
@@ -325,6 +489,75 @@ python -I scripts/eval_depth_4tu.py
   - `estimates_by_activity`·`site11_estimates`·`evaluate_combinations`·`site11_diagnostic`의 `gap_m` 인자는 `width_m`, `linkage`로 바꿔 그대로 넘긴다.
   - md에 묶음 진단(§4-3-2 끝)을 더한다: `span_m` 분위(0/50/95/100 %), `span_m` > `width_m` + 1e-9 개수(0이어야 함), `n_lines` 분포, 지지 필터 통과 비율. 주 결과 조합(검출 영점)만 낸다. 분위와 초과 개수는 csv와 같은 반올림 값(소수 6자리)으로 센다(v1.3.1). 그래서 $5\times10^{-7}$ m보다 작은 초과는 보이지 않는다. 완전 연결은 폭 ≤ $W+10^{-9}$를 보장하고 `single`의 초과는 cm 단위라 진단에는 영향이 없다.
   - (v1.3.1 추가) md 묶음 진단에 **v1.2 대비 추정 수**를 한 줄 더한다. `--cluster-linkage complete`일 때, 주 결과 조합(검출 영점, `main` 변형)의 같은 깊이 입력을 `linkage="single"`, 같은 `width_m`, 같은 `min_lines`로 다시 묶어 지지 필터 뒤 추정 수를 센다. 출력: 전체 활동과 정답 있는 활동(`exclude_x` 집합)마다 `complete` 추정 수 합, `single` 추정 수 합, 차이, 그리고 추정 수가 늘어난/같은/줄어든 활동 수. 판정·기준선·csv에는 쓰지 않는다(기준선은 `complete` 추정 수로만 뽑는다). `--cluster-linkage single`이면 이 줄은 "해당 없음(실행 자체가 single)"이다. 비용은 묶기만 한 번 더 하는 것이라 무시할 만하다(깊이 계산 재실행 없음). 별도 `--cluster-linkage single` 전체 실행으로 대신하지 않는다. 깊이 계산을 한 번 더 돌려 10–20분이 들고, 같은 접두어 출력이 덮어써질 위험이 있고, 4TU 시험 실행이 두 번이 되기 때문이다.
+- **(v1.4) 꼭짓점 후보 QC** — §3-5. 같은 스크립트 안의 절(`# ---- apex candidate QC`)로 둔다. `src/`는 바꾸지 않는다. 상수(영문 이름 그대로 코드에 둔다):
+
+  ```text
+  QC_R_LO = 0.7; QC_R_HI = 1.6; QC_R_TOL = 1e-12
+  QC_UNSTABLE_SIGMA_REL = 0.15; QC_UNSTABLE_INLIER = 0.5
+  QC_BOUND_REL = 1e-4            # spec_depth 6-3 boundary rule
+  QC_RADIUS_M = 0.0
+  RECORD_END_PERIODS = 2.5; RECORD_END_TOL_NS = 1e-9
+  SEAM_TIME_PERIODS = 0.1; SEAM_AMP_RATIO = 1.25; SEAM_NOISE_K = 5.0
+  SEAM_ZERO_HALF_PERIODS = 1.0; SEAM_LAG_HALF_PERIODS = 0.5
+  SEAM_REF_HALF_M = BOX_HALF_WIDTH_M (0.8); SEAM_APEX_HALF_M = 0.10
+  QC_FLAG_OUT = "curvature_v_out"; QC_FLAG_UNKNOWN = "curvature_v_unknown"
+  FLAG_RECORD_END = "apex_at_record_end"; FLAG_SEAM = "apex_on_trace_seam"
+  ```
+
+  ```python
+  class QcVerdict(StrEnum): IN = "in"; OUT = "out"; UNKNOWN = "unknown"
+
+  @dataclass(frozen=True)
+  class CurvatureQc:           # no depth field on purpose (3-5-6)
+      verdict: QcVerdict
+      reason: str              # "" | r_below | r_above | v_at_upper_bound | v_at_lower_bound
+                               #    | no_box | no_apex | insufficient_picks | fit_failed | unstable
+      r: float | None = None
+      v_curv_m_per_ns: float | None = None
+      sigma_v_rel: float | None = None
+      inlier_frac: float | None = None
+      n_picks: int = 0; n_left: int = 0; n_right: int = 0
+      aperture_m: float | None = None
+
+  @dataclass(frozen=True)
+  class CandidateQc:
+      curvature: CurvatureQc
+      record_end_margin_ns: float
+      at_record_end: bool
+      seam_score: float | None   # None without a zero
+      seam_split: int | None
+      on_trace_seam: bool
+      @property
+      def excluded(self) -> bool  # curvature.verdict == OUT or at_record_end or on_trace_seam
+      @property
+      def flags(self) -> tuple[str, ...]  # order: curvature flag, record end, seam
+
+  def classify_ratio(r: float) -> QcVerdict          # 3-5-2 rows 9-11; non-finite r -> ValueError
+  def classify_curvature(curvature: CurvatureFit, picks: HyperbolaPicks, v_meta: float) -> CurvatureQc
+                                                     # pure; rows 2-11 of the 3-5-2 table
+  def curvature_qc(radargram, box, inputs, hint, result, config=DepthConfig()) -> CurvatureQc
+                                                     # extract_picks (same args as estimate_depth),
+                                                     # apex check vs result -> RuntimeError, fit_curvature(R 0, "ground")
+  def record_end_margin_ns(sample: float, n_samples: int, dt_ns: float) -> float
+  def apex_at_record_end(sample: float, n_samples: int, dt_ns: float, f_c_hz: float) -> bool
+  def zero_band_track(filtered: np.ndarray, t_zero_ns: float, dt_ns: float, f_c_hz: float)
+          -> tuple[np.ndarray, np.ndarray] | None   # (lag_ns, amplitude) per trace, 3-5-4 items 1-3;
+                                                     # None if the template energy is 0 (v1.4.1, 3-5-4)
+  def seam_scores(lag_ns: np.ndarray, amplitude: np.ndarray, f_c_hz: float, dx_m: float) -> np.ndarray
+                                                     # pure; s_j per split (index j - 1), 3-5-4 items 4-6
+  def seam_near(scores: np.ndarray, trace: int, dx_m: float) -> tuple[float | None, int | None]
+                                                     # max s_j with trace - J <= j - 1 and j <= trace + J
+  def candidate_qc(radargram, inputs, candidate_row, box, result, seam_scores_line) -> CandidateQc
+  ```
+
+  - `run_line(radargram, candidates, *, apex_qc: bool = True)`: 측선마다 `zero_band_track`·`seam_scores`를 한 번 계산한다(영점이 없으면 건너뜀). 후보마다 `estimate_depth` → (박스가 있으면) `candidate_qc`. `CandidateResult`에 `qc: CandidateQc | None = None` 필드를 더한다(`apex_qc=False`이면 `None`). 박스가 없는 후보(`tau_ns` 빈칸)도 `CurvatureQc(UNKNOWN, "no_box")`와 기록 끝 판정을 갖는다.
+  - `estimates_by_activity(..., apex_qc: bool = True)`: `variant != "noqc"`이고 `apex_qc`이면 `getattr(candidate, "qc", None)`이 있고 `excluded`인 후보를 묶기 전에 뺀다. `qc`가 없는 후보(시험 B13의 덕 타이핑 후보 포함)는 빼지 않는다. `noqc`는 묶기·지지 필터를 `main`과 같게 한다.
+  - `VARIANTS = ("main", "a", "b", "noqc")`. `baseline_trials_for("noqc")`는 보조 횟수(200)다. `--apex-qc off`이면 `noqc`를 평가하지 않는다.
+  - `candidate_row`: §8 QC 열과 `flags` 끝 붙임. md ⑧은 `_qc_diagnostic_lines`(이름은 구현 재량)로 만든다.
+  - (v1.4.1 확정) `curvature_qc(..., config=DEFAULT_DEPTH_CONFIG)`: `DEFAULT_DEPTH_CONFIG`는 `DepthConfig()`와 같은 frozen 값이라 `estimate_depth(..., DepthConfig())`와 픽이 같다(C14가 확인). 깊이 설정을 바꾸는 개정이 생기면 `_run_candidate`가 쓰는 같은 설정 객체를 `candidate_qc`·`curvature_qc`에 넘기도록 함께 고친다.
+  - (v1.4.1) `site11_estimates(..., apex_qc: bool = True)`: `apex_qc`이면 `_is_qc_excluded` 후보를 환산 전에 뺀다(`main_path`·`unclustered` 둘 다, §3-5-5 항목 8). `site11_diagnostic`은 `apex_qc_enabled(args)`를 넘긴다.
+  - (v1.4.1) md ⑧ $r$ 분위는 판정 in·out 후보만(§8). 영점 띠 본뜨기 에너지 0이면 `_line_seam_scores`가 `None`(§3-5-4).
+  - 비용: 후보당 `extract_picks`·`fit_curvature` 한 번(수 ms), 측선당 영점 띠 추적 한 번. §9-3 추정(10–20분)에 1–2분 더한다(**가정**).
 - `match_activity(est, gt) -> MatchResult` — 헝가리안, 누락·오검출
 - `summarize(matches, ...)` — §5 지표
 - `random_baseline(n_est_by_act, gt_by_act, trials, seed, mode) -> BaselineStats` — §6
@@ -374,6 +607,56 @@ python -I scripts/eval_depth_4tu.py
 - `analysis/processing/depth_4tu_v1_diagnose.py`는 `cluster_depths(..., 0.10)`을 위치 인자로 불러 "as run" 단일 연결을 재현한다. v1.3 뒤에는 `linkage="single"`을 명시해야 진단이 바뀌지 않는다(구현 때 같이 고친다). 시제품 `analysis/processing/cluster_width_v1.py` D부의 single 대조 호출도 같은 이유로 `linkage="single"`을 명시했다(2026-11-06, v1.3.1).
 - **시험 판별력 확인(2026-11-06, v1.3.1 구현 판정)**: `cluster_depths`에 돌연변이 18개(동률 허용 0, 동률을 깊은 쪽으로, 깊은 쪽부터 훑기, 경계 허용 0 또는 1e-8, 엄격 경계, 탐욕 폭 끊기, 첫 가능 쌍 합치기, `span_m`·`n_lines`·중앙값 오류, 기본 single, 출력 역순, 유한값 검사 삭제, NaN만 검사, $W\le0$ 허용, 정렬 둘째 키 삭제, `single` 끊기 `>=`)를 넣고 E2·B1–B12만 돌렸다. 15개가 잡혔다. 살아남은 셋은 정렬 둘째 키 삭제(동치 변형, §4-3-1 항목 1), NaN만 검사(inf 통과 → B11에 inf 추가), `single` 끊기 `>=`(v1.2 경계 → B4에 `single` 경계 2건 추가)다. 원본 코드는 19개 시험을 모두 통과했다.
 
+### 9-2-2. 꼭짓점 후보 QC 시험 C1–C16 (v1.4, C6c·C6d·C7c·C7d·C13f·C15·C16은 v1.4.1, M2-9 개선 C, `tests/test_eval_depth_4tu.py`)
+
+시험 함수 이름은 대부분 `test_c<ID>_…`이다. 예외: C6c는 `test_c6b_score_exactly_one_is_a_seam`, C7c는 `test_c7_unstable_limits_are_exclusive`이고 ID는 각 docstring에만 있다(v1.4.2 확인). 여러 ID를 한 함수가 맡는 경우도 있다(`test_c1_c12_c14_true_apex_is_in`, `test_c2_c12_flat_layer_is_out_at_the_upper_v_bound`, `test_c7_c8_c9_classify_fake_fits`).
+
+합성·해석 입력만 쓴다(4TU 값 없음). 기대값은 `analysis/processing/m29c_qc_proto.py` C부 시제품 출력(`m29c_qc_ctests.csv`, 2026-11-07)이다. $r$은 `pytest.approx(abs=0.01)`, 판정·사유·플래그는 정확히 같아야 한다.
+
+**공통 생성기**(`tests/synthetic_bscan.py`, 고치지 않고 인자로만): `BScanSpec(f_c_hz=500e6, dt_ns=0.098, dx_m=0.02, n_traces=401, snr_db=20, air_gap_m=0.001, offset_m=0.0, direct_amplitude=30.0, surface_amplitude=-20.0, eps_r=…, d_top_m=…, radius_m=…, n_samples=…)`, `pipe_times_ns = cylinder_times(x_m, x0_m, d, v, R)`(직선 광선 = 실효 공기층 0, 영점 띠는 단일 사건), `make_radargram(spec, air_gap="air", eps_r_meta=eps_r)`. 영점 띠를 관보다 20 dB 강하게 둔 것은 **가정**이다(실측 공기결합 자료의 일반적 크기). 후보 = 참 꼭짓점(트레이스 `n_traces // 2`, 샘플 $(3+\tau_\text{pipe})/\Delta t$), `tau_ns` = 샘플 × Δt − 검출 영점. 경로는 `run_line`(또는 `candidate_box` → `estimate_depth(apex_hint)` → `candidate_qc`)이다. 영점 규칙은 모두 `air_single_event`다.
+
+| ID | 입력 | 기대 |
+|---|---|---|
+| C1 점 산란·관경(실효 공기층 0) | εr {9, 16} × $R$ {0, 0.1} m × $d$ {0.2, 0.3, 0.5, 0.75, 1.0, 1.5} m, `n_samples` 768 | 24개 모두 `ok`, **in**, 플래그 없음, 깊이 ±0.01 m. $r$: $R$ 0에서 0.997–0.999(εr 9: 0.9969, 0.9970, 0.9980, 0.9981, 0.9988, 0.9987 / εr 16: 0.9973, 0.9979, 0.9985, 0.9983, 0.9984, 0.9976), $R$ 0.1에서 εr 9: 1.0963, 1.0823, 1.0637, 1.0488, 1.0411, 1.0297 / εr 16: 1.0981, 1.0833, 1.0656, 1.0508, 1.0411, 1.0289($d$ 순). 모든 $r$이 [0.7, 1.6] 안 |
+| C1b 공기층 상한(특성 시험) | E1 생성기(기본 진폭 3/−2, offset 0.1 m, `reflection_times`), εr 9, `n_samples` 768, $h$ {0.02, 0.05} × $R$ {0, 0.1} × $d$ {0.3, 0.6, 1.0} | $d$ 0.3: **out** `r_above`($r$ 1.8774 / 1.8876 / 1.8818 / 1.8949; $h$·$R$ 순 0.02-0, 0.02-0.1, 0.05-0, 0.05-0.1). $d$ 0.6: in(1.4767 / 1.4880 / 1.4886 / 1.5054). $d$ 1.0: in(1.2370 / 1.2530 / 1.2573 / 1.2755). 깊이는 QC와 무관하게 `ok`. §3-5-2 한계를 고정하는 시험이다(기대가 바뀌면 명세를 함께 고친다) |
+| C2 평탄 층 | C1 생성기 $d$ 1.4 m(εr 9, 512 샘플) + 평탄 사건 $\tau$ 9 ns, 진폭 2.0(±1.0 m만), 후보 = 층 가운데·층 시각. 진폭 0.5 판도 | 둘 다 **out** `v_at_upper_bound`($r$ 3.0001). 진폭 2.0은 $f_\text{in}$ 0.2755 < 0.5인데도 out이다(순서 6이 8보다 앞섬 — 순서를 바꾸는 돌연변이를 잡는다) |
+| C2b 넓은 호 | C2와 같되 사건 $\tau(x)=9+(2/0.1)(x-x_0)^2/(2\cdot20)$ ns(곡률 반경 20 m) | out `v_at_upper_bound` |
+| C3 X 교차 | C2 배경 + 두 직선 사건 $\tau=10\pm p(x-x_0)$ ns, 진폭 1.5, ±1.2 m, $p$ {5, 10, 15, 20, 30} ns/m, 후보 = 교차점 | 모두 **unknown**: $p$ 5·20·30 `insufficient_picks`, $p$ 10·15 `fit_failed`(한쪽 추적 → $x_0$ 경계). QC가 X를 out으로 만들지 못하는 한계를 고정한다 |
+| C3b V | 한 사건 $\tau=10+p\lvert x-x_0\rvert$, $p$ {10, 20} | unknown `unstable`($r$ 1.1636 / 0.7088, $f_\text{in}$ 0.4242 / 0.2424) |
+| C4 한쪽 날개 | 관 $d$ 3.0 m(기록 밖) + 반쪽 쌍곡선 $d$ 0.5 m, $x\ge x_0$만 | unknown `insufficient_picks`(왼쪽 2, 오른쪽 47) |
+| C5 기록 끝 | C1 생성기 εr 9, 512 샘플, 꼭짓점 시각 = $(N-1)\Delta t-m$, $m$ {0.8, 1.5, 3.0, 6.0} ns | `apex_at_record_end` True / True / True / False, `qc_excluded` 같음. 곡률 판정은 in / in / unknown(`insufficient_picks`) / in(기록 끝 판정과 독립). 깊이는 그대로(`ok`) |
+| C5b 기록 끝 경계(순수 함수) | `apex_at_record_end(sample, 512, 0.098, 500e6)`, $m_\text{end}$ = 5.0 − 2e-9, 5.0, 5.0 + 1e-6 ns가 되게 sample을 정함. dt 0.195·0.117에서 같은 세 점 | True, False, False(경계 미포함·$10^{-9}$ 흡수). $T_\text{end}$ = 5.0 ns가 dt와 무관함 |
+| C6 이음 | C1 생성기 εr 9, $d$ 0.5, 512 샘플. 꼭짓점 트레이스 $i_a$에 대해 (a) 이음 없음, (b) $i\ge i_a+2$ 이득 2배, (c) $i\ge i_a+12$ 이득 2배, (d) $i\ge i_a+2$ 3 샘플 지연(`np.roll`), (e) $i\ge i_a+12$ 3 샘플 지연, (f) 트레이스 $i_a+3$을 0으로, (g) $i\ge i_a+2$에 영점 뒤 울림 $0.5\sin(2\pi\,0.35(t-3))e^{-(t-3)/25}$ 더함 | `apex_on_trace_seam`: (a) False(점수 0.072), (b) True(3.11), (c) False, (d) True(1.48), (e) False, (f) True(inf), (g) **False**(영점 띠 아래만 바뀌는 블록은 못 잡는 한계를 고정). 점수는 ±0.05(무한 제외). 모든 경우 곡률 판정 in, 깊이 `ok` |
+| C6b 이음 점수(순수 함수) | `seam_scores(lag_ns, amplitude, 500e6, 0.02)`, 401 트레이스. (i) 지연·진폭 상수, 트레이스 200부터 지연 +0.21 ns. (ii) +0.19 ns. (iii) 진폭 ×1.26 / ×1.24. (iv) 지연에 `default_rng(0)` 정규 잡음 σ 0.05 ns를 더하고 +0.21 ns 도약. (v) 진폭 0 트레이스 하나 | 이음 $j$ = 200(색인 199) 점수: (i) 1.0500, 이음 1개. (ii) 0.9500, 이음 0개. (iii) 1.0357 이음 / 0.9640 아님. (iv) 0.4175, 다른 이음 최대 0.7451, 이음 0개(잡음 문턱 $5\hat\sigma$가 약 0.5 ns로 올라감). (v) $j$ 200·201 모두 inf, 이음 2개. (i)–(iii)·(v)의 다른 이음은 모두 0 |
+| C7 unknown 사유 | (a) C6(a) 측선에 후보 시각 +5 ns(아무 사건 없음). (b) `tau_ns` 빈칸 후보. (c) `classify_curvature`에 가짜 피팅($v_m$ 0.1, 픽 $x$ ±0.5 m 51점, 기본 $v$ 0.1·$f_\text{in}$ 1·$\sigma_v$ 0.001): converged False / $x_0$ = −0.5(경계) / $f_\text{in}$ 0.49 / $\sigma_v$ NaN / $\sigma_v$ 0.016(0.16) / 0.0149(0.149) | (a) `no_apex`(깊이 `fit_failed`, `apex_hint_unmatched`). (b) `no_box`, `curvature_v_unknown`, 기록 끝 판정은 계산됨. (c) `fit_failed` / `fit_failed` / `unstable` / `unstable` / `unstable` / in |
+| C8 띠 경계 | `classify_ratio` 0.7, 1.6, 0.7 − 1e-13, 1.6 + 1e-13 → in; 0.7 − 1e-9, 1.6 + 1e-9 → out; NaN·inf → `ValueError`. 가짜 피팅 $r$ = 0.69 → `r_below`, 1.61 → `r_above` | 표대로 |
+| C9 v 경계 | 가짜 피팅 $v$ = 0.2998(경계)·$x_0$·$t_0$ 안쪽 → out `v_at_upper_bound`. $v$ = 0.2998·$x_0$ 경계 → unknown `fit_failed`. $v$ = 0.03 안쪽 → out `v_at_lower_bound`. $v$ = 0.2998 − 1e-3 → 경계 아님, $r$ 2.988로 out `r_above` | 표대로(같은 가짜 피팅 틀) |
+| C10 주·보조 분리 | 덕 타이핑 후보(활동 `01.1`, 측선 3): 깊이 0.60(L1, in), 0.61(L2, out), 0.62(L3, unknown), 1.20(L1, `apex_at_record_end`), 1.21(L2, in). `estimates_by_activity(..., "detected", v, {"01.1": 3}, width_m=0.10, linkage="complete", min_lines=2)` | `main`: [0.61](0.60·0.62 묶음 n_lines 2; 1.21은 n_lines 1로 지지 필터에서 빠짐). `noqc`: [0.61, 1.205]. `a`(지지 필터 없음): [0.61, 1.21]. 1.20이 QC로 빠지면서 1.21 묶음의 지지가 사라지는 것(QC가 묶기 전이라는 순서)을 단언 |
+| C11 깊이 불변 | C1 εr 9 $R$ 0 $d$ 0.5, C2, C5(0.8 ns), C6(b) 측선에서 `run_line(..., apex_qc=True)`와 `False` | 후보마다 `DepthResult`가 같다(`==`; dataclass 비교, NaN 필드가 있으면 필드별 `math.isclose`/둘 다 NaN). candidates csv의 깊이·상태 열이 같다 |
+| C11b 곡률 값 차단 | QC가 쓰는 `fit_curvature`를 monkeypatch로 $v$ = 0.25 m/ns 피팅을 돌려주게 바꿈 | QC 판정은 바뀌고(out `r_above`), `DepthResult`·깊이는 C11과 같음 |
+| C12 공기결합 규칙 유지 | C1·C2 측선 | `result.v_rule == "meta_fixed"`, `result.flags`에 `curvature_v_*`·`apex_at_record_end`·`apex_on_trace_seam` 없음, `radargram.air_gap == "air"` 그대로 |
+| C13 배관 | (a) AST: `scripts/eval_depth_4tu.py`에서 `fit_curvature` 호출은 `curvature_qc` 안 1곳. (b) candidates csv 열 순서 = §8(v1.4 QC 열이 `apex_minus_search_k0` 뒤). (c) `parse_args([])` → `apex_qc == "on"`, `--apex-qc off` 허용, `--apex-qc maybe` → `SystemExit`. (d) `--apex-qc off`: QC 열 빈칸, `noqc` 변형 행 없음, 주 결과가 v1.3.1과 같음. (e) md ⑧ 줄(판정·사유 개수, `main`/`noqc` 추정 수, §11 항목 3 문구 = `PREREGISTERED_QC_NOTE`) | 표대로 |
+| C14 픽 일치 | C1 24개 측선 | QC 픽의 꼭짓점 = `DepthResult`의 `apex_trace`·`apex_sample`. 일부러 다른 박스를 넘기면 `RuntimeError` |
+| C6c 이음 경계 (v1.4.1 등재, 구현자 추가; 함수 `test_c6b_score_exactly_one_is_a_seam`) | C6b 틀에서 트레이스 200부터 지연 +0.2 ns(= $\theta_t$, 점수 정확히 1.0). `candidate_qc`(박스 없음, 후보 트레이스 200)에 이 점수 배열 | 점수 `== 1.0`, `(seam_score, seam_split, apex_on_trace_seam) == (1.0, 200, True)`. §3-5-4 항목 6의 $s_j\ge1$ 경계 포함(`>` 돌연변이를 잡음) |
+| C7c unstable 경계 (v1.4.1 등재, 구현자 추가; 함수 `test_c7_unstable_limits_are_exclusive`) | 가짜 피팅 $v_m$ = 0.125(2의 거듭제곱이라 $0.15\cdot0.125/0.125$가 정확히 0.15), $v=v_m$: (a) $f_\text{in}$ = 0.5, (b) $\sigma_v$ = 0.15 $v_m$ | 둘 다 in(§3-5-2 순서 8은 $f_\text{in}<0.5$, $\sigma_v/v_m>0.15$의 엄격 부등호; `<=`·`>=` 돌연변이를 잡음) |
+| C6d 퇴화 영점 띠 (v1.4.1) | C6(a) 측선의 `inputs.branch.filtered`에서 영점 창 $[k_0-L,\ k_1+L]$을 모두 0으로 둔 입력으로 측선 이음 계산(`_line_seam_scores` 또는 구현 이름) | 결과 `None`(이음 규칙 미계산). 그 측선 후보의 `seam_score`·`seam_split` 빈칸, `apex_on_trace_seam` False. 모든 이음이 inf가 되는 처리(현재 구현)를 잡는다 |
+| C15 현장 11 진단 QC (v1.4.1) | E8 입력(011.1, εr 18, P1 0.66·P2 0.68·P2 0.20, 모두 in)에 P1 0.40(out `r_above`)과 P2 0.41(in, `apex_at_record_end`)을 더함. 측선 2 | `apex_qc` on: `main_path` 짝 1개(E8과 같음, 환산 0.40·0.41 묶음 없음), `unclustered` n_est 3. `apex_qc` off: `main_path` n_est 2(0.60·0.615 환산 묶음이 P1·P2 지지로 남음), `unclustered` n_est 5. on에서 현장 11 `main_path` n_est = 같은 입력 `evaluate_combinations` 주 결과(검출 영점, `main`) 011.1 추정 수 |
+| C16 md ⑧ 범위 (v1.4.1) | 덕 타이핑 후보 5개(활동 01.1): `ok` in $r$ 1.0, `ok` out `r_above` $r$ 1.7, `ok` unknown `unstable` $r$ 5.0, `ok` unknown `insufficient_picks`($r$ 없음), 그리고 `fit_failed` 상태 후보(out `r_below` $r$ 0.5) | ⑧ 첫 줄 `ok` 후보 4개(in 1 / out 1 / unknown 2), $r$ 분위 줄 "알려진 r 2개", 분위 [1.0, 1.07, 1.35, 1.63, 1.7] |
+
+- **합성 회귀 R1–R13 영향 없음**: QC는 `scripts/eval_depth_4tu.py` 안에만 있다. `src/gpr_detection/depth/`와 `scripts/eval_depth_synthetic.py`는 바뀌지 않는다. 그래서 R1–R13·U·Z·A·UB·BR 기준과 수치는 그대로다. 확인은 전체 pytest 통과로 한다.
+- **묶기 시험 B1–B13 영향 없음**: `cluster_depths`는 바뀌지 않는다. B13의 덕 타이핑 후보에는 `qc`가 없어 빼지 않는다(§9-1 `estimates_by_activity`). B13 (c)의 md 묶음 진단 줄은 `main`만 보므로 그대로다. 단 `VARIANTS`를 세는 시험(E5 변형의 시행 횟수 등)은 `noqc`를 보조 횟수로 더한다.
+- **E1–E8**: E1 측선($h$ 0.05, $d$ 0.6, $R$ 0)의 QC는 C1b와 같은 in($r$ 약 1.49)이다. E1의 기존 단언은 그대로다. E5·E6·E8은 QC가 없는 입력이라 그대로다.
+- 판별력 확인(구현 판정 때 gpr-processing-expert): 돌연변이 예 — 띠 경계 엄격/느슨, 순서 6·8 바꿈, v 경계 규칙 삭제, `unstable` `>=`, $T_\text{end}$ 2.0/3.0 주기, 이음 $J$ 4/6, $5\hat\sigma$ 삭제, QC를 묶기 뒤로 옮김, `noqc`에도 QC 적용, `DepthResult.flags`에 QC 플래그 넣기. 시험 C가 이들을 잡는지 본다.
+- **판별력 확인 결과(2026-11-07, v1.4 구현 판정)**: 스크립트·시험 사본에 돌연변이 33개를 하나씩 넣고 `tests/test_eval_depth_4tu.py`(142개)를 돌렸다(원본은 142 통과, 1코어 BelowNormal, 돌연변이당 약 40 s, 도구 `mutate_qc.py`는 scratchpad, 프로젝트 파일 미변경).
+  - 위 명세 목록 13개(띠 엄격·느슨, 순서 6·8, v 경계 삭제, `unstable` `>=`, $T_\text{end}$ 2.0·3.0, $J$ 4·6, $5\hat\sigma$ 삭제, QC 묶기 뒤, `noqc` QC, `DepthResult.flags`)는 **모두 잡혔다**. 다만 `unstable` `>=`·`<=`와 이음 `>`는 구현자가 더한 C7c·C6c만 잡는다(이 둘을 빼면 3개 생존). 그래서 두 시험을 명세에 등재했다.
+  - 추가 20개 중 15개가 잡혔다(v 경계 = 검토 정의, unknown 제외(E), 이음 미제외, $v_m$ εr 9 고정, $x_0$·$t_0$ 경계 검사 삭제, 기록 끝 `<=`·허용 오차 삭제, 영점 띠를 배경 제거 자료에서 추적, 선형 진폭 도약, $K$ 절반, QC 반경 0.1, 꼭짓점 일치 검사 삭제, `r_below`/`r_above` 바꿈, 이음 창 한 칸 어긋남 등).
+  - 살아남은 5개: (1) 영점 띠 지연 포물선 보간 삭제, (2) 본뜨기 median → mean, (3) md ⑧이 `ok`가 아닌 후보까지 셈, (4) 비유한 $\sigma_v/v_m$을 csv에 그대로 둠, (5) csv `flags`에서 QC 플래그를 `long_line` 앞에 둠. (1)·(2)는 균일한 합성 측선에서 결과가 같은 준동치 변형이라 받아들인다(이음 문턱 0.2 ns가 지연 양자화 0.049 ns보다 4배 크고, median은 이음 블록에 대한 강건성 선택이다). (3)–(5)는 시험 C16·C7d·C13f로 잡는다.
+
+| ID (v1.4.1) | 입력 | 기대 |
+|---|---|---|
+| C7d 비유한 $\sigma_v$ 출력 | C7(c) 가짜 피팅 $\sigma_v$ NaN을 `classify_curvature` → `_qc_columns` | 판정 unknown `unstable`, `sigma_v_rel` None, csv `qc_sigma_v_rel` 빈칸, `qc_r` 1.0 |
+| C13f flags 순서 | C13(b) 이음 측선(죽은 트레이스)의 후보를 `candidate_row(candidate, {(activity, path): {"length_m": 35.0}})` | `flags` 끝 두 토큰이 `long_line apex_on_trace_seam` 순서 |
+
 ### 9-3. 실행 비용
 
 꼭짓점 후보 3,611개 × `estimate_depth`(측선당 전처리 1회)는 꼭짓점 후보 선정 실측(약 5분)과 같은 규모에 피팅이 더해진다. 단일 프로세스로 **약 10–20분으로 추정**한다(가정). 30분을 넘으면 메인 세션 규칙(BelowNormal, 장시간 점검)을 따른다.
@@ -393,3 +676,19 @@ python -I scripts/eval_depth_4tu.py
 | 정답 기준점 | 상단·중심 둘 다 | – |
 | 메타 εr | 실측 보증 없음 | 현장 11 별도, 2a(현장 9) |
 | 박스 반폭 0.8 m, 위·아래 1.5 주기 | 합성 규칙과 같음(**가정**) | – |
+| 곡률 띠 0.7–1.6 (v1.4) | 사용자 결정 7. 위 끝 = $R$ 0.1 m·$h\le$ 0.05 m·$d\ge$ 0.3 m·반개구 0.3 m 광선 모형 1.452 × εr 불확도 1.075(§3-5-2) | 반개구가 넓고 $h\ge$ 0.02 m·$d$ 0.3 m이면 진짜 꼭짓점도 out(C1b). 재평가 md ⑧에서 out 사유 분포만 본다 |
+| v 경계 → out (v1.4) | $x_0$·$t_0$가 안쪽이고 $v$가 피팅 경계면 띠 밖으로 판정. 검토 때 정의(`fit_failed` = 유지)와 다름 | **사용자 확인**. 검토 표본 효과: 자동 거짓 거름 26 → 35/116, T 손실 0(§3-5-7) |
+| 기록 끝 2.5 주기 (v1.4) | 주엽 0.6 주기 + 처리 끝 왜곡 1.81 주기(백색 잡음, dt 0.098) → 0.5 주기 올림(**합성 근거**) | 깊은 관(εr 9에서 약 2.0 m 이상) 관측 손실 |
+| 이음 문턱 0.1 주기·ln 1.25·5σ̂ (v1.4) | 지표 연속성·안테나 바닥 면적·레일리 꼬리 논리(§3-5-4). 합성 영점 띠를 관보다 20 dB 강하게 둠(**가정**) | 영점 띠 아래만 바뀌는 블록은 못 잡음(라벨 A 1/10) |
+| 현장 11 진단의 QC (v1.4.1) | 메타 εr 실행의 QC 제외를 그대로 쓰고 εr 8로 재판정하지 않음(§3-5-5 항목 8) | 진단 전용, 판정 미사용 |
+| 효과 추정 (v1.4) | 판독자 1명(에이전트) 라벨, 판독자 내 κ 0.91, 자동 T 14개 | 추정치이며 목표가 아님(§11) |
+
+## 11. 4TU 재평가 사전 등록 메모 (v1.4)
+
+M2-9 A–E 뒤 4TU 재평가를 한 번 돌리기 전에, 사전 등록 문서에 아래 문구를 그대로 넣는다. 합격 기준(판정률 목표)은 U-3에서 사용자가 정한다. 이 절은 기준이 아니라 **결과를 읽는 데 필요한 설계상 성질**을 미리 적어 두는 곳이다. 재평가 결과를 보고 이 문구나 QC 문턱을 바꾸지 않는다.
+
+1. **묶기(B, v1.3)**: "v1.3에서는 묶음 사슬이 끊겨 추정 수가 늘 수 있고, 추정 수를 같게 맞춘 무작위 기준선도 함께 오를 수 있다(설계상 성질이며 튜닝이 아님)." (§4-3-2)
+2. **꼭짓점 후보 정밀도(C, v1.4)**: "자동 후보 정밀도 약 10 %(95 % 약 6–17 %), 판정률 상한이 후보 생성에서 제한됨." 근거는 정답을 가린 수동 검토(자동 130개 중 T 14개, 판독자 1명, 판독자 내 T 대 거짓 κ 0.91; `m29c_apex_review.md` §0·§9)다.
+3. **꼭짓점 후보 QC(C, v1.4)**: "QC(B+D)는 후보 단위로 묶기 전에 적용한다. 곡률 v를 구할 수 없는 후보(검토 표본에서 약 절반)는 주 결과에 남는다. 수동 검토 라벨로 센 추정으로는 자동 후보 정밀도가 약 10.8 %에서 약 15 %로 오른다(목표가 아니라 추정). QC는 추정 수를 줄이므로, 추정 수를 같게 맞춘 무작위 기준선도 함께 바뀐다(설계상 성질)." QC 없는 결과(`noqc`)를 보조로 함께 보고한다.
+4. (참고, 개선 A) spec_depth §5-7 항목 6의 "위 끝 경계 효과" 진단: candidates csv `apex_minus_search_k0`의 0–2 샘플 비율(수정 전 76.5 %)은 크게 줄 것으로 본다. 힌트 창이 후보 ±0.5 주기라 박스 위 끝($k_s-1.5$ 주기)에서 1 주기 이상 떨어지기 때문이다. 남는 0–2 샘플은 탐색 위 끝이 뮤트인 얕은 후보(선정 하한 = 뮤트 + 2 샘플, §3-1 항목 2)뿐이어야 한다. 이 값은 진단이며 판정에 쓰지 않는다.
+5. 후속 항목: 진짜 꼭짓점의 한쪽 날개 추적 실패 원인 분석(spec_depth §5-3)은 별도 항목이다. 그 개선 뒤 E(곡률 unknown 제외)를 다시 검토한다. 이번 재평가에는 E를 넣지 않는다.
