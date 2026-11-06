@@ -1,9 +1,11 @@
-"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 section 9-2, E1-E8).
+"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 E1-E8, B1-B13).
 
 Analytic B-scans and small in-memory tables only; no 4TU data is read.
 """
 
 import argparse
+import itertools
+from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -65,12 +67,405 @@ def test_e1_true_apex_candidate_gives_the_depth(script) -> None:
     assert row["apex_minus_search_k0"] > 2  # not a box-top peak (5-7 item 2)
 
 
+E2_DEPTHS, E2_LINES = [0.50, 0.55, 0.62, 1.00], [1, 2, 3, 1]
+
+
 def test_e2_clusters_and_support_filter(script) -> None:
-    clusters = script.cluster_depths([0.50, 0.55, 0.62, 1.00], [1, 2, 3, 1], 0.10)
+    # v1.3 complete linkage: 0.50-0.62 is 0.12 wide, so it cannot be one cluster.
+    clusters = script.cluster_depths(E2_DEPTHS, E2_LINES, width_m=0.10)
+    assert [(round(c.depth_m, 3), c.n_lines) for c in clusters] == [
+        (0.525, 2),
+        (0.62, 1),
+        (1.0, 1),
+    ]
+    kept = script.supported(clusters, n_lines_in_activity=3, min_lines=2)
+    assert [round(c.depth_m, 3) for c in kept] == [0.525]
+    assert script.supported(clusters, n_lines_in_activity=1, min_lines=2) == clusters
+
+
+def test_e2_v12_expectations_hold_for_single_linkage(script) -> None:
+    clusters = script.cluster_depths(E2_DEPTHS, E2_LINES, 0.10, linkage="single")
     assert [(round(c.depth_m, 3), c.n_lines) for c in clusters] == [(0.55, 3), (1.0, 1)]
     kept = script.supported(clusters, n_lines_in_activity=3, min_lines=2)
     assert [round(c.depth_m, 3) for c in kept] == [0.55]
-    assert script.supported(clusters, n_lines_in_activity=1, min_lines=2) == clusters
+
+
+# ----------------------------------------------------------------- B1-B13 (spec 9-2-1)
+
+CLUSTER_WIDTH_M = 0.10
+WIDTH_BOUND_M = CLUSTER_WIDTH_M + 1e-9
+"""W plus the edge tolerance of spec 4-3-1."""
+DEPTH_ABS_TOL = 1e-9
+
+
+def _assert_clusters(clusters, expected) -> None:
+    """Compare ``(depth, n_lines, n_apex_candidates[, span_m])`` per cluster.
+
+    Expected tuples of three entries skip ``span_m``. Depths and spans use
+    ``abs=1e-9``; counts are exact.
+    """
+    assert len(clusters) == len(expected), [
+        (c.depth_m, c.n_lines, c.n_apex_candidates, c.span_m) for c in clusters
+    ]
+    for cluster, (depth, n_lines, n_members, *span) in zip(
+        clusters, expected, strict=True
+    ):
+        assert cluster.depth_m == pytest.approx(depth, abs=DEPTH_ABS_TOL)
+        assert (cluster.n_lines, cluster.n_apex_candidates) == (n_lines, n_members)
+        if span:
+            assert cluster.span_m == pytest.approx(span[0], abs=DEPTH_ABS_TOL)
+
+
+def _signature(clusters, depths, lines) -> list[tuple]:
+    """Order-free outcome: depth, counts, span and the (depth, line) multiset."""
+    return [
+        (
+            c.depth_m,
+            c.n_lines,
+            c.n_apex_candidates,
+            c.span_m,
+            tuple(sorted((depths[i], str(lines[i])) for i in c.member_indices)),
+        )
+        for c in clusters
+    ]
+
+
+def _member_depths(cluster, depths) -> list[float]:
+    return [depths[i] for i in cluster.member_indices]
+
+
+def _chain_input() -> tuple[list[float], list[str]]:
+    """B1: 21 depths 0.30..0.90 m in 0.03 m steps over 6 lines."""
+    depths = [round(0.30 + 0.03 * k, 2) for k in range(21)]
+    return depths, [f"L{k % 6 + 1}" for k in range(21)]
+
+
+def _dense_input() -> tuple[list[float], list[str]]:
+    """B1b: 48 depths 0.40..1.34 m in 0.02 m steps, 6 lines x 8 (4TU-like)."""
+    depths = [round(0.40 + 0.02 * k, 2) for k in range(48)]
+    return depths, [f"L{k % 6 + 1}" for k in range(48)]
+
+
+def _random_inputs():
+    """B12: 300 random activities from ``default_rng(0)`` with one permutation each."""
+    rng = np.random.default_rng(0)
+    for _ in range(300):
+        size = int(rng.integers(1, 60))
+        depths = [float(d) for d in np.round(rng.uniform(0.2, 2.0, size), 3)]
+        lines = [f"L{int(x)}" for x in rng.integers(1, 8, size)]
+        permutation = rng.permutation(size)
+        yield depths, lines, permutation
+
+
+def test_b1_chain_is_reproduced_by_single_and_cut_by_complete(script) -> None:
+    depths, lines = _chain_input()
+    (chain,) = script.cluster_depths(depths, lines, linkage="single")
+    _assert_clusters([chain], [(0.60, 6, 21)])
+    assert chain.span_m == pytest.approx(0.60) and chain.span_m > CLUSTER_WIDTH_M
+    clusters = script.cluster_depths(depths, lines)
+    _assert_clusters(
+        clusters,
+        [
+            (0.345, 4, 4, 0.09),
+            (0.465, 4, 4, 0.09),
+            (0.585, 4, 4, 0.09),
+            (0.705, 4, 4, 0.09),
+            (0.795, 2, 2, 0.03),
+            (0.87, 3, 3, 0.06),
+        ],
+    )
+    assert all(c.span_m <= WIDTH_BOUND_M for c in clusters)
+
+
+def test_b1b_dense_row_splits_into_twelve_clusters(script) -> None:
+    depths, lines = _dense_input()
+    _assert_clusters(
+        script.cluster_depths(depths, lines, linkage="single"), [(0.87, 6, 48)]
+    )
+    clusters = script.cluster_depths(depths, lines)
+    expected_depths = [0.43 + 0.08 * k for k in range(12)]
+    _assert_clusters(clusters, [(depth, 4, 4, 0.06) for depth in expected_depths])
+    assert clusters[-1].depth_m == pytest.approx(1.31, abs=DEPTH_ABS_TOL)
+
+
+def test_b2_every_member_pair_within_the_width(script) -> None:
+    inputs = [_chain_input(), _dense_input()]
+    inputs += [(depths, lines) for depths, lines, _ in _random_inputs()]
+    for depths, lines in inputs:
+        for cluster in script.cluster_depths(depths, lines):
+            assert cluster.span_m <= WIDTH_BOUND_M
+            members = _member_depths(cluster, depths)
+            for first, second in itertools.combinations(members, 2):
+                assert abs(first - second) <= WIDTH_BOUND_M
+
+
+def test_b3_ties_duplicates_and_input_order(script) -> None:
+    depths = [0.50, 0.55, 0.60, 0.60, 0.65, 0.70, 0.50]
+    lines = ["L1", "L2", "L3", "L4", "L1", "L2", "L3"]
+    clusters = script.cluster_depths(depths, lines)
+    _assert_clusters(clusters, [(0.50, 3, 3, 0.05), (0.625, 4, 4, 0.10)])
+    reference = _signature(clusters, depths, lines)
+    rng = np.random.default_rng(0)
+    for _ in range(50):
+        permutation = rng.permutation(len(depths))
+        shuffled_depths = [depths[i] for i in permutation]
+        shuffled_lines = [lines[i] for i in permutation]
+        shuffled = script.cluster_depths(shuffled_depths, shuffled_lines)
+        assert _signature(shuffled, shuffled_depths, shuffled_lines) == reference
+
+
+@pytest.mark.parametrize(
+    ("pair", "n_clusters"),
+    [
+        ([0.5, 0.6], 1),  # float width 0.09999999999999998
+        ([0.7, 0.8], 1),  # float width 0.10000000000000009, inside the tolerance
+        ([1.1, 1.2], 1),  # float width 0.09999999999999987
+        ([0.5, 0.6 + 2e-9], 2),  # W + 2e-9 m splits
+    ],
+)
+def test_b4_width_boundary_is_included(script, pair, n_clusters) -> None:
+    assert len(script.cluster_depths(pair, ["L1", "L2"])) == n_clusters
+
+
+@pytest.mark.parametrize(
+    ("pair", "n_clusters"),
+    [
+        ([0.0, 0.1], 1),  # float gap exactly 0.1: v1.2 cuts only on ``>``
+        ([0.7, 0.8], 2),  # float gap 0.10000000000000009: no edge tolerance
+    ],
+)
+def test_b4_single_linkage_boundary_has_no_tolerance(script, pair, n_clusters) -> None:
+    clusters = script.cluster_depths(pair, ["L1", "L2"], linkage="single")
+    assert len(clusters) == n_clusters
+
+
+BRIDGE_PIPE_A = [0.59, 0.60, 0.61, 0.60]
+BRIDGE_PIPE_B = [0.72, 0.73, 0.71, 0.72]
+BRIDGE_LINES = ["L1", "L2", "L3", "L4", "L1", "L2", "L3", "L4", "L2"]
+
+
+def test_b5_bridge_joins_the_nearer_pipe(script) -> None:
+    depths = [*BRIDGE_PIPE_A, *BRIDGE_PIPE_B, 0.655]
+    _assert_clusters(
+        script.cluster_depths(depths, BRIDGE_LINES, linkage="single"),
+        [(0.655, 4, 9)],
+    )
+    _assert_clusters(
+        script.cluster_depths(depths, BRIDGE_LINES),
+        [(0.60, 4, 5, 0.065), (0.72, 4, 4, 0.02)],
+    )
+
+
+def test_b5t_bridge_tie_goes_to_the_shallower_pair(script) -> None:
+    depths = [*BRIDGE_PIPE_A, *BRIDGE_PIPE_B, 0.66]  # 0.07 m to both pipes
+    _assert_clusters(
+        script.cluster_depths(depths, BRIDGE_LINES),
+        [(0.60, 4, 5, 0.07), (0.72, 4, 4, 0.02)],
+    )
+
+
+def test_b6_two_pipes_within_the_width_merge(script) -> None:
+    depths = [0.60, 0.61, 0.60, 0.66, 0.67, 0.66]
+    lines = ["L1", "L2", "L3", "L1", "L2", "L3"]
+    clusters = script.cluster_depths(depths, lines)
+    _assert_clusters(clusters, [(0.635, 3, 6, 0.07)])
+    match = script.match_activity([c.depth_m for c in clusters], [0.60, 0.66])
+    assert (len(match.pairs), match.missed) == (1, 1)  # known limitation (4-3 item 5)
+
+
+def test_b7_even_median_and_repeated_line(script) -> None:
+    clusters = script.cluster_depths([0.50, 0.52, 0.55, 0.58], ["L1", "L1", "L2", "L3"])
+    _assert_clusters(clusters, [(0.535, 3, 4, 0.08)])
+
+
+def test_b8_one_pipe_split_keeps_both_halves(script) -> None:
+    depths, lines = [0.50, 0.56, 0.62, 0.68], ["L1", "L2", "L3", "L4"]
+    clusters = script.cluster_depths(depths, lines)
+    _assert_clusters(clusters, [(0.53, 2, 2, 0.06), (0.65, 2, 2, 0.06)])
+    kept = script.supported(clusters, n_lines_in_activity=4, min_lines=2)
+    assert kept == clusters  # duplicate estimate (4-3-2)
+    _assert_clusters(
+        script.cluster_depths(depths, lines, linkage="single"), [(0.59, 4, 4)]
+    )
+
+
+def test_b9_support_filter_interaction(script) -> None:
+    one_line_depths = _dense_input()[0][:12]
+    one_line = script.cluster_depths(one_line_depths, ["L1"] * 12)
+    _assert_clusters(one_line, [(0.43, 1, 4), (0.51, 1, 4), (0.59, 1, 4)])
+    assert script.supported(one_line, n_lines_in_activity=1, min_lines=2) == one_line
+
+    mixed = script.cluster_depths(
+        [0.50, 0.52, 0.80, 1.20, 1.21], ["L1", "L2", "L1", "L1", "L3"]
+    )
+    _assert_clusters(
+        mixed, [(0.51, 2, 2, 0.02), (0.80, 1, 1, 0.0), (1.205, 2, 2, 0.01)]
+    )
+    kept = script.supported(mixed, n_lines_in_activity=3, min_lines=2)
+    assert [c.depth_m for c in kept] == pytest.approx([0.51, 1.205], abs=DEPTH_ABS_TOL)
+
+
+def test_b10_e2_input(script) -> None:
+    _assert_clusters(
+        script.cluster_depths(E2_DEPTHS, E2_LINES),
+        [(0.525, 2, 2, 0.05), (0.62, 1, 1, 0.0), (1.0, 1, 1, 0.0)],
+    )
+
+
+def test_b11_empty_single_and_invalid_inputs(script) -> None:
+    assert script.cluster_depths([], []) == []
+    _assert_clusters(script.cluster_depths([0.8], ["L1"]), [(0.8, 1, 1, 0.0)])
+    with pytest.raises(ValueError):
+        script.cluster_depths([0.5, 0.6], ["L1"])
+    with pytest.raises(ValueError):
+        script.cluster_depths([0.5, float("nan")], ["L1", "L2"])
+    with pytest.raises(ValueError):
+        script.cluster_depths([0.5, float("inf")], ["L1", "L2"])
+    with pytest.raises(ValueError):
+        script.cluster_depths([0.5, 0.6], ["L1", "L2"], width_m=0)
+    with pytest.raises(ValueError):
+        script.cluster_depths([0.5, 0.6], ["L1", "L2"], linkage="average")
+
+
+def test_b12_properties_on_random_inputs(script) -> None:
+    for depths, lines, permutation in _random_inputs():
+        clusters = script.cluster_depths(depths, lines)
+        # P1 width bound
+        assert all(c.span_m <= WIDTH_BOUND_M for c in clusters)
+        # P2 stopping rule: no adjacent pair could still merge
+        for shallow, deep in itertools.pairwise(clusters):
+            merged_width_m = max(_member_depths(deep, depths)) - min(
+                _member_depths(shallow, depths)
+            )
+            assert merged_width_m > WIDTH_BOUND_M
+        # P3 partition of the input
+        members = [i for c in clusters for i in c.member_indices]
+        assert sum(c.n_apex_candidates for c in clusters) == len(depths)
+        assert sorted(members) == list(range(len(depths)))
+        # P4 input order does not matter
+        shuffled_depths = [depths[i] for i in permutation]
+        shuffled_lines = [lines[i] for i in permutation]
+        shuffled = script.cluster_depths(shuffled_depths, shuffled_lines)
+        assert _signature(shuffled, shuffled_depths, shuffled_lines) == _signature(
+            clusters, depths, lines
+        )
+
+
+CLUSTER_CSV_COLUMNS = [
+    "activity_id",
+    "site",
+    "zero_variant",
+    "cluster_id",
+    "depth_m",
+    "n_lines",
+    "n_apex_candidates",
+    "kept_by_support",
+    "span_m",
+    "linkage",
+    "width_m",
+]
+"""Column order of the clusters csv (spec 8)."""
+B13_LINES_PER_ACTIVITY = {"01.1": 6, "02.1": 1}
+
+
+@dataclass(frozen=True)
+class _DuckCandidate:
+    """Minimal candidate: only what ``estimates_by_activity`` reads."""
+
+    activity_id: str
+    path: str
+    depth_m: float
+
+    def depth(self, zero_variant: str) -> float | None:
+        return self.depth_m
+
+
+def _b13_candidates() -> list[_DuckCandidate]:
+    depths, lines = _chain_input()
+    candidates = [
+        _DuckCandidate("01.1", line, depth)
+        for depth, line in zip(depths, lines, strict=True)
+    ]
+    return [*candidates, _DuckCandidate("02.1", "M1", 0.8)]
+
+
+def _b13_estimates(script, linkage: str):
+    return script.estimates_by_activity(
+        _b13_candidates(),
+        "detected",
+        "main",
+        B13_LINES_PER_ACTIVITY,
+        width_m=0.10,
+        linkage=linkage,
+        min_lines=2,
+    )
+
+
+def _line_starting_with(lines: list[str], prefix: str) -> str:
+    (line,) = [line for line in lines if line.startswith(prefix)]
+    return line
+
+
+def test_b13_cluster_rows_and_estimate_counts(script) -> None:
+    estimates, rows = _b13_estimates(script, "complete")
+    assert {a: len(v) for a, v in estimates.items()} == {"01.1": 6, "02.1": 1}
+    assert len(rows) == 7
+    assert all(list(row) == CLUSTER_CSV_COLUMNS for row in rows)
+    assert (rows[0]["span_m"], rows[0]["linkage"], rows[0]["width_m"]) == (
+        0.09,
+        "complete",
+        0.1,
+    )
+    estimates, rows = _b13_estimates(script, "single")
+    assert {a: len(v) for a, v in estimates.items()} == {"01.1": 1, "02.1": 1}
+    assert (rows[0]["span_m"], rows[0]["linkage"]) == (0.6, "single")
+
+
+def test_b13_md_cluster_diagnostics(script) -> None:
+    estimates, rows = _b13_estimates(script, "complete")
+    args = _args()
+    candidates = _b13_candidates()
+    comparison = script.compare_with_single_linkage(
+        candidates, B13_LINES_PER_ACTIVITY, estimates, frozenset(estimates), args
+    )
+    lines = script._cluster_diagnostic_lines(rows, args, comparison)
+    assert "m: 0개" in _line_starting_with(lines, "- `span_m` > `width_m`")
+    assert "7/7" in _line_starting_with(lines, "- 지지 필터 통과")
+    assert _line_starting_with(lines, "  - 전체 활동").endswith(
+        "2개: complete 7 / single 2 / 차 +5 (활동 수: 늘어남 1, 같음 1, 줄어듦 0)"
+    )
+    assert _line_starting_with(lines, "  - 정답 활동").endswith(
+        "2개: complete 7 / single 2 / 차 +5 (활동 수: 늘어남 1, 같음 1, 줄어듦 0)"
+    )
+
+    only_01 = script.compare_with_single_linkage(
+        candidates, B13_LINES_PER_ACTIVITY, estimates, frozenset({"01.1"}), args
+    )
+    lines = script._cluster_diagnostic_lines(rows, args, only_01)
+    assert _line_starting_with(lines, "  - 정답 활동").endswith(
+        "1개: complete 6 / single 1 / 차 +5 (활동 수: 늘어남 1, 같음 0, 줄어듦 0)"
+    )
+
+    single_args = _args(cluster_linkage="single")
+    _, single_rows = _b13_estimates(script, "single")
+    assert (
+        script.compare_with_single_linkage(
+            candidates, B13_LINES_PER_ACTIVITY, estimates, frozenset(), single_args
+        )
+        is None
+    )
+    lines = script._cluster_diagnostic_lines(single_rows, single_args, None)
+    assert "m: 1개" in _line_starting_with(lines, "- `span_m` > `width_m`")
+    assert "해당 없음" in _line_starting_with(lines, "- v1.2 대비 추정 수")
+
+
+def test_b13_cli_defaults_and_rejected_options(script) -> None:
+    args = script.parse_args([])
+    assert (args.cluster_width_m, args.cluster_linkage) == (0.1, "complete")
+    for argv in (["--cluster-gap-m", "0.1"], ["--cluster-linkage", "average"]):
+        with pytest.raises(SystemExit) as raised:
+            script.parse_args(argv)
+        assert raised.value.code == 2
 
 
 def test_e3_hungarian_counts_missed_and_false_estimates(script) -> None:
@@ -210,7 +605,8 @@ def _candidate(script, activity: str, path: str, depth: float, eps_r: float = 9.
 
 def _args(**overrides) -> argparse.Namespace:
     values = {
-        "cluster_gap_m": 0.10,
+        "cluster_width_m": 0.10,
+        "cluster_linkage": "complete",
         "min_support_lines": 2,
         "baseline_trials": 30,
         "baseline_trials_aux": 10,

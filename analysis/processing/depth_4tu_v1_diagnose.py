@@ -54,7 +54,8 @@ def span_limited(depths, lines, span_m=0.10):
     for i in range(1, len(d) + 1):
         if i == len(d) or d[i] - d[start] > span_m:
             out.append(Cluster(depth_m=float(np.median(d[start:i])), n_lines=len(set(ln[start:i])),
-                               n_apex_candidates=i - start))
+                               n_apex_candidates=i - start,
+                               span_m=float(d[i - 1] - d[start])))
             start = i
     return out
 
@@ -122,10 +123,10 @@ def main() -> None:
         ln[r.activity_id].append(r.path)
     spans, sizes = [], []
     for a in rs:
-        for c in cluster_depths(rs[a], ln[a], 0.10):
+        for c in cluster_depths(rs[a], ln[a], 0.10, linkage="single"):
             members = sorted(rs[a])
             sizes.append(c.n_apex_candidates)
-        cl = cluster_depths(rs[a], ln[a], 0.10)
+        cl = cluster_depths(rs[a], ln[a], 0.10, linkage="single")
         srt = np.sort(rs[a])
         start = 0
         for c in cl:
@@ -138,7 +139,7 @@ def main() -> None:
           round(sum(s for s, sp in zip(sizes, spans, strict=True) if sp > 0.3) / sum(sizes), 3))
 
     # 3. factor swap
-    chain = lambda d, l: cluster_depths(d, l, 0.10)  # noqa: E731
+    chain = lambda d, l: cluster_depths(d, l, 0.10, linkage="single")  # noqa: E731
     rows = []
     for est_name, est in (("reseeded (as run)", rs), ("candidate_direct", cd)):
         for cl_name, cl in (("single_linkage (as run)", chain), ("span_limited_0.10", span_limited)):

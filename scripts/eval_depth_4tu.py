@@ -3,9 +3,9 @@
 For every candidate (``fourtu_apex_candidates_v1.csv``) a box is supplied (spec 4-1) and
 ``estimate_depth`` runs with **default settings** (no 4TU tuning; the zero is
 computed once per line). Depths are clustered per activity across parallel
-lines (4-3), matched to the ground truth with an ungated Hungarian assignment
-(5), compared with a random-depth baseline (6), and written to
-``docs/processing/<prefix>_*.csv`` and ``<prefix>.md`` (8).
+lines (4-3, v1.3 complete linkage of width W), matched to the ground truth with
+an ungated Hungarian assignment (5), compared with a random-depth baseline (6),
+and written to ``docs/processing/<prefix>_*.csv`` and ``<prefix>.md`` (8).
 
 Variants reported (spec 5):
 
@@ -26,6 +26,7 @@ Example:
 
 import argparse
 import csv
+import itertools
 import json
 import logging
 import math
@@ -72,7 +73,18 @@ CANDIDATE_MOVED_TRACES = 3
 CANDIDATE_MOVED_PERIODS = 0.5
 """``candidate_moved`` when the apex is > 3 traces or > 0.5 / f_c from the candidate."""
 
-CLUSTER_GAP_M = 0.10
+CLUSTER_WIDTH_M = 0.10
+"""Cluster width W (spec 4-4): every member pair of a cluster lies within W."""
+CLUSTER_EDGE_TOL_M = 1e-9
+"""A merged width of W + 1e-9 m still merges (boundary included, spec 4-3-1)."""
+CLUSTER_TIE_TOL_M = 1e-12
+"""Merged widths within 1e-12 m are a tie; the shallower pair wins (4-3-1)."""
+CLUSTER_LINKAGES = ("complete", "single")
+"""``single`` keeps the v1.2 chaining behaviour for the B1 test and diagnostics."""
+CLUSTER_SPAN_DECIMALS = 6
+"""``span_m`` in the clusters csv: micrometres, fine enough to see a width breach."""
+SPAN_QUANTILES_PERCENT = (0, 50, 95, 100)
+"""``span_m`` quantiles in the md cluster diagnostics (spec 9-1)."""
 MIN_SUPPORT_LINES = 2
 PASS_LIMIT_M = 0.30
 """Article 186 tolerance: |e| <= 0.30 m passes (boundary included)."""
@@ -150,13 +162,17 @@ class CandidateResult:
 
 @dataclass(frozen=True)
 class Cluster:
-    """Single-linkage depth cluster across the lines of one activity (4-3)."""
+    """Depth cluster across the lines of one activity (4-3)."""
 
     depth_m: float
+    """Median of the member depths."""
     n_lines: int
     n_apex_candidates: int
+    span_m: float
+    """Deepest minus shallowest member depth."""
     member_indices: tuple[int, ...] = ()
-    """Indices of the members in the input ``depths`` sequence."""
+    """Indices of the members in the input ``depths`` sequence, in sort-key order
+    ``(depth, str(line), index)``."""
 
 
 @dataclass(frozen=True)
@@ -350,30 +366,109 @@ def load_ground_truth_sets(root: Path) -> dict[str, dict[str, list[GtItem]]]:
 # ----------------------------------------------------------------- clustering
 
 
-def cluster_depths(
-    depths: Sequence[float], lines: Sequence[object], gap_m: float = CLUSTER_GAP_M
-) -> list[Cluster]:
-    """Sort depths, link neighbours within ``gap_m`` (single linkage), median."""
-    if not depths:
-        return []
-    order = np.argsort(depths)
-    sorted_depths = np.asarray(depths, dtype=float)[order]
-    sorted_lines = [lines[i] for i in order]
-    clusters, start = [], 0
+Run = tuple[int, int]
+"""A cluster as a contiguous ``[start, stop)`` range of the sorted members."""
+
+
+def _check_cluster_inputs(
+    depths: Sequence[float], lines: Sequence[object], width_m: float, linkage: str
+) -> None:
+    """Input checks of spec 4-3-1 item 7 (``ValueError`` on any violation)."""
+    if linkage not in CLUSTER_LINKAGES:
+        raise ValueError(f"linkage must be one of {CLUSTER_LINKAGES}, got {linkage!r}")
+    if len(depths) != len(lines):
+        raise ValueError(f"{len(depths)} depths but {len(lines)} lines")
+    if not width_m > 0:  # also rejects NaN
+        raise ValueError(f"width_m must be positive, got {width_m}")
+    if not all(math.isfinite(depth) for depth in depths):
+        raise ValueError("depths must be finite (no NaN or inf)")
+
+
+def _single_linkage_runs(sorted_depths: Sequence[float], width_m: float) -> list[Run]:
+    """v1.2: split wherever two sorted neighbours are more than ``width_m`` apart."""
+    runs, start = [], 0
     for index in range(1, len(sorted_depths) + 1):
         at_end = index == len(sorted_depths)
-        if at_end or sorted_depths[index] - sorted_depths[index - 1] > gap_m:
-            members = sorted_depths[start:index]
-            clusters.append(
-                Cluster(
-                    depth_m=float(np.median(members)),
-                    n_lines=len(set(sorted_lines[start:index])),
-                    n_apex_candidates=len(members),
-                    member_indices=tuple(int(i) for i in order[start:index]),
-                )
-            )
+        if at_end or sorted_depths[index] - sorted_depths[index - 1] > width_m:
+            runs.append((start, index))
             start = index
-    return clusters
+    return runs
+
+
+def _narrowest_merge(
+    sorted_depths: Sequence[float], runs: Sequence[Run], width_m: float
+) -> int | None:
+    """Index ``j`` of the adjacent pair ``(j, j + 1)`` to merge next, or ``None``.
+
+    Only pairs whose merged width is at most ``width_m`` (+ edge tolerance) are
+    allowed. The scan runs shallow to deep and replaces the best pair only when
+    strictly narrower beyond the tie tolerance, so a tie goes to the shallower pair.
+    """
+    best_index, best_width_m = None, math.inf
+    for index, (left, right) in enumerate(itertools.pairwise(runs)):
+        merged_width_m = sorted_depths[right[1] - 1] - sorted_depths[left[0]]
+        if merged_width_m > width_m + CLUSTER_EDGE_TOL_M:
+            continue
+        if merged_width_m < best_width_m - CLUSTER_TIE_TOL_M:
+            best_index, best_width_m = index, merged_width_m
+    return best_index
+
+
+def _complete_linkage_runs(sorted_depths: Sequence[float], width_m: float) -> list[Run]:
+    """1-D complete linkage (spec 4-3-1): merge the narrowest adjacent pair first.
+
+    In one dimension a complete-linkage cluster is always a contiguous range of
+    the sorted depths, so only adjacent runs need to be compared.
+    """
+    runs: list[Run] = [(index, index + 1) for index in range(len(sorted_depths))]
+    while (best := _narrowest_merge(sorted_depths, runs, width_m)) is not None:
+        runs[best : best + 2] = [(runs[best][0], runs[best + 1][1])]
+    return runs
+
+
+def cluster_depths(
+    depths: Sequence[float],
+    lines: Sequence[object],
+    width_m: float = CLUSTER_WIDTH_M,
+    linkage: str = "complete",
+) -> list[Cluster]:
+    """Cluster the depths of one activity across its lines (spec 4-3, 4-3-1).
+
+    Args:
+        depths: Pipe-top depths in m (finite).
+        lines: Line (``path``) of each depth; same length as ``depths``.
+        width_m: ``complete``: maximum cluster width ``max - min``.
+            ``single``: maximum gap between sorted neighbours (v1.2).
+        linkage: ``complete`` (v1.3 default) or ``single`` (v1.2, B1 test and
+            diagnostics only).
+
+    Returns:
+        Clusters ordered by their shallowest member. The result does not depend
+        on the input order.
+
+    Raises:
+        ValueError: Unknown ``linkage``, length mismatch, non-finite depth or
+            ``width_m <= 0``.
+    """
+    _check_cluster_inputs(depths, lines, width_m, linkage)
+    order = sorted(
+        range(len(depths)), key=lambda i: (float(depths[i]), str(lines[i]), i)
+    )
+    sorted_depths = [float(depths[i]) for i in order]
+    if linkage == "complete":
+        runs = _complete_linkage_runs(sorted_depths, width_m)
+    else:
+        runs = _single_linkage_runs(sorted_depths, width_m)
+    return [
+        Cluster(
+            depth_m=float(np.median(sorted_depths[start:stop])),
+            n_lines=len({lines[i] for i in order[start:stop]}),
+            n_apex_candidates=stop - start,
+            span_m=sorted_depths[stop - 1] - sorted_depths[start],
+            member_indices=tuple(order[start:stop]),
+        )
+        for start, stop in runs
+    ]
 
 
 def supported(
@@ -573,7 +668,8 @@ def estimates_by_activity(
     zero_variant: str,
     variant: str,
     lines_per_activity: Mapping[str, int],
-    gap_m: float,
+    width_m: float,
+    linkage: str,
     min_lines: int,
 ) -> tuple[dict[str, list[float]], list[dict[str, object]]]:
     """Per-activity estimates for one zero variant and variant (4-3)."""
@@ -591,7 +687,7 @@ def estimates_by_activity(
             estimates[activity] = list(depths.get(activity, []))
             continue
         clusters = cluster_depths(
-            depths.get(activity, []), lines.get(activity, []), gap_m
+            depths.get(activity, []), lines.get(activity, []), width_m, linkage
         )
         kept = supported(clusters, lines_per_activity[activity], min_lines)
         estimates[activity] = [
@@ -609,9 +705,59 @@ def estimates_by_activity(
                         "n_lines": cluster.n_lines,
                         "n_apex_candidates": cluster.n_apex_candidates,
                         "kept_by_support": cluster in kept,
+                        "span_m": round(cluster.span_m, CLUSTER_SPAN_DECIMALS),
+                        "linkage": linkage,
+                        "width_m": width_m,
                     }
                 )
     return estimates, cluster_rows
+
+
+@dataclass(frozen=True)
+class LinkageComparison:
+    """Estimate counts of one run under complete and single linkage (spec 9-1).
+
+    Both counts come from the same depths (detected zero, ``main`` variant)
+    after the support filter; the single counts are diagnostics only and never
+    enter csv, baselines or the verdict.
+    """
+
+    complete_counts: dict[str, int]
+    single_counts: dict[str, int]
+    gt_activities: frozenset[str]
+    """Activities with ground truth in the main set (``exclude_x``)."""
+
+
+def compare_with_single_linkage(
+    candidates: Sequence[CandidateResult],
+    lines_per_activity: Mapping[str, int],
+    complete_estimates: Mapping[str, list[float]],
+    gt_activities: frozenset[str],
+    args: argparse.Namespace,
+) -> LinkageComparison | None:
+    """Re-cluster the main combination with single linkage (spec 9-1, v1.3.1).
+
+    Returns:
+        ``None`` when the run itself uses single linkage, otherwise the counts
+        of ``complete_estimates`` next to the single-linkage counts obtained
+        with the same ``width_m`` and ``min_lines``.
+    """
+    if args.cluster_linkage != "complete":
+        return None
+    single_estimates, _ = estimates_by_activity(
+        candidates,
+        "detected",
+        "main",
+        lines_per_activity,
+        width_m=args.cluster_width_m,
+        linkage="single",
+        min_lines=args.min_support_lines,
+    )
+    return LinkageComparison(
+        complete_counts={a: len(v) for a, v in complete_estimates.items()},
+        single_counts={a: len(v) for a, v in single_estimates.items()},
+        gt_activities=gt_activities,
+    )
 
 
 # ----------------------------------------------------------------- evaluation
@@ -629,6 +775,7 @@ class Evaluation:
     site11_rows: list[dict[str, object]] = field(default_factory=list)
     site11_summaries: dict[tuple[str, str, str], Summary] = field(default_factory=dict)
     multi_trench_activities: list[str] = field(default_factory=list)
+    linkage_comparison: LinkageComparison | None = None
 
 
 @dataclass(frozen=True)
@@ -726,8 +873,9 @@ def evaluate_combinations(
                 zero_variant,
                 variant,
                 lines_per_activity,
-                args.cluster_gap_m,
-                args.min_support_lines,
+                width_m=args.cluster_width_m,
+                linkage=args.cluster_linkage,
+                min_lines=args.min_support_lines,
             )
             evaluation.cluster_rows.extend(cluster_rows)
             if zero_variant == "detected" and variant == "main":
@@ -735,6 +883,13 @@ def evaluate_combinations(
                 evaluation.no_gt_counts = {
                     a: len(v) for a, v in estimates.items() if a not in main_gt
                 }
+                evaluation.linkage_comparison = compare_with_single_linkage(
+                    candidates,
+                    lines_per_activity,
+                    estimates,
+                    frozenset(main_gt),
+                    args,
+                )
             for gt_set, ground_truth in gt_sets.items():
                 for assumption in ASSUMPTIONS:
                     combination = Combination(gt_set, assumption, zero_variant, variant)
@@ -833,7 +988,8 @@ def site11_estimates(
     candidates: Sequence[CandidateResult],
     lines_per_activity: Mapping[str, int],
     variant: str,
-    gap_m: float,
+    width_m: float,
+    linkage: str,
     min_lines: int,
 ) -> dict[str, list[Site11Estimate]]:
     """Site 11 estimates per activity: rescale first, then the 4-3 path.
@@ -867,7 +1023,7 @@ def site11_estimates(
                 )
             ]
             continue
-        clusters = cluster_depths(activity_scaled, paths[activity], gap_m)
+        clusters = cluster_depths(activity_scaled, paths[activity], width_m, linkage)
         kept = supported(clusters, lines_per_activity[activity], min_lines)
         estimates[activity] = [
             Site11Estimate(
@@ -900,8 +1056,9 @@ def site11_diagnostic(
             candidates,
             lines_per_activity,
             variant,
-            args.cluster_gap_m,
-            args.min_support_lines,
+            width_m=args.cluster_width_m,
+            linkage=args.cluster_linkage,
+            min_lines=args.min_support_lines,
         )
         for gt_set, ground_truth in gt_sets.items():
             for assumption in ASSUMPTIONS:
@@ -1020,6 +1177,86 @@ def _md_table(
     return lines
 
 
+def _clustering_setting(args: argparse.Namespace) -> str:
+    """md run-condition phrase for the clustering (spec 9-1)."""
+    if args.cluster_linkage == "complete":
+        meaning = "묶음 폭 상한(완전 연결)"
+    else:
+        meaning = "이웃 간격 상한(단일 연결, v1.2 진단용)"
+    return (
+        f"묶기 `linkage={args.cluster_linkage}`, `width_m={args.cluster_width_m}` "
+        f"({meaning} {args.cluster_width_m} m)"
+    )
+
+
+def _count_change_phrase(
+    label: str, comparison: LinkageComparison, activities: Sequence[str]
+) -> str:
+    """One md sub-line: count sums and how many activities gained or lost."""
+    complete_total = sum(comparison.complete_counts[a] for a in activities)
+    single_total = sum(comparison.single_counts[a] for a in activities)
+    differences = [
+        comparison.complete_counts[a] - comparison.single_counts[a] for a in activities
+    ]
+    n_more = sum(difference > 0 for difference in differences)
+    n_same = sum(difference == 0 for difference in differences)
+    n_fewer = sum(difference < 0 for difference in differences)
+    return (
+        f"  - {label} {len(activities)}개: complete {complete_total} / "
+        f"single {single_total} / 차 {complete_total - single_total:+d} "
+        f"(활동 수: 늘어남 {n_more}, 같음 {n_same}, 줄어듦 {n_fewer})"
+    )
+
+
+def _linkage_comparison_lines(comparison: LinkageComparison | None) -> list[str]:
+    """md line "v1.2 대비 추정 수" (spec 4-3-2, 9-1, v1.3.1)."""
+    if comparison is None:
+        return ["- v1.2 대비 추정 수: 해당 없음(실행 자체가 single)"]
+    all_activities = sorted(comparison.complete_counts)
+    gt_activities = [a for a in all_activities if a in comparison.gt_activities]
+    return [
+        "- v1.2 대비 추정 수(같은 깊이를 `linkage=single`, 같은 `width_m`·"
+        "지지 측선으로 다시 묶어 지지 필터 뒤 셈, 판정에 쓰지 않음):",
+        _count_change_phrase("전체 활동", comparison, all_activities),
+        _count_change_phrase("정답 활동(`exclude_x`)", comparison, gt_activities),
+    ]
+
+
+def _cluster_diagnostic_lines(
+    cluster_rows: Sequence[Mapping[str, object]],
+    args: argparse.Namespace,
+    linkage_comparison: LinkageComparison | None,
+) -> list[str]:
+    """md cluster diagnostics of the main combination (detected zero, spec 9-1).
+
+    Reported only; ``width_m`` is never re-chosen from these values (4-3-2).
+    """
+    rows = [row for row in cluster_rows if row["zero_variant"] == "detected"]
+    header = ["## 묶음 진단 (주 결과 조합: 검출 영점, 판정에 쓰지 않음)", ""]
+    comparison_lines = _linkage_comparison_lines(linkage_comparison)
+    if not rows:
+        return [*header, "- 묶음 없음", *comparison_lines, ""]
+    spans_m = np.array([float(row["span_m"]) for row in rows])
+    span_quantiles = np.percentile(spans_m, SPAN_QUANTILES_PERCENT).round(4).tolist()
+    over_width = int(np.sum(spans_m > args.cluster_width_m + CLUSTER_EDGE_TOL_M))
+    n_lines_counts = Counter(int(row["n_lines"]) for row in rows)
+    n_kept = sum(bool(row["kept_by_support"]) for row in rows)
+    percent_labels = "/".join(str(p) for p in SPAN_QUANTILES_PERCENT)
+    return [
+        *header,
+        f"- 묶음 {len(rows)}개 (`linkage={args.cluster_linkage}`, "
+        f"`width_m={args.cluster_width_m}`)",
+        f"- `span_m` 분위({percent_labels} %): {span_quantiles}",
+        f"- `span_m` > `width_m` + {CLUSTER_EDGE_TOL_M:g} m: {over_width}개"
+        + (" (완전 연결이면 0이어야 함)" if args.cluster_linkage == "complete" else ""),
+        "- `n_lines` 분포: "
+        + ", ".join(f"{n}: {count}" for n, count in sorted(n_lines_counts.items())),
+        f"- 지지 필터 통과: {n_kept}/{len(rows)} ({n_kept / len(rows):.3f})",
+        *comparison_lines,
+        "",
+    ]
+
+
 def write_markdown(
     path: Path,
     evaluation: Evaluation,
@@ -1090,8 +1327,8 @@ def write_markdown(
         "",
         f"- 실행: {local_timestamp()}, commit {git['commit']} (dirty {git['dirty']}), "
         f"{elapsed_s:.0f} s, 단일 프로세스",
-        "- 설정: `DepthConfig()` 기본값(4TU 튜닝 없음), 묶기 간격 "
-        f"{args.cluster_gap_m} m, 지지 측선 >= {args.min_support_lines}, "
+        "- 설정: `DepthConfig()` 기본값(4TU 튜닝 없음), "
+        f"{_clustering_setting(args)}, 지지 측선 >= {args.min_support_lines}, "
         f"`default_rng({args.baseline_seed})`, 기준선 시행: 주 결과 조합 활동 범위 "
         f"{args.baseline_trials}회, 보조 조합(a, b)과 전역 범위 "
         f"{args.baseline_trials_aux}회(현장별 값은 같은 시행에서 집계)",
@@ -1113,6 +1350,9 @@ def write_markdown(
         "",
         *_md_table(site_rows, ("scope", "assumption", *columns[2:])),
         "",
+        *_cluster_diagnostic_lines(
+            evaluation.cluster_rows, args, evaluation.linkage_comparison
+        ),
         "## 상태·candidate_moved·출처",
         "",
         *[f"- status `{k}`: {v}" for k, v in statuses.most_common()],
@@ -1176,7 +1416,18 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
     parser.add_argument("--prefix", default=DEFAULT_PREFIX)
     parser.add_argument("--activities", default=None, help="comma list, e.g. 01.1,04.1")
-    parser.add_argument("--cluster-gap-m", type=float, default=CLUSTER_GAP_M)
+    parser.add_argument(
+        "--cluster-width-m",
+        type=float,
+        default=CLUSTER_WIDTH_M,
+        help="complete: maximum cluster width; single: maximum neighbour gap",
+    )
+    parser.add_argument(
+        "--cluster-linkage",
+        choices=CLUSTER_LINKAGES,
+        default="complete",
+        help="single = v1.2 chaining, diagnostics only",
+    )
     parser.add_argument("--min-support-lines", type=int, default=MIN_SUPPORT_LINES)
     parser.add_argument(
         "--baseline-trials",
