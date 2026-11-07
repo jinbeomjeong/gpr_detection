@@ -1,0 +1,59 @@
+{
+  "random_check": {
+    "cases": 3000,
+    "seed": 20261107,
+    "k_mismatch": 0,
+    "sum_mismatch_gt_1e-9": 0,
+    "max_sum_abs_diff": 1.1102230246251565e-16,
+    "gate_pairs_lt_n_pass": 0,
+    "gate_pairs_gt_n_pass_cases": 106,
+    "cases_with_boundary_pair": 416
+  },
+  "fixtures": {
+    "g1_boundary_value": 0.30000000000000004,
+    "g1_boundary_gt_0.30": true,
+    "g1_ungated_n_pass": 1,
+    "g1_gated": [
+      2,
+      0.55
+    ],
+    "g1_mut_small_penalty": [
+      1,
+      0.14999999999999997
+    ],
+    "g1_mut_no_gate": [
+      1,
+      0.14999999999999997
+    ],
+    "g1_mut_no_tolerance_k": 1,
+    "g2_gated": [
+      2,
+      0.20000000000000007
+    ],
+    "g2_mut_zero_cost": [
+      2,
+      0.29999999999999993
+    ],
+    "g2_ungated_n_pass": 2,
+    "g3_micro": {
+      "k": 1,
+      "recall": 0.3333333333333333,
+      "precision": 0.3333333333333333,
+      "f1": 0.3333333333333333
+    },
+    "g3_macro_recall_mutation": 0.5,
+    "g3_precision_over_pairs_mutation": 1.0,
+    "g5": {
+      "k": 0,
+      "recall": 0.0,
+      "precision": null,
+      "f1": 0.0
+    },
+    "g7": {
+      "p": 0.8,
+      "pct": 40.0,
+      "p_strict_mutation": 0.4,
+      "pct_no_midrank_mutation": 20.0
+    }
+  }
+}

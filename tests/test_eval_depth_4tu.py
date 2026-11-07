@@ -1,4 +1,6 @@
-"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 E1-E8, B1-B13, C1-C20).
+"""Unit tests of ``scripts/eval_depth_4tu.py``.
+
+spec_eval_4tu_v1 E1-E8, B1-B13, C1-C20 and the v1.6 gate tests G1-G11.
 
 Analytic B-scans and small in-memory tables only; no 4TU data is read.
 """
@@ -687,7 +689,13 @@ def test_e5_variant_auxiliary_baselines_report_pass_b_and_p_only(script) -> None
     for name in ("mae", "pass_a", "pass_b"):
         for stat in ("mean", "p025", "p975"):
             assert main[f"baseline_{name}_{stat}"] != ""
-    global_columns = [key for key in main if key.startswith("baseline_global_")]
+    # The v1.6 gate columns share the prefix; G8 checks them.
+    global_columns = [
+        key
+        for key in main
+        if key.startswith("baseline_global_")
+        and not key.startswith("baseline_global_gate_")
+    ]
     assert global_columns == [
         "baseline_global_pass_b_mean",
         "baseline_global_pass_b_p025",
@@ -2091,3 +2099,423 @@ def test_c20_preregistered_note_matches_the_spec(script) -> None:
     assert note in item_3
     for fragment in ("B+D+E", "14.3", "35.7", "29/41", "126 → 49"):
         assert fragment in note
+
+
+def _md_table_under(lines: list[str], heading_prefix: str) -> tuple[str, list[str]]:
+    """Header line and data rows of the md table under a unique heading."""
+    heading = _index_starting_with(lines, heading_prefix)
+    header = next(i for i in range(heading + 1, len(lines)) if lines[i].startswith("|"))
+    rows = []
+    for line in lines[header + 2 :]:  # skip the |---| separator
+        if not line.startswith("|"):
+            break
+        rows.append(line)
+    return lines[header], rows
+
+
+def _md_cells(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def test_c19b_md_auxiliary_tables_hold_their_own_variant(script, tmp_path) -> None:
+    """C19b (v1.5.1): (top, detected) ``n_est`` is main 1, bd 1, noqc 2.
+
+    Catches ``write_markdown`` filling the bd table with noqc rows (mutation X3).
+    """
+    lines = _markdown_lines(script, tmp_path, "on")
+    expected_n_est = {"## 주 결과": "1", "### 보조: B+D": "1", "### 보조: QC 없음": "2"}
+    for heading, n_est in expected_n_est.items():
+        header, rows = _md_table_under(lines, heading)
+        assert _md_cells(header)[3] == "n_est", heading
+        first_row = _md_cells(rows[0])
+        assert first_row[:2] == ["top", "detected"], heading
+        assert first_row[3] == n_est, heading
+
+
+# ----------------------------------------------------------------- G1-G11 (spec 9-2-3)
+#
+# v1.6 gate auxiliary metrics (spec 5-1). Hand-counted fixtures; G1, G2, G3, G5
+# and G7 equal the prototype analysis/processing/m29d_gate_proto.py output.
+
+GATE_LIMIT_WITH_TOL_M = 0.30 + 1e-12
+V15_SUMMARY_COLUMNS = [
+    "scope",
+    "gt_set",
+    "assumption",
+    "zero_variant",
+    "variant",
+    "n_activities",
+    "n_gt",
+    "n_est",
+    "n_pairs",
+    "mae_m",
+    "bias_m",
+    "med_abs_m",
+    "p90_abs_m",
+    "pass_a",
+    "pass_b",
+    "missed",
+    "false_est",
+    "baseline_mae_mean",
+    "baseline_mae_p025",
+    "baseline_mae_p975",
+    "baseline_pass_a_mean",
+    "baseline_pass_a_p025",
+    "baseline_pass_a_p975",
+    "baseline_pass_b_mean",
+    "baseline_pass_b_p025",
+    "baseline_pass_b_p975",
+    "baseline_p",
+    "baseline_global_pass_b_mean",
+    "baseline_global_pass_b_p025",
+    "baseline_global_pass_b_p975",
+    "baseline_global_p",
+]
+"""Summary csv columns up to v1.5 (spec 8), in order."""
+V16_GATE_COLUMNS = [
+    "gate_pairs",
+    "gate_recall",
+    "gate_precision",
+    "gate_f1",
+    "gate_mae_m",
+    "baseline_gate_recall_mean",
+    "baseline_gate_recall_p025",
+    "baseline_gate_recall_p975",
+    "baseline_gate_precision_mean",
+    "baseline_gate_precision_p025",
+    "baseline_gate_precision_p975",
+    "baseline_gate_f1_mean",
+    "baseline_gate_f1_p025",
+    "baseline_gate_f1_p975",
+    "baseline_gate_p",
+    "baseline_gate_pct",
+    "baseline_global_gate_f1_mean",
+    "baseline_global_gate_f1_p025",
+    "baseline_global_gate_f1_p975",
+    "baseline_global_gate_p",
+]
+"""The 20 gate columns appended to every summary row (spec 8, v1.6)."""
+GLOBAL_GATE_COLUMNS = V16_GATE_COLUMNS[-4:]
+G8_HEAD_ROWS = {
+    "main": (
+        "all", "exclude_x", "top", "detected", "main", 1, 2, 1, 1,
+        0.01, 0.01, 0.01, 0.01, 1.0, 0.5, 1, 0,
+        0.0657, 0.0008, 0.1371, 1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 1.0,
+        0.25, 0.0, 0.5, 0.5,
+    ),
+    "bd": (
+        "all", "exclude_x", "top", "detected", "bd", 1, 2, 1, 1,
+        0.01, 0.01, 0.01, 0.01, 1.0, 0.5, 1, 0,
+        0.0645, 0.0066, 0.1327, 1.0, 1.0, 1.0, 0.5, 0.5, 0.5, 1.0,
+        "", "", "", "",
+    ),
+    "noqc": (
+        "all", "exclude_x", "top", "detected", "noqc", 1, 2, 2, 2,
+        0.2925, -0.2925, 0.2925, 0.2945, 1.0, 1.0, 0, 0,
+        0.0954, 0.0268, 0.1438, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+        "", "", "", "",
+    ),
+}  # fmt: skip
+"""v1.5 columns of the C13 fixture rows, extracted with the HEAD d1cafe8 code
+before the v1.6 change (G8 regression: the gate must not move any of them)."""
+GATE_MAIN_TABLE_HEADER = (
+    "| assumption | zero_variant | n_gt | n_est | pass_b | gate_pairs | gate_recall"
+    " | gate_precision | gate_f1 | gate_mae_m | baseline_gate_f1_mean"
+    " | baseline_gate_f1_p025 | baseline_gate_f1_p975 | baseline_gate_p"
+    " | baseline_gate_pct |"
+)
+V15_MAIN_TABLE_HEADER = (
+    "| assumption | zero_variant | n_gt | n_est | n_pairs | mae_m | bias_m | pass_a"
+    " | pass_b | missed | false_est | baseline_pass_b_mean | baseline_pass_b_p025"
+    " | baseline_pass_b_p975 | baseline_p |"
+)
+G5_SEED = 20261107
+G5_CASES = 3000
+G5_STRICT_CASES = 106
+G5_BOUNDARY_CASES = 416
+
+
+def _n_pass(match) -> int:
+    return sum(abs(error) <= GATE_LIMIT_WITH_TOL_M for _, _, error in match.pairs)
+
+
+def test_g1_gate_adds_a_pair_and_includes_the_float_boundary(script) -> None:
+    est, gt = [0.45, 0.85], [0.15, 0.60, 1.20]
+    gated = script.match_activity_gated(est, gt)
+    assert gated.n_pairs == 2
+    first, second = gated.pairs
+    assert first[:2] == (0, 0) and second[:2] == (1, 1)
+    assert 0.45 - 0.15 > 0.30
+    assert first[2] == 0.45 - 0.15  # 0.30000000000000004: above 0.30, inside the gate
+    assert first[2] > 0.30
+    assert second[2] == pytest.approx(0.25, abs=1e-9)
+    assert gated.abs_error_sum == pytest.approx(0.55, abs=1e-9)
+
+    ungated = script.match_activity(est, gt)
+    errors = sorted(error for _, _, error in ungated.pairs)
+    assert errors == pytest.approx([-0.35, -0.15], abs=1e-9)
+    assert _n_pass(ungated) == 1
+
+    summary = script.summarize({"a": ungated}, {"a": 3}, gate_matches={"a": gated})
+    assert summary.pass_b == pytest.approx(1 / 3, abs=1e-9)
+    assert summary.gate_pairs == 2
+    assert summary.gate_recall == pytest.approx(2 / 3, abs=1e-9)
+    assert summary.gate_precision == pytest.approx(1.0, abs=1e-9)
+    assert summary.gate_f1 == pytest.approx(0.8, abs=1e-9)
+    assert summary.gate_mae_m == pytest.approx(0.275, abs=1e-9)
+
+
+def test_g2_same_pair_count_takes_the_least_abs_error_sum(script) -> None:
+    gated = script.match_activity_gated([0.5, 0.6], [0.75, 0.55])
+    assert gated.n_pairs == 2
+    # 0.5-0.55 and 0.6-0.75 (0.20), not the identity 0.5-0.75, 0.6-0.55 (0.30).
+    assert [pair[:2] for pair in gated.pairs] == [(0, 1), (1, 0)]
+    assert gated.abs_error_sum == pytest.approx(0.20, abs=1e-9)
+
+
+def test_g3_micro_pooling_and_the_precision_denominator(script) -> None:
+    estimates = {"A": [1.0, 1.1, 1.2], "B": []}
+    truths = {"A": [1.05], "B": [0.5, 0.9]}
+    matches = {a: script.match_activity(estimates[a], truths[a]) for a in truths}
+    gated = {a: script.match_activity_gated(estimates[a], truths[a]) for a in truths}
+    summary = script.summarize(matches, {"A": 1, "B": 2}, gated)
+    assert summary.gate_pairs == 1
+    assert summary.gate_recall == pytest.approx(1 / 3, abs=1e-9)  # mean over acts: 0.5
+    assert summary.gate_precision == pytest.approx(1 / 3, abs=1e-9)  # not 1 / pairs
+    assert summary.gate_f1 == pytest.approx(2 * 1 / (3 + 3), abs=1e-9)
+    assert summary.gate_mae_m == pytest.approx(0.05, abs=1e-9)
+
+
+def test_g4_empty_activities_undefined_values_and_old_calls(script) -> None:
+    for est, gt in (([], [0.5]), ([0.5], []), ([], [])):
+        gated = script.match_activity_gated(est, gt)
+        assert (gated.n_pairs, gated.abs_error_sum) == (0, 0.0)
+        assert (gated.n_est, gated.n_gt) == (len(est), len(gt))
+
+    no_estimate = script.match_activity([], [0.5])
+    summary = script.summarize(
+        {"a": no_estimate}, {"a": 1}, {"a": script.match_activity_gated([], [0.5])}
+    )
+    assert summary.gate_pairs == 0
+    assert summary.gate_recall == 0.0
+    assert summary.gate_precision is None
+    assert summary.gate_f1 == 0.0  # defined although the precision is not
+    assert summary.gate_mae_m is None
+
+    e4 = script.summarize({"a": script.match_activity([3.0], [0.5])}, {"a": 1})
+    e7_match = script.MatchResult(
+        pairs=((0.1, 0, 0.1), (0.3, 1, 0.3), (0.31, 2, 0.31)), missed=1, false_est=0
+    )
+    e7 = script.summarize({"a": e7_match}, {"a": 4})
+    for summary in (e4, e7):
+        for name in script.GATE_SUMMARY_FIELDS:
+            assert getattr(summary, name) is None, name
+    assert e4.n_pass == 0
+    assert e7.pass_a == pytest.approx(2 / 3)
+    assert e7.pass_b == pytest.approx(2 / 4)
+
+
+def _brute_force_gate(est: list[float], gt: list[float]) -> tuple[int, float]:
+    """Lexicographic optimum (max pairs, then min sum |e|) over all matchings."""
+    for k in range(min(len(est), len(gt)), 0, -1):
+        sums = []
+        for rows in itertools.combinations(range(len(est)), k):
+            for cols in itertools.permutations(range(len(gt)), k):
+                errors = [abs(est[r] - gt[c]) for r, c in zip(rows, cols, strict=True)]
+                if all(error <= GATE_LIMIT_WITH_TOL_M for error in errors):
+                    sums.append(sum(errors))
+        if sums:
+            return k, min(sums)
+    return 0, 0.0
+
+
+def _has_boundary_pair(est: list[float], gt: list[float]) -> bool:
+    return any(abs(abs(e - g) - 0.30) < 1e-9 for e in est for g in gt)
+
+
+def test_g5_gate_equals_the_brute_force_optimum(script) -> None:
+    rng = np.random.default_rng(G5_SEED)
+    strict_cases = boundary_cases = 0
+    for case in range(G5_CASES):
+        n_e, n_g = rng.integers(0, 5, size=2)
+        est = [float(k) * 0.05 for k in rng.integers(0, 41, n_e)]
+        gt = [float(k) * 0.05 for k in rng.integers(0, 41, n_g)]
+        gated = script.match_activity_gated(est, gt)
+        best_pairs, best_sum = _brute_force_gate(est, gt)
+        n_pass = _n_pass(script.match_activity(est, gt))
+        assert gated.n_pairs == best_pairs, case
+        assert gated.abs_error_sum == pytest.approx(best_sum, abs=1e-9), case
+        assert n_pass <= gated.n_pairs <= min(n_e, n_g), case
+        strict_cases += gated.n_pairs > n_pass
+        boundary_cases += _has_boundary_pair(est, gt)
+    # Regression values tied to the draw order (the prototype's).
+    assert (strict_cases, boundary_cases) == (G5_STRICT_CASES, G5_BOUNDARY_CASES)
+
+
+def test_g6_baseline_gate_reuses_the_same_draws(script) -> None:
+    n_est = {"a": 3, "b": 1}
+    gt = {"a": [0.5, 1.5], "b": [1.0]}
+    trials = 50
+    draws = script.draw_baseline(n_est, gt, trials=trials, seed=0)
+
+    rng = np.random.default_rng(0)
+    shape = (trials, len(gt))
+    expected = {
+        name: np.zeros(shape, dtype=float if name == "abs_error_sum" else int)
+        for name in ("n_pass", "n_pairs", "abs_error_sum", "n_gate_pairs")
+    }
+    for trial in range(trials):
+        for column, activity in enumerate(gt):
+            low, high = script.baseline_range(gt[activity], "activity")
+            depths = list(rng.uniform(low, high, size=n_est[activity]))
+            match = script.match_activity(depths, gt[activity])
+            errors = np.abs([error for _, _, error in match.pairs])
+            expected["n_pass"][trial, column] = _n_pass(match)
+            expected["n_pairs"][trial, column] = len(match.pairs)
+            expected["abs_error_sum"][trial, column] = float(errors.sum())
+            gated = script.match_activity_gated(depths, gt[activity])
+            expected["n_gate_pairs"][trial, column] = gated.n_pairs
+    for name, values in expected.items():
+        np.testing.assert_array_equal(getattr(draws, name), values, err_msg=name)
+    np.testing.assert_array_equal(draws.n_est, [3, 1])
+    assert np.all(draws.n_gate_pairs >= draws.n_pass)
+
+
+def _g7_stats(script):
+    draws = script.BaselineDraws(
+        activities=("a",),
+        n_gt=np.array([4]),
+        n_pass=np.array([[0], [1], [1], [1], [2]]),
+        n_pairs=np.full((5, 1), 3),
+        abs_error_sum=np.full((5, 1), 1.0),
+        n_gate_pairs=np.array([[0], [1], [1], [2], [3]]),
+        n_est=np.array([3]),
+    )
+    return script.baseline_stats(draws)
+
+
+def test_g7_baseline_position_p_and_mid_rank_percentile(script) -> None:
+    stats = _g7_stats(script)
+    assert script._baseline_gate_columns("baseline", stats, 1) == {
+        "baseline_gate_recall_mean": 0.35,
+        "baseline_gate_recall_p025": 0.025,
+        "baseline_gate_recall_p975": 0.725,
+        "baseline_gate_precision_mean": 0.4667,
+        "baseline_gate_precision_p025": 0.0333,
+        "baseline_gate_precision_p975": 0.9667,
+        "baseline_gate_f1_mean": 0.4,
+        "baseline_gate_f1_p025": 0.0286,
+        "baseline_gate_f1_p975": 0.8286,
+        "baseline_gate_p": 0.8,  # ">" would give 0.4
+        "baseline_gate_pct": 40.0,  # without the mid-rank half: 20.0
+    }
+    assert script._baseline_gate_columns("baseline_global", stats, 1) == {
+        "baseline_global_gate_f1_mean": 0.4,
+        "baseline_global_gate_f1_p025": 0.0286,
+        "baseline_global_gate_f1_p975": 0.8286,
+        "baseline_global_gate_p": 0.8,
+    }
+    no_observation = script._baseline_gate_columns("baseline", stats, None)
+    assert (no_observation["baseline_gate_p"], no_observation["baseline_gate_pct"]) == (
+        "",
+        "",
+    )
+    assert no_observation["baseline_gate_f1_mean"] == 0.4
+
+
+def _g8_evaluations(script):
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    candidates = _c13_candidates(script)
+    lines = {"01.1": 3}
+    on = script.evaluate_combinations(candidates, gt_sets, lines, _args())
+    off = script.evaluate_combinations(candidates, gt_sets, lines, _args(apex_qc="off"))
+    return on, off
+
+
+def _assert_gate_properties(row) -> None:
+    n_gt, n_est, pairs = row["n_gt"], row["n_est"], row["gate_pairs"]
+    assert pairs <= min(n_gt, n_est)
+    if row["pass_b"] is not None:
+        assert row["gate_recall"] >= row["pass_b"]
+    if n_est > 0:
+        assert row["gate_precision"] == round(pairs / n_est, 4)
+    assert row["gate_f1"] == round(2 * pairs / (n_gt + n_est), 4)
+
+
+def test_g8_summary_columns_values_and_v15_regression(script) -> None:
+    assert list(script.GATE_COLUMNS) == V16_GATE_COLUMNS
+    on, off = _g8_evaluations(script)
+    for row in on.summary_rows + off.summary_rows:
+        assert list(row) == V15_SUMMARY_COLUMNS + V16_GATE_COLUMNS
+        _assert_gate_properties(row)
+        globals_filled = [row[c] != "" for c in GLOBAL_GATE_COLUMNS]
+        assert globals_filled == [row["variant"] == "main"] * 4, row["variant"]
+
+    gate_fields = (
+        "gate_pairs",
+        "gate_recall",
+        "gate_precision",
+        "gate_f1",
+        "gate_mae_m",
+    )
+    expected_gate = {
+        "main": (1, 0.5, 1.0, 0.6667, 0.01),
+        "noqc": (2, 1.0, 1.0, 1.0, 0.2925),
+    }
+    for variant, values in expected_gate.items():
+        row = _overall_top_detected_row(on.summary_rows, variant)
+        assert tuple(row[c] for c in gate_fields) == values, variant
+    for variant, values in G8_HEAD_ROWS.items():
+        row = _overall_top_detected_row(on.summary_rows, variant)
+        assert tuple(row[c] for c in V15_SUMMARY_COLUMNS) == values, variant
+
+
+def test_g9_activities_without_ground_truth_stay_out_of_the_gate(script) -> None:
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    no_gt_candidates = [
+        dataclasses.replace(
+            _candidate(script, "99.9", path, 0.50), qc=_qc(script, "in")
+        )
+        for path in ("L1", "L2")
+    ]
+    evaluation = script.evaluate_combinations(
+        _c13_candidates(script) + no_gt_candidates,
+        gt_sets,
+        {"01.1": 3, "99.9": 2},
+        _args(),
+    )
+    assert evaluation.no_gt_counts["99.9"] == 1
+    row = _overall_top_detected_row(evaluation.summary_rows, "main")
+    assert (row["n_est"], row["gate_pairs"], row["gate_precision"]) == (1, 1, 1.0)
+
+
+@pytest.mark.parametrize(("apex_qc", "n_variant_rows"), [("on", 10), ("off", 6)])
+def test_g10_md_gate_section(script, tmp_path, apex_qc, n_variant_rows) -> None:
+    lines = _markdown_lines(script, tmp_path, apex_qc)
+    order = [
+        _index_starting_with(lines, prefix)
+        for prefix in ("## 보조: X 포함", "## 게이트 보조 지표", "## 현장별")
+    ]
+    assert order == sorted(order)
+    assert "판정·U-3에 쓰지 않음" in lines[order[1]]
+
+    header, rows = _md_table_under(lines, "### 주 결과 (`main`")
+    assert header == GATE_MAIN_TABLE_HEADER
+    assert len(rows) == 6
+    _, variant_rows = _md_table_under(lines, "### 변형별")
+    assert len(variant_rows) == n_variant_rows
+    main_header, _ = _md_table_under(lines, "## 주 결과")
+    assert main_header == V15_MAIN_TABLE_HEADER
+
+
+def test_g11_property_1_is_checked_at_run_time(script) -> None:
+    ungated = script.match_activity([0.45, 0.85], [0.15, 0.60, 1.20])
+    no_gate_pairs = script.GateMatch(n_est=2, n_gt=3, pairs=())
+    with pytest.raises(RuntimeError, match="act_g11"):
+        script.summarize(
+            {"act_g11": ungated}, {"act_g11": 3}, {"act_g11": no_gate_pairs}
+        )
+    with pytest.raises(ValueError, match="activities"):
+        script.summarize({"a": ungated}, {"a": 3}, {"b": no_gate_pairs})

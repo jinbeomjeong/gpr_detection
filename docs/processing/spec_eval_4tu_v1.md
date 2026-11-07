@@ -3,8 +3,8 @@
 - 작성: gpr-processing-expert, 2026-10-31 (spec 모드, 체크리스트 M2-8 준비)
 - 받는 쪽: python-expert(`scripts/eval_depth_4tu.py` 구현·시험), 메인 세션(실행 승인)
 - 기준 문서: `docs/processing/spec_depth_v1.md`(이하 [S], v1.9.2), `docs/processing/fourtu_explore.md`(이하 [FX]), `docs/datasets/readme_4tu.md`(이하 [R4])
-- 상태: v1.2로 M2-8 실행·판정 완료(2026-10-31, 불합격 — `depth_4tu_v1.md`). v1.3·v1.3.1은 M2-9 개선 B(묶기) 명세이며 구현·시험 완료(2026-11-06). **v1.4는 M2-9 개선 C(꼭짓점 후보 QC, 규칙 B+D) 명세이고, v1.4.1은 그 구현 판정(2026-11-07) 반영이고, v1.4.2는 문서 정리(동작 불변)다.** v1.4.3은 spec_depth v1.9(날개 추적 개선 T1·T2, 2026-11-07 승인) 상호 참조이며 이 문서의 규칙·문턱은 바뀌지 않는다. **v1.4.4는 v1.9 구현 판정(2026-11-07, 합격) 반영이다.** candidates csv 추적 진단 열 3개와 md ⑧ 추적 진단 줄을 정했고, 시험 C2·C3·C5 기대값을 v1.9 추적 결과로 바꿨다. QC 규칙·문턱·판정 순서는 그대로다. **v1.5(2026-11-07)는 사용자 결정 8(E = 곡률 unknown 후보를 주 결과에서 제외)을 반영한 명세다.** 주 결과는 B+D+E, 보조는 `bd`(B+D, unknown 유지 = v1.4 주 결과)와 `noqc`다(§3-5-5·§5·§8·§11). **v1.5.1(2026-11-07)은 v1.5 구현 판정 반영이다: 구현됨·판정 합격**(gpr-processing-expert; 코드 대조 §3-5-5·§5–§8·§9-1·§9-4, 깊이 불변 계약 §3-5-6, 사전 등록 문구 §11 항목 3 = `PREREGISTERED_QC_NOTE` 글자 단위 일치, 전체 pytest 664 통과·2 xfail, 돌연변이 판별력 §9-2-2). 이제 코드의 주 결과는 B+D+E다. 시험 보강 1건(C19b, 비차단)은 §9-4 항목 14로 위임한다. 4TU 재평가는 M2-9 개선 A–E(개선 E = 현장 9 영점, 위 QC 규칙 E와 다름) 뒤 1회. 이 문서의 수치는 입력 목록·꼭짓점 후보·폭 유도·QC 문턱 유도(합성)뿐이다(정답 깊이는 꼭짓점 후보 선정, 폭 유도, QC 문턱 유도에 쓰지 않았다).
-- 변경 이력: 2026-11-07 v1.5.1(v1.5 구현 판정 반영 — 규칙·문턱·CLI·사전 등록 문구 불변) — 상태 줄 "구현됨·판정 합격". §8 md ① off 문구를 구현대로 확정("`bd`·`noqc` 없음"). §9-2-2 C15b 기대값에 md 추정 수 줄 단언(구현자 추가, main ≠ bd라 차의 부호를 가름) 등재, C19b(보조 표 내용 = 해당 변형 행, 비차단 보강) 신설, v1.5 시험 함수 대응표, 판별력 확인 결과(구현자 8개 + 판정자 독립 15개). §9-4 구현 재량 기록(`_auxiliary_qc_table_lines`, `_exclusion_lines`, `COUNTED_VARIANTS`, `QC_AUX_VARIANTS`, `_is_qc_excluded(candidate, variant)`)과 항목 14(C19b 위임). §10 E 행 갱신. 2026-11-07 v1.5(M2-9 C 후속, 사용자 결정 8 반영 — 구현 전 명세) — §3-5-5 주 결과 제외 규칙을 B+D+E로(`CandidateQc.excluded` = out·unknown·기록 끝·이음, `excluded_bd` = v1.4 규칙), 보조 변형 `bd`(B+D) 신설, `a`·`b`·현장 11 진단은 주 결과 규칙을 따름, unknown 사유별 실제 영향(`ok` 후보에서는 `insufficient_picks`·`fit_failed`·`unstable`만). §3-5-2 unknown 줄과 §3-5-7 결론 갱신. §5 변형 표, §6 `bd` 시행 횟수, §7 현장 11. §8 csv `qc_excluded` 의미 변경(새 열 없음, B+D 제외는 기존 열로 유도), md ②·①·⑧ 형식. §9-1 CLI 변경 없음(근거), §9-2-2 시험 C10·C13·C16 기대값 개정과 C15b·C17–C20 신설, §9-4 python-expert 구현 위임 명세(선택 시험 spec_depth TK11–TK14 포함). §10 E 행·재평가 원칙 행. §11 항목 3·5 문구 확정(라벨로 센 효과 공개), §11-1 재평가 1회 원칙과의 정합 확인. 지난 정합 메모의 "후속 개정" 임시 주석을 걷어냄. 2026-11-07 정합 메모(버전 유지, 동작 불변) — 사용자 결정 8(E(곡률 unknown 제외) 채택)을 상태 줄·§3-5-2·§3-5-5 항목 5·§3-5-7·§10·§11 머리말·항목 5에 기록하고, E 구현 전까지 주 결과는 B+D임을 명시. §3-5-7 json 위치를 `fourtu.e_table`로 정정. 2026-11-07 v1.4.4(spec_depth v1.9 구현 판정 반영 — QC 규칙·문턱·판정 순서·사유 코드·`m29c_qc_constants.json` 잠금은 그대로) — §8 candidates csv 끝에 `stop_left`·`stop_right`·`apex_descended` 열과 채움 규칙(`stop_*`는 QC가 다시 부른 `extract_picks`의 픽에서 오므로 `--apex-qc off`이면 빈칸, `apex_descended`는 `DepthResult.flags`에서 오므로 늘 채움), md ⑧ 추적 진단 줄. §9-2-2 C2(진폭 0.5 $f_\text{in}$ 0.9524 → 0.3191, 픽 5/15 → 47/46)·C3(5 ns/m unknown `insufficient_picks` → out `r_below`, 10·15 ns/m `fit_failed` → `unstable`, 20 ns/m `insufficient_picks` → `unstable`, 30 ns/m 그대로; 시험 이름 `test_c3_x_crossing_is_never_in`)·C5(3.0 ns unknown `insufficient_picks` → in, D 규칙 제외는 그대로) 기대값을 v1.9 추적 결과로 바꿈(판정: 받아들임, 근거 §9-2-2 C 아래 "v1.4.4 기대값 변경 판정"). C13 열 목록. §3-5-2·§3-5-7·§10·§11 항목 5·6의 "구현 중"을 구현 결과로 갱신하고 E 결정용 표를 `m29c_track_diagnosis.md` §12에 둠. 2026-11-07 v1.4.3(상호 참조, 이 문서의 동작 불변) — spec_depth v1.9 날개 추적 개선(§5-3 T2 역행 기준 = 최근 3점 중앙값 − $\tau_\text{rev}$, §5-7 1항 T1 힌트 꼭짓점 하강 + `apex_descended`, `stop_left`·`stop_right`)을 §3-5-2·§3-5-7·§10·§11에서 가리킴. QC 문턱·판정 순서·사유 코드·`m29c_qc_constants.json` 잠금은 그대로다. QC가 다시 부르는 `extract_picks`가 v1.9가 되므로 QC 입력 픽은 바뀐다. 검토 표본 169개 전후 비교(`m29c_track_proto_fourtu.csv`)는 진단이며 재평가가 아니다. candidates csv 진단 열(`stop_left`·`stop_right`·`apex_descended`)은 v1.9 구현 보고 뒤 추가 예정(§10). E(곡률 unknown 제외)는 v1.9 구현 뒤 효과 보고를 보고 사용자가 정한다(§11 항목 5). 2026-11-07 v1.4.2(문서 정리, 동작 불변 — 코드·시험·§11 문구 변경 없음) — §9-2-2 제목을 C1–C16으로, C6c·C7c 시험 함수 이름 표기, §9-1 `zero_band_track` 반환형을 코드와 같게 `… | None`, §4-2 "곡률 피팅 금지"를 깊이용으로 한정하고 QC 예외(§3-5) 지시, 같은 절 `candidate_moved`를 "꼭짓점 이동 표시"로 이름 붙여 §3-5 QC와 구분(열 이름 불변), §3-5 상수 json SHA-256이 LF 기준임을 명시, §8 md ⑧의 사전 등록 문구 범위를 §11 항목 3(`PREREGISTERED_QC_NOTE`)으로 확정. 2026-11-07 v1.4.1(M2-9 개선 C 구현 판정 반영) — 구현 모호점 확정: §3-5-2 $v_m$ 출처(`eps_r_used`, 없으면 메타 εr), 영점 없는데 꼭짓점이 있는 방어 분기 = unknown `fit_failed`(4TU 도달 불가), $\sigma_v$ 비유한 → `qc_sigma_v_rel` 빈칸·판정 unstable, $K$·$J$ = $\lceil x/\Delta x-10^{-9}\rceil$(§3-5-4), 영점 띠 본뜨기 에너지 0이면 이음 규칙 미계산(§3-5-4), candidates csv `flags` 순서(깊이 플래그 → `long_line` → QC 플래그, §8), md ⑧ 집계 범위(`ok` 후보, 분위는 판정에 $r$을 쓴 in·out 후보만, §8), `DEFAULT_DEPTH_CONFIG` 사용(§9-1). **현장 11 진단(§7)에 QC 적용**(주 결과 경로와 같게, QC 판정은 메타 εr 실행 값 그대로). 구현자 추가 시험 2개를 C6c·C7c로 등재, 시험 C6d(퇴화 영점 띠)·C7d(비유한 $\sigma_v$ 출력)·C13f(flags 순서)·C15(현장 11 QC)·C16(md ⑧ 범위) 신설, 판별력 확인 결과(§9-2-2, 돌연변이 33개 중 28개 검출). 2026-11-07 v1.4(M2-9 개선 C, 구현 전 명세) — §3-5 꼭짓점 후보 QC 신설: 곡률 QC(B, 비대칭 띠 $0.7\le r\le1.6$, 깊이 경로 픽 재사용, $R=0$ 고정, 판정 순서·사유 코드, v 경계 규칙), 기록 끝 규칙 `apex_at_record_end`(기록 끝 2.5 주기), 트레이스 이음 규칙 `apex_on_trace_seam`(영점 띠 시간·진폭 도약), 주 결과 제외·보조 `noqc`, 묶기·지지 필터와의 순서, 곡률 값이 깊이로 흐르지 않는 코드 계약, 수동 검토 라벨로 센 효과 추정. §3-4 정밀도 실측 반영. §5·§6 `noqc` 변형. §8 candidates csv QC 열·md ⑧. §9-1 CLI `--apex-qc`·함수 계약, §9-2-2 재현 시험 C1–C14. §10 가정 행. §11 재평가 사전 등록 메모 신설(B 문구와 C 문구를 한곳에 모음). 근거 스크립트 `analysis/processing/m29c_qc_proto.py`(합성만)·`m29c_qc_effect.py`(검토 표본, 라벨은 효과 세기에만). 2026-11-06 v1.3.1(M2-9 개선 B 구현 판정 반영) — 입력 검사·공통 정렬 키를 `single`에도 적용(§4-3-1 항목 1·7), `n_lines`는 원래 측선 값으로 셈(§4-3 항목 1), clusters csv `span_m` 소수 6자리와 md 폭 초과 개수가 반올림 값 기준임(§8·§9-1), §4-3-2의 "v1.2 대비 추정 수"를 §9-1 md 진단에 넣음(같은 깊이를 `single`로 다시 묶어 셈, 판정 미사용), 시험 B4에 `single` 경계 2건, B11에 inf, B13(출력·CLI 배관) 추가. 2026-11-06 v1.3(M2-9 개선 B, 구현 전 명세) — §4-3 묶기를 단일 연결(이웃 간격 0.10 m)에서 **완전 연결(묶음 안 모든 쌍의 깊이 차 ≤ 폭 $W$)**로 바꿈, 동률·경계·순서 무관 규칙, 지지 필터와의 상호작용(§4-3-2). §4-4 폭 유도(측선 간 같은 관 깊이 반복의 흩어짐 예산 → $W$ = 0.10 m 고정, 깊이 의존 폭과 비교·기각). §8 clusters csv에 `span_m`·`linkage`·`width_m`. §9-1 CLI `--cluster-width-m`·`--cluster-linkage`, `cluster_depths` 계약. §9-2 E2 기대값 개정, 시험 B1–B12. §10 가정 표. 근거 스크립트 `analysis/processing/cluster_width_v1.py`(4TU 레이더그램·정답 미사용). 2026-10-31 v1.2(커밋 전 정합) — 사용자 결정 5(실행 시점·점검·튜닝 없이 보고), 현장 11 진단 csv `depth_4tu_v1_site11.csv`, 기준선 MAE·판정률 A 열 추가와 전역 기준선 실제 열 이름, `multi_trench` 열, 정답 함수 실제 이름, CLI `--lines`·`--dry-run`, 시험 E1b·E5/E6 변형·E8, `n_peaks`. 2026-10-31 v1.1(구현 대조) — 정답 활동 93·정답 388행·무정답 32(08.1·013.6 깊이 전부 빈칸), `candidate_box`에 `tau_ns`, 기준선 시행 횟수 구분(주 1,000·보조 200), X 포함·제외를 한 번 실행으로, 현장 11 εr 8 진단은 주 결과 경로. 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(영문 식별자 `apex_candidate`; 파일 `fourtu_seeds_v1*` → `fourtu_apex_candidates_v1*`, 열 `seed_*` → `candidate_*`. 난수 시드는 그대로)
+- 상태: v1.2로 M2-8 실행·판정 완료(2026-10-31, 불합격 — `depth_4tu_v1.md`). v1.3·v1.3.1은 M2-9 개선 B(묶기) 명세이며 구현·시험 완료(2026-11-06). **v1.4는 M2-9 개선 C(꼭짓점 후보 QC, 규칙 B+D) 명세이고, v1.4.1은 그 구현 판정(2026-11-07) 반영이고, v1.4.2는 문서 정리(동작 불변)다.** v1.4.3은 spec_depth v1.9(날개 추적 개선 T1·T2, 2026-11-07 승인) 상호 참조이며 이 문서의 규칙·문턱은 바뀌지 않는다. **v1.4.4는 v1.9 구현 판정(2026-11-07, 합격) 반영이다.** candidates csv 추적 진단 열 3개와 md ⑧ 추적 진단 줄을 정했고, 시험 C2·C3·C5 기대값을 v1.9 추적 결과로 바꿨다. QC 규칙·문턱·판정 순서는 그대로다. **v1.5(2026-11-07)는 사용자 결정 8(E = 곡률 unknown 후보를 주 결과에서 제외)을 반영한 명세다.** 주 결과는 B+D+E, 보조는 `bd`(B+D, unknown 유지 = v1.4 주 결과)와 `noqc`다(§3-5-5·§5·§8·§11). **v1.5.1(2026-11-07)은 v1.5 구현 판정 반영이다: 구현됨·판정 합격**(gpr-processing-expert; 코드 대조 §3-5-5·§5–§8·§9-1·§9-4, 깊이 불변 계약 §3-5-6, 사전 등록 문구 §11 항목 3 = `PREREGISTERED_QC_NOTE` 글자 단위 일치, 전체 pytest 664 통과·2 xfail, 돌연변이 판별력 §9-2-2). 이제 코드의 주 결과는 B+D+E다. 시험 보강 1건(C19b, 비차단)은 §9-4 항목 14로 위임한다. **v1.6(2026-11-07)은 M2-9 개선 D(±0.30 m 게이트 보조 지표, 사용자 결정 9) 명세다**(§5-1·§6·§8·§9-2-3·§9-5·§11 항목 7). 게이트 지표는 보조이며 판정·U-3 합격 기준에 쓰지 않는다. C19b 위임은 §9-5로 묶었다. **v1.6.1(2026-11-07)은 v1.6 구현 판정 반영이다: 구현됨·판정 합격**(gpr-processing-expert; 코드 대조 §5-1·§6·§8·§9-5, HEAD d1cafe8 대비 기존 열·md 회귀 동일, 돌연변이 20개 중 19개 검출 §9-2-3, C19b 구현됨). 비차단 시험 보강 G1b(판정률 술어 허용치 경계)를 위임한다. 4TU 재평가는 M2-9 개선 A–E(개선 E = 현장 9 영점, 위 QC 규칙 E와 다름) 뒤 1회. 이 문서의 수치는 입력 목록·꼭짓점 후보·폭 유도·QC 문턱 유도(합성)뿐이다(정답 깊이는 꼭짓점 후보 선정, 폭 유도, QC 문턱 유도에 쓰지 않았다).
+- 변경 이력: 2026-11-07 v1.6.1(v1.6 구현 판정 반영 — 정의·열·판정·QC·묶기·깊이 불변) — 상태 줄과 §9-5 상태 "구현됨·판정 합격". §8 summary csv v1.6.1 확정(`baseline_global_gate_*` 접두어 공유와 열 선택 규칙, 게이트 값 없음 = 빈칸, 기존 기준선 6열이 추정 0 범위에서 `nan`인 기존 동작 관찰), §8 md 게이트 절(`|e|` 표기, 빈칸, HEAD md와 게이트 절 밖 동일). §9-2-2 C19b 구현 함수. §9-2-3 판별력 확인 결과(구현자 16+X3, 판정자 독립 20개 중 19개 검출; G9 다중 줄 돌연변이 검출; 생존 1개 → 비차단 시험 G1b 신설), G1–G11·C19b·E5 변형 보정 시험 함수 대응표. §9-3 벤치 보정(+9 µs/호출 → 약 +20 s). §9-5 구현 재량·명세와 다른 점 표(E5 변형 시험 선택자 보정 받아들임, `site11_diagnostic` 술어 공유, `|e|`, 빈칸). §10 게이트 행 갱신, 기존 기준선 `nan` 행 신설. §11-1 D 정합·재평가 전 조건 3 갱신. 2026-11-07 v1.6(M2-9 개선 D, 구현 전 명세 — 주 지표·판정·QC·묶기·깊이 불변) — §5-1 게이트 매칭 신설(활동마다 $|e|\le0.30$ m 안 짝 수 최대, 같으면 $\sum|e|$ 최소; 유한 벌점 $P=m\,g+1$ 선형 할당과 정확성 증명, 경계 포함·허용치 `PASS_TOL_M` 1e-12, 빈 활동, 미시 합산, 판정률 B와의 관계). §6 기준선: 같은 시행·같은 난수에서 게이트 짝 수, 단측 $p$와 중간 순위 백분위. §8 summary csv 끝에 게이트 열 20개, md 게이트 절. §9-2-3 시험 G1–G11, 돌연변이 목록. §9-4 항목 14(C19b)를 §9-5로 옮겨 묶음. §9-5 python-expert 구현 위임 명세. §10 게이트 행, 개선 E 사전 조사·중복 레이더그램 행. §11 항목 7(게이트 보조 지표 사전 등록 문구), §11-1 D 정합 확인과 개선 F(재평가 뒤 보고, 사용자 결정 2026-11-07) 확정. 근거 시제품 `analysis/processing/m29d_gate_proto.py` → `docs/processing/m29d_gate_proto.json`(4TU 자료 미사용). 2026-11-07 v1.5.1(v1.5 구현 판정 반영 — 규칙·문턱·CLI·사전 등록 문구 불변) — 상태 줄 "구현됨·판정 합격". §8 md ① off 문구를 구현대로 확정("`bd`·`noqc` 없음"). §9-2-2 C15b 기대값에 md 추정 수 줄 단언(구현자 추가, main ≠ bd라 차의 부호를 가름) 등재, C19b(보조 표 내용 = 해당 변형 행, 비차단 보강) 신설, v1.5 시험 함수 대응표, 판별력 확인 결과(구현자 8개 + 판정자 독립 15개). §9-4 구현 재량 기록(`_auxiliary_qc_table_lines`, `_exclusion_lines`, `COUNTED_VARIANTS`, `QC_AUX_VARIANTS`, `_is_qc_excluded(candidate, variant)`)과 항목 14(C19b 위임). §10 E 행 갱신. 2026-11-07 v1.5(M2-9 C 후속, 사용자 결정 8 반영 — 구현 전 명세) — §3-5-5 주 결과 제외 규칙을 B+D+E로(`CandidateQc.excluded` = out·unknown·기록 끝·이음, `excluded_bd` = v1.4 규칙), 보조 변형 `bd`(B+D) 신설, `a`·`b`·현장 11 진단은 주 결과 규칙을 따름, unknown 사유별 실제 영향(`ok` 후보에서는 `insufficient_picks`·`fit_failed`·`unstable`만). §3-5-2 unknown 줄과 §3-5-7 결론 갱신. §5 변형 표, §6 `bd` 시행 횟수, §7 현장 11. §8 csv `qc_excluded` 의미 변경(새 열 없음, B+D 제외는 기존 열로 유도), md ②·①·⑧ 형식. §9-1 CLI 변경 없음(근거), §9-2-2 시험 C10·C13·C16 기대값 개정과 C15b·C17–C20 신설, §9-4 python-expert 구현 위임 명세(선택 시험 spec_depth TK11–TK14 포함). §10 E 행·재평가 원칙 행. §11 항목 3·5 문구 확정(라벨로 센 효과 공개), §11-1 재평가 1회 원칙과의 정합 확인. 지난 정합 메모의 "후속 개정" 임시 주석을 걷어냄. 2026-11-07 정합 메모(버전 유지, 동작 불변) — 사용자 결정 8(E(곡률 unknown 제외) 채택)을 상태 줄·§3-5-2·§3-5-5 항목 5·§3-5-7·§10·§11 머리말·항목 5에 기록하고, E 구현 전까지 주 결과는 B+D임을 명시. §3-5-7 json 위치를 `fourtu.e_table`로 정정. 2026-11-07 v1.4.4(spec_depth v1.9 구현 판정 반영 — QC 규칙·문턱·판정 순서·사유 코드·`m29c_qc_constants.json` 잠금은 그대로) — §8 candidates csv 끝에 `stop_left`·`stop_right`·`apex_descended` 열과 채움 규칙(`stop_*`는 QC가 다시 부른 `extract_picks`의 픽에서 오므로 `--apex-qc off`이면 빈칸, `apex_descended`는 `DepthResult.flags`에서 오므로 늘 채움), md ⑧ 추적 진단 줄. §9-2-2 C2(진폭 0.5 $f_\text{in}$ 0.9524 → 0.3191, 픽 5/15 → 47/46)·C3(5 ns/m unknown `insufficient_picks` → out `r_below`, 10·15 ns/m `fit_failed` → `unstable`, 20 ns/m `insufficient_picks` → `unstable`, 30 ns/m 그대로; 시험 이름 `test_c3_x_crossing_is_never_in`)·C5(3.0 ns unknown `insufficient_picks` → in, D 규칙 제외는 그대로) 기대값을 v1.9 추적 결과로 바꿈(판정: 받아들임, 근거 §9-2-2 C 아래 "v1.4.4 기대값 변경 판정"). C13 열 목록. §3-5-2·§3-5-7·§10·§11 항목 5·6의 "구현 중"을 구현 결과로 갱신하고 E 결정용 표를 `m29c_track_diagnosis.md` §12에 둠. 2026-11-07 v1.4.3(상호 참조, 이 문서의 동작 불변) — spec_depth v1.9 날개 추적 개선(§5-3 T2 역행 기준 = 최근 3점 중앙값 − $\tau_\text{rev}$, §5-7 1항 T1 힌트 꼭짓점 하강 + `apex_descended`, `stop_left`·`stop_right`)을 §3-5-2·§3-5-7·§10·§11에서 가리킴. QC 문턱·판정 순서·사유 코드·`m29c_qc_constants.json` 잠금은 그대로다. QC가 다시 부르는 `extract_picks`가 v1.9가 되므로 QC 입력 픽은 바뀐다. 검토 표본 169개 전후 비교(`m29c_track_proto_fourtu.csv`)는 진단이며 재평가가 아니다. candidates csv 진단 열(`stop_left`·`stop_right`·`apex_descended`)은 v1.9 구현 보고 뒤 추가 예정(§10). E(곡률 unknown 제외)는 v1.9 구현 뒤 효과 보고를 보고 사용자가 정한다(§11 항목 5). 2026-11-07 v1.4.2(문서 정리, 동작 불변 — 코드·시험·§11 문구 변경 없음) — §9-2-2 제목을 C1–C16으로, C6c·C7c 시험 함수 이름 표기, §9-1 `zero_band_track` 반환형을 코드와 같게 `… | None`, §4-2 "곡률 피팅 금지"를 깊이용으로 한정하고 QC 예외(§3-5) 지시, 같은 절 `candidate_moved`를 "꼭짓점 이동 표시"로 이름 붙여 §3-5 QC와 구분(열 이름 불변), §3-5 상수 json SHA-256이 LF 기준임을 명시, §8 md ⑧의 사전 등록 문구 범위를 §11 항목 3(`PREREGISTERED_QC_NOTE`)으로 확정. 2026-11-07 v1.4.1(M2-9 개선 C 구현 판정 반영) — 구현 모호점 확정: §3-5-2 $v_m$ 출처(`eps_r_used`, 없으면 메타 εr), 영점 없는데 꼭짓점이 있는 방어 분기 = unknown `fit_failed`(4TU 도달 불가), $\sigma_v$ 비유한 → `qc_sigma_v_rel` 빈칸·판정 unstable, $K$·$J$ = $\lceil x/\Delta x-10^{-9}\rceil$(§3-5-4), 영점 띠 본뜨기 에너지 0이면 이음 규칙 미계산(§3-5-4), candidates csv `flags` 순서(깊이 플래그 → `long_line` → QC 플래그, §8), md ⑧ 집계 범위(`ok` 후보, 분위는 판정에 $r$을 쓴 in·out 후보만, §8), `DEFAULT_DEPTH_CONFIG` 사용(§9-1). **현장 11 진단(§7)에 QC 적용**(주 결과 경로와 같게, QC 판정은 메타 εr 실행 값 그대로). 구현자 추가 시험 2개를 C6c·C7c로 등재, 시험 C6d(퇴화 영점 띠)·C7d(비유한 $\sigma_v$ 출력)·C13f(flags 순서)·C15(현장 11 QC)·C16(md ⑧ 범위) 신설, 판별력 확인 결과(§9-2-2, 돌연변이 33개 중 28개 검출). 2026-11-07 v1.4(M2-9 개선 C, 구현 전 명세) — §3-5 꼭짓점 후보 QC 신설: 곡률 QC(B, 비대칭 띠 $0.7\le r\le1.6$, 깊이 경로 픽 재사용, $R=0$ 고정, 판정 순서·사유 코드, v 경계 규칙), 기록 끝 규칙 `apex_at_record_end`(기록 끝 2.5 주기), 트레이스 이음 규칙 `apex_on_trace_seam`(영점 띠 시간·진폭 도약), 주 결과 제외·보조 `noqc`, 묶기·지지 필터와의 순서, 곡률 값이 깊이로 흐르지 않는 코드 계약, 수동 검토 라벨로 센 효과 추정. §3-4 정밀도 실측 반영. §5·§6 `noqc` 변형. §8 candidates csv QC 열·md ⑧. §9-1 CLI `--apex-qc`·함수 계약, §9-2-2 재현 시험 C1–C14. §10 가정 행. §11 재평가 사전 등록 메모 신설(B 문구와 C 문구를 한곳에 모음). 근거 스크립트 `analysis/processing/m29c_qc_proto.py`(합성만)·`m29c_qc_effect.py`(검토 표본, 라벨은 효과 세기에만). 2026-11-06 v1.3.1(M2-9 개선 B 구현 판정 반영) — 입력 검사·공통 정렬 키를 `single`에도 적용(§4-3-1 항목 1·7), `n_lines`는 원래 측선 값으로 셈(§4-3 항목 1), clusters csv `span_m` 소수 6자리와 md 폭 초과 개수가 반올림 값 기준임(§8·§9-1), §4-3-2의 "v1.2 대비 추정 수"를 §9-1 md 진단에 넣음(같은 깊이를 `single`로 다시 묶어 셈, 판정 미사용), 시험 B4에 `single` 경계 2건, B11에 inf, B13(출력·CLI 배관) 추가. 2026-11-06 v1.3(M2-9 개선 B, 구현 전 명세) — §4-3 묶기를 단일 연결(이웃 간격 0.10 m)에서 **완전 연결(묶음 안 모든 쌍의 깊이 차 ≤ 폭 $W$)**로 바꿈, 동률·경계·순서 무관 규칙, 지지 필터와의 상호작용(§4-3-2). §4-4 폭 유도(측선 간 같은 관 깊이 반복의 흩어짐 예산 → $W$ = 0.10 m 고정, 깊이 의존 폭과 비교·기각). §8 clusters csv에 `span_m`·`linkage`·`width_m`. §9-1 CLI `--cluster-width-m`·`--cluster-linkage`, `cluster_depths` 계약. §9-2 E2 기대값 개정, 시험 B1–B12. §10 가정 표. 근거 스크립트 `analysis/processing/cluster_width_v1.py`(4TU 레이더그램·정답 미사용). 2026-10-31 v1.2(커밋 전 정합) — 사용자 결정 5(실행 시점·점검·튜닝 없이 보고), 현장 11 진단 csv `depth_4tu_v1_site11.csv`, 기준선 MAE·판정률 A 열 추가와 전역 기준선 실제 열 이름, `multi_trench` 열, 정답 함수 실제 이름, CLI `--lines`·`--dry-run`, 시험 E1b·E5/E6 변형·E8, `n_peaks`. 2026-10-31 v1.1(구현 대조) — 정답 활동 93·정답 388행·무정답 32(08.1·013.6 깊이 전부 빈칸), `candidate_box`에 `tau_ns`, 기준선 시행 횟수 구분(주 1,000·보조 200), X 포함·제외를 한 번 실행으로, 현장 11 εr 8 진단은 주 결과 경로. 2026-10-31 용어 변경: 씨앗 → 꼭짓점 후보(영문 식별자 `apex_candidate`; 파일 `fourtu_seeds_v1*` → `fourtu_apex_candidates_v1*`, 열 `seed_*` → `candidate_*`. 난수 시드는 그대로)
 - 사용자 결정(2026-10-31):
   1. 범위는 13개 현장 전체 활동이다.
   2. 매칭은 활동 단위 헝가리안이고 게이트가 없다. 누락(짝 없는 정답)과 오검출(짝 없는 추정)은 따로 센다. 지표는 MAE와 제186조 ±30 cm 판정률이다. 무작위 깊이 기준선(P8)을 같은 방식으로 돌린다. 상단/중심 두 가정과 t0 두 값(`t0_sample_est`, `t0_sample_act_median`)을 모두 보고한다. **4TU로 튜닝하지 않는다**(합성 기본값 그대로).
@@ -14,6 +14,7 @@
   6. (2026-11-06, M2-9 개선 B) 묶기는 **완전 연결**이고 입력 순서와 무관하며 결정적이어야 한다. 묶기 기준은 **깊이만**이다(측선 안 수평 위치 $x$는 쓰지 않음). 폭 상한은 **물리 근거로 다시 정한다**(꼭짓점·영점 시각 불확도, εr 불확도 등). 4TU 판정 결과(판정률·MAE·bias)를 보고 고르지 않는다. 4TU에서 쓸 수 있는 값은 장비 메타(dt, $f_c$, `eps_r_used`, 측선 수)뿐이다. 0.10 m는 비교 기준으로 함께 보고한다.
   7. (2026-11-07, M2-9 개선 C) 꼭짓점 후보 QC는 **규칙 B+D**다. B: 곡률 비 $r=v_\text{curv}/v_m$가 0.7–1.6 밖이면 주 결과에서 빼고 `curvature_v_out`을 단다. 빼지 않은 결과(QC 없음)는 보조로 보고한다. 곡률 v를 구할 수 없으면 **유지**하고 `curvature_v_unknown`과 사유를 단다. D: 기록 끝(`apex_at_record_end`)·트레이스 블록 이음(`apex_on_trace_seam`) 결정론 규칙. D의 기준은 4TU 정답·M2-8 결과를 보지 않고 물리·자료 형식 근거로 정한다. 수동 검토 라벨은 효과 추정에만 쓰고 문턱 결정에는 쓰지 않는다(Youden 등 라벨 맞춤 금지). 곡률 v는 QC에만 쓰고 깊이에는 쓰지 않는다(CLAUDE.md 깊이 규약). 진짜 기준은 T만이다. 날개 추적 실패 원인 분석(spec_depth §5-3)은 이번 범위 밖이고, 개선 뒤 E(unknown 제외)를 다시 검토한다.
   8. (2026-11-07, M2-9 C 후속) **E(곡률 unknown 제외) 채택**: 4TU 재평가 주 결과에서 곡률 unknown 후보를 뺀다. B+D(unknown 유지)와 `noqc`는 보조 변형으로 함께 보고한다. 출처별 적용(자동만)은 하지 않는다. 결정 근거가 검토 라벨로 센 효과(표본 169개: 자동 정밀도 14.3 → 35.7 %, T 남김 39 → 29/41, 추정 수 −61 %; `m29c_track_diagnosis.md` §12-5)임을 사전 등록에 공개한다. 결정 7의 "unknown 유지"를 주 결과에서 대체한다(보조 `bd`에서는 유지). 명세는 v1.5(§3-5-5·§5·§8·§9-4·§11)에 반영했고, 구현·판정(합격)은 v1.5.1이다. 이 E는 개선 항목 "개선 E(현장 9 영점)"와 다르다.
+  9. (2026-11-07, M2-9 개선 D) **±0.30 m 게이트 보조 지표**: 매칭은 **별도 게이트 매칭**이다. 활동 단위로 $|e|\le0.30$ m 안 짝 수를 최대화하고, 같으면 $\sum|e|$를 최소화한다. 재현율(짝 수 / $n_\text{gt}$)·정밀도(짝 수 / $n_\text{est}$)·F1을 낸다. 게이트 없는 헝가리안 짝에 사후 판정하는 방식은 기각한다. **보조 지표로만** 쓰고 판정·U-3 합격 기준에 넣지 않는다(주 지표 = 게이트 없는 헝가리안 + 제186조 ±30 cm 판정률 A·B 그대로). 기준선은 기존 무작위 기준선(같은 추정 수)의 **시행마다 같은 게이트 지표를 계산**한다(시행 수를 늘리지 않음). 개선 F(메타 εr 잔여 bias)는 재평가 뒤 보고 항목이다(이번 범위 아님). 명세는 v1.6(§5-1·§6·§8·§9-2-3·§9-5·§11 항목 7)이고, 구현·판정(합격)은 v1.6.1이다.
 
 ---
 
@@ -470,6 +471,63 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
   - **판정은 `main` 하나로 한다.** 보조 변형 가운데 결과가 좋은 것을 실행 뒤 주 결과로 바꾸지 않는다(§11-1).
   - `--apex-qc off`이면 `main`·`a`·`b`만 내고(v1.3.1과 같음) `bd`·`noqc`는 없다.
 
+### 5-1. ±0.30 m 게이트 매칭 (v1.6, M2-9 개선 D — 보조 지표, 판정·U-3에 쓰지 않음)
+
+**위치**: 이 절의 지표는 **보조 지표**다. 판정(합격률 n/N, 판정률 A·B)과 U-3 합격 기준에는 쓰지 않는다. 판정은 §5의 게이트 없는 헝가리안과 `main` 변형 하나로만 한다(사용자 결정 9, §11-1). 게이트 지표가 주 결과보다 좋거나 나빠도 판정 문구·주 결과를 바꾸지 않는다.
+
+**목적**: 게이트 없는 헝가리안은 활동마다 짝 수가 늘 $\min(n_\text{est},n_\text{gt})$라 먼 추정도 짝이 된다(E4). 또 짝 배정이 $\sum|e|$ 최소라서, ±0.30 m 안 짝을 하나 더 만들 수 있는 배정이 있어도 고르지 않을 수 있다(시험 G1). 게이트 매칭은 "±0.30 m 안에서 정답을 몇 개 맞혔나(재현율), 추정 가운데 몇 개가 정답 근처였나(정밀도)"를 따로 센다. 개선 C의 QC(E)가 추정 수를 줄이는 효과를 재현율 대 정밀도로 읽는 데 쓴다.
+
+기호(활동 하나, 깊이 가정 하나):
+
+| 기호 | 정의 | 단위 |
+|---|---|---|
+| $g$ | 게이트 0.30 (= `PASS_LIMIT_M`, 제186조 ±30 cm) | m |
+| $\tau$ | 부동소수 허용치 $10^{-12}$ (`PASS_TOL_M`, §5 판정률과 같은 값) | m |
+| $\hat d_i$, $i=1..n_e$ | 추정 깊이(변형의 묶음 깊이 또는 후보 깊이) | m |
+| $d_j$, $j=1..n_g$ | 정답 깊이(상단 또는 중심 가정, §2) | m |
+| $a_{ij}$ | $\lvert\hat d_i-d_j\rvert$ | m |
+| $\mathcal A$ | 허용 쌍 $\{(i,j): a_{ij}\le g+\tau\}$ | – |
+| $M$ | 매칭: $\mathcal A$의 부분집합, 각 $i$·$j$는 많아야 한 번 | – |
+| $k(M)$, $S(M)$ | 짝 수 $\lvert M\rvert$, $\sum_{(i,j)\in M}a_{ij}$ | 개, m |
+| $m$ | $\min(n_e,n_g)$ | 개 |
+| $P$ | 벌점 $m\,g+1$ | m |
+
+**정의**: 활동마다 $M^{\ast}$는 사전식 최적이다 — 먼저 $k$ 최대, 그다음 $S$ 최소.
+
+**정식화(구현)**: 비용 행렬 $c_{ij}=a_{ij}$ ($(i,j)\in\mathcal A$), $c_{ij}=P$ (그 밖)에 `scipy.optimize.linear_sum_assignment`를 돌리고(직사각 허용, 크기 $m$ 배정), 결과에서 $\mathcal A$ 안 쌍만 남긴다.
+
+**정확성(증명)**: 모든 성분이 유한하므로 $\mathcal A$ 안 매칭은 어떤 것이든 크기 $m$ 배정으로 늘릴 수 있다. 크기 $m$ 배정 $\sigma$의 비용은 $S_\sigma+P\,(m-k_\sigma)$이고 $0\le S_\sigma\le k_\sigma(g+\tau)$다. $k_1>k_2$이면
+$$\text{cost}_1\le m(g+\tau)+P(m-k_1)<P+P(m-k_1)\le P(m-k_2)\le\text{cost}_2$$
+이다($m\tau<1$이므로 $m(g+\tau)<P$). 따라서 최소 비용 배정은 $k$가 최대이고, $k$가 같은 배정끼리는 비용 차가 $S$ 차와 같으므로 $S$도 최소다. 시제품(`analysis/processing/m29d_gate_proto.py`, 시드 20261107, 크기 0–4·0.05 m 격자 깊이 3,000 사례)에서 전수 탐색 최적과 $k$ 불일치 0, $S$ 차 최대 $1.1\times10^{-16}$ m였다(`docs/processing/m29d_gate_proto.json`).
+
+- 기각한 대안: (i) 게이트 밖을 `inf`로 두기 — 유한 비용 완전 배정이 없으면 `linear_sum_assignment`가 `ValueError`(infeasible)를 낸다(예: 한 행이 모두 게이트 밖). (ii) 아주 큰 상수(예: $10^9$) — 동작은 맞지만 $S$ 동률 판정의 해상도가 $10^9\times2.2\times10^{-16}\approx2\times10^{-7}$ m로 떨어진다. $P=m\,g+1$은 크기가 10 안팎이라 해상도가 $10^{-15}$ m 수준이다. (iii) 최대 이분 매칭 뒤 최소 비용 2단계 — 결과가 같고 코드만 길다. (iv) 가장 가까운 짝부터 고르는 탐욕법 — 최대 짝 수를 보장하지 못한다(G1에서 짝 1개).
+- **유일성**: 최적값 $k^{\ast}$와 $S^{\ast}$는 유일하다. 짝의 정체(어느 추정이 어느 정답과 짝인지)는 정확한 동률에서 유일하지 않다(예: 추정 0.5, 정답 0.4·0.6). 그래서 $k^{\ast}$와 $S^{\ast}$로만 정해지는 값(재현율·정밀도·F1·게이트 MAE)만 낸다. 게이트 bias(부호 있는 평균)와 짝별 csv는 내지 않는다.
+
+**경계·부동소수**: 허용 판정은 §5 판정률의 `within_30cm`과 **같은 술어** $\lvert e\rvert\le g+\tau$다(코드에서 한 함수로 공유). $\lvert e\rvert=0.30$은 포함한다. $\tau$는 십진 깊이 차의 부동소수 오차를 흡수한다(예: 0.45 − 0.15 = 0.30000000000000004, G1). 같은 술어여야 아래 성질 1이 정확히 성립한다.
+
+**빈 활동**: $n_e=0$ 또는 $n_g=0$이면 $k=0$, $S=0$이고 할당을 부르지 않는다. 평가 대상 활동은 §5와 같다 — 정답 집합에 있는 활동만 들어가고(정답 없는 활동의 추정은 오검출로 세지 않음, 사용자 결정 4), 정답이 있고 추정이 0개인 활동은 재현율 분모에 $n_g$를, 정밀도 분모에 0을 보탠다.
+
+**집계: 미시 합산**(범위 = 전체 또는 현장, 범위 안 활동 $a$에 대해) $K=\sum_a k_a$, $N_g=\sum_a n_{g,a}$, $N_e=\sum_a n_{e,a}$, $S_\text{tot}=\sum_a S_a$:
+
+| 지표 | 정의 | 정의되지 않을 때 |
+|---|---|---|
+| `gate_pairs` | $K$ | – (늘 정수) |
+| `gate_recall` | $K/N_g$ | $N_g=0$ → 빈칸 |
+| `gate_precision` | $K/N_e$ | $N_e=0$ → 빈칸 |
+| `gate_f1` | $2K/(N_g+N_e)$ | $N_g+N_e=0$ → 빈칸. 재현율·정밀도가 모두 정의되고 $K>0$이면 둘의 조화평균과 같고, $K=0$이면 0 |
+| `gate_mae_m` | $S_\text{tot}/K$ | $K=0$ → 빈칸 |
+
+- 미시 합산을 고른 이유: (1) §5 주 결과(MAE, 판정률 B)가 활동을 모은 쌍 기준이다. 같은 집계여야 재현율을 판정률 B와 나란히 읽을 수 있고 성질 1이 범위 수준에서도 성립한다. (2) 활동 평균은 정답 1개 활동과 정답 19개 활동에 같은 무게를 주고, QC 규칙 E 뒤 흔해질 $n_e=0$ 활동에서 정밀도가 정의되지 않아 임의 규약이 필요하다. (3) 기준선(§6)도 같은 합산을 쓰면 $N_e$·$N_g$가 시행마다 고정이라 재현율·정밀도·F1이 $K$의 단조 함수가 되어 세 지표의 $p$가 하나로 같아진다. 활동 평균은 내지 않는다.
+
+**성질**(정의에서 나옴, 시험에서 단언):
+
+1. 활동마다 $k_a\ge n_{\text{pass},a}$(게이트 없는 헝가리안 짝 가운데 $\lvert e\rvert\le g+\tau$인 짝 수). 그 짝들이 같은 술어로 $\mathcal A$ 안 매칭을 이루고 $k_a$는 최대이기 때문이다. 따라서 모든 범위에서 **게이트 재현율 ≥ 판정률 B**이고 게이트 정밀도 ≥ $n_\text{pass}/N_e$, 게이트 F1 ≥ $2n_\text{pass}/(N_g+N_e)$다. 등호가 아닐 수 있다(G1: 판정률 B 1/3, 게이트 재현율 2/3; 시제품 무작위 3,000 사례 중 106 사례에서 $k>n_\text{pass}$). 구현은 이 성질을 활동마다 실행 중 검사하고 어기면 `RuntimeError`를 낸다(코드 결함 표시).
+2. $k_a\le m_a$이므로 재현율·정밀도 ≤ 1.
+3. $m_a\le1$인 활동은 $k_a=n_{\text{pass},a}$다(게이트 없는 헝가리안이 가장 가까운 쌍을 고르고, 그 쌍이 게이트 안인 것은 게이트 안 쌍이 하나라도 있는 것과 같다).
+4. 판정률 A(분모 = 게이트 없는 짝 수 $\sum m_a$)와 게이트 정밀도·재현율 사이에는 일반적인 대소가 없다. 단언하지 않는다.
+5. 기준선 시행마다 $K_b\ge n_{\text{pass},b}$이므로 기준선 게이트 재현율 평균 ≥ 기준선 판정률 B 평균이다.
+6. 게이트 지표는 기존 열의 값을 바꾸지 않는다. 기준선은 같은 난수 뽑기를 쓰고 난수를 더 쓰지 않는다(G6).
+
 ## 6. 무작위 깊이 기준선 (P8)
 
 - 활동마다 추정 묶음 수 $n_\text{est}$(주 결과와 같은 수)만큼 깊이를 균등분포 $U[\min d_\text{gt},\ \max d_\text{gt}]$에서 뽑는다. 정답이 1개면 $U[d-0.3,\ d+0.3]$이고 0 아래는 0으로 자른다.
@@ -482,6 +540,11 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
   - 시행 횟수를 md 실행 조건에 적는다.
 - 보고: 기준선 MAE·판정률 A·B의 평균과 2.5/97.5 % 분위, 그리고 $p$ = (기준선 판정률 B ≥ 관측 판정률 B인 시행 비율). v1.2: 활동 범위 기준선은 세 지표를 모두 csv 열로 낸다(§8). 이미 계산되는 값이고, 게이트 없는 매칭의 관대함은 MAE·판정률 A에서도 드러나기 때문이다.
 - 보조 기준선: 전역 범위 $U[0.2,\ 2.0]$ m(현장 공통, **가정**). 비용 때문에 판정률 B의 평균·분위와 $p$만 낸다(v1.2).
+- **(v1.6) 게이트 지표(§5-1)**: 위 시행 **그대로**(같은 시행 수, 같은 `default_rng(seed)`, 같은 뽑기 순서) 각 시행·활동에서 뽑은 깊이에 게이트 없는 헝가리안과 함께 §5-1 게이트 매칭을 돌려 게이트 짝 수 $k_{b}$를 센다. 난수를 더 쓰지 않으므로 기존 기준선 열은 비트 단위로 그대로다(G6). 범위(전체·현장)마다 시행별 $K_b=\sum_a k_{b,a}$를 모으고, $N_e$·$N_g$는 관측과 같다(같은 추정 수).
+  - 시행별 재현율 $K_b/N_g$, 정밀도 $K_b/N_e$, F1 $2K_b/(N_g+N_e)$의 평균과 2.5/97.5 % 분위(`numpy.percentile` 선형 보간, 기존 열과 같은 방식).
+  - 관측의 기준선 분포 위치: **단측 $p$** = $\overline{[K_b\ge K]}$(기존 `baseline_p`와 같은 "≥" 규약 — 동률은 관측에 불리하게 셈), **백분위** = $100\,(\overline{[K_b<K]}+\tfrac12\overline{[K_b=K]})$(중간 순위). $K$가 정수라 동률이 흔하므로 두 값을 함께 낸다. $N_e$·$N_g$가 고정이라 재현율·정밀도·F1의 $p$와 백분위는 서로 같다(§5-1 집계 이유 3). 정수 비교라 허용치가 필요 없다. 해상도는 1/시행 수(주 1,000회 → 0.001, 보조 200회 → 0.005)다.
+  - 활동 범위 기준선: 재현율·정밀도·F1의 평균·분위, $p$, 백분위(모든 변형). 전역 범위 기준선(`main`만): F1의 평균·분위와 $p$(기존 전역 기준선이 판정률 B와 $p$만 내는 것과 같은 축소).
+  - 판정·U-3에 쓰지 않는다(§5-1).
 
 ## 7. 별도 보고
 
@@ -499,10 +562,10 @@ $W$는 "같은 관의 $n$개 측선 깊이가 95 % 확률로 한 묶음 폭 안�
 | `depth_4tu_v1_candidates.csv` | 꼭짓점 후보 | `activity_id, site, path, candidate_trace, candidate_sample, source, status, depth_top_m, depth_est_m, depth_act_m, label_est, label_act, eps_r_used, zero_rule, t_zero_ns, h_est_m, apex_trace, apex_sample, candidate_moved, eps_qc_lo, eps_qc_hi, flags`. `flags`에 `candidate_tau_missing`(수동 꼭짓점 후보의 `tau_ns` 빈칸 → `zero_failed`, v1.1). 그 뒤 spec_depth §5-7 진단 열 `box_k0, search_k0, apex_minus_search_k0`. **v1.4 QC 열**(그 뒤에 이 순서로): `qc_verdict`(in/out/unknown), `qc_reason`(§3-5-2 표, in은 빈칸), `qc_r`(소수 4자리), `qc_v_curv_m_per_ns`(4자리), `qc_sigma_v_rel`($\sigma_v/v_m$, 4자리), `qc_inlier_frac`(4자리), `qc_n_picks`, `qc_n_left`, `qc_n_right`, `qc_aperture_m`(픽 $\max\lvert x-x_a\rvert$, 3자리), `record_end_margin_ns`(3자리), `apex_at_record_end`, `seam_score`(3자리, 무한이면 `inf`), `seam_split`, `apex_on_trace_seam`, `qc_excluded`. 값이 없으면 빈칸. **v1.5**: `qc_excluded`는 주 결과 규칙 B+D+E의 제외 여부다(v1.4–v1.4.4는 B+D). QC를 켠 4TU 본 평가 산출물(`depth_4tu_v1_candidates.csv`)은 아직 없다. 분석 산출물 `m29c_track_descent_check_fourtu.csv`의 `qc_excluded` 열은 v1.4 정의(B+D)이고, 그 스크립트는 `excluded_bd`를 쓰도록 고정한다(§9-4 항목 9). 곡률 unknown이고 D 플래그가 없는 후보도 True다. B+D 제외 여부(`bd` 변형이 쓰는 값)는 열을 더하지 않고 기존 열로 얻는다: `qc_verdict == "out"` 또는 `apex_at_record_end` 또는 `apex_on_trace_seam`. 그래서 열 목록·순서는 v1.4.4 그대로다. `--apex-qc off`이면 QC 열은 모두 빈칸. `flags`에는 깊이 플래그 뒤에 `curvature_v_out`/`curvature_v_unknown`, `apex_at_record_end`, `apex_on_trace_seam`을 붙인다. v1.4.1: 순서는 `DepthResult.flags` → `long_line`(측선 표시, §7) → QC 플래그(곡률, 기록 끝, 이음 순)다. **v1.4.4 추적 진단 열**(`qc_excluded` 뒤, 이 순서, spec_depth v1.9 §13-4): `stop_left`, `stop_right`(`TrackStop` 값 문자열 `box_edge`/`window`/`amplitude`/`reverse_top`/`reverse`/`a_max`, 추적하지 않았으면 빈칸), `apex_descended`(True/False). 채움 규칙: `stop_*`는 QC가 다시 부른 `extract_picks`의 픽(`CurvatureQc.stop_left`·`stop_right`, 깊이 경로의 픽과 같음 — §3-5-2 픽 일치 계약)에서 오므로 `--apex-qc off`이거나 박스가 없으면(`no_box`) 빈칸이다. `apex_descended`는 `DepthResult.flags`에 `apex_descended`가 있는지이므로 QC 켬/끔과 무관하게 늘 채운다(박스가 없으면 False). 판정·묶기·매칭에 쓰지 않는다 |
 | `depth_4tu_v1_clusters.csv` | 활동 × t0 × 묶음 | `activity_id, site, zero_variant, cluster_id, depth_m, n_lines, n_apex_candidates, kept_by_support, span_m, linkage, width_m`. v1.3: `span_m`(묶음 $\max-\min$, m), `linkage`(`complete`/`single`), `width_m`(실행에 쓴 $W$)를 추가한다. `span_m`은 소수 6자리(μm)로 반올림한다(v1.3.1). `cluster_id`는 §4-3-1 항목 4 순서다. 행은 `main` 변형에서만 쓴다(지지 필터 전 모든 묶음 + `kept_by_support`) |
 | `depth_4tu_v1_matches.csv` | 짝 | `activity_id, site, gt_set, multi_trench, assumption, zero_variant, variant, est_depth_m, gt_depth_m, gt_code, radius_known, error_m, within_30cm` |
-| `depth_4tu_v1_summary.csv` | 조합 × (전체·현장) | `scope, gt_set, assumption, zero_variant, variant, n_activities, n_gt, n_est, n_pairs, mae_m, bias_m, med_abs_m, p90_abs_m, pass_a, pass_b, missed, false_est, baseline_mae_mean, baseline_mae_p025, baseline_mae_p975, baseline_pass_a_mean, baseline_pass_a_p025, baseline_pass_a_p975, baseline_pass_b_mean, baseline_pass_b_p025, baseline_pass_b_p975, baseline_p, baseline_global_pass_b_mean, baseline_global_pass_b_p025, baseline_global_pass_b_p975, baseline_global_p`. `baseline_mae_*`·`baseline_pass_a_*`는 v1.2 추가, `baseline_global_*`는 주 결과 조합에만 채운다(v1.1). v1.4: `variant` 값에 `noqc`가 더해진다(matches csv도 같음, 열은 그대로). v1.5: `bd`가 더해진다(값 순서 `main, a, b, bd, noqc`, §5 표; 열은 그대로) |
+| `depth_4tu_v1_summary.csv` | 조합 × (전체·현장) | `scope, gt_set, assumption, zero_variant, variant, n_activities, n_gt, n_est, n_pairs, mae_m, bias_m, med_abs_m, p90_abs_m, pass_a, pass_b, missed, false_est, baseline_mae_mean, baseline_mae_p025, baseline_mae_p975, baseline_pass_a_mean, baseline_pass_a_p025, baseline_pass_a_p975, baseline_pass_b_mean, baseline_pass_b_p025, baseline_pass_b_p975, baseline_p, baseline_global_pass_b_mean, baseline_global_pass_b_p025, baseline_global_pass_b_p975, baseline_global_p`. `baseline_mae_*`·`baseline_pass_a_*`는 v1.2 추가, `baseline_global_*`는 주 결과 조합에만 채운다(v1.1). v1.4: `variant` 값에 `noqc`가 더해진다(matches csv도 같음, 열은 그대로). v1.5: `bd`가 더해진다(값 순서 `main, a, b, bd, noqc`, §5 표; 열은 그대로). **v1.6 게이트 열**(§5-1·§6, 보조, 판정 미사용): 기존 열(`baseline_global_p`까지)의 이름·순서·값은 그대로 두고 **행 끝에** 이 순서로 20개를 붙인다 — 관측 `gate_pairs, gate_recall, gate_precision, gate_f1, gate_mae_m`, 활동 범위 기준선 `baseline_gate_recall_mean, baseline_gate_recall_p025, baseline_gate_recall_p975, baseline_gate_precision_mean, baseline_gate_precision_p025, baseline_gate_precision_p975, baseline_gate_f1_mean, baseline_gate_f1_p025, baseline_gate_f1_p975, baseline_gate_p, baseline_gate_pct`, 전역 범위 기준선 `baseline_global_gate_f1_mean, baseline_global_gate_f1_p025, baseline_global_gate_f1_p975, baseline_global_gate_p`. `gate_pairs`는 정수, 나머지는 소수 4자리(기존 열과 같음), `baseline_gate_pct`는 0–100 백분위(소수 4자리). 정의되지 않으면 빈칸(§5-1 표). `baseline_global_gate_*`는 `baseline_global_*`처럼 `main` 행에만 채우고 다른 변형은 빈칸. 모든 범위(`all`·`site_*`)·두 `gt_set`·두 가정·영점 3·모든 변형 행에 채운다. matches csv에는 게이트 열을 더하지 않는다(짝 정체가 동률에서 유일하지 않음, §5-1). 현장 11 진단(`_site11.csv`, md 현장 11 표)에는 게이트를 넣지 않는다. **v1.6.1**(구현대로 확정): (a) `baseline_global_gate_*`는 기존 `baseline_global_*`와 접두어를 공유한다. 열을 접두어로 고르는 코드·시험은 `baseline_global_gate_`를 따로 빼야 한다(시험 E5 변형 보정, §9-5 구현 재량 기록). 열 이름은 바꾸지 않는다(사전 등록한 출력 이름). (b) 게이트 열의 "값 없음"(분모 0, 기준선 없음, `main`이 아닌 행의 전역 게이트, `gate_pairs` 없음의 `p`·`pct`)은 csv·md 모두 빈칸이다. 게이트 열에는 `nan`이 나오지 않는다(판정자 확인, 고정물 4종 432행). (c) 기존 열 관찰(v1.6 범위 밖, 동작 불변): 범위의 추정 수가 0인 행에서는 v1.2부터 `baseline_mae_*`·`baseline_pass_a_*` 6열이 빈칸이 아니라 `nan`으로 나간다(모든 기준선 시행의 짝 수가 0이라 `nanmean`이 정의되지 않음; HEAD d1cafe8과 같음). 기존 열 불변 원칙에 따라 v1.6.1은 고치지 않고, 읽을 때 "정의되지 않음"으로 본다(§10) |
 | `depth_4tu_v1_site11.csv`(v1.2) | 현장 11 진단 짝 | `activity_id, gt_set, assumption, zero_variant, variant(main_path / unclustered), est_depth_m, est_depth_eps8_m, gt_depth_m, error_eps8_m, within_30cm_eps8`. 진단 전용이고 판정에 쓰지 않는다(§7). md에는 요약 표만 둔다. v1.4.1: `--apex-qc on`이면 QC 제외 후보는 두 variant 모두에서 빠진다(§3-5-5 항목 8, 열은 그대로) |
 | dry-run JSON(v1.1, 파일 아님·stdout) | – | 위 개수에 더해 `activities_without_gt`(32), `gt_items_include_x`(389), `candidates_without_tau` |
-| `depth_4tu_v1.md` | – | ① 실행 조건(커밋, 설정, 시드) ② 주 결과 표(상단/중심 × 영점 3) ③ 기준선 비교 ④ 현장별 표 ⑤ 현장 11·9 별도 ⑥ 상태·`candidate_moved`·꼭짓점 후보 출처(auto/manual)별 개수 ⑦ 가정·한계 ⑧ (v1.4) 꼭짓점 후보 QC 진단: `ok` 후보의 판정(in/out/unknown)과 사유별 개수(전체·출처별·현장별), 알려진 $r$의 분위(0/10/50/90/100 %), D 플래그 개수와 B와의 겹침, `qc_excluded` 개수, 주 결과(`main`)와 `noqc`의 추정 수(전체·정답 활동), §11 **항목 3**(꼭짓점 후보 QC) 사전 등록 문구를 그대로 인용(코드 상수 `PREREGISTERED_QC_NOTE`, v1.4.2 범위 확정). §11 항목 1(묶기)·2(후보 정밀도)·4·5는 md ⑧에 넣지 않고 §11과 재평가 사전 등록 문서에 둔다. v1.4.1: ⑧의 모든 개수·분위는 `status == "ok"` 후보만 센다(깊이가 없는 후보는 어느 변형에도 들어가지 않음). "알려진 $r$"은 판정에 $r$을 쓴 후보, 곧 판정이 in 또는 out인 후보의 $r$이다(unknown의 `fit_failed`·`unstable` $r$은 csv에만 있고 분위에서 뺀다; out의 `v_at_*_bound` $r$은 넣는다). D와 B의 겹침 = D 플래그가 있는 후보 중 곡률 판정이 out인 개수, "둘 다" = 기록 끝과 이음이 모두 걸린 개수. ① 실행 조건에 `apex_qc`(on/off)와 QC 상수(띠 0.7–1.6, $T_\text{end}$ 2.5 주기, $\theta_t$·$\theta_A$·$k$)를 적는다. QC 진단 값으로 문턱을 다시 고르지 않는다. **v1.4.4**: ⑧의 `qc_excluded` 줄 다음에 추적 진단 줄 하나를 둔다. 형식은 "추적 진단(v1.9, 판정 미사용): \`apex_descended\` n/N; 정지 사유 왼쪽 \`<사유>\` n, … / 오른쪽 …"이다. 범위는 ⑧의 다른 줄과 같은 `status == "ok"`이고 QC가 있는 후보 N개이며, 사유는 이름 순으로 세고 추적하지 않은 날개는 `none`으로 센다. QC가 꺼져 있으면 ⑧은 "`apex_qc=off`" 한 줄뿐이라 이 줄도 없다. **v1.5**: (i) ② 주 결과 표 아래에 "### 보조: B+D (\`bd\` = 곡률 unknown 유지, v1.4.4까지의 주 결과 경로, 지지 필터, 전체, X 제외)" 표, 그 아래 기존 `noqc` 표(제목 그대로). (ii) ① QC 줄에 주 결과 규칙을 적는다: "… 묶기 전에 주 결과(B+D+E)는 곡률 out·unknown·기록 끝·이음 후보를, 보조 \`bd\`(B+D)는 out·기록 끝·이음 후보를 뺌". (iii) ⑧ 제목 "## 꼭짓점 후보 QC 진단 (v1.5, 판정에 쓰지 않음)". (iv) ⑧의 `qc_excluded` 줄을 "- \`qc_excluded\`(주 결과 B+D+E): e/N; B+D(\`bd\`): b/N; E로 더 뺀 후보(곡률 unknown, D 없음): e−b" 형식으로 바꾸고(숫자는 정수, "e−b" 자리는 그 차의 정수), 바로 아래에 "  - E로 더 뺀 후보 출처별: \`<source>\` n, …"(source 이름 순, 없으면 "없음")을 둔다. (v) 추정 수 두 줄을 "  - 전체 활동 K개: main m / bd b / noqc n / main-bd ±d / main-noqc ±d" 형식으로 바꾼다(차는 부호 붙인 정수 `{:+d}`, "main-bd"의 하이픈은 ASCII). 정답 활동 줄도 같다. (vi) ⑧의 사전 등록 인용은 §11 항목 3의 v1.5 문구(`PREREGISTERED_QC_NOTE`)다. 그 밖의 ⑧ 줄(판정·사유·출처별·현장별·$r$ 분위·D 플래그·추적 진단)은 v1.4.4 그대로다. **v1.5.1**(구현대로 확정): `--apex-qc off`일 때 ① QC 줄은 "- 꼭짓점 후보 QC: \`apex_qc=off\`(주 결과 = v1.3.1 경로, \`bd\`·\`noqc\` 없음)"이다(v1.4 문구의 "\`noqc\` 없음"에 `bd`를 더함; v1.5 명세에 없던 줄이고 off에서 두 변형이 모두 없다는 §3-5-5 항목 7과 맞는다) |
+| `depth_4tu_v1.md` | – | ① 실행 조건(커밋, 설정, 시드) ② 주 결과 표(상단/중심 × 영점 3) ③ 기준선 비교 ④ 현장별 표 ⑤ 현장 11·9 별도 ⑥ 상태·`candidate_moved`·꼭짓점 후보 출처(auto/manual)별 개수 ⑦ 가정·한계 ⑧ (v1.4) 꼭짓점 후보 QC 진단: `ok` 후보의 판정(in/out/unknown)과 사유별 개수(전체·출처별·현장별), 알려진 $r$의 분위(0/10/50/90/100 %), D 플래그 개수와 B와의 겹침, `qc_excluded` 개수, 주 결과(`main`)와 `noqc`의 추정 수(전체·정답 활동), §11 **항목 3**(꼭짓점 후보 QC) 사전 등록 문구를 그대로 인용(코드 상수 `PREREGISTERED_QC_NOTE`, v1.4.2 범위 확정). §11 항목 1(묶기)·2(후보 정밀도)·4·5는 md ⑧에 넣지 않고 §11과 재평가 사전 등록 문서에 둔다. v1.4.1: ⑧의 모든 개수·분위는 `status == "ok"` 후보만 센다(깊이가 없는 후보는 어느 변형에도 들어가지 않음). "알려진 $r$"은 판정에 $r$을 쓴 후보, 곧 판정이 in 또는 out인 후보의 $r$이다(unknown의 `fit_failed`·`unstable` $r$은 csv에만 있고 분위에서 뺀다; out의 `v_at_*_bound` $r$은 넣는다). D와 B의 겹침 = D 플래그가 있는 후보 중 곡률 판정이 out인 개수, "둘 다" = 기록 끝과 이음이 모두 걸린 개수. ① 실행 조건에 `apex_qc`(on/off)와 QC 상수(띠 0.7–1.6, $T_\text{end}$ 2.5 주기, $\theta_t$·$\theta_A$·$k$)를 적는다. QC 진단 값으로 문턱을 다시 고르지 않는다. **v1.4.4**: ⑧의 `qc_excluded` 줄 다음에 추적 진단 줄 하나를 둔다. 형식은 "추적 진단(v1.9, 판정 미사용): \`apex_descended\` n/N; 정지 사유 왼쪽 \`<사유>\` n, … / 오른쪽 …"이다. 범위는 ⑧의 다른 줄과 같은 `status == "ok"`이고 QC가 있는 후보 N개이며, 사유는 이름 순으로 세고 추적하지 않은 날개는 `none`으로 센다. QC가 꺼져 있으면 ⑧은 "`apex_qc=off`" 한 줄뿐이라 이 줄도 없다. **v1.5**: (i) ② 주 결과 표 아래에 "### 보조: B+D (\`bd\` = 곡률 unknown 유지, v1.4.4까지의 주 결과 경로, 지지 필터, 전체, X 제외)" 표, 그 아래 기존 `noqc` 표(제목 그대로). (ii) ① QC 줄에 주 결과 규칙을 적는다: "… 묶기 전에 주 결과(B+D+E)는 곡률 out·unknown·기록 끝·이음 후보를, 보조 \`bd\`(B+D)는 out·기록 끝·이음 후보를 뺌". (iii) ⑧ 제목 "## 꼭짓점 후보 QC 진단 (v1.5, 판정에 쓰지 않음)". (iv) ⑧의 `qc_excluded` 줄을 "- \`qc_excluded\`(주 결과 B+D+E): e/N; B+D(\`bd\`): b/N; E로 더 뺀 후보(곡률 unknown, D 없음): e−b" 형식으로 바꾸고(숫자는 정수, "e−b" 자리는 그 차의 정수), 바로 아래에 "  - E로 더 뺀 후보 출처별: \`<source>\` n, …"(source 이름 순, 없으면 "없음")을 둔다. (v) 추정 수 두 줄을 "  - 전체 활동 K개: main m / bd b / noqc n / main-bd ±d / main-noqc ±d" 형식으로 바꾼다(차는 부호 붙인 정수 `{:+d}`, "main-bd"의 하이픈은 ASCII). 정답 활동 줄도 같다. (vi) ⑧의 사전 등록 인용은 §11 항목 3의 v1.5 문구(`PREREGISTERED_QC_NOTE`)다. 그 밖의 ⑧ 줄(판정·사유·출처별·현장별·$r$ 분위·D 플래그·추적 진단)은 v1.4.4 그대로다. **v1.5.1**(구현대로 확정): `--apex-qc off`일 때 ① QC 줄은 "- 꼭짓점 후보 QC: \`apex_qc=off\`(주 결과 = v1.3.1 경로, \`bd\`·\`noqc\` 없음)"이다(v1.4 문구의 "\`noqc\` 없음"에 `bd`를 더함; v1.5 명세에 없던 줄이고 off에서 두 변형이 모두 없다는 §3-5-5 항목 7과 맞는다). **v1.6 게이트 절**(§5-1, 보조): "## 보조: X 포함" 표 다음, "## 현장별" 앞에 "## 게이트 보조 지표 (±0.30 m, v1.6 — 판정·U-3에 쓰지 않음)" 절을 둔다. 내용은 이 순서다. (i) 설명 줄 셋: "- 정의: 활동마다 \|e\| ≤ 0.30 m 짝만 허용해 짝 수를 최대화하고, 같으면 Σ\|e\|를 최소화한 매칭(§5-1). 재현율 = 짝/정답, 정밀도 = 짝/추정, F1 = 2·짝/(정답+추정), 활동 합산. 정답 없는 활동은 넣지 않는다.", "- 기준선: 위 표와 같은 시행(같은 추정 수·같은 난수)의 게이트 짝 수. p = 기준선 짝 수 ≥ 관측 짝 수인 시행 비율, 백분위 = 중간 순위. 재현율·정밀도·F1의 p와 백분위는 같다.", "- 판정은 위 '주 결과' 표(게이트 없는 헝가리안, 판정률 A·B)로만 한다. 게이트 재현율 ≥ 판정률 B는 정의상 성립하고 실행 중 활동마다 검사한다." (ii) "### 주 결과 (\`main\`, 전체, X 제외)" 표 — 열 `assumption, zero_variant, n_gt, n_est, pass_b, gate_pairs, gate_recall, gate_precision, gate_f1, gate_mae_m, baseline_gate_f1_mean, baseline_gate_f1_p025, baseline_gate_f1_p975, baseline_gate_p, baseline_gate_pct`, 행은 "## 주 결과" 표와 같은 6행(같은 순서). (iii) "### 변형별 (검출 영점, 전체, X 제외)" 표 — 열 `variant, assumption, n_est, gate_pairs, gate_recall, gate_precision, gate_f1, baseline_gate_f1_mean, baseline_gate_p`, 행은 `variants_for(args)` 순서 × (`top`, `center`)(on 10행, off 6행). 현장별·X 포함 게이트 값은 csv에만 둔다. "## 주 결과" 표와 보조 `bd`·`noqc` 표의 열은 바꾸지 않는다(게이트 열을 넣지 않음). ① 실행 조건·⑦ 가정·한계·⑧ QC 진단 줄은 바꾸지 않는다. **v1.6.1**(구현대로 확정): (i)의 `\|e\|`는 이 명세 표 칸 안의 이스케이프이고 md 출력에서는 `|e|`다(글머리 줄이라 표로 읽히지 않음). (ii)·(iii)의 값 없음은 빈칸이다(csv와 같음). 게이트 절은 HEAD md에 줄만 더한다 — 판정자 확인: 고정물 4종에서 게이트 절과 실행 시각 줄을 뺀 md가 HEAD(d1cafe8)와 줄 단위로 같다 |
 
 ## 9. python-expert 구현 명세
 
@@ -611,8 +674,9 @@ python -I scripts/eval_depth_4tu.py
   - (v1.4.1) md ⑧ $r$ 분위는 판정 in·out 후보만(§8). 영점 띠 본뜨기 에너지 0이면 `_line_seam_scores`가 `None`(§3-5-4).
   - 비용: 후보당 `extract_picks`·`fit_curvature` 한 번(수 ms), 측선당 영점 띠 추적 한 번. §9-3 추정(10–20분)에 1–2분 더한다(**가정**).
 - `match_activity(est, gt) -> MatchResult` — 헝가리안, 누락·오검출
-- `summarize(matches, ...)` — §5 지표
-- `random_baseline(n_est_by_act, gt_by_act, trials, seed, mode) -> BaselineStats` — §6
+- (v1.6) `match_activity_gated(est, gt) -> GateMatch` — §5-1 게이트 매칭. 계약·상수는 §9-5
+- `summarize(matches, ...)` — §5 지표. (v1.6) 선택 인자 `gate_matches`로 §5-1 지표
+- `random_baseline(n_est_by_act, gt_by_act, trials, seed, mode) -> BaselineStats` — §6. (v1.6) 같은 시행에서 게이트 짝 수(§9-5)
 - 출력 §8. 난수는 기준선에만 쓰고, 시드를 md에 적는다.
 
 ### 9-2. 단위 시험 (`tests/test_eval_depth_4tu.py`, 합성·작은 표만, 4TU 원본 없이)
@@ -727,7 +791,7 @@ python -I scripts/eval_depth_4tu.py
 | C18 변형·CLI (v1.5) | `VARIANTS`, `variants_for`, `baseline_trials_for`, `parse_args` | `VARIANTS == ("main", "a", "b", "bd", "noqc")`. `variants_for(_args())` = `VARIANTS`, `variants_for(_args(apex_qc="off")) == ("main", "a", "b")`. `baseline_trials_for("bd", args) == {"activity": args.baseline_trials_aux}`(`noqc`와 같음). `parse_args([])`에 새 속성 없음(`vars` 키 집합이 v1.4.4와 같음), `parse_args(["--qc-unknown", "keep"])`은 `SystemExit`(코드 2). 기존 E5 변형 시험의 `VARIANTS` 단언(v1.4 값)은 이 값으로 바꾼다 |
 | C19 md ② 보조 표 순서 (v1.5) | C13 후보·on/off로 `write_markdown`(또는 보조 표를 만드는 도우미)을 `tmp_path`에 씀 | on: "## 주 결과" 표 → "### 보조: B+D (\`bd\`" 표 → "### 보조: QC 없음 (\`noqc\`" 표 → "## 보조: X 포함" 순서로 제목이 나옴. off: `bd`·`noqc` 제목 없음. 가정·한계 줄에 on이면 "bd: B+D(곡률 unknown 유지)"가 있음 |
 | C20 사전 등록 문구 일치 (v1.5) | `docs/processing/spec_eval_4tu_v1.md`를 UTF-8로 읽어 "3. **꼭짓점 후보 QC(C, v1.5" 로 시작하는 줄 | 그 줄이 `PREREGISTERED_QC_NOTE`를 그대로 포함한다(명세↔코드 문구 표류 검출). 문구에 "B+D+E", "14.3", "35.7", "29/41", "126 → 49"가 있다 |
-| C19b 보조 표 내용 (v1.5.1, 비차단 보강 — 구현 대기, §9-4 항목 14) | C19와 같은 고정물(C13 후보, `{"01.1": 3}`, `--baseline-trials 30 --baseline-trials-aux 10`, on) | 각 표의 첫 자료 행(`top`, `detected`)에서 `n_est`(네 번째 열): "## 주 결과" 표 1, "### 보조: B+D" 표 **1**, "### 보조: QC 없음" 표 **2**. 판정자 실측(2026-11-07, 현재 코드): 주 `\| top \| detected \| 2 \| 1 \| 1 \| 0.01 …`, bd `\| top \| detected \| 2 \| 1 \| 1 \| 0.01 …`, noqc `\| top \| detected \| 2 \| 2 \| 2 \| 0.2925 …`. 잡는 돌연변이: `write_markdown`의 `bd_rows`를 `noqc` 행으로 모음(판정자 돌연변이 X3, 현재 시험 전부 통과로 생존). 한계: 이 고정물은 주 결과와 `bd`가 같아(1.10·1.12 대 1.10·1.11·1.12 → 둘 다 1.11) `bd_rows`를 `main` 행으로 모으는 돌연변이는 못 잡는다. 그것은 `overall_rows(BD_VARIANT)` 한 줄 호출이라 코드 검토로 둔다 |
+| C19b 보조 표 내용 (v1.5.1, 비차단 보강 — v1.6에서 §9-5 항목 11로 묶음, v1.6.1 구현됨) | C19와 같은 고정물(C13 후보, `{"01.1": 3}`, `--baseline-trials 30 --baseline-trials-aux 10`, on) | 각 표의 첫 자료 행(`top`, `detected`)에서 `n_est`(네 번째 열): "## 주 결과" 표 1, "### 보조: B+D" 표 **1**, "### 보조: QC 없음" 표 **2**. 판정자 실측(2026-11-07, 현재 코드): 주 `\| top \| detected \| 2 \| 1 \| 1 \| 0.01 …`, bd `\| top \| detected \| 2 \| 1 \| 1 \| 0.01 …`, noqc `\| top \| detected \| 2 \| 2 \| 2 \| 0.2925 …`. 잡는 돌연변이: `write_markdown`의 `bd_rows`를 `noqc` 행으로 모음(판정자 돌연변이 X3, 현재 시험 전부 통과로 생존). 한계: 이 고정물은 주 결과와 `bd`가 같아(1.10·1.12 대 1.10·1.11·1.12 → 둘 다 1.11) `bd_rows`를 `main` 행으로 모으는 돌연변이는 못 잡는다. 그것은 `overall_rows(BD_VARIANT)` 한 줄 호출이라 코드 검토로 둔다 |
 
 - E가 깊이를 바꾸지 않는다는 성질은 별도 시험 없이 C11·C11b·C12로 지킨다(v1.5는 곡률 판정과 `DepthResult` 경로를 바꾸지 않고, 주 결과 포함 규칙만 바꾼다).
 - v1.5에서 기대값이 바뀌는 기존 시험은 C10, C13(b)·(d)·(e), C16(단언 추가), E5 변형(`VARIANTS`)뿐이다. 다른 시험(C1–C9, C11–C12, C14–C15, B, E, A, U, Z, R1–R13, 띠 시험)의 기대값이 바뀌면 구현을 멈추고 보고한다. C5·C6의 `candidate.qc.excluded is at_record_end`/`is on_seam` 단언은 해당 측선 후보가 모두 곡률 in이라 v1.5에서도 그대로 성립해야 한다.
@@ -750,16 +814,104 @@ python -I scripts/eval_depth_4tu.py
 | C17 | `test_c17_exclusion_rule_truth_table`, `test_c17_every_unknown_reason_is_excluded_by_e_only`(사유 5개) | |
 | C18 | `test_c18_variants_and_cli` | E5 변형(`test_e5_variant_trial_counts_per_variant`)의 `VARIANTS` 단언도 v1.5 값 |
 | C19 | `test_c19_md_auxiliary_tables_follow_the_main_table` | 도우미 `_markdown_lines`, `_index_starting_with` |
-| C19b | (구현 대기) | §9-4 항목 14 |
+| C19b | `test_c19b_md_auxiliary_tables_hold_their_own_variant` | v1.6.1 구현(§9-5 항목 11). 도우미 `_md_table_under`(제목 아래 표의 머리글·자료 행), `_md_cells`. 각 표 머리글 네 번째 열이 `n_est`임도 단언. 판정자 돌연변이 X3에서 이 시험만 실패(§9-2-3 판별력 확인) |
 | C20 | `test_c20_preregistered_note_matches_the_spec` | |
+
+### 9-2-3. 게이트 보조 지표 시험 G1–G11 (v1.6, M2-9 개선 D, `tests/test_eval_depth_4tu.py`)
+
+합성·손계산 고정물만 쓴다(4TU 값 없음). 기대값은 손으로 셌고 G1·G2·G3·G4(b)·G5·G7은 시제품 `analysis/processing/m29d_gate_proto.py` 출력(`docs/processing/m29d_gate_proto.json`; 시제품 키 `g5`는 명세 G4(b), 명세 G5는 `random_check`)과 같다. 실수 비교는 `pytest.approx(abs=1e-9)`, csv 값(소수 4자리)은 반올림 값과 그대로 비교한다. 기존 도우미(`_tables`, `_c13_candidates`, `_qc_candidate`, `_qc`, `_args`, `_markdown_lines`, `_index_starting_with`, `_overall_top_detected_row`)를 그대로 쓴다.
+
+| ID | 입력 | 기대 |
+|---|---|---|
+| G1 게이트가 짝을 늘림·경계 | `match_activity_gated([0.45, 0.85], [0.15, 0.60, 1.20])`, 같은 입력의 `match_activity`, 두 결과로 `summarize({"a": ungated}, {"a": 3}, gate_matches={"a": gated})` | 게이트: `n_pairs` 2, 짝 (추정 0 ↔ 정답 0, 오차 +0.30000000000000004), (추정 1 ↔ 정답 1, +0.25), `abs_error_sum` 0.55. 첫 짝 오차가 `> 0.30`(부동소수)이면서 게이트 안임을 단언(`0.45 - 0.15 > 0.30`도 단언). 게이트 없음: 오차 −0.15·−0.35 → 통과 1. 요약: `pass_b` 1/3, `gate_pairs` 2, `gate_recall` 2/3, `gate_precision` 1.0, `gate_f1` 0.8, `gate_mae_m` 0.275 |
+| G2 같은 짝 수에서 Σ\|e\| 최소 | `match_activity_gated([0.5, 0.6], [0.75, 0.55])` | `n_pairs` 2, `abs_error_sum` 0.20(짝 0.5↔0.55, 0.6↔0.75). 허용 쌍 비용을 0으로 두는 돌연변이는 항등 배정(0.5↔0.75, 0.6↔0.55)으로 0.30을 낸다(시제품) |
+| G3 미시 합산·정밀도 분모 | 활동 A: 추정 [1.0, 1.1, 1.2], 정답 [1.05]; B: 추정 [], 정답 [0.5, 0.9]. 각 활동 `match_activity`·`match_activity_gated` → `summarize` | `gate_pairs` 1, `gate_recall` 1/3, `gate_precision` 1/3(분모 추정 3), `gate_f1` 1/3(= 2·1/(3+3)), `gate_mae_m` 0.05. 돌연변이 값: 활동 평균 재현율 0.5, 정밀도 분모를 짝 수로 1.0 |
+| G4 빈 활동·정의 안 됨·하위 호환 | (a) `match_activity_gated([], [0.5])`, `([0.5], [])`, `([], [])`. (b) 활동 하나(추정 [], 정답 [0.5])로 `summarize`. (c) E4·E7 입력으로 `gate_matches` 없이 `summarize` | (a) 모두 `n_pairs` 0, `abs_error_sum` 0.0, `n_est`·`n_gt`는 입력 길이. (b) `gate_pairs` 0, `gate_recall` 0.0, `gate_precision` None, `gate_f1` 0.0, `gate_mae_m` None. (c) 게이트 필드 5개 모두 None, 기존 필드는 E4·E7 기대값 그대로 |
+| G5 정확성·성질 1 (무작위 전수 대조) | `numpy.random.default_rng(20261107)`로 3,000 사례. 사례마다 이 순서로 뽑음: `n_e, n_g = rng.integers(0, 5, size=2)`; `est = [float(k) * 0.05 for k in rng.integers(0, 41, n_e)]`; `gt = [float(k) * 0.05 for k in rng.integers(0, 41, n_g)]`. 시험 안 전수 탐색 도우미(가능한 모든 부분 단사 짝 가운데 허용 쌍만, 짝 수 최대 → Σ 최소; 시제품 `brute_force`와 같음) | 모든 사례에서 `n_pairs` = 전수 최대, `abs_error_sum` = 전수 최소(abs 1e-9), `n_pairs` ≥ 같은 입력 `match_activity`의 통과 짝 수, `n_pairs` ≤ min(n_e, n_g). 통과 짝 수보다 큰 사례 수 = **106**, 경계(\|\|e\|−0.30\| < 1e-9) 쌍이 있는 사례 수 = **416**(시제품과 같은 뽑기 순서일 때. 이 두 수는 뽑기 순서에 묶인 회귀 값이고 앞의 단언이 본질이다) |
+| G6 기준선 같은 시행 | `n_est = {"a": 3, "b": 1}`, `gt = {"a": [0.5, 1.5], "b": [1.0]}`, 50 시행, 시드 0. 시험 안에서 같은 순서로 다시 뽑음(`default_rng(0)`; 시행 바깥·활동 안쪽, `gt` 순서; `rng.uniform(*baseline_range(gt[a], "activity"), size=n_est[a])`) | `draw_baseline(...)`의 `n_pass`·`n_pairs`·`abs_error_sum`·`n_gate_pairs`가 다시 뽑은 깊이에 `match_activity`·`match_activity_gated`를 적용한 값과 배열 단위로 같다(게이트가 난수를 더 쓰면 실패). `n_est` 배열 = [3, 1]. 모든 원소에서 `n_gate_pairs >= n_pass` |
+| G7 기준선 분포 위치 | 손으로 만든 `BaselineDraws(activities=("a",), n_gt=[4], n_pass=[[0],[1],[1],[1],[2]], n_pairs=[[3]]×5, abs_error_sum=[[1.0]]×5, n_gate_pairs=[[0],[1],[1],[2],[3]], n_est=[3])`(numpy 배열) → `baseline_stats` → `_baseline_gate_columns("baseline", stats, 1)`, `("baseline_global", stats, 1)`, `("baseline", stats, None)` | 활동: `baseline_gate_recall_mean` 0.35, `_p025` 0.025, `_p975` 0.725, `baseline_gate_precision_mean` 0.4667, `_p025` 0.0333, `_p975` 0.9667, `baseline_gate_f1_mean` 0.4, `_p025` 0.0286, `_p975` 0.8286, `baseline_gate_p` 0.8, `baseline_gate_pct` 40.0. 전역: `baseline_global_gate_f1_mean` 0.4, `_p025` 0.0286, `_p975` 0.8286, `baseline_global_gate_p` 0.8, 재현율·정밀도·pct 키 없음. `gate_pairs` None이면 `p`·`pct` 빈칸(나머지는 채움). 돌연변이 값: `>`이면 p 0.4, 중간 순위 없으면 pct 20.0 |
+| G8 summary csv 열·값 | C13 고정물(`_c13_candidates`, `{"01.1": 3}`, `_tables` 정답, `_args()`)로 `evaluate_combinations` on·off | 모든 summary 행의 `list(row)` = v1.5 열 목록(§8, 시험 상수로 둠) + `GATE_COLUMNS`(§8 v1.6 20개, 그 순서). on (top, detected, `exclude_x`, `all`): `main` `gate_pairs` 1, `gate_recall` 0.5, `gate_precision` 1.0, `gate_f1` 0.6667, `gate_mae_m` 0.01; `noqc` 2, 1.0, 1.0, 1.0, 0.2925(묶음 0.805·1.11 ↔ 정답 1.10·1.40). `main` 행만 `baseline_global_gate_*`가 채워지고 다른 변형은 빈칸. 모든 행에서 `gate_recall >= pass_b`, `gate_pairs <= min(n_gt, n_est)`, `n_est > 0`이면 `gate_precision == round(gate_pairs / n_est, 4)`, 늘 `gate_f1 == round(2 * gate_pairs / (n_gt + n_est), 4)`. **기존 열 회귀**: 구현 전에 HEAD(d1cafe8) 코드로 같은 고정물의 (top, detected, `exclude_x`, `all`) `main`·`bd`·`noqc` 세 행 기존 열 값을 뽑아 시험 상수로 고정하고, 구현 뒤 같음을 단언(기준선 열 포함) |
+| G9 정답 없는 활동 제외 | G8 입력에 활동 "99.9"(정답 없음, 측선 L1·L2에 0.50 m 곡률 in 후보 하나씩 — `dataclasses.replace(_candidate(script, "99.9", path, 0.50), qc=_qc(script, "in"))`)와 `lines["99.9"] = 2`를 더함 | `evaluation.no_gt_counts["99.9"] == 1`. (top, detected, `exclude_x`, `all`) `main` 행의 `n_est`·`gate_pairs`·`gate_precision`은 G8과 같다(1, 1, 1.0). 정답 없는 추정을 정밀도 분모에 넣는 돌연변이는 0.5를 낸다 |
+| G10 md 게이트 절 | `_markdown_lines(script, tmp_path, "on")`와 `"off"` | 제목 순서: "## 보조: X 포함" < "## 게이트 보조 지표" < "## 현장별". 게이트 제목 줄에 "판정·U-3에 쓰지 않음". 절 안 "### 주 결과 (`main`" 표의 자료 행 6개, 머리글이 §8 v1.6 (ii) 열. "### 변형별" 표 자료 행 on 10개·off 6개. "## 주 결과" 표 머리글은 v1.5와 같다(게이트 열 없음). C19·C19b 단언은 그대로 성립 |
+| G11 성질 1 런타임 검사 | `match_activity([0.45, 0.85], [0.15, 0.60, 1.20])`(통과 1)와 손으로 만든 `GateMatch(n_est=2, n_gt=3, pairs=())`(짝 0)로 `summarize` | `RuntimeError`(메시지에 활동 키). `gate_matches` 키 집합이 `matches`와 다르면 `ValueError` |
+
+**판별력 확인(구현 판정 때 gpr-processing-expert)** — 돌연변이와 잡을 시험:
+
+| 돌연변이 | 잡는 시험 |
+|---|---|
+| 허용치 삭제(`<= 0.30` 정확 비교) | G1(첫 짝 0.30000000000000004가 빠져 짝 1) |
+| 벌점 $P=g$ | G1(짝 1, 시제품) |
+| 게이트 없이 배정 뒤 게이트 안만 셈(= 기각한 사후 판정) | G1, G5 |
+| 가까운 짝부터 탐욕 | G1 |
+| 허용 쌍 비용 0(Σ 동률 깨기 없음) | G2(0.30) |
+| 활동 평균 | G3 |
+| 정밀도 분모 = 짝 수 | G3 |
+| 정밀도 None이면 F1 None | G4(b) |
+| 기준선 게이트를 새 난수로 뽑음 | G6, G8(기존 열 회귀) |
+| $p$를 `>`로 | G7 |
+| 백분위에서 중간 순위 빠짐 | G7 |
+| 게이트 열을 기준선 열 앞(행 중간)에 넣음 | G8 |
+| 전역 게이트 열을 모든 변형에 채움 | G8 |
+| 정답 없는 활동을 게이트에 넣음 | G9 |
+| md 게이트 절 위치 바꿈·주 결과 표에 게이트 열 | G10 |
+| 성질 1 검사 삭제 | G11 |
+| `write_markdown`의 `bd_rows`를 `noqc` 행으로(X3) | C19b(§9-5 항목 11) |
+
+- **판별력 확인 결과(2026-11-07, v1.6.1 구현 판정)**:
+  - 구현자(python-expert): 위 표 17개 중 16개와 X3을 사본에 넣어 모두 검출(X3은 C19b만 실패). "정답 없는 활동을 게이트에 넣음"은 `summarize`의 키 집합 검사(`ValueError`)가 먼저 막아 한 줄 돌연변이로 만들 수 없어 넣지 않았다.
+  - 판정자(gpr-processing-expert) 독립 확인: scratchpad 사본(`scripts/eval_depth_4tu.py`, `tests/conftest.py`·`synthetic_bscan.py`·`test_eval_depth_4tu.py`, 이 명세, `m29c_qc_constants.json`, `pyproject.toml`; 프로젝트 파일 미변경)에 돌연변이 20개를 하나씩 넣고 `tests/test_eval_depth_4tu.py`(175개)를 돌렸다. 원본 175 통과. **19개 검출, 1개 생존**.
+
+    | 돌연변이 | 실패한 시험 |
+    |---|---|
+    | X3 `bd_rows = overall_rows(NO_QC_VARIANT)` | C19b만 |
+    | 허용치 삭제(`_within_pass_limit` 본문 `<= PASS_LIMIT_M`) | G1, G5 |
+    | 허용치 삭제(게이트 쪽만) | G1, G5, E5 변형, E6 변형(성질 1 `RuntimeError`) |
+    | 벌점 $P=g$ | G1, G5, G8, G9, G10, C13(d)·(e), C19, C19b, E5·E6 변형(12개) |
+    | 사후 판정(게이트 없이 배정) | G1, G5 |
+    | 가까운 짝부터 탐욕 | G1, G2, G5, G8–G10 등 13개 |
+    | 허용 쌍 비용 0 | G2, G5 |
+    | 활동 평균 재현율 | G3 |
+    | 정밀도 분모 = 짝 수 | G3, G8 |
+    | 정밀도 None이면 F1 None | G4, G8 |
+    | 기준선 게이트를 새 난수로 | G6, G8 |
+    | $p$를 `>`로 | G7 |
+    | 백분위 중간 순위 없음 | G7 |
+    | 게이트 열을 기준선 열 앞에 | G8 |
+    | 전역 게이트 열을 모든 변형에 | G8 |
+    | 성질 1 검사 삭제 | G11 |
+    | **정답 없는 활동을 게이트에 넣음**(4줄: 게이트 매칭을 정답 없는 활동까지 만들고 `all` 범위에 넣음, 키 검사를 부분집합으로 완화, 정밀도 분모를 게이트 쪽 추정 합으로) | G9 — 구현자가 미시험으로 남긴 항목. 한 줄 돌연변이는 `ValueError`가 막고(이중 방어), 여러 줄로 막을 뚫어도 G9가 잡는다 |
+    | md 게이트 절을 X 포함 앞으로 | G10(on·off) |
+    | md 주 결과 표에 게이트 열 | G10(on·off) |
+    | **생존**: `summarize`의 판정률 술어만 `absolute <= PASS_LIMIT_M`(허용치 없음)으로 되돌림 | 없음 |
+
+  - 생존 1개 해석: 판정률 A·B의 허용치(0.30000000000000004 같은 십진 경계)를 직접 보는 시험이 없다. HEAD에도 있던 공백이고(E7은 오차 0.30 정확값·0.31만 씀), v1.6에서 술어를 `_within_pass_limit` 한 곳으로 모은 뒤 호출처 하나만 되돌리는 돌연변이다. 이 돌연변이에서도 성질 1은 깨지지 않는다(`_check_gate_matches`가 허용치 있는 술어로 세므로 게이트 짝 ≥ 허용치 있는 통과 수 ≥ 허용치 없는 통과 수). 4TU 추정 깊이는 연속값이라 십진 경계에 정확히 걸릴 확률이 0에 가깝다. **비차단**이고 시험 보강 G1b로 위임한다(§9-5 상태).
+  - **G1b**(v1.6.1 추가, 비차단 보강, 구현 대기): `MatchResult(pairs=((0.45, 0, 0.45 - 0.15),), missed=0, false_est=0)`로 `summarize({"a": m}, {"a": 1})` → `pass_a` 1.0, `pass_b` 1.0(허용치 없는 술어면 0.0). 선택: 기존 고정물(`_tables`의 `GtItem`, `Combination`)로 같은 짝을 `_match_rows`에 넣어 `within_30cm`이 True임을 단언(고정물을 만들기 번거로우면 생략). 잡는 돌연변이: 위 생존 돌연변이, (선택 단언이 있으면) `_match_rows` 호출처를 정확 비교로 되돌림. `draw_baseline`·`site11_diagnostic` 호출처는 경계에 정확히 걸리는 입력을 만들기 어려워 코드 검토로 둔다(모두 `_within_pass_limit` 한 줄 호출). 코드는 바꾸지 않는다.
+
+**v1.6 시험 함수 대응(구현 대조, v1.6.1, 2026-11-07)**:
+
+| ID | 시험 함수(`tests/test_eval_depth_4tu.py`) | 비고 |
+|---|---|---|
+| G1 | `test_g1_gate_adds_a_pair_and_includes_the_float_boundary` | 첫 짝 오차가 `0.45 - 0.15`와 정확히 같고 `> 0.30`임을 단언 |
+| G2 | `test_g2_same_pair_count_takes_the_least_abs_error_sum` | 짝 정체 `[(0, 1), (1, 0)]`도 단언(이 입력은 동률이 아니라 유일) |
+| G3 | `test_g3_micro_pooling_and_the_precision_denominator` | |
+| G4 | `test_g4_empty_activities_undefined_values_and_old_calls` | (c) E4·E7 기존 기대값 재단언 |
+| G5 | `test_g5_gate_equals_the_brute_force_optimum` | 도우미 `_brute_force_gate`, `_has_boundary_pair`; 상수 `G5_SEED`·`G5_CASES`·`G5_STRICT_CASES`(106)·`G5_BOUNDARY_CASES`(416) |
+| G6 | `test_g6_baseline_gate_reuses_the_same_draws` | |
+| G7 | `test_g7_baseline_position_p_and_mid_rank_percentile` | 도우미 `_g7_stats` |
+| G8 | `test_g8_summary_columns_values_and_v15_regression` | 상수 `V15_SUMMARY_COLUMNS`(31열)·`V16_GATE_COLUMNS`(20열)·`G8_HEAD_ROWS`(HEAD d1cafe8로 뽑은 `main`·`bd`·`noqc` 행), 도우미 `_g8_evaluations`, `_assert_gate_properties` |
+| G9 | `test_g9_activities_without_ground_truth_stay_out_of_the_gate` | |
+| G10 | `test_g10_md_gate_section`(on 10행·off 6행) | 상수 `GATE_MAIN_TABLE_HEADER`, `V15_MAIN_TABLE_HEADER`; 도우미 `_md_table_under` |
+| G11 | `test_g11_property_1_is_checked_at_run_time` | 메시지에 활동 키 `act_g11` |
+| C19b | `test_c19b_md_auxiliary_tables_hold_their_own_variant` | §9-2-2 |
+| (보정) E5 변형 | `test_e5_variant_auxiliary_baselines_report_pass_b_and_p_only` | 열 선택 조건에 `and not key.startswith("baseline_global_gate_")`만 더함. 기대값(전역 기준선 = 판정률 B 3열 + `p`) 그대로. 판정: 받아들임(§9-5 구현 재량 기록) |
 
 ### 9-3. 실행 비용
 
-꼭짓점 후보 3,611개 × `estimate_depth`(측선당 전처리 1회)는 꼭짓점 후보 선정 실측(약 5분)과 같은 규모에 피팅이 더해진다. 단일 프로세스로 **약 10–20분으로 추정**한다(가정). 30분을 넘으면 메인 세션 규칙(BelowNormal, 장시간 점검)을 따른다. v1.5의 `bd` 변형은 묶기·매칭·기준선(200회 × 영점 3 × 가정 2 × 정답 집합 2)만 더하므로 1분 안팎이 늘 것으로 본다(**가정**).
+꼭짓점 후보 3,611개 × `estimate_depth`(측선당 전처리 1회)는 꼭짓점 후보 선정 실측(약 5분)과 같은 규모에 피팅이 더해진다. 단일 프로세스로 **약 10–20분으로 추정**한다(가정). 30분을 넘으면 메인 세션 규칙(BelowNormal, 장시간 점검)을 따른다. v1.5의 `bd` 변형은 묶기·매칭·기준선(200회 × 영점 3 × 가정 2 × 정답 집합 2)만 더하므로 1분 안팎이 늘 것으로 본다(**가정**). v1.6 게이트 지표는 기준선 시행마다 작은 할당을 한 번 더 부른다. 기준선 호출은 영점 3 × 변형 5 × 정답 집합 2 × 가정 2 = 60회이고 시행 × 활동은 (주 12호출 × 1,200 + 보조 48호출 × 200) × 약 93 ≈ 2.2백만이다. 호출당 수십 µs로 보면 **1–3분 늘 것으로 추정**한다(**가정**, 4TU 실행 시간으로 확인). **v1.6.1 보정(구현자 미니 벤치, 합성 93활동 × 추정 2·정답 4, `draw_baseline` 200시행, 4TU 미사용)**: 게이트 할당은 시행·활동당 약 +9 µs(구현 전 대비 +60 %)였다. 2.2백만 × 9 µs ≈ **+20 s**로 추정을 낮춘다(**가정**: 4TU 활동의 추정·정답 수가 벤치보다 큰 활동은 할당 크기에 따라 더 걸린다. 정답 19개 활동 등은 벤치보다 느릴 수 있으나 전체 증가는 1분 안쪽으로 본다). 실제 증가는 재평가 md ① 실행 시간으로 확인한다.
 
 ### 9-4. v1.5 구현 위임 명세 (python-expert) — E(곡률 unknown 제외)를 주 결과에 적용
 
-> **상태(v1.5.1, 2026-11-07): 구현됨·판정 합격**(gpr-processing-expert). 항목 1–13은 아래 명세대로 구현됐다. 남은 것은 항목 14(C19b, 비차단 시험 보강)뿐이다. 4TU 본 평가는 돌리지 않았고(정답·M2-8 결과 미참조), `--dry-run` JSON은 HEAD와 같다(구현자 보고).
+> **상태(v1.5.1, 2026-11-07): 구현됨·판정 합격**(gpr-processing-expert). 항목 1–13은 아래 명세대로 구현됐다. 남은 것은 항목 14(C19b, 비차단 시험 보강)뿐이고, v1.6에서 §9-5 항목 11로 옮겨 개선 D 구현과 함께 위임한다(v1.6.1: 구현됨, X3 검출 확인). 4TU 본 평가는 돌리지 않았고(정답·M2-8 결과 미참조), `--dry-run` JSON은 HEAD와 같다(구현자 보고).
 
 받는 쪽: python-expert. 근거: §3-5-5(규칙), §5(변형 표), §8(출력), §9-2-2 "v1.5 시험", §11(사전 등록 문구). 실행 규약: 셸 heredoc과 `python -` 금지, 스크립트·시험은 PowerShell 도구로 `conda run -n gpr-dev python -I …`·`conda run -n gpr-dev python -I -m pytest …`, 시작 전 `~/.claude/tools/cpu-scheduler/status.py`로 자원을 보고 규모를 정한다(pytest 단일 프로세스면 충분). **4TU 본 평가(`scripts/eval_depth_4tu.py` 무인자 실행)는 돌리지 않는다**(재평가는 M2-9 A–E 뒤 1회, §11-1). `--dry-run`은 돌려도 된다.
 
@@ -788,7 +940,7 @@ python -I scripts/eval_depth_4tu.py
 11. **선택 시험(같은 구현에 함께, `tests/depth/test_tracking_v19.py`)**: spec_depth v1.9.2 §11-3의 TK11–TK14(지난 v1.9 판정에서 "직접 시험이 없는 경계"로 남긴 셋 + TK8 대칭). 코드는 바꾸지 않는다. 하나라도 실패하면 코드를 고치지 말고 실패 내용을 보고한다(v1.9 판정을 다시 연다).
 12. **받아들임 조건**: 전체 pytest 통과(현재 642 통과·2 xfail에 새 시험이 더해짐). 바뀐 기대값은 10의 목록뿐. `--dry-run` JSON이 바뀌지 않음(정답·후보 개수만 셈). `grep -n "excluded" scripts/eval_depth_4tu.py analysis/processing/*.py` 결과를 보고에 붙인다(규칙별 사용처 확인).
 13. **보고**: 바꾼 함수 목록, pytest 수(전후), 새 시험 이름과 C·TK ID 대응, 명세와 다르게 한 점(있으면 이유). 정의 파일·CLAUDE.md·메모리는 고치지 않는다.
-14. **(v1.5.1 추가, 비차단) 시험 C19b**: §9-2-2 C19b 줄대로 `tests/test_eval_depth_4tu.py`에 단언을 더한다(C19 함수에 넣어도 되고 새 함수여도 된다). 코드는 바꾸지 않는다. 기대값이 다르면 코드를 고치지 말고 보고한다. 받아들임: 전체 pytest 통과(현재 664 통과·2 xfail에 C19b가 더해짐), 판정자 돌연변이 X3(`bd_rows = overall_rows(NO_QC_VARIANT)`)이 C19b에서 실패.
+14. **(v1.5.1 추가, 비차단 — v1.6에서 §9-5 항목 11로 옮김, 이 항목으로 따로 위임하지 않음) 시험 C19b**: §9-2-2 C19b 줄대로 `tests/test_eval_depth_4tu.py`에 단언을 더한다(C19 함수에 넣어도 되고 새 함수여도 된다). 코드는 바꾸지 않는다. 기대값이 다르면 코드를 고치지 말고 보고한다. 받아들임: 전체 pytest 통과(현재 664 통과·2 xfail에 C19b가 더해짐), 판정자 돌연변이 X3(`bd_rows = overall_rows(NO_QC_VARIANT)`)이 C19b에서 실패.
 
 **구현 재량 기록(v1.5.1, 판정자 확인 — 모두 받아들임)**:
 
@@ -803,6 +955,77 @@ python -I scripts/eval_depth_4tu.py
 | off ① 문구 | "`bd`·`noqc` 없음" | 명세에 없던 줄 — §8 v1.5.1에 확정 |
 | `PREREGISTERED_QC_NOTE` | 문자열 이어 붙이기, en dash·U+2212 줄에 `# noqa: RUF001` | 글자 단위 일치(C20보다 강한 완전 일치 확인) |
 | 분석 스크립트 고정(항목 9) | `m29c_track_descent_check.py` 186·386행 `excluded_bd` | 다시 실행하지 않음(커밋된 csv 열 뜻 B+D 유지) |
+
+### 9-5. v1.6 구현 위임 명세 (python-expert) — 개선 D 게이트 보조 지표 + 시험 C19b
+
+> **상태(v1.6.1, 2026-11-07): 구현됨·판정 합격**(gpr-processing-expert). 항목 1–11은 아래 명세대로 구현됐고 명세와 다른 점 4개는 모두 받아들였다(아래 "구현 재량·명세와 다른 점"). 근거: (1) 코드 대조 — §5-1 정식화($P=m\,g+1$ 유한 벌점, 허용 판정 `_within_pass_limit` 공유, 빈 입력 할당 생략), 미시 합산·빈칸 규칙, 성질 1 런타임 검사, §6 같은 `draws` 재사용·`>=` $p$·중간 순위 백분위·`nanmean`/`nanpercentile`, §8 열 20개 행 끝·전역 게이트 `main`만, md 게이트 절 위치·열. (2) 회귀 — 판정자가 HEAD d1cafe8 코드와 현재 코드를 합성 고정물 4종(C13 on·off, E5, G9; summary 432행)에 돌려 기존 31열(NaN 칸은 NaN끼리 같음으로)·matches·clusters 행·게이트 절 밖 md가 모두 같음을 확인. 모든 행 게이트 재현율 ≥ 판정률 B, 게이트 열 `nan` 0. (3) 시험 — 구현자 전체 pytest 677 통과·2 xfail(+13), `-m synthetic` 23; 판정자 사본에서 `tests/test_eval_depth_4tu.py` 175 통과. (4) 판별력 — 판정자 돌연변이 20개 중 19개 검출(§9-2-3), X3은 C19b만 실패(받아들임 조건 (d)), 구현자 미시험 "정답 없는 활동을 게이트에 넣음"도 G9가 잡음. 생존 1개(판정률 술어 허용치 경계 시험 공백, HEAD부터)는 비차단이며 시험 G1b로 위임한다(코드 변경 없음). 4TU 본 평가·정답을 읽는 스크립트는 돌리지 않았다. 판정은 여전히 `main` 게이트 없는 판정률로만 한다.
+>
+> (v1.6 원래 상태 줄: 구현 전.) 받는 쪽: python-expert. 근거: §5-1(정의·정식화·집계·성질), §6(기준선), §8(출력), §9-2-3(시험 G1–G11), §9-2-2 C19b, §11 항목 7.
+
+실행 규약: 셸 heredoc과 `python -` 금지. 스크립트·시험은 Write로 쓴 파일을 PowerShell 도구에서 `conda run -n gpr-dev python -I …`·`conda run -n gpr-dev python -I -m pytest …`로 실행한다. 시작 전 `C:\ProgramData\miniforge3\envs\python-dev\python.exe -I -B C:\Users\jinbeom\.claude\tools\cpu-scheduler\status.py`로 자원을 보고 규모를 정한다(pytest 단일 프로세스면 충분). **4TU 본 평가(`scripts/eval_depth_4tu.py` 무인자 실행)는 돌리지 않는다**(재평가는 M2-9 A–E 뒤 1회, §11-1). `--dry-run`은 돌려도 된다. 정답을 읽는 진단 스크립트(`analysis/processing/depth_4tu_v1_diagnose.py` 등)는 실행하지 않는다.
+
+**바꾸는 파일**: `scripts/eval_depth_4tu.py`, `tests/test_eval_depth_4tu.py`. `src/`와 `analysis/`는 바꾸지 않는다(`depth_4tu_v1_diagnose.py`가 쓰는 `match_activity`·`summarize`·`random_baseline` 호출 형태는 그대로 동작해야 한다 — 새 인자는 모두 선택 인자).
+
+1. **상수·술어**(`# ---- matching, metrics` 절 위 상수 묶음):
+   - `PASS_TOL_M = 1e-12`. 지금 리터럴 `1e-12`로 쓰는 세 곳(`summarize`의 `n_pass`, `draw_baseline`의 `n_pass`, `_match_rows`의 `within_30cm`)을 도우미 `_within_pass_limit(abs_error)`(`abs_error <= PASS_LIMIT_M + PASS_TOL_M`, 스칼라·배열 둘 다)로 바꾼다. 동작 불변(G8 기존 열 회귀가 확인). `QC_R_TOL`·`CLUSTER_TIE_TOL_M` 등 다른 `1e-12`는 건드리지 않는다.
+   - `GATE_PENALTY_OFFSET_M = 1.0`(§5-1 $P=m\,g+1$의 "+1").
+   - `GATE_SUMMARY_FIELDS = ("gate_pairs", "gate_recall", "gate_precision", "gate_f1", "gate_mae_m")`, `GATE_COLUMNS`(§8 v1.6의 20개, 그 순서), `GATE_MAIN_TABLE_COLUMNS`·`GATE_VARIANT_TABLE_COLUMNS`(§8 v1.6 md (ii)·(iii) 열).
+2. **`GateMatch`·`match_activity_gated`**(`match_activity` 바로 아래):
+
+   ```python
+   @dataclass(frozen=True)
+   class GateMatch:
+       """+-0.30 m gated matching of one activity (spec 5-1, v1.6; auxiliary only)."""
+       n_est: int
+       n_gt: int
+       pairs: tuple[tuple[int, int, float], ...] = ()
+       """``(est index, gt index, error = est - gt)`` inside the gate, est-index order.
+       One optimum: under exact ties the pair identity is not unique, the count
+       and the |e| sum are."""
+       @property
+       def n_pairs(self) -> int: ...
+       @property
+       def abs_error_sum(self) -> float: ...
+
+   def match_activity_gated(est: Sequence[float], gt: Sequence[float]) -> GateMatch:
+       """Max pairs with |e| <= 0.30 m, then min sum |e| (spec 5-1).
+
+       Linear assignment on cost |e| inside the gate and P = m * g + 1 outside;
+       only pairs inside the gate are kept (exactness proof in spec 5-1).
+       """
+   ```
+
+   - 빈 입력이면 할당을 부르지 않고 `GateMatch(len(est), len(gt))`.
+   - 허용 판정은 1의 `_within_pass_limit`과 같은 함수를 쓴다(G1 경계, 성질 1). `inf`·큰 상수 벌점을 쓰지 않는다(§5-1 기각 대안).
+3. **`Summary`·`summarize`**:
+   - `Summary` 끝에 기본값 `None`인 필드 5개(`GATE_SUMMARY_FIELDS`)를 더한다(`gate_pairs: int | None`, 나머지 `float | None`).
+   - `summarize(matches, n_gt, gate_matches: Mapping[str, GateMatch] | None = None) -> Summary`. `None`이면 게이트 필드는 모두 `None`이다(기존 호출·현장 11 진단·`depth_4tu_v1_diagnose.py` 그대로). 주면: 키 집합이 `matches`와 다르거나, 활동의 `n_est`가 `len(pairs) + false_est`와 다르거나, `n_gt`가 `n_gt[a]`와 다르면 `ValueError`. 활동마다 게이트 없는 통과 짝 수(`_within_pass_limit`)보다 `gate.n_pairs`가 작으면 `RuntimeError`(메시지에 활동 키, §5-1 성질 1). 값은 §5-1 미시 합산 표대로.
+4. **`_evaluate_one`**: `gate_matches = {a: match_activity_gated(estimates[a], gt_depths[a]) for a in gt_depths}`를 한 번 만들고, 범위마다 `summarize(subset, n_gt, {a: gate_matches[a] for a in activities})`. `_match_rows`·matches csv는 바꾸지 않는다.
+5. **기준선**:
+   - `BaselineDraws`에 `n_gate_pairs: np.ndarray`(`(trials, activities)`, int)와 `n_est: np.ndarray`(`(activities,)`, int)를 더한다.
+   - `draw_baseline`: 기존 루프 안에서 `match = match_activity(...)` 다음 줄에 **같은 `draws`**로 `match_activity_gated`를 불러 `n_gate_pairs[trial, column]`을 채운다. 난수 호출의 수·순서를 바꾸지 않는다(G6, 기존 기준선 열 비트 불변).
+   - `BaselineStats`에 `gate_pairs_values: np.ndarray`(`field(repr=False)`, 시행별 $K_b$), `n_est_total: int`, `n_gt_total: int`를 더하고 `baseline_stats`가 범위 열만 합산해 채운다.
+   - `_baseline_gate_columns(prefix: str, stats: BaselineStats | None, gate_pairs: int | None) -> dict[str, object]`: §6 v1.6. `prefix == "baseline"`이면 재현율·정밀도·F1 × (mean, p025, p975) + `p` + `pct`, `"baseline_global"`이면 F1 × 3 + `p`. 분모 0인 지표·`stats is None`·`gate_pairs is None`(이때 `p`·`pct`만)은 빈칸. 소수 4자리. 평균·분위는 기존 `baseline_stats`와 같은 `nanmean`·`nanpercentile`.
+6. **`_summary_row`**: `summary.__dict__` 펼침에서 `n_pass`와 `GATE_SUMMARY_FIELDS`를 뺀다(기존 열 순서 유지). 기존 `baseline_*`·`baseline_global_*` 열 다음에 관측 게이트 5열(실수는 4자리, `None`은 빈칸), `_baseline_gate_columns("baseline", baselines.get("activity"), summary.gate_pairs)`, `_baseline_gate_columns("baseline_global", baselines.get("global"), summary.gate_pairs)` 순으로 붙인다. 결과 행 끝 20개 키 = `GATE_COLUMNS`.
+7. **md**: `_gate_section_lines(evaluation, args) -> list[str]`(이름 재량)을 만들어 `write_markdown`에서 "## 보조: X 포함" 표 블록 뒤, "## 현장별" 앞에 넣는다(§8 v1.6). (ii) 행은 `main`·`all`·`exclude_x` summary 행(기존 `main_rows`와 같은 순서), (iii) 행은 `detected`·`all`·`exclude_x`에서 `variants_for(args)` 순 × `ASSUMPTIONS` 순. "## 주 결과"·보조 `bd`·`noqc`·X 포함·현장별·현장 11 표의 열은 바꾸지 않는다.
+8. 모듈 docstring의 "Variants reported" 뒤에 한 줄: "gate (v1.6, auxiliary only): +-0.30 m gated matching (max pairs, then min sum \|e\|) gives recall, precision and F1 (spec 5-1); never used for the verdict." `match_activity` docstring에 "spec 5; the verdict" 표시를 더해 둘을 구분한다(재량).
+9. **시험**: §9-2-3 G1–G11. 기존 시험 기대값은 하나도 바뀌지 않아야 한다(바뀌면 구현을 멈추고 보고). G8의 기존 열 회귀 상수는 **구현 전에** HEAD 코드로 뽑는다.
+10. **CLI·csv 나머지·QC·묶기·깊이**: 바꾸지 않는다. 게이트 끄기 옵션을 두지 않는다(보조 지표이고 비용이 작으며, 끄는 손잡이는 사전 등록 출력의 일부를 실행 때 빼는 수단이 된다).
+11. **시험 C19b**(옛 §9-4 항목 14를 옮김): §9-2-2 C19b 줄대로 단언을 더한다(C19 함수 안이든 새 함수든). 코드는 바꾸지 않는다. 기대값이 다르면 코드를 고치지 말고 보고한다. v1.6 게이트 절이 md에 들어가도 C19b가 읽는 세 표(제목 접두어 "## 주 결과", "### 보조: B+D", "### 보조: QC 없음")는 바뀌지 않는다. 게이트 절의 "### 주 결과 (`main`" 제목은 `### `로 시작하므로 "## 주 결과" 접두어 검색과 겹치지 않는다(`_index_starting_with`가 유일성을 단언하므로 겹치면 시험이 실패해 드러난다).
+12. **받아들임 조건**: (a) 전체 pytest 통과(현재 664 통과·2 xfail에 G1–G11·C19b가 더해짐). (b) 기존 시험 기대값 변경 0. (c) `--dry-run` JSON이 HEAD와 같음. (d) 판정자 돌연변이 X3(`bd_rows = overall_rows(NO_QC_VARIANT)`)이 C19b에서 실패. (e) 구현자가 §9-2-3 돌연변이 표 중 최소 다섯(허용치 삭제, $P=g$, 사후 판정, $p$ `>`, 기준선 새 난수)을 사본에 넣어 해당 시험이 실패함을 확인(원본 파일은 되돌림). (f) `grep -n "1e-12\|PASS_TOL_M\|_within_pass_limit" scripts/eval_depth_4tu.py` 결과를 보고에 붙인다(판정률 술어가 한 곳으로 모였는지).
+13. **보고**: 바꾼 함수 목록, pytest 수(전후), 새 시험 함수 이름과 G·C19b ID 대응, 명세와 다르게 한 점(이유), 미니 벤치(합성: 93활동 × 추정 2·정답 4, `draw_baseline` 200시행의 구현 전후 시간 — §9-3 추정 보정용, 4TU 미사용). 정의 파일·CLAUDE.md·메모리·`docs/CHECKLIST.md`는 고치지 않는다.
+
+**구현 재량·명세와 다른 점(v1.6.1, 판정자 확인 — 모두 받아들임)**:
+
+| 명세 표현 | 구현 | 판단 |
+|---|---|---|
+| 항목 9 "기존 시험 기대값 변경 0" | 시험 E5 변형(`test_e5_variant_auxiliary_baselines_report_pass_b_and_p_only`)이 `startswith("baseline_global_")`로 열을 골라 새 `baseline_global_gate_*` 4열까지 잡음 → 선택 조건에 `and not key.startswith("baseline_global_gate_")`만 더함. 기대값은 그대로 | **받아들임.** 이 시험의 원래 의도(v1.2)는 "전역 기준선은 판정률 B와 $p$만 내고 MAE·판정률 A를 내지 않는다"이다. 걸러낸 뒤에도 MAE·판정률 A 열이 생기면 실패하므로 의도가 그대로 지켜진다. 게이트 전역 열(F1 × 3 + $p$)은 §6 v1.6이 정한 확장이고 G8이 열 목록 전체(31 + 20, 순서 포함)를 단언한다. 열 이름은 바꾸지 않는다 — 이미 §8·§11 항목 7로 사전 등록한 출력 이름이고, 접두어 공유는 이름 규칙(`<기준선 범위>_<지표>_<통계>`)대로다. 기대값 변경이 아니라 선택자 보정이므로 항목 9 위반이 아니다 |
+| 항목 1 판정률 술어 세 곳 | 세 곳 + `site11_diagnostic`의 `within_30cm_eps8`도 `_within_pass_limit` | 받아들임. 같은 술어(`<= PASS_LIMIT_M + 1e-12`)라 동작 동일. 판정률 술어가 모두 한 함수로 모였다(grep: `_within_pass_limit` 정의 1 + 사용 6, 리터럴 `1e-12`는 `PASS_TOL_M`·`CLUSTER_TIE_TOL_M`·`QC_R_TOL` 정의와 그 밖 docstring 두 곳만 남음) |
+| §8 (i) 설명 줄의 `\|e\|` | md 출력은 `|e|` | 받아들임. 명세의 백슬래시는 명세 표 칸 이스케이프다(§8 v1.6.1) |
+| "정의되지 않으면 빈칸" | 관측 게이트 5열·기준선 게이트 15열 모두 `None` → `""`(`_rounded`); md 표도 빈칸 | 명세 그대로. 게이트 열에 `nan` 없음(§8 v1.6.1 (b)) |
+| 항목 3 `summarize` 검사 | 도우미 `_check_gate_matches`(키·`n_est`·`n_gt` → `ValueError`, 성질 1 → `RuntimeError`)와 `_gate_fields`(미시 합산)로 분리. `_ratio_or_none` | 명세 그대로 |
+| 항목 5 기준선 열 | `_gate_rates_per_trial`, `_mean_and_interval`, `_gate_position`로 분리 | 명세 그대로(G7) |
+| 항목 6 열 순서 | `_observed_gate_columns`를 기존 `baseline_global_*` 뒤에 붙임 | 명세 그대로(G8) |
 
 ## 10. 가정과 미결
 
@@ -827,8 +1050,13 @@ python -I scripts/eval_depth_4tu.py
 | 효과 추정 (v1.4) | 판독자 1명(에이전트) 라벨, 판독자 내 κ 0.91, 자동 T 14개 | 추정치이며 목표가 아님(§11) |
 | 날개 추적 v1.9 (v1.4.3 상호 참조, v1.4.4 갱신) | spec_depth v1.9 §5-3 T2·§5-7 1항 T1(2026-11-07 승인, **구현됨·판정 합격** 2026-11-07, spec_depth v1.9.1). QC 규칙·문턱은 불변이고 QC 입력 픽만 바뀐다(§3-5-2). 상수는 합성·물리로 정했고 4TU 값으로 정한 것은 없다(κ 0.258, spec_depth §13-4). 시험 C2·C3·C5 기대값이 바뀌었다(§9-2-2, 받아들임) | 검토 표본 169개 전후 비교는 **진단이며 재평가가 아니다**(`m29c_track_diagnosis.md` §8·§12). 재평가는 M2-9 A–E 뒤 1회 그대로 |
 | candidates csv 추적 진단 열 (v1.4.4 확정) | `stop_left`·`stop_right`·`apex_descended` 열(§8, `qc_excluded` 뒤)과 md ⑧ 추적 진단 줄. `stop_*`는 QC 재호출 픽에서 오므로 `--apex-qc off`면 빈칸, `apex_descended`는 `DepthResult.flags`에서 와서 늘 채움. 판정에 쓰지 않는다 | 해소(구현·시험 C13) |
-| E(곡률 unknown 제외) | **채택**(사용자 2026-11-07, 사용자 결정 8), **v1.5 명세 반영**(§3-5-5: 주 결과 B+D+E, 보조 `bd`·`noqc`). v1.9 구현 효과(D 포함): 검토 표본에서 B+D 대비 E는 자동 후보 정밀도 14.3 % → 35.7 %, T 남김 39/41 → 29/41(자동 13/14 → 10/14), 남은 후보 126 → 49(−61 %). 결정 자료·추천은 `m29c_track_diagnosis.md` §12 | **구현됨·판정 합격**(v1.5.1, 2026-11-07; 코드의 주 결과 = B+D+E). 남은 것은 비차단 시험 C19b(§9-4 항목 14). 결정 근거가 라벨로 센 효과라는 사실은 §11 항목 3·5에 공개 |
+| E(곡률 unknown 제외) | **채택**(사용자 2026-11-07, 사용자 결정 8), **v1.5 명세 반영**(§3-5-5: 주 결과 B+D+E, 보조 `bd`·`noqc`). v1.9 구현 효과(D 포함): 검토 표본에서 B+D 대비 E는 자동 후보 정밀도 14.3 % → 35.7 %, T 남김 39/41 → 29/41(자동 13/14 → 10/14), 남은 후보 126 → 49(−61 %). 결정 자료·추천은 `m29c_track_diagnosis.md` §12 | **구현됨·판정 합격**(v1.5.1, 2026-11-07; 코드의 주 결과 = B+D+E). 남은 것은 비차단 시험 C19b(§9-4 항목 14) — v1.6.1에서 구현됨(§9-2-2). 결정 근거가 라벨로 센 효과라는 사실은 §11 항목 3·5에 공개 |
 | 주 결과 정의 변경(v1.5)과 재평가 1회 원칙 | 재평가 전 변경이고 4TU 정답·M2-8 매칭을 보지 않았다. 새 문턱 없음. 판정은 `main` 하나로만(보조 변형으로 갈아타지 않음) | §11-1. 남은 확인: U-3 4TU 판정률 목표를 B+D+E 주 결과 기준으로 재평가 전에 정함 |
+| 게이트 보조 지표 (v1.6, 개선 D) | 사용자 결정 9. 게이트 $g$ = 0.30 m는 제186조 값 그대로(새 문턱 아님), 허용치는 §5 판정률과 같은 $10^{-12}$ m. 미시 합산(§5-1 이유). 판정·U-3에 쓰지 않음 | **구현됨·판정 합격**(v1.6.1, 2026-11-07, §9-5 상태). 시제품으로 정식화의 정확성 확인(전수 대조 3,000 사례 불일치 0), 구현도 같은 3,000 사례에서 전수 탐색과 일치(G5) |
+| 게이트 매칭의 짝 정체 | 정확한 동률에서 유일하지 않음 → 짝별 출력·게이트 bias를 내지 않음 | – |
+| 기존 기준선 열의 `nan` (v1.6.1 관찰, v1.2부터) | 범위 추정 수 0인 summary 행에서 `baseline_mae_*`·`baseline_pass_a_*` 6열이 빈칸이 아닌 `nan`(§8 v1.6.1 (c)). 게이트 열은 빈칸으로 나옴 | 기존 열 불변 원칙으로 v1.6.1에서 고치지 않음. 빈칸으로 바꿀지는 재평가 전 사용자 결정(바꾸면 기존 열 값이 바뀌므로 별도 버전·G8류 회귀 필요) |
+| 개선 E(현장 9 영점) 사전 조사 (2026-11-07, 정답 깊이 미사용) | `analysis/processing/m29e_zero_survey.py` → `docs/processing/m29e_zero_survey_lines.csv`·`_sites.csv`·`.json`. `air_surface_late` 50측선 중 $h_\text{est}>h_\text{max}$(0.5 m) **21측선**(현장 9: 16, 7: 3, 2: 1, 3: 1). 정답 있는 활동에 속한 것은 **1측선**(03.4 Path3, $h_\text{est}$ 0.557 m, 후보 4개)뿐. 21측선의 가장 센 사건 위치는 첫째 8·둘째 7·셋째 6으로 한 방향이 아님 | **사용자 결정(2026-11-07): 플래그만** — 측선 플래그 `zero_h_implausible`·현장별 개수 보고, 깊이·지표 불변(명세·구현은 후속). 정답 있는 활동의 `air_surface_late` 11측선은 모두 첫 사건이 가장 세고 $h_\text{est}$ 0.30–0.56 m — 4TU 단일 띠 사실(메모, 곡률상 $h\lesssim0.1$ m)과 어긋나는 문제는 $h_\text{max}$ 규칙으로 갈리지 않음 |
+| 4TU 바이트 동일 레이더그램 (2026-11-07 발견) | SHA-256 동일 쌍 **39개**(759 파일). 활동 안 중복 5쌍(09.5: Path7=12, 8=13, 9=14, 10=15, 11=16 — 정답 없음), 활동 사이 중복 34쌍(03.5=03.6 10측선, 010.11=010.12 10측선, 02.2=02.4 8측선, 013.1=013.2 3측선, 010.15=010.16 1, 09.6=09.7 1, 012.2 Path7=012.4 Path1). 정답 있는 활동 사이 중복: 03.5/03.6, 010.11/010.12, 010.15/010.16, 012.2/012.4, 013.1/013.2 | **사용자 결정(2026-11-07)**: 활동 안 중복은 한 측선으로 셈(Path12–16 `duplicate_radargram=within_activity`, 지지·측선 통계 제외), 활동 사이 중복은 주 결과에서 둘 다 유지 + `duplicate_radargram=across_activities` 표시 + 한쪽 제외·중복 활동 전부 제외 민감도 보조(명세·구현은 후속, 원본 대조 [`fourtu_duplicates.md`](../datasets/fourtu_duplicates.md)). 활동 안 중복은 지지 필터(§4-3 `n_lines`)에서 한 측선이 스스로를 지지하게 만든다. 활동 사이 중복은 같은 B-scan이 두 활동 정답과 각각 매칭된다. **재평가 전 처리 규칙 결정 필요**(사용자, gpr-dataset-curator 원본 메타 확인). 정답 깊이는 보지 않았다 |
 
 ## 11. 4TU 재평가 사전 등록 메모 (v1.4, v1.5 항목 3·5 확정)
 
@@ -848,6 +1076,7 @@ v1.5에서 항목 3·5를 사용자 결정 8(E 채택)에 맞춰 고쳤다. 재�
    - (이력) v1.4–v1.4.4의 이 항목은 "후속 항목: 날개 추적 실패 원인 분석은 별도 항목이다. 그 개선 뒤 E를 다시 검토한다. 이번 재평가에는 E를 넣지 않는다."였다. v1.4.3·v1.4.4에서 원인 분석·v1.9 구현 판정(합격)을 덧붙였고, v1.5에서 위 문구로 대체했다.
 6. (v1.4.3 추가, v1.4.4 확정 — v1.9 구현 판정 합격, 구현 수치가 시제품과 같아 문구 그대로) **날개 추적 v1.9**: "v1.9 추적(spec_depth §5-3 T2·§5-7 T1)은 날개를 더 길게 따라간다. 그래서 진짜 꼭짓점의 곡률 unknown은 줄고, 거짓 후보 일부는 out·in에서 unstable(unknown)로 옮겨 갈 수 있다(검토 표본 진단: T unknown 15 → 10, 거짓 unknown 67 → 72; 재평가 아님). 추적 상수는 합성·물리로 정했고 4TU 값으로 정하지 않았다(설계상 성질이며 튜닝이 아님)." 재평가 md에 진단으로 정지 사유 분포(`stop_left`·`stop_right`), `apex_descended` 비율, 꼭짓점 4 트레이스 안 정지 비율을 낸다(열은 §8 v1.4.4 추적 진단 열과 `qc_n_left`·`qc_n_right`). 판정에는 쓰지 않는다.
    - (v1.5 주) 위 문구의 "out·in에서 unstable(unknown)로 옮겨 감"은 B+D+E 주 결과에서는 그 후보가 빠진다는 뜻이다. 문구는 그대로 둔다(B+D 보조 `bd`에서의 성질로도 맞다).
+7. (v1.6) **게이트 보조 지표(개선 D)**: "±0.30 m 게이트 지표는 보조 지표이며 판정과 U-3 합격 기준에 쓰지 않는다. 활동마다 \|e\| ≤ 0.30 m인 짝 수를 최대화하고 같으면 Σ\|e\|를 최소화한 별도 매칭으로 재현율(짝/정답)·정밀도(짝/추정)·F1을 활동 합산으로 내고, 같은 무작위 기준선 시행에서 같은 지표를 계산해 단측 p와 백분위를 함께 보고한다. 정의상 게이트 재현율은 판정률 B보다 작지 않다. 게이트 값이 주 결과와 다른 방향을 가리켜도 판정과 주 결과 정의를 바꾸지 않는다." 게이트 0.30 m는 제186조 값이고 새 문턱이 아니다. 정식화와 성질은 §5-1, 기준선은 §6.
 
 ### 11-1. 주 결과 정의 변경(v1.5)과 4TU 재평가 1회 원칙의 정합 (2026-11-07 확인)
 
@@ -861,10 +1090,13 @@ v1.5에서 항목 3·5를 사용자 결정 8(E 채택)에 맞춰 고쳤다. 재�
 | 깊이 값 | 바뀌지 않는다. E는 주 결과 포함 여부만 바꾼다(§3-5-6 계약, 시험 C11·C11b·C12) | §3-5-6 |
 | 보조 변형으로 갈아타기 | 막는다. 판정은 `main`(B+D+E) 하나로 하고, `bd`·`noqc`·`a`·`b`는 해석용이다. CLI에 주 결과 규칙 선택 옵션을 두지 않는다 | §5, §9-1 v1.5 |
 | 공개 | 결정 근거가 라벨로 센 효과라는 사실과 그 수치를 사전 등록 문구에 넣었다 | §11 항목 3·5 |
+| (v1.6) 개선 D가 쓴 정보 | 4TU 정답 깊이·M2-8 매칭·summary를 읽지 않았다. 설계는 사용자 결정 9와 합성 손계산·무작위 전수 대조(4TU 자료 없음)만 썼다 | `m29d_gate_proto.py` 입력 없음 |
+| (v1.6) 개선 D가 판정·주 결과를 바꾸나 | 아니다. 새 열은 행 끝에 붙고 기존 열·기준선 난수는 그대로다(G6·G8). 판정은 `main` 게이트 없는 판정률로만 한다. v1.6.1 판정자 확인: 합성 고정물 4종(C13 on·off, E5, G9; 432 summary 행)에서 HEAD d1cafe8 대비 기존 31열·matches·clusters 행·게이트 절 밖 md가 모두 같다 | §5-1 위치, §11 항목 7, §9-5 상태 |
 
 **판단: 충돌 없음.** 재평가 전, 정답 미참조, 새 문턱 없음, 결정 근거 공개라는 네 조건을 모두 만족한다. 남는 약점은 공개로 처리한다: 규칙 선택이 같은 4TU 자료에서 뽑은 후보 표본(169/3,611)의 라벨 효과를 보고 이뤄졌다(항목 5). CLAUDE.md "깊이 파라미터는 4TU로 튜닝하지 않음"의 대상인 깊이 파라미터(영점·속도·피팅 설정)는 바뀌지 않았다.
 
 재평가 전에 지켜야 할 것(이 개정에서 생긴 조건):
 1. U-3의 4TU 판정률 목표는 `main` = B+D+E를 기준으로 재평가 **전에** 정한다. E가 추정 수를 줄여 판정률 B가 B+D보다 낮게 나올 수 있다는 점(항목 3)을 알고 정한다.
 2. 재평가 뒤 `bd`·`noqc`가 `main`보다 좋아도 주 결과를 바꾸지 않는다. 차이는 해석(재현율 대 정밀도)으로만 보고한다.
-3. 남은 M2-9 개선(D ±0.30 m 게이트 보조 지표, 개선 E 현장 9 영점)과 문서 v2도 재평가 전에 끝낸다. 개선 F(메타 εr 잔여 bias)는 정답과 비교해야 보이는 값이라 재평가 **전** 개선으로 할 수 없다. 재평가 뒤 보고 항목으로 두는 것이 원칙에 맞다(사용자 확인 필요).
+3. 남은 M2-9 개선(D ±0.30 m 게이트 보조 지표, 개선 E 현장 9 영점)과 문서 v2도 재평가 전에 끝낸다. 개선 F(메타 εr 잔여 bias)는 정답과 비교해야 보이는 값이라 재평가 **전** 개선으로 할 수 없다. 재평가 뒤 보고 항목으로 둔다(**사용자 결정 2026-11-07**, 결정 9). v1.6: D는 명세 완료·구현 대기(§9-5). v1.6.1: D는 **구현됨·판정 합격**(2026-11-07, §9-5 상태). 남은 것은 개선 E(현장 9 영점)와 중복 레이더그램 규칙(항목 4), 문서 v2다.
+4. (v1.6 추가) 4TU 바이트 동일 레이더그램(§10, 39쌍)의 처리 규칙(활동 안 중복을 지지 측선 수에서 하나로 셀지, 활동 사이 중복을 어떻게 보고할지)을 재평가 **전에** 정한다. 규칙은 파일 해시와 원본 메타만으로 정하고 정답 깊이를 보지 않는다.

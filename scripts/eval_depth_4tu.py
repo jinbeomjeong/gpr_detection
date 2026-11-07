@@ -20,6 +20,8 @@ Variants reported (spec 5):
   ``main``. ``noqc`` is ``main`` without the QC (the v1.3.1 main result).
 * gt_set: ``exclude_x`` (main, code X dropped) or ``include_x``; both come
   from the same run and differ only in the matching step
+* gate (v1.6, auxiliary only): +-0.30 m gated matching (max pairs, then min
+  sum |e|) gives recall, precision and F1 (spec 5-1); never used for the verdict.
 
 Truth-dependent code stays here, not in ``src``. ``--dry-run`` only parses the
 candidate, line and ground-truth tables (no radargram is loaded).
@@ -113,6 +115,12 @@ SPAN_QUANTILES_PERCENT = (0, 50, 95, 100)
 MIN_SUPPORT_LINES = 2
 PASS_LIMIT_M = 0.30
 """Article 186 tolerance: |e| <= 0.30 m passes (boundary included)."""
+PASS_TOL_M = 1e-12
+"""Float slack of the pass predicate (0.45 - 0.15 = 0.30000000000000004 passes).
+Shared by the pass rates (spec 5) and the gate (5-1) through ``_within_pass_limit``."""
+GATE_PENALTY_OFFSET_M = 1.0
+"""The "+1" of the gate penalty P = m * g + 1 (spec 5-1): finite, yet larger than
+any assignment cost inside the gate."""
 
 BASELINE_TRIALS = 1000
 BASELINE_SEED = 0
@@ -224,6 +232,59 @@ TRACKING_COLUMNS = ("stop_left", "stop_right", "apex_descended")
 
 ``stop_*`` come from the QC picks (blank with ``--apex-qc off``);
 ``apex_descended`` comes from ``DepthResult.flags``. Never used by a verdict."""
+GATE_SUMMARY_FIELDS = (
+    "gate_pairs",
+    "gate_recall",
+    "gate_precision",
+    "gate_f1",
+    "gate_mae_m",
+)
+"""Observed gate metrics of ``Summary`` (spec 5-1, v1.6; auxiliary only)."""
+GATE_COLUMNS = (
+    *GATE_SUMMARY_FIELDS,
+    "baseline_gate_recall_mean",
+    "baseline_gate_recall_p025",
+    "baseline_gate_recall_p975",
+    "baseline_gate_precision_mean",
+    "baseline_gate_precision_p025",
+    "baseline_gate_precision_p975",
+    "baseline_gate_f1_mean",
+    "baseline_gate_f1_p025",
+    "baseline_gate_f1_p975",
+    "baseline_gate_p",
+    "baseline_gate_pct",
+    "baseline_global_gate_f1_mean",
+    "baseline_global_gate_f1_p025",
+    "baseline_global_gate_f1_p975",
+    "baseline_global_gate_p",
+)
+"""The 20 gate columns at the end of every summary csv row (spec 8, v1.6)."""
+GATE_MAIN_TABLE_COLUMNS = (
+    "assumption",
+    "zero_variant",
+    "n_gt",
+    "n_est",
+    "pass_b",
+    *GATE_SUMMARY_FIELDS,
+    "baseline_gate_f1_mean",
+    "baseline_gate_f1_p025",
+    "baseline_gate_f1_p975",
+    "baseline_gate_p",
+    "baseline_gate_pct",
+)
+"""md gate section table (ii): ``main``, overall, X excluded (spec 8, v1.6)."""
+GATE_VARIANT_TABLE_COLUMNS = (
+    "variant",
+    "assumption",
+    "n_est",
+    "gate_pairs",
+    "gate_recall",
+    "gate_precision",
+    "gate_f1",
+    "baseline_gate_f1_mean",
+    "baseline_gate_p",
+)
+"""md gate section table (iii): every variant, detected zero (spec 8, v1.6)."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -409,6 +470,11 @@ class BaselineStats:
     pass_a_p025: float
     pass_a_p975: float
     pass_b_values: np.ndarray = field(repr=False)
+    gate_pairs_values: np.ndarray = field(repr=False)
+    """Per-trial gate pair count K_b over the scope (v1.6)."""
+    n_est_total: int
+    """Estimates over the scope; fixed across trials (same count as observed)."""
+    n_gt_total: int
 
 
 # ----------------------------------------------------------------- candidates and boxes
@@ -1096,8 +1162,13 @@ def supported(
 # ----------------------------------------------------------------- matching, metrics
 
 
+def _within_pass_limit(abs_error: float | np.ndarray) -> bool | np.ndarray:
+    """``|e| <= 0.30 m`` with the float slack (spec 5 pass rates, 5-1 gate)."""
+    return abs_error <= PASS_LIMIT_M + PASS_TOL_M
+
+
 def match_activity(est: Sequence[float], gt: Sequence[float]) -> MatchResult:
-    """Ungated Hungarian on ``|est - gt|`` (rectangular allowed)."""
+    """Ungated Hungarian on ``|est - gt|``, rectangular (spec 5; the verdict)."""
     if len(est) == 0 or len(gt) == 0:
         return MatchResult((), missed=len(gt), false_est=len(est))
     cost = np.abs(np.subtract.outer(np.asarray(est, float), np.asarray(gt, float)))
@@ -1115,8 +1186,51 @@ def match_activity(est: Sequence[float], gt: Sequence[float]) -> MatchResult:
 
 
 @dataclass(frozen=True)
+class GateMatch:
+    """+-0.30 m gated matching of one activity (spec 5-1, v1.6; auxiliary only)."""
+
+    n_est: int
+    n_gt: int
+    pairs: tuple[tuple[int, int, float], ...] = ()
+    """``(est index, gt index, error = est - gt)`` inside the gate, est-index order.
+    One optimum: under exact ties the pair identity is not unique, the count
+    and the |e| sum are."""
+
+    @property
+    def n_pairs(self) -> int:
+        return len(self.pairs)
+
+    @property
+    def abs_error_sum(self) -> float:
+        return float(sum(abs(error) for _, _, error in self.pairs))
+
+
+def match_activity_gated(est: Sequence[float], gt: Sequence[float]) -> GateMatch:
+    """Max pairs with |e| <= 0.30 m, then min sum |e| (spec 5-1).
+
+    Linear assignment on cost |e| inside the gate and P = m * g + 1 outside;
+    only pairs inside the gate are kept (exactness proof in spec 5-1).
+    """
+    if len(est) == 0 or len(gt) == 0:
+        return GateMatch(len(est), len(gt))
+    errors = np.subtract.outer(np.asarray(est, float), np.asarray(gt, float))
+    abs_errors = np.abs(errors)
+    inside_gate = _within_pass_limit(abs_errors)
+    # Finite on purpose: inf makes the assignment infeasible when a row is all
+    # outside the gate, and a huge constant blurs the |e| tie-break (spec 5-1).
+    penalty_m = min(abs_errors.shape) * PASS_LIMIT_M + GATE_PENALTY_OFFSET_M
+    rows, cols = linear_sum_assignment(np.where(inside_gate, abs_errors, penalty_m))
+    pairs = tuple(
+        (int(r), int(c), float(errors[r, c]))
+        for r, c in zip(rows, cols, strict=True)
+        if inside_gate[r, c]
+    )
+    return GateMatch(len(est), len(gt), pairs)
+
+
+@dataclass(frozen=True)
 class Summary:
-    """Spec 5 metrics over a set of activities."""
+    """Spec 5 metrics over a set of activities (+ spec 5-1 gate metrics, v1.6)."""
 
     n_activities: int
     n_gt: int
@@ -1131,19 +1245,87 @@ class Summary:
     pass_b: float | None
     missed: int
     false_est: int
+    gate_pairs: int | None = None
+    gate_recall: float | None = None
+    gate_precision: float | None = None
+    gate_f1: float | None = None
+    gate_mae_m: float | None = None
 
 
-def summarize(matches: Mapping[str, MatchResult], n_gt: Mapping[str, int]) -> Summary:
-    """Pooled pair metrics; pass A per pair, pass B per ground truth (5)."""
+def _ratio_or_none(numerator: float, denominator: float) -> float | None:
+    return numerator / denominator if denominator else None
+
+
+def _check_gate_matches(
+    matches: Mapping[str, MatchResult],
+    n_gt: Mapping[str, int],
+    gate_matches: Mapping[str, GateMatch],
+) -> None:
+    """Same activities and counts as the ungated matches; property 1 (spec 5-1).
+
+    Raises:
+        ValueError: activity keys, estimate or ground-truth counts differ.
+        RuntimeError: fewer gate pairs than ungated passing pairs (a code defect).
+    """
+    if set(gate_matches) != set(matches):
+        raise ValueError("gate_matches must cover exactly the activities of matches")
+    for activity, match in matches.items():
+        gate = gate_matches[activity]
+        if gate.n_est != len(match.pairs) + match.false_est:
+            raise ValueError(f"{activity}: gate n_est {gate.n_est} differs")
+        if gate.n_gt != n_gt[activity]:
+            raise ValueError(f"{activity}: gate n_gt {gate.n_gt} differs")
+        n_pass = sum(bool(_within_pass_limit(abs(e))) for _, _, e in match.pairs)
+        if gate.n_pairs < n_pass:
+            raise RuntimeError(
+                f"{activity}: gate pairs {gate.n_pairs} < ungated passing pairs "
+                f"{n_pass} (spec 5-1 property 1)"
+            )
+
+
+def _gate_fields(
+    gate_matches: Mapping[str, GateMatch], total_gt: int, total_est: int
+) -> dict[str, float | int | None]:
+    """Micro-pooled gate metrics (spec 5-1 table); ``None`` where undefined."""
+    gate_pairs = sum(gate.n_pairs for gate in gate_matches.values())
+    abs_error_sum = sum(gate.abs_error_sum for gate in gate_matches.values())
+    return {
+        "gate_pairs": gate_pairs,
+        "gate_recall": _ratio_or_none(gate_pairs, total_gt),
+        "gate_precision": _ratio_or_none(gate_pairs, total_est),
+        "gate_f1": _ratio_or_none(2 * gate_pairs, total_gt + total_est),
+        "gate_mae_m": _ratio_or_none(abs_error_sum, gate_pairs),
+    }
+
+
+def summarize(
+    matches: Mapping[str, MatchResult],
+    n_gt: Mapping[str, int],
+    gate_matches: Mapping[str, GateMatch] | None = None,
+) -> Summary:
+    """Pooled pair metrics; pass A per pair, pass B per ground truth (5).
+
+    With ``gate_matches`` (one per activity of ``matches``) the gate fields are
+    filled (spec 5-1, auxiliary); without them they stay ``None``.
+
+    Raises:
+        ValueError: ``gate_matches`` does not describe the same activities.
+        RuntimeError: gate pairs < ungated passing pairs in an activity.
+    """
     errors = np.array([e for m in matches.values() for _, _, e in m.pairs], dtype=float)
     total_gt = sum(n_gt[a] for a in matches)
+    total_est = sum(len(m.pairs) + m.false_est for m in matches.values())
     n_pairs = len(errors)
-    n_pass = int(np.sum(np.abs(errors) <= PASS_LIMIT_M + 1e-12))
     absolute = np.abs(errors)
+    n_pass = int(np.sum(_within_pass_limit(absolute)))
+    gate: dict[str, float | int | None] = {}
+    if gate_matches is not None:
+        _check_gate_matches(matches, n_gt, gate_matches)
+        gate = _gate_fields(gate_matches, total_gt, total_est)
     return Summary(
         n_activities=len(matches),
         n_gt=total_gt,
-        n_est=sum(len(m.pairs) + m.false_est for m in matches.values()),
+        n_est=total_est,
         n_pairs=n_pairs,
         mae_m=float(absolute.mean()) if n_pairs else None,
         bias_m=float(errors.mean()) if n_pairs else None,
@@ -1154,6 +1336,7 @@ def summarize(matches: Mapping[str, MatchResult], n_gt: Mapping[str, int]) -> Su
         pass_b=n_pass / total_gt if total_gt else None,
         missed=sum(m.missed for m in matches.values()),
         false_est=sum(m.false_est for m in matches.values()),
+        **gate,
     )
 
 
@@ -1187,6 +1370,10 @@ class BaselineDraws:
     """``(trials, activities)`` matched pairs."""
     abs_error_sum: np.ndarray
     """``(trials, activities)`` sum of ``|e|`` over the pairs."""
+    n_gate_pairs: np.ndarray
+    """``(trials, activities)`` gate pairs of the same draws (spec 6, v1.6)."""
+    n_est: np.ndarray
+    """``(activities,)`` estimate count (the observed count, fixed per trial)."""
 
 
 def draw_baseline(
@@ -1199,7 +1386,8 @@ def draw_baseline(
     """Same number of uniform random depths per activity, same matching (6).
 
     Draw order is trial-major, activities in ``gt_by_act`` order, from one
-    ``default_rng(seed)``.
+    ``default_rng(seed)``. The gate matching (v1.6) reuses each draw and takes
+    no extra random numbers, so the ungated counts are unchanged.
     """
     rng = np.random.default_rng(seed)
     activities = tuple(a for a in gt_by_act if a in n_est_by_act)
@@ -1207,21 +1395,26 @@ def draw_baseline(
     n_pass = np.zeros(shape, dtype=int)
     n_pairs = np.zeros(shape, dtype=int)
     abs_error_sum = np.zeros(shape, dtype=float)
+    n_gate_pairs = np.zeros(shape, dtype=int)
     for trial in range(trials):
         for column, activity in enumerate(activities):
             low, high = baseline_range(gt_by_act[activity], mode)
             draws = rng.uniform(low, high, size=n_est_by_act[activity])
             match = match_activity(list(draws), list(gt_by_act[activity]))
+            gate = match_activity_gated(list(draws), list(gt_by_act[activity]))
             errors = np.abs([error for _, _, error in match.pairs])
-            n_pass[trial, column] = int(np.sum(errors <= PASS_LIMIT_M + 1e-12))
+            n_pass[trial, column] = int(np.sum(_within_pass_limit(errors)))
             n_pairs[trial, column] = len(errors)
             abs_error_sum[trial, column] = float(errors.sum())
+            n_gate_pairs[trial, column] = gate.n_pairs
     return BaselineDraws(
         activities=activities,
         n_gt=np.array([len(gt_by_act[a]) for a in activities], dtype=int),
         n_pass=n_pass,
         n_pairs=n_pairs,
         abs_error_sum=abs_error_sum,
+        n_gate_pairs=n_gate_pairs,
+        n_est=np.array([n_est_by_act[a] for a in activities], dtype=int),
     )
 
 
@@ -1259,6 +1452,9 @@ def baseline_stats(
         pass_a_p025=float(np.nanpercentile(pass_a, 2.5)),
         pass_a_p975=float(np.nanpercentile(pass_a, 97.5)),
         pass_b_values=pass_b,
+        gate_pairs_values=draws.n_gate_pairs[:, columns].sum(axis=1),
+        n_est_total=int(draws.n_est[columns].sum()),
+        n_gt_total=total_gt,
     )
 
 
@@ -1460,12 +1656,90 @@ def _summary_row(
         **{
             key: (round(value, 4) if isinstance(value, float) else value)
             for key, value in summary.__dict__.items()
-            if key != "n_pass"
+            if key != "n_pass" and key not in GATE_SUMMARY_FIELDS
         },
     }
     row.update(_baseline_columns("baseline", baselines.get("activity"), summary))
     row.update(_baseline_columns("baseline_global", baselines.get("global"), summary))
+    # v1.6 gate columns go at the end so every earlier column keeps its position.
+    row.update(_observed_gate_columns(summary))
+    row.update(
+        _baseline_gate_columns(
+            "baseline", baselines.get("activity"), summary.gate_pairs
+        )
+    )
+    row.update(
+        _baseline_gate_columns(
+            "baseline_global", baselines.get("global"), summary.gate_pairs
+        )
+    )
     return row
+
+
+def _observed_gate_columns(summary: Summary) -> dict[str, object]:
+    """Observed gate csv columns (spec 8, v1.6): count as is, ratios to 4 places."""
+    return {name: _rounded(getattr(summary, name), 4) for name in GATE_SUMMARY_FIELDS}
+
+
+def _gate_rates_per_trial(stats: BaselineStats) -> dict[str, np.ndarray | None]:
+    """Per-trial recall, precision and F1 of the baseline; ``None`` if undefined."""
+    pairs = stats.gate_pairs_values
+    n_gt, n_est = stats.n_gt_total, stats.n_est_total
+    return {
+        "recall": pairs / n_gt if n_gt else None,
+        "precision": pairs / n_est if n_est else None,
+        "f1": 2 * pairs / (n_gt + n_est) if n_gt + n_est else None,
+    }
+
+
+def _mean_and_interval(per_trial: np.ndarray | None) -> tuple[float | None, ...]:
+    """Mean, 2.5 % and 97.5 % over the trials (the existing baseline columns' way)."""
+    if per_trial is None:
+        return None, None, None
+    return (
+        float(np.nanmean(per_trial)),
+        float(np.nanpercentile(per_trial, 2.5)),
+        float(np.nanpercentile(per_trial, 97.5)),
+    )
+
+
+def _gate_position(stats: BaselineStats, gate_pairs: int) -> tuple[float, float]:
+    """One-sided ``p`` (K_b >= K) and mid-rank percentile of the observed K (spec 6)."""
+    trial_pairs = stats.gate_pairs_values
+    p_value = float(np.mean(trial_pairs >= gate_pairs))
+    percentile = 100 * float(
+        np.mean(trial_pairs < gate_pairs) + 0.5 * np.mean(trial_pairs == gate_pairs)
+    )
+    return p_value, percentile
+
+
+def _baseline_gate_columns(
+    prefix: str, stats: BaselineStats | None, gate_pairs: int | None
+) -> dict[str, object]:
+    """Baseline gate csv columns (spec 6 and 8, v1.6).
+
+    ``baseline``: recall, precision and F1 (mean, 2.5 and 97.5 %), ``p`` and
+    ``pct``. ``baseline_global``: F1 (mean, 2.5 and 97.5 %) and ``p``. Blank
+    where a denominator is 0, without a baseline, or (``p``, ``pct`` only)
+    without an observed gate count.
+    """
+    metrics = ("recall", "precision", "f1") if prefix == "baseline" else ("f1",)
+    rates = {} if stats is None else _gate_rates_per_trial(stats)
+    values: dict[str, float | None] = {}
+    for metric in metrics:
+        mean, p025, p975 = _mean_and_interval(rates.get(metric))
+        values |= {
+            f"gate_{metric}_mean": mean,
+            f"gate_{metric}_p025": p025,
+            f"gate_{metric}_p975": p975,
+        }
+    p_value = percentile = None
+    if stats is not None and gate_pairs is not None:
+        p_value, percentile = _gate_position(stats, gate_pairs)
+    values["gate_p"] = p_value
+    if prefix == "baseline":
+        values["gate_pct"] = percentile
+    return {f"{prefix}_{name}": _rounded(value, 4) for name, value in values.items()}
 
 
 def _baseline_columns(
@@ -1585,7 +1859,7 @@ def _match_rows(
                     "gt_code": item.code,
                     "radius_known": item.radius_known,
                     "error_m": round(error, 4),
-                    "within_30cm": abs(error) <= PASS_LIMIT_M + 1e-12,
+                    "within_30cm": _within_pass_limit(abs(error)),
                 }
             )
     return rows
@@ -1604,6 +1878,9 @@ def _evaluate_one(
         if a in estimates
     }
     matches = {a: match_activity(estimates[a], gt_depths[a]) for a in gt_depths}
+    gate_matches = {
+        a: match_activity_gated(estimates[a], gt_depths[a]) for a in gt_depths
+    }
     evaluation.match_rows.extend(
         _match_rows(matches, ground_truth, gt_depths, combination)
     )
@@ -1620,11 +1897,13 @@ def _evaluate_one(
     ]
     for scope, activities in scopes:
         subset = {a: matches[a] for a in activities}
+        gate_subset = {a: gate_matches[a] for a in activities}
         baselines = {
             mode: baseline_stats(draw, activities) for mode, draw in draws.items()
         }
+        summary = summarize(subset, n_gt, gate_subset)
         evaluation.summary_rows.append(
-            _summary_row(scope, combination, summarize(subset, n_gt), baselines)
+            _summary_row(scope, combination, summary, baselines)
         )
 
 
@@ -1762,7 +2041,7 @@ def site11_diagnostic(
                                 "est_depth_eps8_m": round(estimate.depth_eps8_m, 4),
                                 "gt_depth_m": round(gt_depths[activity][gt_index], 4),
                                 "error_eps8_m": round(error, 4),
-                                "within_30cm_eps8": abs(error) <= PASS_LIMIT_M + 1e-12,
+                                "within_30cm_eps8": _within_pass_limit(abs(error)),
                             }
                         )
     return rows, summaries
@@ -2019,6 +2298,47 @@ def _auxiliary_qc_table_lines(
         "### 보조: QC 없음 (`noqc` = v1.3.1 주 결과 경로, 지지 필터, 전체, X 제외)",
         "",
         *_md_table(noqc_rows, columns),
+        "",
+    ]
+
+
+def _gate_section_lines(evaluation: Evaluation, args: argparse.Namespace) -> list[str]:
+    """md gate section between "X 포함" and "현장별" (spec 8, v1.6; auxiliary)."""
+    overall = [
+        r
+        for r in evaluation.summary_rows
+        if r["scope"] == "all" and r["gt_set"] == "exclude_x"
+    ]
+    main_rows = [r for r in overall if r["variant"] == "main"]
+    detected = {
+        (r["variant"], r["assumption"]): r
+        for r in overall
+        if r["zero_variant"] == "detected"
+    }
+    variant_rows = [
+        detected[(variant, assumption)]
+        for variant in variants_for(args)
+        for assumption in ASSUMPTIONS
+    ]
+    return [
+        "## 게이트 보조 지표 (±0.30 m, v1.6 — 판정·U-3에 쓰지 않음)",
+        "",
+        "- 정의: 활동마다 |e| ≤ 0.30 m 짝만 허용해 짝 수를 최대화하고, 같으면 "
+        "Σ|e|를 최소화한 매칭(§5-1). 재현율 = 짝/정답, 정밀도 = 짝/추정, "
+        "F1 = 2·짝/(정답+추정), 활동 합산. 정답 없는 활동은 넣지 않는다.",
+        "- 기준선: 위 표와 같은 시행(같은 추정 수·같은 난수)의 게이트 짝 수. "
+        "p = 기준선 짝 수 ≥ 관측 짝 수인 시행 비율, 백분위 = 중간 순위. "
+        "재현율·정밀도·F1의 p와 백분위는 같다.",
+        "- 판정은 위 '주 결과' 표(게이트 없는 헝가리안, 판정률 A·B)로만 한다. "
+        "게이트 재현율 ≥ 판정률 B는 정의상 성립하고 실행 중 활동마다 검사한다.",
+        "",
+        "### 주 결과 (`main`, 전체, X 제외)",
+        "",
+        *_md_table(main_rows, GATE_MAIN_TABLE_COLUMNS),
+        "",
+        "### 변형별 (검출 영점, 전체, X 제외)",
+        "",
+        *_md_table(variant_rows, GATE_VARIANT_TABLE_COLUMNS),
         "",
     ]
 
@@ -2285,6 +2605,7 @@ def write_markdown(
         "",
         *_md_table(with_x_rows, columns),
         "",
+        *_gate_section_lines(evaluation, args),
         "## 현장별 (주 결과, 검출 영점, X 제외)",
         "",
         *_md_table(site_rows, ("scope", "assumption", *columns[2:])),

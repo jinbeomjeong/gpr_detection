@@ -1,0 +1,64 @@
+{
+  "lines": 759,
+  "zero_rules": {
+    "air_single_event": 709,
+    "air_surface_late": 50
+  },
+  "surface_late_lines": 50,
+  "h_gt_hmax_lines": 21,
+  "h_gt_hmax_lines_with_gt": 1,
+  "candidates_on_h_gt_hmax": 105,
+  "candidates_on_h_gt_hmax_with_gt": 4,
+  "h_est_quantiles_surface_late": [
+    0.209,
+    0.328,
+    0.452,
+    0.538,
+    1.675
+  ],
+  "h_est_quantiles_implausible": [
+    0.509,
+    0.52,
+    0.557,
+    1.047,
+    1.675
+  ],
+  "n_events_implausible": {
+    "2": 14,
+    "3": 6,
+    "4": 1
+  },
+  "strongest_index_implausible": {
+    "0": 8,
+    "1": 7,
+    "2": 6
+  },
+  "within_hmax_rule_implausible": {
+    "single": 17,
+    "air_surface_late": 4
+  },
+  "dd_single_m_quantiles_implausible": [
+    0.136,
+    0.141,
+    0.171,
+    0.279,
+    0.447
+  ],
+  "dd_within_hmax_m_quantiles_implausible": [
+    0.136,
+    0.141,
+    0.171,
+    0.279,
+    0.38
+  ],
+  "dd_single_m_quantiles_plausible_late": [
+    0.056,
+    0.084,
+    0.104,
+    0.117,
+    0.166
+  ],
+  "h_max_m": 0.5,
+  "elapsed_s": 26.8,
+  "gt_use": "activity membership in exclude_x only (no depth read)"
+}
