@@ -1,0 +1,98 @@
+{
+  "current": {
+    "n_checks": 129,
+    "n_pass": 129,
+    "failed": [],
+    "multi_event_choices": [
+      {
+        "line_id": "M20",
+        "variant": "current",
+        "index": 1,
+        "reason": "last"
+      }
+    ],
+    "seconds": 123.1,
+    "max_abs_delta_depth_mm": 0.0,
+    "models_with_zero_change": []
+  },
+  "first": {
+    "n_checks": 129,
+    "n_pass": 123,
+    "failed": [
+      "R2/M20: 2 events, t_surf -1.728 ns, h_est None",
+      "R6/M20: meta_fixed, +8.602 cm",
+      "R12/M20: ValueError raised: None",
+      "R13a-1/M20: None",
+      "R13a-2/M20: None (wing delay bias = eps rel. error)",
+      "R13b/M20: range None, suspect False"
+    ],
+    "multi_event_choices": [
+      {
+        "line_id": "M20",
+        "variant": "first",
+        "index": 0,
+        "reason": "first"
+      }
+    ],
+    "seconds": 29.0,
+    "max_abs_delta_depth_mm": 100.9000000000001,
+    "models_with_zero_change": [
+      "M20"
+    ]
+  },
+  "strongest": {
+    "n_checks": 129,
+    "n_pass": 123,
+    "failed": [
+      "R2/M20: 2 events, t_surf -1.728 ns, h_est None",
+      "R6/M20: meta_fixed, +8.602 cm",
+      "R12/M20: ValueError raised: None",
+      "R13a-1/M20: None",
+      "R13a-2/M20: None (wing delay bias = eps rel. error)",
+      "R13b/M20: range None, suspect False"
+    ],
+    "multi_event_choices": [
+      {
+        "line_id": "M20",
+        "variant": "strongest",
+        "index": 0,
+        "reason": "strongest"
+      }
+    ],
+    "seconds": 29.5,
+    "max_abs_delta_depth_mm": 100.9000000000001,
+    "models_with_zero_change": [
+      "M20"
+    ]
+  },
+  "first_h": {
+    "n_checks": 129,
+    "n_pass": 129,
+    "failed": [],
+    "multi_event_choices": [
+      {
+        "line_id": "M20",
+        "variant": "first_h",
+        "index": 1,
+        "reason": "h_surface_matched"
+      }
+    ],
+    "seconds": 113.3,
+    "max_abs_delta_depth_mm": 0.0,
+    "models_with_zero_change": []
+  },
+  "M20_events": {
+    "events_ns": [
+      3.1492,
+      5.1685
+    ],
+    "rel_amplitude": [
+      1.0,
+      0.2154
+    ],
+    "gap_ns": 2.0193,
+    "gap_h_ns_json": 1.6954,
+    "h_est_m": 0.34913054942448574
+  },
+  "elapsed_s": 298.5
+}

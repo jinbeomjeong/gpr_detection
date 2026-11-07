@@ -16,5 +16,7 @@ Verifying `scripts/eval_depth_4tu.py` changes (v1.5.1, v1.6.1 judgments, 2026-11
 - v1.7.1 (2026-11-07): the runner must also copy `docs/datasets/fourtu_duplicate_radargrams.csv` and `docs/processing/fourtu_lines_v1.csv` (tests read them via PROJECT_ROOT). Use `-k` to run only the version's tests (~25 s per mutant instead of ~85 s for 210 tests). Launching `envs\gpr-dev\python.exe` directly (Start-Process for BelowNormal) crashes with 0xc06d007f in numpy lstsq unless the env's `Library\bin` etc. are prepended to PATH.
 - Known v1.7 test gaps (non-blocking, code correct by review): caveat scan restricted to the detected zero survives (D8 only edits detected/top); `main` passing all candidates (copies) to `site11_diagnostic` survives (no site-11 copy in fixtures; none in 4TU either).
 
+- Zero-rule (timezero) mutations without copying files: a pytest plugin module in scratchpad that monkeypatches `gpr_detection.preprocess.timezero` private functions from env GPR_MUT, run via `python -I -c "sys.path.insert(...); pytest.main(['-p','mutplug',...])"` in a subprocess per mutant (~5 s each for 76 zero tests). Module-global lookups make the patch effective through `find_time_zero`.
+
 **Why:** these cost time to rediscover and decide whether a survivor blocks a verdict.
 **How to apply:** reuse the runner layout for the next verify of this script; treat `nan` baseline cells as pre-existing, not a regression. Related: [[apex-candidate-qc-facts]].

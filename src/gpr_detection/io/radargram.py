@@ -46,6 +46,10 @@ class Radargram:
         eps_r_meta_source: Where ``eps_r_meta`` came from, e.g.
             ``"4tu_metadata_csv"``. Empty when ``eps_r_meta`` is None.
         antenna_offset_m: Tx-Rx separation in m, if known.
+        antenna_height_m: Mounting height ``h`` of an air-launched antenna above
+            the ground in m, if known from the survey (spec_depth_v1 v2.1
+            section 4-2-1). Must be finite and positive. ``None`` for unknown
+            heights and ground-coupled antennas.
         t0_candidates_ns: Time-zero values given by metadata, already converted
             from sample index to ns (``sample * dt_ns``). Keys name the source
             field, e.g. ``"t0_sample_est"``.
@@ -64,6 +68,7 @@ class Radargram:
     eps_r_meta: float | None = None
     eps_r_meta_source: str = ""
     antenna_offset_m: float | None = None
+    antenna_height_m: float | None = None
     t0_candidates_ns: Mapping[str, float] = field(default_factory=dict)
     pipe_radius_m: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -83,6 +88,11 @@ class Radargram:
             value = getattr(self, name)
             if value is not None and not value > 0:
                 raise ValueError(f"{name} must be positive or None, got {value}")
+        height_m = self.antenna_height_m
+        if height_m is not None and not (np.isfinite(height_m) and height_m > 0):
+            raise ValueError(
+                f"antenna_height_m must be finite and positive or None, got {height_m}"
+            )
 
     @property
     def has_physical_scale(self) -> bool:

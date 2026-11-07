@@ -1,16 +1,19 @@
-"""Time-zero detection and selection (spec_depth_v1 v1.2 section 4).
+"""Time-zero detection and selection (spec_depth_v1 v2.1 section 4).
 
 Two stages:
 
 1. :func:`detect_zero_events` finds the early events (direct wave, surface
-   reflection) on the mean trace of the band-passed data **before** background
-   removal. Traces of ``pipe_band`` boxes can be left out of the mean
-   (``exclude_traces``, spec_band_depth_v1 section 3-1). Long profiles also get
-   the same detection per trace window, for QC only.
-2. :func:`select_zero` applies the dataset rule (air: late event, ground: direct
-   peak, processed data: sample 0) and returns a :class:`ZeroResult`. It also
-   tracks the chosen event through the trace windows (``window_std_ns``) and
-   labels the metadata time zeros by the rule's own events (section 4-3).
+   reflection, sub-surface events) on the mean trace of the band-passed data
+   **before** background removal. Traces of ``pipe_band`` boxes can be left out
+   of the mean (``exclude_traces``, spec_band_depth_v1 section 3-1). Long
+   profiles also get the same detection per trace window, for QC only.
+2. :func:`select_zero` applies the dataset rule and returns a
+   :class:`ZeroResult`: air-coupled with one event -> that merged peak;
+   air-coupled with two or more events -> the event whose gap to the first one
+   matches the known antenna height (section 4-2-1), otherwise the first event;
+   ground -> direct peak; processed data -> sample 0. It also tracks the chosen
+   event through the trace windows (``window_std_ns``) and labels the metadata
+   time zeros by the rule's own events (section 4-3).
 
 Times are in ns when the radargram has ``dt_ns``; for no-scale input only the
 sample (pixel) positions are filled.
@@ -54,9 +57,22 @@ DELAY_TABLE_OFFSET_TOLERANCE_M = 0.02
 SEPARATION_PERIODS = 0.75
 """Opposite-polarity direct and surface events split from a gap of 0.75 / f_c."""
 
+HEIGHT_MATCH_PERIODS = 0.5
+"""Tolerance ``tau_h`` (in periods) between an event gap and the gap expected
+from the known antenna height (section 4-2-1): covers the interference bias of
+the measured gap (+0.32 ns on gprMax M20), an unknown Tx-Rx offset and a
++-0.05 m height tolerance (assumed)."""
+
+AIR_MULTI_EVENT = "air_multi_event"
+"""Flag: air-coupled, two or more events, the first event is the zero."""
+
+AIR_SURFACE_NOT_FOUND = "air_surface_not_found"
+"""Flag: the antenna height is known but no event gap matches it."""
+
 SIGMA_ZERO_NS: dict[str, float] = {
     "air_surface_late": 0.3,
     "air_single_event": 0.25,
+    "air_first_event": 0.25,
     "ground_direct_peak": 0.15,
     "ground_direct_shifted": 0.15,
     "meta_sample0": 0.5,
@@ -65,6 +81,8 @@ SIGMA_ZERO_NS: dict[str, float] = {
 
 ``air_surface_late`` is 0.3 ns (user decision 2026-10-30): direct-wave
 interference delays the surface peak by 0.12-0.29 ns after steps (1)-(3).
+``air_first_event`` uses the single-event value: its zero is the same kind of
+merged band (v2.1).
 """
 
 ZeroEventLabel = Literal["surface_reflection", "direct_wave", "merged", "meta"]
@@ -75,6 +93,9 @@ class ZeroRule(StrEnum):
     """Time-zero rule names (spec_depth_v1 section 4-2)."""
 
     AIR_SURFACE_LATE = "air_surface_late"
+    """Two or more events; the one matching the known antenna height."""
+    AIR_FIRST_EVENT = "air_first_event"
+    """Two or more events, no height match: first event, later = sub-surface."""
     AIR_SINGLE_EVENT = "air_single_event"
     GROUND_DIRECT_PEAK = "ground_direct_peak"
     GROUND_DIRECT_SHIFTED = "ground_direct_shifted"
@@ -134,7 +155,8 @@ class ZeroEvents:
         f_c_hz: Centre frequency used for the windows, if known.
         pick_mode: Phase reference used for the peaks.
         window_end_k: Last sample of the search window.
-        h_est_m: Antenna height from the direct/late gap (two events and scale).
+        h_est_m: Antenna height from the first/last gap (two events and scale);
+            a diagnostic, the zero rule uses its own gap (section 4-1 item 5).
         window_events_k: Peaks of each trace window (QC), empty when the
             profile is not longer than one window or has no scale.
         excluded_traces: Number of traces left out of the mean trace.
@@ -176,7 +198,9 @@ class ZeroResult:
         zero_event_label: Which event the zero is; ``None`` only on failure.
         pick_mode: Phase reference; the apex must use the same one.
         events_ns: All early events in ns (empty without scale).
-        h_est_m: Antenna height estimate (air-coupled, two events).
+        h_est_m: Antenna height from the first-to-surface gap; only for
+            ``air_surface_late`` (``ZeroEvents.h_est_m`` keeps the
+            first-to-last diagnostic).
         t_zero_per_trace_ns: Optional per-trace zero (not computed in v1.1).
         meta_t0: ``{name: (ns, label)}`` for metadata zeros (section 4-3).
         excluded_traces: Traces left out of the mean trace.
@@ -375,14 +399,17 @@ def _meta_label_events(
     events_ns: Sequence[float],
     f_c_hz: float | None,
     tolerance_ns: float,
+    surface_event_ns: float | None = None,
 ) -> tuple[list[tuple[float, MetaT0Label]], float]:
     """Events a metadata zero may be labelled with, and the tolerance (4-3 table)."""
     if not events_ns:
         return [], tolerance_ns
     if zero_rule == ZeroRule.AIR_SURFACE_LATE:
-        events = [(events_ns[0], "direct_wave"), (events_ns[-1], "surface_reflection")]
+        surface_ns = events_ns[-1] if surface_event_ns is None else surface_event_ns
+        events = [(events_ns[0], "direct_wave"), (surface_ns, "surface_reflection")]
         return events, tolerance_ns
-    if zero_rule == ZeroRule.AIR_SINGLE_EVENT:
+    if zero_rule in (ZeroRule.AIR_SINGLE_EVENT, ZeroRule.AIR_FIRST_EVENT):
+        # Later events of air_first_event are sub-surface: never label candidates.
         half_period_ns = 0.5 * period_ns_or_default(f_c_hz, DEFAULT_PERIOD_NS)
         return [(events_ns[0], "merged")], max(tolerance_ns, half_period_ns)
     # Ground rules, meta_sample0, failed, given: only the direct wave. A later
@@ -396,13 +423,18 @@ def classify_meta_t0(
     events_ns: Sequence[float],
     f_c_hz: float | None = None,
     tolerance_ns: float = 0.5,
+    *,
+    surface_event_ns: float | None = None,
 ) -> dict[str, tuple[float, MetaT0Label]]:
-    """Label each metadata zero by the chosen rule's events (section 4-3, v1.1).
+    """Label each metadata zero by the chosen rule's events (section 4-3, v2.1).
 
     * ``air_surface_late``: nearest of ``direct_wave`` (first event) and
-      ``surface_reflection`` (last event), within ``tolerance_ns``.
-    * ``air_single_event``: ``merged`` within ``max(tolerance_ns, 0.5 / f_c)``
-      (metadata zeros sit on a +-0.4 / f_c lobe of the merged band).
+      ``surface_reflection`` (``surface_event_ns``, the event chosen by the
+      height match; the last event when ``None``), within ``tolerance_ns``.
+    * ``air_single_event`` and ``air_first_event``: ``merged`` (first event
+      only) within ``max(tolerance_ns, 0.5 / f_c)`` (metadata zeros sit on a
+      +-0.4 / f_c lobe of the merged band). Later events of
+      ``air_first_event`` are sub-surface and leave a zero ``"unclassified"``.
     * Every other rule: ``direct_wave`` (first event) only.
 
     Args:
@@ -411,11 +443,15 @@ def classify_meta_t0(
         events_ns: Detected events in ns, earliest first.
         f_c_hz: Centre frequency (single-event tolerance); ``None`` = 500 MHz.
         tolerance_ns: Base tolerance; farther zeros are ``"unclassified"``.
+        surface_event_ns: Time of the surface reflection chosen by
+            ``air_surface_late``; ignored by the other rules.
 
     Returns:
         ``{name: (t_ns, label)}`` in the input order.
     """
-    events, tolerance = _meta_label_events(zero_rule, events_ns, f_c_hz, tolerance_ns)
+    events, tolerance = _meta_label_events(
+        zero_rule, events_ns, f_c_hz, tolerance_ns, surface_event_ns
+    )
     labelled: dict[str, tuple[float, MetaT0Label]] = {}
     for name, t_ns in candidates_ns.items():
         label: MetaT0Label = "unclassified"
@@ -425,6 +461,54 @@ def classify_meta_t0(
                 label = nearest_label
         labelled[name] = (float(t_ns), label)
     return labelled
+
+
+# --------------------------------------------------------------------- height match
+
+
+def surface_gap_ns(h_m: float, offset_m: float | None) -> float:
+    """Direct-coupling to surface-reflection gap ``Delta_h`` for height ``h``.
+
+    ``Delta_h = (2 sqrt(h^2 + s^2 / 4) - s) / c`` (section 4-1 item 5 solved
+    for the gap); an unknown offset ``s`` is taken as 0.
+
+    Args:
+        h_m: Antenna mounting height in m.
+        offset_m: Tx-Rx separation in m, ``None`` when unknown.
+
+    Returns:
+        The gap in ns.
+    """
+    offset = 0.0 if offset_m is None else offset_m
+    path_m = 2.0 * float(np.hypot(h_m, offset / 2.0)) - offset
+    return path_m / SPEED_OF_LIGHT_M_PER_NS
+
+
+def surface_event_index(
+    gaps_ns: Sequence[float], gap_h_ns: float, period_ns: float
+) -> int | None:
+    """Index of the gap that matches the known antenna height (section 4-2-1).
+
+    Args:
+        gaps_ns: Gaps ``t_j - t_1`` of the events after the first, earliest
+            first (index 0 = second event).
+        gap_h_ns: Expected gap ``Delta_h`` from :func:`surface_gap_ns`.
+        period_ns: ``1 / f_c``.
+
+    Returns:
+        Index into ``gaps_ns`` of the closest gap (the earlier one on a tie) if
+        it lies within ``HEIGHT_MATCH_PERIODS * period_ns`` of ``gap_h_ns``
+        (boundary included). ``None`` when nothing matches or when
+        ``gap_h_ns < SEPARATION_PERIODS * period_ns``: at that height the
+        surface reflection is merged into the first event (step 2).
+    """
+    if gap_h_ns < SEPARATION_PERIODS * period_ns or not gaps_ns:
+        return None
+    # min() keeps the first of equal distances, i.e. the earlier event.
+    best = min(range(len(gaps_ns)), key=lambda j: abs(gaps_ns[j] - gap_h_ns))
+    if abs(gaps_ns[best] - gap_h_ns) <= HEIGHT_MATCH_PERIODS * period_ns:
+        return best
+    return None
 
 
 # --------------------------------------------------------------------- rules
@@ -498,17 +582,68 @@ def _single_event_bias_note(radargram: Radargram) -> str:
     return f"air_single_event: merged peak -> deep by up to {bound_m:.3f} m ({formula})"
 
 
-def _air_zero(radargram: Radargram, events: ZeroEvents) -> _RuleChoice:
-    """Air-coupled rule: late event if two or more, else the merged single peak."""
-    if events.n_events >= 2:
+def _height_matched_event(
+    radargram: Radargram, events: ZeroEvents
+) -> tuple[int | None, bool]:
+    """Section 4-2-1 steps 1-2 for two or more events.
+
+    Returns:
+        ``(event index, surface_not_found)``. The index (into ``events_k``) is
+        the surface reflection matched by the known antenna height, or
+        ``None``. ``surface_not_found`` is True only when step 1 applied
+        (height known and separable from the direct coupling) without a match.
+    """
+    height_m, dt_ns = radargram.antenna_height_m, events.dt_ns
+    if height_m is None or dt_ns is None:
+        return None, False
+    period_ns = period_ns_or_default(radargram.f_c_hz, DEFAULT_PERIOD_NS)
+    gap_h_ns = surface_gap_ns(height_m, radargram.antenna_offset_m)
+    if gap_h_ns < SEPARATION_PERIODS * period_ns:
+        return None, False
+    k_first = events.events_k[0]
+    gaps_ns = [(k - k_first) * dt_ns for k in events.events_k[1:]]
+    gap_index = surface_event_index(gaps_ns, gap_h_ns, period_ns)
+    if gap_index is None:
+        return None, True
+    return gap_index + 1, False
+
+
+def _air_multi_event_zero(radargram: Radargram, events: ZeroEvents) -> _RuleChoice:
+    """Two or more air-coupled events: height-matched surface, else first event."""
+    surface_index, surface_not_found = _height_matched_event(radargram, events)
+    if surface_index is not None:
         note = (
             "air_surface_late: 0.12-0.29 ns late after (1)-(3) -> 0.6-1.5 cm "
             "shallow at eps 9 (direct-wave interference)"
         )
-        k_late = events.events_k[-1]
+        k_surface = events.events_k[surface_index]
         return _RuleChoice(
-            ZeroRule.AIR_SURFACE_LATE, k_late, k_late, "surface_reflection", (note,)
+            ZeroRule.AIR_SURFACE_LATE,
+            k_surface,
+            k_surface,
+            "surface_reflection",
+            (note,),
         )
+    flags = [AIR_MULTI_EVENT]
+    height_case = "(antenna height unknown)"
+    if surface_not_found:
+        flags.append(AIR_SURFACE_NOT_FOUND)
+        height_case = "(antenna height known, no event gap matched)"
+    notes = (
+        _single_event_bias_note(radargram),
+        "air_first_event: later events treated as sub-surface; deep by "
+        f"h/sqrt(eps_r) if the first event is a separated direct wave {height_case}",
+    )
+    k_first = events.events_k[0]
+    return _RuleChoice(
+        ZeroRule.AIR_FIRST_EVENT, k_first, k_first, "merged", notes, tuple(flags)
+    )
+
+
+def _air_zero(radargram: Radargram, events: ZeroEvents) -> _RuleChoice:
+    """Air-coupled rule: section 4-2-1 for two or more events, else the merged peak."""
+    if events.n_events >= 2:
+        return _air_multi_event_zero(radargram, events)
     k_single = events.events_k[0]
     note = _single_event_bias_note(radargram)
     return _RuleChoice(ZeroRule.AIR_SINGLE_EVENT, k_single, k_single, "merged", (note,))
@@ -601,8 +736,15 @@ def select_zero(
     """Apply the dataset zero rule (spec_depth_v1 section 4-2).
 
     * ``amplitude_processed`` (GPR-SD, Guangzhou MALA): ``meta_sample0``.
-    * ``air_gap="air"``: ``air_surface_late`` with two or more events, else
-      ``air_single_event``.
+    * ``air_gap="air"`` with one event: ``air_single_event``.
+    * ``air_gap="air"`` with two or more events (section 4-2-1): with a known
+      ``antenna_height_m`` whose gap ``Delta_h`` is at least
+      ``SEPARATION_PERIODS / f_c``, the event whose gap to the first one is
+      closest to ``Delta_h`` (within ``HEIGHT_MATCH_PERIODS / f_c``) is the
+      surface reflection: ``air_surface_late``, ``h_est_m`` from the first-to-
+      chosen gap, later events are sub-surface. Otherwise ``air_first_event``:
+      the first event is the merged band, flagged ``air_multi_event`` (plus
+      ``air_surface_not_found`` when a separable known height matched nothing).
     * ``air_gap="ground"``: ``ground_direct_peak`` (or ``ground_direct_shifted``
       inside the table's validity range).
     * ``air_gap="unknown"``: treated like ground, flagged ``air_gap_unknown``
@@ -622,6 +764,13 @@ def select_zero(
     if dt_ns is None:
         flags.append("zero_px_unverified")
 
+    h_est_m = surface_event_ns = None
+    if choice.rule == ZeroRule.AIR_SURFACE_LATE and dt_ns is not None:
+        surface_event_ns = choice.k_event * dt_ns
+        surface_gap = (choice.k_event - events.events_k[0]) * dt_ns
+        # The offset-unknown flag is already in events.flags (same gap formula).
+        h_est_m, _ = _antenna_height_m(surface_gap, radargram.antenna_offset_m)
+
     return ZeroResult(
         t_zero_ns=None if dt_ns is None else choice.k_zero * dt_ns,
         k_zero=choice.k_zero,
@@ -629,7 +778,7 @@ def select_zero(
         zero_event_label=choice.label,
         pick_mode=events.pick_mode,
         events_ns=events.events_ns,
-        h_est_m=events.h_est_m if choice.rule == ZeroRule.AIR_SURFACE_LATE else None,
+        h_est_m=h_est_m,
         t_zero_per_trace_ns=None,
         meta_t0=classify_meta_t0(
             radargram.t0_candidates_ns,
@@ -637,6 +786,7 @@ def select_zero(
             events.events_ns,
             radargram.f_c_hz,
             config.meta_tolerance_ns,
+            surface_event_ns=surface_event_ns,
         ),
         excluded_traces=events.excluded_traces,
         flags=tuple(flags),

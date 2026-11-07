@@ -1,0 +1,123 @@
+{
+  "scenarios": 21,
+  "multi_event_scenarios": 16,
+  "pass_2cm_multi_event": {
+    "current": {
+      "sum": 6,
+      "size": 16
+    },
+    "first": {
+      "sum": 8,
+      "size": 16
+    },
+    "first_h_known": {
+      "sum": 16,
+      "size": 16
+    },
+    "first_h_unknown": {
+      "sum": 8,
+      "size": 16
+    },
+    "strongest": {
+      "sum": 5,
+      "size": 16
+    }
+  },
+  "pass_2cm_by_kind": [
+    {
+      "kind": "B+L",
+      "variant": "current",
+      "sum": 0,
+      "size": 8
+    },
+    {
+      "kind": "B+L",
+      "variant": "first",
+      "sum": 8,
+      "size": 8
+    },
+    {
+      "kind": "B+L",
+      "variant": "first_h_known",
+      "sum": 8,
+      "size": 8
+    },
+    {
+      "kind": "B+L",
+      "variant": "first_h_unknown",
+      "sum": 8,
+      "size": 8
+    },
+    {
+      "kind": "B+L",
+      "variant": "strongest",
+      "sum": 4,
+      "size": 8
+    },
+    {
+      "kind": "D+S",
+      "variant": "current",
+      "sum": 4,
+      "size": 4
+    },
+    {
+      "kind": "D+S",
+      "variant": "first",
+      "sum": 0,
+      "size": 4
+    },
+    {
+      "kind": "D+S",
+      "variant": "first_h_known",
+      "sum": 4,
+      "size": 4
+    },
+    {
+      "kind": "D+S",
+      "variant": "first_h_unknown",
+      "sum": 0,
+      "size": 4
+    },
+    {
+      "kind": "D+S",
+      "variant": "strongest",
+      "sum": 1,
+      "size": 4
+    },
+    {
+      "kind": "D+S+L",
+      "variant": "current",
+      "sum": 2,
+      "size": 4
+    },
+    {
+      "kind": "D+S+L",
+      "variant": "first",
+      "sum": 0,
+      "size": 4
+    },
+    {
+      "kind": "D+S+L",
+      "variant": "first_h_known",
+      "sum": 4,
+      "size": 4
+    },
+    {
+      "kind": "D+S+L",
+      "variant": "first_h_unknown",
+      "sum": 0,
+      "size": 4
+    },
+    {
+      "kind": "D+S+L",
+      "variant": "strongest",
+      "sum": 0,
+      "size": 4
+    }
+  ],
+  "eps_r": 9.0,
+  "f_c_hz": 500000000.0,
+  "offset_m": 0.1,
+  "seed": 0,
+  "elapsed_s": 0.6
+}

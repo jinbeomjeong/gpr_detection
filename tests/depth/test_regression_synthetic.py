@@ -1,4 +1,4 @@
-"""Synthetic depth regression R1-R13 (spec_depth_v1 section 11-2, CHECKLIST M2-5).
+"""Synthetic depth regression R1-R14 (spec_depth_v1 section 11-2, CHECKLIST M2-5).
 
 Runs ``scripts/eval_depth_synthetic.py`` once per session on the 20 gprMax
 models and asserts every check of one ID. Excluded from the default run
@@ -37,8 +37,11 @@ EXPECTED_CHECK_COUNTS = {
     "R13a-1": 1,
     "R13a-2": 1,
     "R13b": 1,
+    "R14": 1,
 }
-"""Models per check: 15 ground, h 0.1 (M12, M13, M15, M18), h 0.3 (M20)."""
+"""Models per check: 15 ground, h 0.1 (M12, M13, M15, M18), h 0.3 (M20).
+
+R14 (spec v2.1) is a record check: M20 with the antenna height withheld."""
 
 
 def _load_script() -> ModuleType:

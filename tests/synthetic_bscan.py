@@ -119,7 +119,12 @@ def make_bscan(spec: BScanSpec) -> np.ndarray:
 
 
 def make_radargram(spec: BScanSpec, **overrides) -> Radargram:
-    """Wrap :func:`make_bscan` in a :class:`Radargram` (ground or air coupled)."""
+    """Wrap :func:`make_bscan` in a :class:`Radargram` (ground or air coupled).
+
+    Air-coupled specs also get ``antenna_height_m = spec.air_gap_m`` (the
+    mounting height is survey metadata, spec_depth_v1 v2.1); pass
+    ``antenna_height_m=None`` to model an unknown height.
+    """
     fields = {
         "data": make_bscan(spec),
         "dt_ns": spec.dt_ns,
@@ -132,6 +137,7 @@ def make_radargram(spec: BScanSpec, **overrides) -> Radargram:
         "eps_r_meta": spec.eps_r,
         "eps_r_meta_source": "synthetic_truth",
         "antenna_offset_m": spec.offset_m,
+        "antenna_height_m": spec.air_gap_m if spec.air_gap_m > 0 else None,
     }
     fields.update(overrides)
     return Radargram(**fields)

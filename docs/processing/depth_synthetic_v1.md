@@ -1,11 +1,11 @@
 # gprMax 합성 깊이 회귀 v1 (M2-5)
 
-- 생성: `scripts/eval_depth_synthetic.py`, 2026-10-30T22:27:37+09:00, commit 9048be7fbb0ce8c97337c134f44f13769a74e916 (dirty True)
-- 명세: `docs/processing/spec_depth_v1.md` §11-2 (R1-R13, 박스 공급 규칙)
-- 실행 시간: 전체 92.3 s, 모델별 0.4-68.3 s (단일 프로세스)
+- 생성: `scripts/eval_depth_synthetic.py`, 2026-11-07T22:24:04+09:00, commit f5f02b040232b4dedd31a1efa1d23d88a1430091 (dirty True)
+- 명세: `docs/processing/spec_depth_v1.md` §11-2 (R1-R14, 박스 공급 규칙)
+- 실행 시간: 전체 106.1 s, 모델별 0.6-77.6 s (단일 프로세스)
 - 판정 등급: match ≤5 %·2 cm, acceptable match d ≤10 cm (공기결합은 d만)
 
-## R1-R13 판정
+## R1-R14 판정
 
 | check | criterion | passed | verdict | failed models |
 |---|---|---|---|---|
@@ -24,6 +24,7 @@
 | R13a-1 | json ray picks, json h/s/R: eps +- 0.1, \|dd\| <= 1 cm | 1/1 | PASS | - |
 | R13a-2 | measured picks, json h/s/R: \|eps/eps_true - 1\| <= 20 %, \|dd\| <= 5 cm | 1/1 | PASS | - |
 | R13b | h_est path: range contains 9, no meta_eps_suspect | 1/1 | PASS | - |
+| R14 | height unknown: air_first_event + air_multi_event, meta_fixed, 0 < dd <= h/sqrt(eps)+2 cm (12.0 cm) | 1/1 | PASS | - |
 
 ## 모델별 결과
 
@@ -183,6 +184,7 @@
 | R13a-1 | M20 | eps 9.000 (+0.002 %), d -0.001 cm | json ray picks, json h/s/R: eps +- 0.1, \|dd\| <= 1 cm | True |  |
 | R13a-2 | M20 | eps 7.809 (-13.229 %), d +2.877 cm (wing delay bias = eps rel. error) | measured picks, json h/s/R: \|eps/eps_true - 1\| <= 20 %, \|dd\| <= 5 cm | True |  |
 | R13b | M20 | range [7.41, 10.33], suspect False | h_est path: range contains 9, no meta_eps_suspect | True |  |
+| R14 | M20 | air_first_event, meta_fixed, +8.602 cm | height unknown: air_first_event + air_multi_event, meta_fixed, 0 < dd <= h/sqrt(eps)+2 cm (12.0 cm) | True | acceptable match |
 
 ## 실측으로 처음 확인한 가정
 

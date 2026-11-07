@@ -7,6 +7,7 @@
 - **사용자 결정(2026-10-30, 확인 필요 질문 Q1–Q4 모두 권고안)**: Q1 가정 v(데이터셋 기본 εr) **허용 안 함**(`dataset_default_eps=None`, 출처 없으면 `no_velocity`·τ만) · Q2 측방 이격 편향은 **보정 없이** `bias_notes`·`lateral_bias_max_m` 상한만 · Q3 조각 박스 묶기는 라벨 v2 여부와 무관하게 **깊이 단계에서 항상** · Q4 경사 띠 대표 깊이는 **박스 중심**(양끝·경사율은 `depth_profile`·`grade`). Q5(4TU 끝단간 평가에서 `pipe_band`는 헝가리안 매칭에 넣지 않고 따로 보고)는 권고안대로 두고 M3 때 다시 본다.
 - 이 명세를 위한 탐색 실행: `conda run -n gpr-dev python -I analysis/processing/pipe_band_check.py` (단일 프로세스, 약 30 s, 시드 0) → `docs/processing/pipe_band_check_synthetic.csv`, `pipe_band_check_geometry.csv`, `pipe_band_check_oblique.csv`, `pipe_band_check.png` (§10에 요약)
 - [S] v1.2 동기화(2026-10-30): `air_surface_late` $\sigma_z$ 0.3 ns(§6-3 $\sigma_z$는 [S] §9를 그대로 씀), UB14 시각 기준을 [S] Z7 창으로 바꿈. 띠 규칙과 그 밖의 시험은 그대로다
+- [S] v2.1 동기화(2026-11-07, 구현됨 — spec_depth v2.1.2): 공기결합 사건 2개 이상의 영점이 [S] §4-2-1(장비 높이 `antenna_height_m`와 간격이 맞는 사건 = 지표 반사, 높이를 모르면 첫 사건 `air_first_event`)로 바뀐다. 띠 규칙은 그대로이고, §3-1 마스크(`exclude_traces`)는 여전히 평균 트레이스에서 띠를 뺀다. UB14 기대값이 바뀐다(§9-1 UB14 행). 4TU 행(§9-5 표)의 영점 규칙 이름에 `air_first_event`가 더해진다
 - [S] v1.3 동기화(2026-10-30): 스케일 없는 입력의 (1)–(3)에 [S] §3 픽셀 단위 밴드패스 `bandpass_px`가 들어간다. 띠 갈래도 [S] 전처리를 물려받으므로 그대로 적용한다. 띠의 px 기준(1·2·3 px)은 바꾸지 않는다. UB11은 M2-6b 구현 때 `bandpass_px` 적용 상태로 다시 잰다
 - **v1.1 (M2-6b 구현 대조, 2026-10-30)**: §8-2 `branch` 인자와 내부 추가 인자 확인, §3-3 다중 사건·창 끝 플래그 규칙, §3-5·§6-4 스케일 없는 입력의 픽셀 기준을 우세 주기 $P_\text{px}$에 묶음(코드 수정 필요), §5-2 `velocity_estimate_from` 규칙, §6-2 상태 집합, §6-4 잡음 구간 길이, §9-1 UB2 측정식·UB14 깊이 0.1 m, §9-2 BR 영점 경로·실측값, §9-4 AIHub 플래그 해석
 - **v1.2 (band v1.1 반영 대조, 2026-10-30)**: AIHub $P_\text{px}\approx4$ px는 레이다 반송파로 판정. v1.1 $P_\text{px}$ 기준은 유지하고 §9-4 해석을 정정(v1.1 기대가 틀림). §3-5 문턱 근거를 §11 미결로 옮김, UB11 주기 단언 기준, [S] v1.7 주기 범위 2.2–128 px 동기화
@@ -93,7 +94,7 @@ $$r(x)=\begin{cases}\sqrt{d_c^2+\big((x-x_0)\sin\theta\big)^2}-R, & \theta>0\ (\
 $$d_\text{top}=\frac{v\,\tau_\text{ref}}{2},\qquad \tau_\text{ref}=t_{b,\text{ref}}-t_z,\qquad d_c=d_\text{top}+R\ (R\text{ 기지일 때})$$
 
 - **지면결합**: [S] §4-2 `ground_direct_peak` 영점이면 [DP] 표 D와 같은 편향(−1.9~−3.9 cm, 얕음)이 그대로 남는다. 의사 띠 실측은 −1.74 ~ −4.04 cm다(§10 표 A1).
-- **공기결합**: [S] §4-2를 그대로 따른다(`air_surface_late`, 4TU는 [FX] 결론대로 대부분 `air_single_event`). 띠 상단은 수직 입사이므로 굴절이 없다. 곡률 피팅 금지 조항([S] §7 순서 2)은 띠와 상관없다. 띠에는 곡률 피팅이 없기 때문이다. 의사 띠에서 h 0.1 m는 +1.81~+3.71 cm, M20(h 0.3 m)은 −1.24 cm였다. [S] R6·R7과 같은 부호·크기다.
+- **공기결합**: [S] §4-2를 그대로 따른다(v2.1: 사건 2개 이상은 §4-2-1 높이 일치·높이 모르면 첫 사건 `air_first_event`, 4TU는 [FX] 결론대로 대부분 `air_single_event`). 띠 상단은 수직 입사이므로 굴절이 없다. 곡률 피팅 금지 조항([S] §7 순서 2)은 띠와 상관없다. 띠에는 곡률 피팅이 없기 때문이다. 의사 띠에서 h 0.1 m는 +1.81~+3.71 cm, M20(h 0.3 m)은 −1.24 cm였다. [S] R6·R7과 같은 부호·크기다.
 - **경사**: 기울어진 띠의 영 오프셋 시각은 $d_\text{top}(x)\cos\alpha$를 준다. 경사율 10 %에서 $\cos\alpha=0.995$이고 깊이 1 m당 −0.5 cm다(표 B4). **보정하지 않는다.** 경사율 20 %를 넘으면 `steep_band` 플래그를 붙인다(−1.9 cm/m).
 
 ### 1-3. 편향 요인과 처리
@@ -362,7 +363,7 @@ $$q=q_\text{cov}\cdot q_\text{res}\cdot q_\text{snr},\quad q_\text{cov}=\min\!\B
 | 데이터셋 | 스케일 | 영점 | v | 출력 | 비고 |
 |---|---|---|---|---|---|
 | gprMax 합성(2D) | 있음 | [S] §4-2 | json εr = `meta_fixed`(`synthetic_truth`) | m | 평행 관 없음 → 의사 띠(§9-2) |
-| 4TU | 있음 | `air_single_event`(대부분) / `air_surface_late` | `meta_fixed`만 | m + `alt_depths` 두 메타 영점 | 평행 관 정답 거의 없음(§9-5) |
+| 4TU | 있음 | `air_single_event`(대부분) / `air_first_event`([S] v2.1, 두 사건 50측선; v2.0까지 `air_surface_late`) | `meta_fixed`만 | m + `alt_depths` 두 메타 영점 | 평행 관 정답 거의 없음(§9-5) |
 | 광저우 IDS | 있음 | `ground_direct_peak` | 이웃 쌍곡선 → 존 중앙값 → 없음 | m 또는 `no_velocity` | 메타 εr 없음 |
 | 광저우 MALA | 있음 | `meta_sample0` | 같음 | 같음 | `amplitude_processed` |
 | GPR-SD | 있음(dt 가설 A/B) | `meta_sample0` | 이웃 쌍곡선 → 도로 3측선 중앙값 | m(`zero_unverified`) | 띠가 상류 처리로 지워졌을 수 있음 |
@@ -546,7 +547,7 @@ def estimate_band_depths(radargram: Radargram, band_boxes: Sequence[GridBox],
 | UB11 | 스케일 없음(`dt_ns=None`) | `status=="no_scale"`, m·ns 필드 전부 None, `ref_sample` 오차 ≤ 1 px. v1.2: `period_px`는 [S] §3 범위(2.2–128 px) 안이고 $1/(f_c\Delta t)$=50 px의 ±20 %(40–60 px) 안이어야 한다(실측 57.14 = 800/14; FFT 빈 간격이 800 샘플에서 약 ±6 %/빈이고, Ricker 스펙트럼이 넓은 데다 직접파·띠가 간섭하므로 한 빈 단위 일치는 요구하지 않는다). 문턱이 $P$에 비례한다는 단언이 이 시험의 핵심이다 |
 | UB12 | v 출처: (a) 지면 + 적격 쌍곡선 풀 → `neighbor_hyperbola` (b) `air_gap="air"` + 풀 → `meta_fixed`(풀 무시) (c) 지면, 풀·메타 없음 → `no_velocity`, `t0_ns` 채움 (d) `dataset_default_eps=None`이면 순서 5에서 깊이 없음 | 규칙 이름 일치 |
 | UB13 | UB1 시간축 1.18배 + 이웃 쌍곡선 v도 1/1.18배 (GPR-SD A/B) | 깊이 변화 ≤ 1 mm |
-| UB14 | 영점 탐색 창 안의 얕은 띠(v1.1: **d 0.1 m**, 공기결합 모의 500 MHz·h 0.3 m, 띠가 측선 60 %). 0.15 m에서 바꾼 이유: 창 끝이 $t_\text{dir}+2h_\text{max}/c+0.5/f_c\approx3.33+3.34+1.0=7.7$ ns인데, 0.15 m 띠는 $5.03+2\cdot0.15/0.0999=8.0$ ns로 창 밖이라 시험이 성립하지 않는다. 0.1 m면 7.0 ns로 창 안이다 | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록 |
+| UB14 | 영점 탐색 창 안의 얕은 띠(v1.1: **d 0.1 m**, 공기결합 모의 500 MHz·h 0.3 m, 띠가 측선 60 %). 0.15 m에서 바꾼 이유: 창 끝이 $t_\text{dir}+2h_\text{max}/c+0.5/f_c\approx3.33+3.34+1.0=7.7$ ns인데, 0.15 m 띠는 $5.03+2\cdot0.15/0.0999=8.0$ ns로 창 밖이라 시험이 성립하지 않는다. 0.1 m면 7.0 ns로 창 안이다 | `exclude_traces` 사용 시 영점이 지표 반사로 남음. 시각 기준은 [S] §11-1 Z7 창($0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns, 현재 +0.120; [S] v1.2에서 ±0.1 ns를 대체, 직접파 간섭 편향). 미사용 시와 비교 기록. **([S] v2.1)** 생성기가 `antenna_height_m` 0.3을 채우므로 마스크가 **없어도** 영점은 높이와 맞는 지표 반사(사건 3개 중 가운데, Z7 창)다 — "마스크 없으면 띠가 영점" 단언은 "마스크 유무와 무관하게 Z7 창"으로 바꾼다. 기록 단언으로 `antenna_height_m=None` 변형을 더한다: 마스크 없이 `air_first_event`, 영점 = 첫 사건(직접파 위치, $t_\text{src}+s/c$ ±0.1 ns), 플래그 `air_multi_event` |
 | UB15 | `pick_mode` 불일치 | `ValueError` |
 | UB16 (v1.4) | 평탄 띠(트레이스 40–180, 진폭 1). 박스 A = 40–160, B = 120–180(x 겹침 41 트레이스), 둘 다 같은 τ의 `_box` | 결과 1개, `member_indices == (0, 1)`, `trace_range == (40, 180)`, 깊이 ±2 cm. 현재 코드도 통과(회귀 보호) |
 | UB17 (v1.4) | 경사율 5 % 띠(UB3 식, 중심 트레이스 100, 트레이스 30–170). A = `_box(40, 160, τ[40], τ[160])`가 B = `_box(60, 100, τ[60], τ[100])`를 포함 | 결과 1개, `member_indices == (0, 1)`, `model == "sloped"`, $|g-0.05|\le0.005$. **v1.4 구현 전 코드에서는 결과 2개로 실패해야 한다**(2026-10-31 확인됨. 끝 비교: A 오른쪽 끝 ≈ 158과 B 왼쪽 끝 ≈ 62의 차 ≈ 96 × 0.02 × 1.0 ns/m ≈ 1.9 ns > 허용 1.25 ns). 고치기 전 실패를 기록 |

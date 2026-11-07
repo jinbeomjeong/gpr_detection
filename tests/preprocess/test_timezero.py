@@ -181,7 +181,12 @@ def test_z6_surface_reflection_alone_keeps_its_geometric_time() -> None:
 
 
 def test_z7_excluding_band_traces_keeps_the_surface_reflection() -> None:
-    """UB14: a shallow band inside the zero window is taken as surface reflection."""
+    """UB14: a shallow band inside the zero window must not become the zero.
+
+    spec_depth v2.1: with the antenna height known (0.3 m from the generator)
+    the height-matched surface reflection is the zero with or without the mask.
+    Without the height and the mask the first event (direct wave) is the zero.
+    """
     spec = _air_spec()
     band_traces = np.arange(int(0.6 * spec.n_traces))
     band_amplitude = np.zeros(spec.n_traces)
@@ -192,10 +197,17 @@ def test_z7_excluding_band_traces_keeps_the_surface_reflection() -> None:
 
     without_mask = _zero_of(radargram)
     with_mask = _zero_of(radargram, exclude_traces=band_traces)
+    unknown_height = _zero_of(make_radargram(spec, antenna_height_m=None))
 
-    assert without_mask.t_zero_ns == pytest.approx(T_SRC_NS + band_tau_ns, abs=0.15)
+    assert len(without_mask.events_ns) == 3
+    assert without_mask.zero_rule == "air_surface_late"
+    late_by_ns = without_mask.t_zero_ns - _surface_geometric_ns(spec)
+    assert 0.0 < late_by_ns <= SURFACE_LATE_MAX_NS
     _assert_surface_zero_z7(with_mask, spec)
     assert with_mask.excluded_traces == len(band_traces)
+    assert unknown_height.zero_rule == "air_first_event"
+    direct_ns = T_SRC_NS + spec.offset_m / SPEED_OF_LIGHT_M_PER_NS
+    assert unknown_height.t_zero_ns == pytest.approx(direct_ns, abs=0.1)
 
 
 def test_excluding_every_trace_is_ignored_and_flagged() -> None:

@@ -1,9 +1,12 @@
-# 명세 v2.0 — 쌍곡선 피팅 기반 관로 깊이 추정 (전처리 · 영점 · 피팅 · 속도 규칙 · 회귀 시험)
+# 명세 v2.1.2 — 쌍곡선 피팅 기반 관로 깊이 추정 (전처리 · 영점 · 피팅 · 속도 규칙 · 회귀 시험)
 
 - 작성: gpr-processing-expert, 2026-10-29 (spec 모드)
 - 받는 쪽: python-expert (구현), cv-detection-expert (박스 → 시료 좌표 계약만)
 - 파일 이름: 코드·시험 49곳(문서까지 세면 더 많다)이 `spec_depth_v1.md`를 가리키므로 이름은 그대로 두고 판 표기만 올린다(v2.0).
-- 상태: **v2.0**(2026-11-07, M2-9 문서 v2 — 4TU 규약 통합본). **문서만 정리했고 동작·상수·시험 기대값은 v1.9.2와 같다**(코드 변경 없음). 정리한 것:
+- 상태: **v2.1.2**(2026-11-07, v2.1.1 후속 권고 반영 — 문서만, 깊이·규칙·상수 불변). python-expert가 §15-4 후속 권고 1–3을 마쳤다: (1) 커밋 대상 `docs/processing/depth_synthetic_v1*`가 v2.1 출력(R14 포함, 130 검사, R14 +8.602 cm)으로 갱신됐고 HEAD 대비 수치 차 0, (2) 시험 Z11(d)(JC)·Z11(e)(JE)이 더해져 판정자 독립 돌연변이 6개 모두 검출(§11-1), (3) `air_surface_not_found` 편향 노트 정정(§4-2-1 구현 대조)과 합성 회귀 md "R1-R14". pytest 기본 776 + synthetic 24 = 800 통과·2 xfail(구현 보고). JC 판별 구간 방향 정정(§11-1).
+- 이전 상태(v2.1.1, 2026-11-07, v2.1 구현 판정 반영 — **구현됨·판정 합격**, 문서만·동작 불변). python-expert 구현(`radargram.py` `antenna_height_m`, `synthetic.py` `include_height`, `timezero.py` 높이 일치 규칙, `eval_depth_synthetic.py` R14)이 §4-2-1·§15와 맞음을 코드 대조로 확인했다. 판정자 실측(gpr-processing-expert): 영점 시험 76개 통과(Z8–Z13·기존 Z1·Z7·UB14 포함), gprMax 회귀를 판정자가 다시 돌려 R1–R13 129/129 + R14(+8.60 cm) — HEAD `depth_synthetic_v1*.csv` 대비 모델 행·R1–R13 검사 행 차 0(§11-2 v2.1.1), 4TU 후보 재생성 받아들임 조건 (a)·(b) 성립(709측선 모든 열·3,364행 바이트 동일, 50측선 영점 = 시제품 첫 사건), 판정자 독립 돌연변이 6개 중 4개 검출·2개 생존(비차단, §11-1 v2.1.1). 명세와 다르게 구현한 6가지는 모두 받아들였다(§15 판정 표). 기대값이 바뀐 기존 시험은 명세 목록 2개에 UB14의 영점 쪽 짝 1개(`test_z7_excluding_band_traces_keeps_the_surface_reflection`)가 더해져 3개다(§11-1). 4TU 쪽 결과(정답 깊이 미사용)는 `spec_eval_4tu_v1.md` v1.8.1 §9-7이다.
+- 이전 상태(v2.1, 2026-11-07, M2-9 두 사건 영점 규칙 개선 — 구현 전 명세). 공기결합에서 사건이 2개 이상일 때의 영점 규칙을 바꾼다(§4-2-1). 늦은 쪽을 고르던 규칙을 버리고, 안테나 높이 $h$를 알면 간격이 $h$와 맞는 사건을, 모르면 첫 사건(합쳐진 띠)을 영점으로 쓴다. `Radargram`에 선택 필드 `antenna_height_m`를 더하고(§1-1), 새 규칙 이름 `air_first_event`와 플래그 `air_multi_event`·`air_surface_not_found`를 둔다(§2·§4-2). 근거는 물리(지표 반사 = 지면에서 온 첫 사건, 직접 결합–지표 반사 간격 = 장비 높이)와 해석·gprMax 합성뿐이고, 4TU 정답 깊이는 보지 않았다. 4TU에서는 두 사건 50측선의 영점이 첫 사건으로 바뀌고(단일 사건 709측선은 그대로), 그 측선의 꼭짓점 후보를 다시 만든다(`spec_eval_4tu_v1.md` v1.8 §9-7). 구현 위임은 §15다. 시제품 근거: `analysis/processing/m29e2_two_event_zero.py` → `docs/processing/m29e2_two_event_zero_{analytic,gprmax,fourtu}.{csv,json}`.
+- 이전 상태(v2.0, 2026-11-07, M2-9 문서 v2 — 4TU 규약 통합본). **문서만 정리했고 동작·상수·시험 기대값은 v1.9.2와 같다**(코드 변경 없음). 정리한 것:
   - 4TU 영점 사실(단일 띠, 메타 t0 = 띠의 ± 엽, $h\lesssim0.1$ m)을 §4-4에 모았다.
   - 4TU의 실측 다수 규칙이 `air_single_event`임을 §1-1·§4-2·§4-4에 적었다. 규칙 선택은 지금처럼 사건 수로 자동이다.
   - "직접파 영점 → +8.6 cm"는 사건이 둘로 갈린 경우(M20형)로만 한정했다(§4-3 5, §12 표 1 결론).
@@ -37,6 +40,9 @@
 | 2026-11-07 | v1.9.1 (v1.9 구현 판정, 문서만 — 동작 불변) | 판정 **합격**. 구현(`picks.py`·`config.py`·`scripts/eval_depth_4tu.py`)이 v1.9 본문과 맞음을 코드로 확인했다(하강 적용 조건·이웃 범위·시간 구간·내부 극대·하강 전 진폭 하한·엄격 감소, 중앙값 기준·창은 직전 픽 기준·정지 사유 순서·추적 안 함 = None).<br>- §13-4: `stop_left`·`stop_right` 형을 구현대로 `TrackStop \| None`(StrEnum, 값 문자열은 v1.9 표와 같음)으로, 상수 `APEX_DESCENDED`, 함수 `reverse_tolerance_ns`·`descend_apex`, `_TrackLimits.reverse_ref_n`, `_track_one_side` 반환 `(picks, TrackStop)`을 적음.<br>- §5-7 1항 5: 하강 시간 이동 상한 문구를 고침("hint_traces×b 0.9 ns" → 단조 이동 최대 2·hint_traces 걸음, 4TU 1.8 ns; 실측 최대 0.38 ns·5 트레이스, G001).<br>- §5-3: 지속 상승 사건 검출 문턱(중앙값 기준에서 걸음당 $\tau_\text{rev}/2$ = 0.103 ns, v1.8 0.100 ns와 사실상 같음)을 근거에 더함. T2는 단일 걸음 지터 허용만 넓혔다.<br>- §11-3: 시험 함수 대응표, "수정 전 strict xfail"을 v1.8 재생 대조로 구현한 점, 불변 조건 구현 실측.<br>- §14: T1 시간 구간 행 해소(위로 올라간 것 0건, 근거 `analysis/processing/m29c_track_descent_check.py`), X 교차·완만한 상승 사건 한계 행 추가, T2 대가 행에 구현 수치.<br>- 4TU 값으로 바꾼 상수는 없다 |
 | 2026-11-07 | v1.9.2 (시험 보강·상호 참조, 동작 불변) | - §11-3: v1.9.1 판정에서 "직접 시험이 없는 경계"로 남긴 셋(하강 진폭 하한 = 하강 전 값, 추적 진폭 정지 기준 = 하강 뒤 값, 하강 창은 기록 경계로만 자름)과 TK8 대칭($j_h-3$)을 시험 TK11–TK14로 명세. 구현은 `spec_eval_4tu_v1.md` v1.5 §9-4 항목 11(python-expert)이고 코드는 바꾸지 않는다. → 2026-11-07 구현·통과(시험 8개, 코드 변경 없음, §11-3 대응표).<br>- §5-3·§14: E(곡률 unknown 제외) "후속" 문구를 `spec_eval_4tu_v1.md` v1.5 참조로 정리(4TU 평가 주 결과 = B+D+E, 보조 `bd`·`noqc`). 이 문서의 깊이 경로는 바뀌지 않는다 |
 | 2026-11-07 | **v2.0 (M2-9 문서 v2, 통합본 — 동작·상수·시험 기대값 불변)** | 사용자 결정(2026-11-07, `docs/CHECKLIST.md` M2-9 "문서 v2 결정"): P3·P4·P5는 상태만 적고 재평가 뒤로, CLAUDE.md 깊이 규약은 유지하고 4TU 단일 띠 사실만 덧붙임, [EV]는 이번에 정리하지 않음.<br>- §0 7항 신설(4TU 영점 사실 요약), §1-1 4TU 행(dt 분포·현장 11 뮤트·실측 규칙), §4-2 `air_single_event` 행에 4TU 해석, §4-3 2·5항 정리, **§4-4 신설**(4TU 영점 사실·규약·미구현 항목), §7 곡률 금지·QC 예외·P4 상태, §9 P5 상태, §12 표 1 결론과 표 4 아래 옛 예상(h ≈ 0.29 m) 교체, §14 행 갱신.<br>- 코드와 대조한 사실(바꾸지 않음): 규칙 선택은 사건 수로 자동(`timezero.py` `_air_zero`), 단일 사건 메타 t0 라벨은 `merged`뿐(`band_lobe_*` 없음), `bias_notes`의 단일 사건 상한은 $h_\text{sep}/\sqrt{\varepsilon_r}$(εr 9에서 0.075 m) 그대로, $\sigma_z$ `air_single_event` 0.25 ns 그대로.<br>- [FX] 제안 P1–P8 처리 상태 표는 [FX] §8.<br>- (EM 판정 반영, 같은 날, 문서만) [DP] §7-2 E1–E5와 사용자 결정(2026-11-07, `docs/CHECKLIST.md` M2-9 줄: 두 사건 측선 영점 규칙은 재평가 전에 개선 — 개선 E "플래그만"을 대체, 띠 편향 상한은 실측 11–13 cm를 문서에만 기록하고 코드 `bias_notes` 7.5 cm 유지)을 §0 7항·§4-2 두 공기결합 행과 분리 한계 문단·§4-3 5항·§4-4(F4·F7, 규약 1·3·4·5)·§7·§12·§14에 반영. "7.5 cm는 보수값" 서술을 고침 |
+| 2026-11-07 | **v2.1 (M2-9 두 사건 영점 규칙 개선 — 구현 전 명세)** | 사용자 결정(2026-11-07, `docs/CHECKLIST.md` M2-9 줄: 두 사건 측선 영점 규칙을 재평가 전에 개선, 명세는 물리·합성 근거, 4TU 정답 미사용).<br>- §4-2-1 신설: 공기결합 사건 2개 이상이면 (1) `antenna_height_m`가 있고 $\Delta_h\ge0.75/f_c$이면 간격이 $\Delta_h$와 $0.5/f_c$ 안에서 맞는 사건 = 지표 반사(`air_surface_late`, 이름 유지·뜻 변경), (2)·(3) 그 밖은 첫 사건(`air_first_event`, `merged`, 플래그 `air_multi_event`, 맞는 사건이 없으면 `air_surface_not_found`). 새 상수 `HEIGHT_MATCH_PERIODS` 0.5(근거 §4-2-1), $\sigma_z$ 0.25 ns.<br>- §1-1 `Radargram.antenna_height_m`(선택, 합성 로더 = json `air_gap_m`, 4TU = None), §2·§13-1 플래그·`h_est_m` 뜻, §4-1 항목 4·5, §4-2 표, §4-3 라벨 표, §4-4 F1·F7 보충(정답 미사용 50측선 분류)·규약 1·5, §7 2a(4TU에서 안 돎), §8, §9 $\sigma_z$, §11-1 Z8–Z13과 기대값이 바뀌는 기존 시험 2개(Z1(b) 규칙 이름, [B] UB14), §11-2 R14·v2.1 주석, §13-3, §14 행 4개, §15 구현 위임.<br>- 시제품(`analysis/processing/m29e2_two_event_zero.py`, 프로젝트 코드 불변, 함수 바꿔 끼우기): 해석 합성 사건 2개 이상 16경우 — 제안(높이 앎) 16/16 깊이 2 cm 안, 현행 6/16, 늘 첫 사건 8/16, 가장 센 사건 5/16. gprMax R1–R13 — 제안 **129/129, 20모델 영점·깊이 차 0**, 늘 첫 사건·가장 센 사건 123/129(M20 +8.60 cm). 4TU 두 사건 50측선(정답 활동 11) — 정답 활동 11측선은 모두 첫 사건이 가장 세고 같은 활동 단일 띠와 0.7 ns 안에서 맞음, 깊이 변화 +0.086 ~ +0.167 m(진단, 재평가 아님).<br>- **4TU 값으로 정한 상수는 없다.** 4TU에서는 단계 1이 돌지 않는다(높이 없음) |
+| 2026-11-07 | v2.1.1 (v2.1 구현 판정, 문서만 — 동작·상수 불변) | 판정 **합격**. 사용자 결정(2026-11-07, `docs/CHECKLIST.md` M2-9 줄): 높이 일치 규칙 채택, 옛 규칙(늦은 사건) 민감도 줄 없음, 첫 사건이 약한 정답 없는 28측선(§4-4 F7 보충 ③)은 한계 기록만.<br>- 상태 줄, §4-2-1 "구현 대조" 문단(스케일 없는 다중 사건 → `air_first_event`, `air_surface_not_found`에도 붙는 편향 노트 문구), §10 스케일 없는 공기결합 다중 사건 행, §11-1 기대값이 바뀐 기존 시험에 UB14 영점 쪽 짝 추가·판정자 독립 돌연변이 표, §11-2 R14 실측 +8.602 cm와 md 제목 "R1-R13 판정" 유지, §13-1 `h_est_offset_unknown` 뜻(`ZeroEvents` 첫–마지막 진단값의 표시, `air_first_event`에도 남음), §14 행 갱신, §15 상태·명세와 다른 점 (1)–(6) 판정 표.<br>- 근거: python-expert 구현 보고(pytest 794 통과·2 xfail, R1–R13 HEAD 대비 차 0, 돌연변이 M1–M17·J1–J5 22/22)와 판정자 재실행(영점 시험 76개, gprMax 회귀 scratchpad 재실행, 4TU 후보 csv HEAD 대조 — 정답 깊이 미사용) |
+| 2026-11-07 | v2.1.2 (v2.1.1 후속 권고 반영, 문서만 — 깊이·규칙·상수 불변) | python-expert 구현(미커밋): `timezero.py` `_air_multi_event_zero` 노트 문구, `eval_depth_synthetic.py` md "R1-R14", 시험 Z11(d)·Z11(e), 커밋 대상 합성 회귀 출력 갱신.<br>- §11-1: JC 행의 보강 후보 문구 방향 정정(판별 구간은 $[\Delta_h(s)-\tau_h,\ \Delta_h(0)-\tau_h)$, "$\Delta_h(s)+\tau_h$ 바로 안"이 아님), JC·JE "생존" → "검출(Z11(d)·Z11(e))", v2.1 시험 표에 Z11(d)·Z11(e) 행, JC는 실제 자료($s$ 0.1 m)에서 통합 경로로 판별할 수 없다는 설계 사실.<br>- §4-2-1 구현 대조·§15-4 (4): `air_surface_not_found` 노트 정정 반영, 스케일 없음 + 높이 있음(JE 경로)의 노트가 여전히 "(antenna height unknown)"인 점은 기록만(해당 데이터셋 없음).<br>- §11-2 v2.1.1 줄·§15-4 (5)·후속 권고 1·3: 커밋 출력이 v2.1(R14, 130 검사), md 제목·명세 줄 "R1-R14".<br>- 근거: python-expert 구현 보고(pytest 기본 776 + synthetic 24 = 800 통과·2 xfail), 판정자 확인은 `git diff`·`depth_synthetic_v1_checks.csv` 131줄(머리 + 130)·R14 행 +8.602 cm 대조뿐(재실행 없음) |
 
 ---
 
@@ -48,7 +54,7 @@
 4. 영점과 꼭짓점은 **같은 위상 기준**으로 잡는다. 기본값은 둘 다 Hilbert 포락선 피크다. first break 영점과 피크 꼭짓점을 섞으면 εr 9에서 +8 cm(지면결합)~+17 cm(공기결합)가 어긋난다(§12 표 1).
 5. 반경 $R$은 피팅 미지수로 넣지 않는다. 0 또는 알려진 관경/2로 고정한다(Giannakis 2022 [PA 10]).
 6. 공기결합 자료(4TU)에서는 직선 광선 쌍곡선의 곡률로 v를 구하지 않는다([DP] §0-5, §12 표 3). 예외는 깊이에 쓰지 않는 꼭짓점 후보 QC뿐이다(§7 순서 2, [EV] §3-5).
-7. (v2.0) **4TU 영점은 대부분 단일 띠다.** [FX] 4개 활동 41/41 창, 전체 759측선 중 709측선이 `air_single_event`다([EV] §3-3, 현재 코드 경로(가우스 dewow)로 센 값; 나머지 50측선 `air_surface_late` 가운데 33측선이 현장 9). 띠는 직접 결합과 지표 반사가 작은 공기층($h\lesssim0.1$ m — 곡률 근거뿐이고 메타 εr 9 전제, [DP] §7-2 E1 한정 1·2)에서 합쳐진 사건으로 해석하고, 영점은 띠 포락선 피크다. 두 사건 50측선의 늦은 사건은 큰 $h$의 지표 반사가 아니라 지표 아래 사건으로 판정됐고([DP] §7-2 E5), 그 측선들의 영점 규칙은 재평가 전에 개선한다(§4-4 규약 5). 메타 `t0_sample_est`·`t0_sample_act_median`은 직접파·지표 반사가 아니라 같은 띠의 ± 엽이다. 세부와 미구현 항목은 §4-4.
+7. (v2.0) **4TU 영점은 대부분 단일 띠다.** [FX] 4개 활동 41/41 창, 전체 759측선 중 709측선이 `air_single_event`다([EV] §3-3, 현재 코드 경로(가우스 dewow)로 센 값; 나머지 50측선 `air_surface_late` 가운데 33측선이 현장 9). 띠는 직접 결합과 지표 반사가 작은 공기층($h\lesssim0.1$ m — 곡률 근거뿐이고 메타 εr 9 전제, [DP] §7-2 E1 한정 1·2)에서 합쳐진 사건으로 해석하고, 영점은 띠 포락선 피크다. 두 사건 50측선의 늦은 사건은 큰 $h$의 지표 반사가 아니라 지표 아래 사건으로 판정됐고([DP] §7-2 E5), (v2.1) 그 측선들의 영점은 첫 사건(합쳐진 띠)이다 — 4TU는 안테나 높이를 모르므로 §4-2-1의 `air_first_event`가 된다(§4-4 규약 5). 메타 `t0_sample_est`·`t0_sample_act_median`은 직접파·지표 반사가 아니라 같은 띠의 ± 엽이다. 세부와 미구현 항목은 §4-4.
 
 ### 기호
 
@@ -86,6 +92,7 @@
 | `eps_r_meta_source` | str | – | 아니오 | 예: `"4tu_metadata_csv"`, `"synthetic_truth"`, `"assumed"` |
 | `air_gap` | `Literal["air","ground","unknown"]` | – | 예 | 4TU = `"air"`, 광저우 IDS·합성 h=0 = `"ground"` |
 | `antenna_offset_m` | float \| None | m | 아니오 | $s$. 4TU는 미확인 → None |
+| `antenna_height_m` | float \| None | m | 아니오 | (v2.1) 공기결합 안테나 거치 높이 $h$(장비 메타, 지표에서 안테나 바닥까지의 공칭값). `air_gap="air"`일 때만 영점 규칙(§4-2-1)에 쓴다. None이면 모름. 값이 있으면 유한한 양수여야 한다(`ValueError`). 4TU는 메타에 없어 None이다 |
 | `t0_candidates_ns` | `dict[str, float]` | ns | 아니오 | 메타가 준 영점(4TU `t0_sample_est`·`t0_sample_act_median`은 **샘플 번호 × dt_ns로 ns로 바꿔** 넣는다. 광저우 `t0_sample_used` 동일) |
 | `amplitude_processed` | bool | – | 예 | GPR-SD(MATGPR 처리)·광저우 MALA = True |
 | `pipe_radius_m` | float \| None | m | 아니오 | 알려진 관경/2. 모르면 None |
@@ -95,8 +102,8 @@
 
 | 데이터셋 | dt_ns | dx_m | f_c | air_gap | eps_r_meta | 비고 |
 |---|---|---|---|---|---|---|
-| gprMax 합성 (`io/synthetic.py` `load_synthetic`, v1.5) | json `dt_ns` | json `dx_m`. `Radargram`에서는 $x=i\,\Delta x$(0부터)이고 json 축은 $0.4+0.02i$(`metadata["trace_x_m_first"]`, §11-2 x축 규약) | json `center_freq_hz` | `air_gap_m>0`이면 air, 아니면 ground | json `eps_r`, `eps_r_meta_source="synthetic_truth"`(`include_eps=False`면 None·`""`) | `antenna_offset_m` = json(0.10 m), `pipe_radius_m` = json(`include_radius=False`면 None), `amplitude_processed=False`. **`t0_candidates_ns`는 비운다**(정답 영점·꼭짓점·깊이는 `load_synthetic_truth`로만). `metadata`는 `model_id`, `trace_x_m_first`, `time_of_sample0_ns`(보고용; 20개 모두 0.0이고 로더는 시간축에 반영하지 않으므로 0이어야 한다). 로더는 정답용 필수 필드가 빠진 json도 거부한다(`load_synthetic_truth`와 같은 검사) |
-| 4TU | json `dt_ns`. 759측선 분포(v2.0): 0.098 ns 582 / **0.097 ns 92(현장 01 전부, 같은 약 50 ns 창)** / 0.195 ns 83(현장 11 전부와 09.1·09.2) / 0.117 ns 2(09.4 Path1·09.6 Path4). 근거 `docs/datasets/cards/fourtu.md`, `analysis/data/fourtu_dt_count.py`(gpr-dataset-curator). 로더가 json 값을 그대로 쓰므로 0.097/0.098 구분은 동작에 영향이 없다 | 0.02 | 500 MHz | air | `eps_r_used` (`4tu_metadata_csv`) | int16 [512, N]. 09.5 Path8·Path13은 헤더 εr 2.03 비정상 → `eps_r_used` 사용. (v2.0) 실측 영점 규칙은 709/759측선이 `air_single_event`(§4-4). 현장 11은 앞 약 48 샘플이 0인 뮤트 자료다([FX] §1, §4-4 P6) |
+| gprMax 합성 (`io/synthetic.py` `load_synthetic`, v1.5) | json `dt_ns` | json `dx_m`. `Radargram`에서는 $x=i\,\Delta x$(0부터)이고 json 축은 $0.4+0.02i$(`metadata["trace_x_m_first"]`, §11-2 x축 규약) | json `center_freq_hz` | `air_gap_m>0`이면 air, 아니면 ground | json `eps_r`, `eps_r_meta_source="synthetic_truth"`(`include_eps=False`면 None·`""`) | `antenna_offset_m` = json(0.10 m), (v2.1) `antenna_height_m` = json `air_gap_m`(> 0일 때; 0이면 None. `include_height=False`면 None — 높이를 모르는 경로 시험용), `pipe_radius_m` = json(`include_radius=False`면 None), `amplitude_processed=False`. **`t0_candidates_ns`는 비운다**(정답 영점·꼭짓점·깊이는 `load_synthetic_truth`로만). `metadata`는 `model_id`, `trace_x_m_first`, `time_of_sample0_ns`(보고용; 20개 모두 0.0이고 로더는 시간축에 반영하지 않으므로 0이어야 한다). 로더는 정답용 필수 필드가 빠진 json도 거부한다(`load_synthetic_truth`와 같은 검사) |
+| 4TU | json `dt_ns`. 759측선 분포(v2.0): 0.098 ns 582 / **0.097 ns 92(현장 01 전부, 같은 약 50 ns 창)** / 0.195 ns 83(현장 11 전부와 09.1·09.2) / 0.117 ns 2(09.4 Path1·09.6 Path4). 근거 `docs/datasets/cards/fourtu.md`, `analysis/data/fourtu_dt_count.py`(gpr-dataset-curator). 로더가 json 값을 그대로 쓰므로 0.097/0.098 구분은 동작에 영향이 없다 | 0.02 | 500 MHz | air | `eps_r_used` (`4tu_metadata_csv`) | int16 [512, N]. (v2.1) `antenna_height_m` = None(InfraRadar 거치 높이가 메타에 없음). 09.5 Path8·Path13은 헤더 εr 2.03 비정상 → `eps_r_used` 사용. (v2.0) 실측 영점 규칙은 709/759측선이 `air_single_event`(§4-4). (v2.1) 나머지 50측선은 `air_first_event`(높이 모름, §4-2-1)가 된다. 현장 11은 앞 약 48 샘플이 0인 뮤트 자료다([FX] §1, §4-4 P6) |
 | 광저우 IDS | **시간창 ÷ 샘플 수** (헤더 `data_y_cell` 금지) | `trace_dx_m` | `antenna_MHz` | ground | None | `t0_sample_used` 기준이 섞임(직접파 시작 vs 정점) |
 | 광저우 MALA | 동일 | 동일 | None | ground | None | 처리된 자료, t0=0, `amplitude_processed=True` |
 | GPR-SD | **가설 A 0.3022 / B 0.2553 둘 다 실행** | 0.03 | None | ground | None | float32 [321, N], 지표 에코 제거·gain 적용됨 |
@@ -127,9 +134,9 @@
 | `v_rule` | str | – | §7 규칙 이름 |
 | `radius_used_m` | float | m | 0 또는 기지값 |
 | `n_picks`, `inlier_frac`, `rms_ns` | int, float, float | –, –, ns | |
-| `h_est_m` | float \| None | m | 공기결합에서 두 사건 간격으로 추정 |
+| `h_est_m` | float \| None | m | 공기결합에서 첫 사건–**선택된 지표 반사 사건** 간격으로 추정(v2.1: 마지막 사건이 아님). `air_surface_late`일 때만 채운다 |
 | `alt_depths` | `dict[str, AltDepth]` | m | 메타 영점별 깊이와 사건 라벨(§4-3, 4TU 필수) |
-| `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10), `apex_at_box_top`·`apex_hint_unmatched`(v1.8, §5-7), `apex_descended`(v1.9, §5-7 1항 T1) 등 |
+| `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10), `apex_at_box_top`·`apex_hint_unmatched`(v1.8, §5-7), `apex_descended`(v1.9, §5-7 1항 T1), `air_multi_event`·`air_surface_not_found`(v2.1, §4-2-1) 등 |
 
 `AltDepth = {t_zero_ns, label: "direct_wave"|"surface_reflection"|"merged"|"unclassified", depth_top_m}` (`merged`는 v1.1, §4-3).
 
@@ -191,18 +198,19 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
    - 일치 피크가 없는 창이 있으면 `zero_window_missing`, 창 사건 수가 전역 사건 수와 다른 창이 있으면 `zero_window_event_count_mismatch`(공기결합에서 단일/두 사건 판정이 측선 안에서 바뀐다는 뜻), `window_std_ns`가 0.2 ns를 넘으면 `zero_window_drift` 플래그를 붙인다(0.2 ns는 [B] §3-1 항목 3의 트레이스별 영점 전환 기준과 같다. 전환 자체는 v2).
 2. 탐색 창: 기록 앞 25 % 안에서 $e$가 최대인 시각을 $t_\text{max}$로 둔다. 창은 $[0,\ t_\text{max}+2h_\text{max}/c+0.5/f_c]$이고 $h_\text{max}=0.5$ m(가정)다. $f_c$가 없으면 $1/f_c=2$ ns(500 MHz 가정). `dt_ns=None`이면 ns 창을 만들 수 없으므로 기록 앞 25 % 전체(픽셀)를 창으로 쓰고 결과에 `zero_px_unverified`를 붙인다. AIHub crop은 지표가 영상에 없을 수도 있으므로 이 픽셀 영점은 상대 위치 참고값일 뿐이다.
 3. `scipy.signal.find_peaks(e, height=0.1·max, prominence=0.05·max)`를 쓰고 포물선 보간으로 시각을 잡는다.
-4. 첫 피크가 $t_\text{dir}$이다. 창 안 마지막 피크를 `late`로 둔다. 피크가 2개 이상이면 $t_\text{surf}=t_\text{late}$다.
-5. 공기층 추정(두 사건일 때): $t_\text{surf}-t_\text{dir}=\dfrac{2\sqrt{h^2+s^2/4}-s}{c}$를 $h$로 푼다. $s$를 모르면 $s=0$으로 두고 $h=c\,(t_\text{surf}-t_\text{dir})/2$로 계산한 뒤 `flags`에 남긴다.
+4. 첫 피크가 $t_\text{dir}$이다. 창 안 마지막 피크를 `late`로 둔다. 피크가 2개 이상일 때 어느 사건이 영점인지는 §4-2-1이 정한다(v2.1). v2.0까지는 "$t_\text{surf}=t_\text{late}$"였으나, 마지막 피크를 지표 반사로 보는 이 가정은 4TU에서 틀렸다([DP] §7-2 E5).
+5. 공기층 추정(두 사건일 때): $t_\text{surf}-t_\text{dir}=\dfrac{2\sqrt{h^2+s^2/4}-s}{c}$를 $h$로 푼다. $s$를 모르면 $s=0$으로 두고 $h=c\,(t_\text{surf}-t_\text{dir})/2$로 계산한 뒤 `flags`에 남긴다. (v2.1) `ZeroEvents.h_est_m`은 지금처럼 첫–마지막 간격으로 계산하는 **진단값**이다. `ZeroResult.h_est_m`은 §4-2-1이 지표 반사를 고른 경우(`air_surface_late`)에만 첫 사건–고른 사건 간격으로 채운다.
 
 ### 4-2. 데이터셋별 규칙
 
 | `air_gap` | 조건 | `zero_rule` | $t_z$ | 라벨 | 편향·불확도 |
 |---|---|---|---|---|---|
-| air | 사건 2개 이상 | `air_surface_late` | $t_\text{surf}$ (늦은 쪽) | surface_reflection | **직접파 간섭 편향**(v1.2): $t_\text{surf}$가 단독 지표 반사 피크보다 (1)–(3) 뒤 0.12–0.29 ns 늦다(해석 Ricker h 0.3 m +0.12, gprMax M20 +0.29) → εr 9에서 깊이 0.6–1.5 cm **얕게**. 단독 지표 반사는 (1)–(3)으로 ≤0.003 ns만 움직이므로(영위상) 처리 자체의 편향이 아니고, 반대 극성 포락선이 서로 밀어내는 효과를 밴드패스가 약 2배로 키운 것이다(M20 필터 없음 +0.18 → 처리 후 +0.29, v1 상자형 +0.23). 크기·부호가 간격·진폭비·파형에 따라 −0.08 ~ +0.29 ns로 바뀌어 보정하지 않는다([`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv)). $\sigma_z=0.3$ ns. (v2.0 EM 판정 반영) "늦은 쪽 = 지표 반사"는 직접파·지표 반사가 실제로 갈린 합성(M20)에서 맞는 규칙이다. 4TU에서 이 규칙이 고른 50측선은 **현재 코드 동작**일 뿐이다. [DP] §7-2 E5 판정으로 그 늦은 사건은 지표 아래 사건이고, 깊이가 0.06–0.45 m 얕게 나온다. 이 측선들의 영점 규칙은 재평가 전에 개선한다(사용자 결정 2026-11-07, §4-4 규약 5) |
+| air | (v2.1) 사건 2개 이상, `antenna_height_m` 있음, $\Delta_h\ge0.75/f_c$, 간격이 $\Delta_h$와 맞는 사건 있음(§4-2-1 단계 1) | `air_surface_late` | 그 사건(v2.1: **마지막 사건이 아님**) | surface_reflection | (v2.1) 이름은 그대로 두되 뜻이 "장비 높이와 맞는 지표 반사"로 바뀌었다. 그 뒤 사건은 지표 아래 사건이다. **직접파 간섭 편향**(v1.2): $t_\text{surf}$가 단독 지표 반사 피크보다 (1)–(3) 뒤 0.12–0.29 ns 늦다(해석 Ricker h 0.3 m +0.12, gprMax M20 +0.29) → εr 9에서 깊이 0.6–1.5 cm **얕게**. 단독 지표 반사는 (1)–(3)으로 ≤0.003 ns만 움직이므로(영위상) 처리 자체의 편향이 아니고, 반대 극성 포락선이 서로 밀어내는 효과를 밴드패스가 약 2배로 키운 것이다(M20 필터 없음 +0.18 → 처리 후 +0.29, v1 상자형 +0.23). 크기·부호가 간격·진폭비·파형에 따라 −0.08 ~ +0.29 ns로 바뀌어 보정하지 않는다([`surface_zero_shift.csv`](surface_zero_shift.csv), [`surface_zero_shift_hsweep.csv`](surface_zero_shift_hsweep.csv)). $\sigma_z=0.3$ ns. (v2.0 EM 판정 반영) "늦은 쪽 = 지표 반사"는 직접파·지표 반사가 실제로 갈린 합성(M20)에서 맞는 규칙이다. 4TU에서 이 규칙이 고른 50측선은 **v2.0 코드 동작**일 뿐이다. [DP] §7-2 E5 판정으로 그 늦은 사건은 지표 아래 사건이고, 깊이가 0.06–0.45 m 얕게 나온다. 이 측선들의 영점 규칙은 재평가 전에 개선한다(사용자 결정 2026-11-07, §4-4 규약 5). → v2.1에서 개선: 높이를 모르는 4TU는 아래 `air_first_event` 행이 된다 |
+| air | (v2.1) 사건 2개 이상이고 위 행이 아님: `antenna_height_m` 없음, 또는 $\Delta_h<0.75/f_c$(직접 결합과 지표 반사가 합쳐질 높이), 또는 맞는 사건 없음 | `air_first_event` | 첫 사건 $t_1$ | merged | 첫 사건을 합쳐진 띠(직접 결합 + 지표 반사)로 보고 그 뒤 사건을 모두 지표 아래 사건으로 본다. 플래그 `air_multi_event`(맞는 사건이 없으면 `air_surface_not_found`도). $\sigma_z=0.25$ ns, 편향 노트는 `air_single_event`와 같은 수치 상한 + "첫 사건이 따로 떨어진 직접파라면(높이 모름) $h/\sqrt{\varepsilon_r}$만큼 깊음". 해석 합성 B+L 8경우 깊이 오차 +0.97 ~ +1.38 cm, 옛 규칙 −9.9 ~ −30.0 cm(§4-2-1 표). 4TU 두 사건 50측선이 이 행이다 |
 | air | 사건 1개 | `air_single_event` | 그 피크 | merged | 합성 M12·M13·M15·M18(h=0.1, 직접파 우세)에서는 합쳐진 피크가 직접파 위치에 놓여 **깊게** 나왔다(+1.8~+3.6 cm, §12 표 4). 편향은 $\approx h/\sqrt{\varepsilon_r}$(영점 오차 $\approx 2h/c$)이고, 단일 사건이면 $h\le h_\text{sep}=0.375\,c/f_c$이므로 상한 $h_\text{sep}/\sqrt{\varepsilon_r}$(500 MHz, εr 9 → 7.5 cm)을 **수치로** `bias_notes`에 넣는다(εr 메타 없으면 식만). 분리 한계 근거는 아래. (v2.0) **4TU의 실측 다수 규칙**(709/759측선)이다. EM 판정([DP] §7-2): 4TU에서 편향은 $h\lesssim0.1$ m 전제로 **−4 ~ +3 cm**(εr 9, s ≤ 0.1 m, 같은 극성이면 위쪽 +4 cm)이고 **부호는 미정**이다(E4; $h\to0$이면 지면결합처럼 얕게, 직접 결합이 우세하면 깊게). E1 전제(메타 εr 9)가 깨져 $h$가 커지면 상한은 10–17 cm다. 분리 한계 $0.375\,c/f_c$는 4TU 실측 파형에 그대로 옮길 수 없고, 실측 파형 기준 상한 $h_\text{sep}/\sqrt{\varepsilon_r}$은 **11–13 cm**(εr 9, E2a)다. 그러므로 코드 7.5 cm는 보수값이 **아니다**. 코드 `bias_notes`(7.5 cm)·$\sigma_z$는 사용자 결정(2026-11-07)으로 그대로 두고, 실측 기준 값은 문서에만 적는다(§4-4 규약 3) |
 | ground | 항상 | `ground_direct_peak` | $t_\text{dir}$ | direct_wave | 직접파 피크는 송신보다 0.53–1.03 ns 늦다(εr 4–16, s=0.1 m 합성) → **얕게** −1.9~−3.9 cm([DP] 표 D, M02 −3.3 cm) |
 | ground | 선택: `ground_zero_shift="synthetic_table"` | `ground_direct_shifted` | $t_\text{dir}-\Delta_\text{dw}(\varepsilon_r)$ | direct_wave | $\Delta_\text{dw}$: εr 4 → 0.53, 9 → 0.725, 16 → 0.96 ns(400 MHz; 500 MHz는 0.53/0.727/1.03). $\sqrt{\varepsilon_r}$에 선형 보간한다. **s = 0.1 m 2D 합성에서 얻은 값이라 기본값은 끈다**(장비 s가 다르면 값이 다름). 적용 범위(v1.1): $f_c$ 350–550 MHz(가까운 행), εr 4–16(바깥 외삽 금지), `antenna_offset_m`이 None이거나 $|s-0.1|\le0.02$ m. 하나라도 벗어나거나 $f_c$·`eps_r_meta`가 없으면 보정하지 않고 `ground_direct_peak` + `ground_zero_shift_unavailable` |
-| unknown | 스케일 있음·없음 | 지면결합 규칙과 같음 | $t_\text{dir}$ | direct_wave | `air_gap_unknown` 플래그. 사건이 2개 이상이면 `air_gap_unknown_multi_event`도 붙인다(공기결합이면 영점이 늦은 사건이어야 해서 깊이가 깊게 나올 수 있음). 현재 스케일 있는 데이터셋은 모두 air/ground가 정해져 있다(§1-1) |
+| unknown | 스케일 있음·없음 | 지면결합 규칙과 같음 | $t_\text{dir}$ | direct_wave | `air_gap_unknown` 플래그. 사건이 2개 이상이면 `air_gap_unknown_multi_event`도 붙인다(공기결합이면 높이 일치 사건(지표 반사)이 영점일 수 있어 깊이가 달라질 수 있음). 현재 스케일 있는 데이터셋은 모두 air/ground가 정해져 있다(§1-1) |
 | – | GPR-SD (`amplitude_processed`) | `meta_sample0` | 0 (가정) | meta | 지표 에코가 제거돼 사건 검출이 불가하다. 깊이에 `zero_unverified` 플래그를 붙인다 |
 | – | 광저우 MALA (`amplitude_processed`) | `meta_sample0` | 0 | meta | 처리본(t0=0). 위상 기준 미상. 규칙은 데이터셋 이름이 아니라 `amplitude_processed`로 고른다 |
 
@@ -211,6 +219,65 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 - 광저우 IDS의 `t0_sample_used`(직접파 시작 또는 정점)는 주 영점으로 쓰지 않는다. 직접 검출한 $t_\text{dir}$(포락선 피크)를 쓰고, `t0_sample_used`로 낸 깊이는 `alt_depths["t0_sample_used"]`에만 넣는다(최대 약 1 ns·5 cm 차이, readme_guangzhou).
 - first break(5 % 문턱)는 영점으로 쓰지 않는다. M02에서 +7.9 cm, M20에서 +16.9 cm가 나왔다(§12 표 1).
 
+#### 4-2-1. 공기결합에서 사건이 2개 이상일 때 — 안테나 높이 일치 규칙 (v2.1)
+
+**물리 원칙.**
+1. 공기결합 안테나에서 지표 반사는 **지면에서 온 첫 사건**이다. 그보다 이른 사건은 공기 경로(직접 결합)이고, 그보다 늦은 사건은 모두 지표 아래 사건이다.
+2. 직접 결합–지표 반사 간격은 안테나 거치 높이 $h$로 정해지는 **장비 상수** $\Delta_h$다. 고정 거치라면 측선마다, 측선 안에서도 거의 같다.
+3. 평균 트레이스에 사건이 둘이면 두 해석이 같은 모양이다. (D+S) 직접 결합 + 지표 반사(간격 $\Delta_h$)와 (B+L) 합쳐진 띠 + 지표 아래 사건(간격 $2z\sqrt{\varepsilon_r}/c$, $z$ = 그 사건의 지표 아래 깊이)이다. 한 측선의 사건 시각·간격·진폭만으로는 둘을 가를 수 없다. 아래 해석 합성 표에서 D+S h 0.3 m(간격 1.89 ns)와 B+L z 0.10 m(간격 2.27 ns)는 둘 다 "강한 첫 사건 + 약한 둘째 사건"이다. 진폭·극성은 2D 합성으로 판정하지 않는다(§11-2). 둘을 가르는 정보는 장비 높이 $h$뿐이다.
+
+**기호**
+
+| 기호 | 뜻 | 단위 | 출처 |
+|---|---|---|---|
+| $t_1<\dots<t_n$ | §4-1 사건 시각($n\ge2$) | ns | `ZeroEvents.events_ns` |
+| $g_j=t_j-t_1$ | 첫 사건과의 간격 | ns | – |
+| $h$ | 안테나 거치 높이 | m | `Radargram.antenna_height_m`(None = 모름) |
+| $s$ | Tx–Rx 간격 | m | `antenna_offset_m`(None이면 0) |
+| $\Delta_h=\dfrac{2\sqrt{h^2+s^2/4}-s}{c}$ | 높이 $h$에서 직접 결합–지표 반사 간격 | ns | §4-1 항목 5 식 |
+| $\Delta_\text{sep}=0.75/f_c$ | 반대 극성 두 사건 분리 한계(`SEPARATION_PERIODS`) | ns | §4-2 분리 한계 문단, $f_c$ 없으면 주기 2 ns |
+| $\tau_h=0.5/f_c$ | 높이 일치 허용폭(새 상수 `HEIGHT_MATCH_PERIODS = 0.5`) | ns | 아래 근거 |
+
+**규칙**(`air_gap="air"`, 사건 $n\ge2$; 사건 1개는 `air_single_event` 그대로)
+
+| 단계 | 조건 | 결과 |
+|---|---|---|
+| 1 | $h$ 있음, $\Delta_h\ge\Delta_\text{sep}$ | $j^*=\arg\min_{j\ge2}|g_j-\Delta_h|$(같으면 이른 쪽). $|g_{j^*}-\Delta_h|\le\tau_h$이면 `air_surface_late`, $t_z=t_{j^*}$, 라벨 `surface_reflection`, $h_\text{est}$ = $g_{j^*}$로 §4-1 항목 5. $t_{j^*}$ 뒤 사건은 지표 아래 사건이다. 맞는 사건이 없으면 단계 3 + `air_surface_not_found` |
+| 2 | $h$ 있음, $\Delta_h<\Delta_\text{sep}$ | 지표 반사는 첫 사건에 합쳐져 있다. 단계 3 |
+| 3 | 그 밖($h$ 없음 포함) | `air_first_event`, $t_z=t_1$, 라벨 `merged`, $h_\text{est}$ None, 플래그 `air_multi_event` |
+
+- $\tau_h$ 근거(0.5/f_c, 500 MHz 1.0 ns): (i) 간격 측정 편향(두 사건의 간섭이 서로 밀어냄, §4-2). 해석 D+S h 0.3/0.4/0.5 m에서 $g-\Delta_h$ = +0.19/+0.10/+0.08 ns, gprMax M20(처리 후 간격 2.019 ns, $\Delta_h$ 1.695 ns)은 **+0.32 ns**였다(`m29e2_two_event_zero_analytic.csv`, `m29e2_two_event_zero_gprmax.json` `M20_events`). (ii) $s$를 모를 때 $s=0$ 식은 $\Delta_h$를 크게 낸다: $s$ 0.1 m, $h$ 0.3 m에서 +0.31 ns((i)과 같은 방향이라 오히려 일부 상쇄된다). (iii) 거치 높이 공차 ±0.05 m는 ±0.33 ns다(**가정**). 셋을 모두 더한 최악 0.96 ns가 1.0 ns 안이다(여유는 작다 — $s$와 높이를 함께 모르는 자료에서는 경계 사례가 생길 수 있고, 그때는 `air_surface_not_found`로 첫 사건에 떨어진다). 반 주기는 메타 영점 라벨 허용폭(§4-3)과 같은 크기다. 4TU 값으로 정하지 않았다(4TU는 $h$가 없어 단계 1이 돌지 않는다).
+- $h$를 모를 때 첫 사건을 고르는 이유(4TU 값이 아니라 물리·오차 비대칭).
+  - 단일 사건 규칙과 같은 진술이다. 영점은 지면에서 온 첫 사건이고, 따로 떨어진 직접 결합을 가정하지 않는다.
+  - 오차 한계가 있다. 참이 D+S인데 첫 사건을 고르면 깊이가 $\approx h/\sqrt{\varepsilon_r}$ 깊게 나온다(해석 h 0.3–0.5 m에서 +8.8 ~ +15.2 cm). 이 값은 탐색 상한 $h_\text{max}$ 0.5 m에서 $h_\text{max}/\sqrt{\varepsilon_r}$(εr 9에서 0.17 m) 안이다. 참이 B+L인데 늦은 사건을 고르면 오차는 그 층의 깊이 $z$ 자체다(해석 −9.9 ~ −30.0 cm, 4TU 사전 조사 0.06–0.45 m 얕음, `m29e_zero_survey.json` `dd_single_m`). $z$는 탐색 창이 허락하는 데까지 커진다.
+  - 두 사건이 둘로 갈렸다는 것 자체가 큰 높이를 뜻하지 않는다. 단일 띠 측선과 같은 장비 거치라면 $h$는 측선마다 바뀌지 않는다([DP] §7-2 E5).
+- 높이를 모르는 공기결합 자료에서 직접 결합과 지표 반사가 실제로 둘로 갈려 있다면(큰 거치 높이), 이 규칙은 직접파를 영점으로 써서 깊게 낸다. 그런 자료는 로더가 `antenna_height_m`을 채워야 한다(장비 사양·현장 기록). 플래그 `air_multi_event`가 그 측선을 표시한다.
+- **구현 대조(v2.1.1, v2.1.2 갱신, `timezero.py` `_height_matched_event`·`_air_multi_event_zero`)**:
+  - 스케일 없음(`dt_ns=None`): 사건 간격을 ns로 잴 수 없으므로 높이가 있어도 단계 1을 하지 않고 단계 3(`air_first_event` + `air_multi_event`, `air_surface_not_found` 없음)이 된다. 결과에는 지금처럼 `zero_px_unverified`도 붙는다(§4-1 항목 2). v2.0까지는 같은 입력이 `air_surface_late`(마지막 사건)였다. 표의 "그 밖" 행과 같은 판단이고, 스케일 없는 입력(AIHub·모로코)은 §1-1 규약상 `air_gap="unknown"`이라 실제로 이 경로를 타는 데이터셋은 없다(§10 행). (v2.1.2) 직접 시험 Z11(e)(`test_z11e_no_scale_multi_event_takes_the_first_event`, 높이 0.3·None)가 생겨 판정자 돌연변이 JE를 잡는다(§11-1).
+  - `air_first_event`의 둘째 편향 노트는 §15-1 (6)의 문자열 "… deep by h/sqrt(eps_r) if the first event is a separated direct wave"에 경우 문구가 붙는다. v2.1.1까지는 늘 "(antenna height unknown)"이어서 높이를 아는데 맞는 사건이 없는 경우(`air_surface_not_found`)에도 "높이 모름"이라 적혔다. **v2.1.2에서 정정**: `air_surface_not_found`이면 "(antenna height known, no event gap matched)", 그 밖은 "(antenna height unknown)"이다(Z11(a)·Z8 시험이 두 문구를 단언). 깊이·규칙·플래그는 바뀌지 않았다.
+  - (v2.1.2, 기록만) 스케일 없음 + 높이 있음(JE 경로)은 단계 1을 하지 않으므로 `air_surface_not_found`가 없고, 노트는 여전히 "(antenna height unknown)"이다. 높이는 알고 간격을 ns로 못 잴 뿐이라 문구가 사실과 다르다. 이 경로를 타는 데이터셋이 없어(§10 행) 고치지 않는다. 고친다면 "(antenna height known, no time scale)" 같은 셋째 문구가 맞다.
+
+**기각한 대안**(근거: `analysis/processing/m29e2_two_event_zero.py`, 해석 합성 21경우 중 사건 2개 이상 16경우, 시드 0; gprMax 20모델)
+
+| 안 | 내용 | 결과 | 기각 이유 |
+|---|---|---|---|
+| 현행 | 마지막 사건 | 2 cm 안 6/16. B+L 0/8(−9.9 ~ −30.0 cm). D+S+L(지표 아래 층이 창 안에 함께 있는 경우)에서 층을 골라 −8.3·−10.7 cm | E5와 어긋난다(4TU 50측선 얕음) |
+| (a) | 늘 첫 사건 | 8/16. D+S 0/4·D+S+L 0/4(+8.8 ~ +15.2 cm). gprMax **123/129**: M20이 직접파 영점으로 +8.60 cm(R6), R2(h_est 없음)·R12·R13a-1·R13a-2·R13b(2a 경로가 돌지 않음) 실패 | 직접 결합이 갈린 자료를 깊게 낸다. 높이를 아는 합성 회귀를 깬다 |
+| (e) | 가장 센 사건 | 5/16. B+L 4/8: 반대 극성 직접 결합과 지표 반사가 합쳐진 띠는 서로 상쇄돼, 강한 지표 아래 사건(진폭 −1.6)보다 약할 수 있다(−10 ~ −30 cm). D+S에서는 직접파가 세면 직접파를 고른다. gprMax **123/129**(M20에서 직접파가 가장 셈, 실패 6개는 (a)와 같음) | 진폭 가정이 물리적으로 성립하지 않는다 |
+| (b) | 같은 활동 단일 띠 측선의 띠 시각과 맞는 사건 | 깊이 모듈 입력 계약 밖(측선 한 개 → 활동 전체). 4TU 09.2·09.5처럼 측선 대부분이 두 사건인 활동에는 기준이 없다. 활동 안 단일 띠 시각도 08.3 3.49–4.54 ns, 09.7 4.05–7.50 ns로 흩어진다 | 계약 변경 비용이 크고 일반 데이터셋에 쓸 수 없다. 진단(§4-4 F7)에만 쓴다 |
+| (c) | 탐색 창 축소($h_\text{max}$ 낮춤) | 4TU 정답 활동 두 사건 간격 2.0–3.7 ns를 창 밖으로 빼려면 $h_\text{max}\lesssim0.15$ m가 필요하다. 그러면 M20(h 0.3 m)이 깨진다. 데이터셋별 $h_\text{max}$는 장비 높이 정보와 같은 것이고 더 거칠다 | 4TU 값 맞춤이 된다. 높이 규칙(단계 1–3)에 포함된다 |
+| 제안 | 단계 1–3 | 높이 앎 16/16, 높이 모름은 (a)와 같음(B+L 8/8). gprMax **129/129**, 현행 대비 영점·깊이 차 0(20모델 모두; M20은 단계 1에서 둘째 사건이 $\Delta_h$와 맞음, 차 +0.32 ns) | – |
+
+**해석 합성 요약**(500 MHz, Δt 0.05 ns, εr 9, s 0.1 m, 직접파 +3·지표 반사 −2, 관은 영점 창 밖, SNR 20 dB 시드 0; `m29e2_two_event_zero_analytic.csv`). 깊이 오차 = $-v\,(t_z-t_\text{geom})/2$, $t_\text{geom}$ = 기하 지표 반사 시각.
+
+| 경우 | 사건 수 | 현행 | (a) 첫 사건 | (e) 가장 셈 | 제안(높이 앎) | 제안(높이 모름) |
+|---|---|---|---|---|---|---|
+| D+S h 0.30/0.40/0.50 m | 2 | −0.6/−0.3/−0.3 cm | +8.8/+11.9/+15.2 | +8.8/+11.9/+15.2 | −0.6/−0.3/−0.3 | (a)와 같음 |
+| D+S h 0.30, 지표 반사가 더 셈(직접 +1) | 2 | −0.3 | +9.2 | −0.3 | −0.3 | +9.2 |
+| D+S h 0.25 m | **1**(간격 1.37 ns < 1.5 ns, 합쳐짐) | +6.7(모든 안 같음, `air_single_event` 범위) | | | | |
+| B+L h 0.05, 층 z 0.10/0.15/0.20/0.30 m, 진폭 −0.6/−1.6/+0.6(사건 2개인 8경우) | 2 | −9.9 ~ −30.0 | +0.97 ~ +1.38 | 4/8(−1.6이면 층) | +0.97 ~ +1.38(단계 2) | +0.97 ~ +1.38 |
+| D+S+L h 0.3 + 층(사건 3개 2경우: z 0.08 +1.6, z 0.11 −1.6) | 3 | −8.3/−10.7 | +8.8/+8.9 | +8.8/+8.9 | −0.3/−0.8(가운데 사건) | +8.8/+8.9 |
+
 ### 4-3. 4TU 메타 영점 두 개의 분류와 보고 (CLAUDE.md 분할 규칙)
 
 1. 메타 영점을 ns로 바꾼다. $t^\text{est}=\texttt{t0\_sample\_est}\cdot\Delta t$, $t^\text{act}=\texttt{t0\_sample\_act\_median}\cdot\Delta t$.
@@ -218,46 +285,58 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 
    | 규칙 | 라벨 후보 | 허용폭 |
    |---|---|---|
-   | `air_surface_late` (사건 2개 이상) | $t_\text{dir}$ → `direct_wave`, $t_\text{surf}$ → `surface_reflection` (가까운 쪽) | 0.5 ns (0.098 ns 자료에서 약 5 샘플) |
+   | `air_surface_late` (사건 2개 이상) | $t_\text{dir}$ → `direct_wave`, $t_\text{surf}$ → `surface_reflection` (가까운 쪽). (v2.1) $t_\text{surf}$는 §4-2-1 단계 1이 고른 사건이다(마지막 사건이 아님) | 0.5 ns (0.098 ns 자료에서 약 5 샘플) |
+   | (v2.1) `air_first_event` (사건 2개 이상) | 첫 사건 → `merged`만. 그 뒤 사건(지표 아래)은 라벨 후보가 아니다 → 가까워도 `unclassified` | `air_single_event`와 같음 |
    | `air_single_event` | 합쳐진 피크 → `merged` | $\max(0.5\ \text{ns},\ 0.5/f_c)$ (500 MHz 1.0 ns). 메타 t0는 $\arg\max|\bar a|$라서 같은 띠의 ± 엽에 놓이고, 엽은 포락선 피크에서 약 ±0.4/f_c(Ricker 0.78 ns @500 MHz, [FX] 실측 −0.7 ~ +0.6 ns) 떨어져 있다 |
    | `ground_*` | $t_\text{dir}$ → `direct_wave`만 | 0.5 ns. 지면결합에는 따로 떨어진 지표 반사가 없으므로 창 안 늦은 피크를 `surface_reflection`으로 부르지 않는다 |
    | `meta_sample0`, 실패 | 사건이 있으면 위 지면결합 규칙, 없으면 전부 `unclassified` | 0.5 ns |
 
    단일 사건의 엽 라벨(`band_lobe_pos`/`band_lobe_neg`/`band_envelope`, 허용폭 0.3 ns, 위상차 기록)은 [FX] P2 제안이다. (v2.0) **미구현으로 둔다.** 현재 코드는 단일 사건이면 `merged` 하나로 라벨링하고(허용폭 $\max(0.5, 0.5/f_c)$ ns), 엽 부호는 구분하지 않는다. 위상차는 `alt_depths`의 `t_zero_ns`와 주 결과 `t_zero_ns`의 차로 계산할 수 있다. 엽 라벨 세분은 깊이를 바꾸지 않으므로 재평가 뒤 필요할 때 정한다(§4-4).
-3. 깊이를 세 개 낸다. 주 결과는 §4-2 규칙의 $t_z$ 결과이고(사건 2개면 $t_\text{surf}$, 단일 사건이면 합쳐진 피크 — 4TU는 709/759측선이 단일 사건, §4-4), `alt_depths["t0_sample_est"]`와 `alt_depths["t0_sample_act_median"]`에는 각 메타 영점 결과와 라벨을 넣는다.
+3. 깊이를 세 개 낸다. 주 결과는 §4-2 규칙의 $t_z$ 결과이고(단일 사건이면 합쳐진 피크 — 4TU는 709/759측선이 단일 사건, §4-4; 사건 2개 이상이면 §4-2-1 — 4TU는 높이를 몰라 첫 사건), `alt_depths["t0_sample_est"]`와 `alt_depths["t0_sample_act_median"]`에는 각 메타 영점 결과와 라벨을 넣는다.
 4. 메타 t0는 "처음 100 샘플 중 평균 진폭 최대"로 잡은 값이다. 포락선 피크와 위상 기준이 다르다. 합성에서 $\arg\max|\bar a|$는 M02에서 포락선보다 0.27 ns 이르게 잡혔고, M20에서는 **직접파**를 잡아 +9.6 cm가 나왔다(§12 표 1). 그래서 메타 영점은 비교용으로만 쓴다.
-5. **사건이 둘로 분리된 경우에만**, 라벨이 `direct_wave`인 메타 영점으로 낸 깊이는 체계적으로 깊다. 크기는 εr 9, h 0.3 m에서 약 +8.6 cm다([DP] §3, 합성 M20). `merged` 라벨이면 메타 영점과 주 영점의 차는 엽 위상차뿐이다(±0.4/f_c, 깊이 약 ±3.5 cm, [FX]). (v2.0) 4TU에서는 [FX] 24측선 48값 가운데 `direct_wave` 라벨이 0개였다. 그러므로 "+8.6 cm"를 4TU 메타 t0 일반의 편향으로 쓰지 않는다. 4TU에서 두 사건으로 갈린 측선(50측선, 현장 9가 33)에서만 해당할 수 있다. 다만 [DP] §7-2 E5에 따라 그 측선들의 두 사건은 직접파·지표 반사 쌍이 아니라 띠와 지표 아래 사건이므로, 이 크기를 그대로 적용하지 않는다(§4-4 규약 5).
+5. **사건이 둘로 분리된 경우에만**, 라벨이 `direct_wave`인 메타 영점으로 낸 깊이는 체계적으로 깊다. 크기는 εr 9, h 0.3 m에서 약 +8.6 cm다([DP] §3, 합성 M20). `merged` 라벨이면 메타 영점과 주 영점의 차는 엽 위상차뿐이다(±0.4/f_c, 깊이 약 ±3.5 cm, [FX]). (v2.0) 4TU에서는 [FX] 24측선 48값 가운데 `direct_wave` 라벨이 0개였다. 그러므로 "+8.6 cm"를 4TU 메타 t0 일반의 편향으로 쓰지 않는다. 4TU에서 두 사건으로 갈린 측선(50측선, 현장 9가 33)에서만 해당할 수 있다. 다만 [DP] §7-2 E5에 따라 그 측선들의 두 사건은 직접파·지표 반사 쌍이 아니라 띠와 지표 아래 사건이므로, 이 크기를 그대로 적용하지 않는다(§4-4 규약 5). (v2.1) 그 측선들은 `air_first_event`가 되어 메타 영점 라벨이 `merged`/`unclassified`뿐이므로 `direct_wave` 라벨이 나오지 않는다.
 
-### 4-4. 4TU 영점 사실과 규약 (v2.0 통합, 동작 불변)
+### 4-4. 4TU 영점 사실과 규약 (v2.0 통합, v2.1 규약 1·5 개정)
 
-이 절은 [FX]·[EV]에서 확인한 4TU 사실(M2-7, M2-8 준비, M2-9)과 그 물리 판정([DP] §7-2 `[EM 판정 E1–E5]`, electromagnetic-simulation-expert, 2026-11-07)을 모은다. **규칙과 코드는 §4-1–§4-3 그대로다**(두 사건 측선 영점 규칙은 재평가 전 개선 예정, 규약 5). 4TU 정답 깊이는 이 절의 어느 판단에도 쓰지 않았다.
+이 절은 [FX]·[EV]에서 확인한 4TU 사실(M2-7, M2-8 준비, M2-9)과 그 물리 판정([DP] §7-2 `[EM 판정 E1–E5]`, electromagnetic-simulation-expert, 2026-11-07)을 모은다. **규칙은 §4-1–§4-3이다**(v2.1: 두 사건 측선은 §4-2-1 `air_first_event`, 규약 5). 4TU 정답 깊이는 이 절의 어느 판단에도 쓰지 않았다.
 
 **사실**
 
 | # | 사실 | 수치 | 근거 |
 |---|---|---|---|
-| F1 | 영점 사건은 단일 띠다 | [FX] 4개 활동 41/41 창이 포락선 피크 1개. 전체 759측선 중 `air_single_event` 709, `air_surface_late` 50(현장 9 33, 현장 7 5, 나머지 1–3) | [FX] §1 표 1, [EV] §3-3 |
+| F1 | 영점 사건은 단일 띠다 | [FX] 4개 활동 41/41 창이 포락선 피크 1개. 전체 759측선 중 `air_single_event` 709, `air_surface_late` 50(현장 9 33, 현장 7 5, 나머지 1–3; v2.0 코드 기준. v2.1에서는 이 50측선이 `air_first_event`) | [FX] §1 표 1, [EV] §3-3 |
 | F2 | 메타 `t0_sample_est`·`t0_sample_act_median`은 같은 띠의 ± 엽이다(직접파·지표 반사가 아님) | [FX] 24측선 48값 모두 띠 엽, `direct_wave` 0. 두 엽 간격 1.2–1.4 ns, 트레이스별 상관 0.87–0.95. 전체 색인 \|est−act\| 1.75 ns 초과 7/759 | [FX] §2 표 4 |
 | F3 | 띠의 주 엽은 지표를 따라 움직인다 | 이동 정합 시험에서 주 엽 최적 $k=1$(지표 추종) 48/48 | [FX] §1 표 3 |
 | F4 | 공기층은 작다($h\lesssim0.1$ m — **곡률 근거뿐, 메타 εr 9 전제**) | 01.1 꼭짓점 10개 직선 광선 εr 중앙값 8.69(메타 9.0). 굴절 모델에 $h$ 0.1 m를 넣으면 εr이 격자 상한 40. RMS 최소가 $h\le0.1$ m인 꼭짓점 22/27. 메타 εr 재현 $h$ 중앙값 0.006 m. **EM 판정 E1 조건부**: 한정 1 — 광선 근사가 납작함을 과장하므로 gprMax 픽 기준으로는 실제 εr이 12–17이면 $h\approx0.1$ m를 배제하지 못한다(메타 9.0은 헤더 기본값, F5). $h\ge0.3$ m는 배제. 한정 2 — $h$ 0과 0.05 m는 이 방법으로 가를 수 없다(0.006 m는 "0에 가깝다"로만 읽음). 단일 띠 자체는 $h\lesssim0.3$–0.5 m까지만 말한다(E2a) | [FX] §3 표 5, [DP] §7-2 E1·E2 |
 | F5 | 메타 εr이 헤더 기본값과 같은 활동이 있다 | 01.1·04.1·010.14 모두 `eps_r_used` = `eps_r_header` = 9.0 | [FX] §3 |
 | F6 | 현장 11은 앞 약 48 샘플이 0인 뮤트 자료다 | 011.14 샘플 0–47 = 0, 직접 결합 엽 없음 | [FX] §1 |
-| F7 | 두 사건 측선(50측선, 현장 9가 33)의 늦은 사건은 큰 $h$의 지표 반사가 아니라 **지표 아래 사건**이다(EM 판정 E5, 사건 정체는 판단 불가) | `air_surface_late` 50측선 중 $h_\text{est}>h_\text{max}$ 0.5 m가 21(현장 9 16). 정답 활동의 두 사건 11측선은 $h_\text{est}$ 0.30–0.56 m이고 **현장 3(2)·4(1)·6(2)·8(3)·10(3)**에 있다. **현장 9에는 정답 활동이 없다.** 이 11측선의 이른 사건(3.02–4.23 ns)은 같은 활동 단일 띠 측선의 띠 시각과 같고, 늦은 사건은 활동 측선 일부에만 있다. 현장 9는 같은 활동 안에서 간격이 1.4–11.2 ns($h_\text{est}$ 0.21–1.68 m)로 흩어진다. 현 `air_surface_late`는 이 측선들의 깊이를 0.06–0.45 m 얕게 낸다(`dd_single_m` 분위) | [EV] §7-1, `m29e_zero_survey.json`·`m29e_zero_survey_lines.csv`, [DP] §7-2 E5 |
+| F7 | 두 사건 측선(50측선, 현장 9가 33)의 늦은 사건은 큰 $h$의 지표 반사가 아니라 **지표 아래 사건**이다(EM 판정 E5, 사건 정체는 판단 불가) | `air_surface_late` 50측선 중 $h_\text{est}>h_\text{max}$ 0.5 m가 21(현장 9 16). 정답 활동의 두 사건 11측선은 $h_\text{est}$ 0.30–0.56 m이고 **현장 3(2)·4(1)·6(2)·8(3)·10(3)**에 있다. **현장 9에는 정답 활동이 없다.** 이 11측선의 이른 사건(3.02–4.23 ns)은 같은 활동 단일 띠 측선의 띠 시각과 같고, 늦은 사건은 활동 측선 일부에만 있다. 현장 9는 같은 활동 안에서 간격이 1.4–11.2 ns($h_\text{est}$ 0.21–1.68 m)로 흩어진다. 현 `air_surface_late`는 이 측선들의 깊이를 0.06–0.45 m 얕게 낸다(`dd_single_m` 분위). (v2.1 진단, 정답 깊이 미사용) 아래 표 | [EV] §7-1, `m29e_zero_survey.json`·`m29e_zero_survey_lines.csv`, [DP] §7-2 E5, `m29e2_two_event_zero_fourtu.csv`·`.json` |
+
+**F7 보충(v2.1, 정답 깊이 미사용 — 정답은 활동 소속만).** `m29e2_two_event_zero.py --part fourtu`로 두 사건 50측선과 같은 활동의 단일 띠 84측선을 다시 읽었다. "띠 기준"은 같은 활동 단일 띠 측선 사건 시각의 중앙값이고, 차가 0.7 ns(F2의 엽 위상차 −0.72 ~ +0.58 ns) 안이면 "띠와 맞음"으로 셌다. 이 기준은 **진단 전용**이며 규칙에 쓰지 않는다(§4-2-1 기각 안 (b)).
+
+| 묶음 | 측선 | 정답 활동 | 첫 사건 = 가장 셈 | 첫 사건이 띠와 맞음 | v2.1 영점 | 해석 |
+|---|---|---|---|---|---|---|
+| ① 띠 + 지표 아래 사건 | 15(03.4 P3·03.7 P5·04.3 P1·06.6 P8·P10·08.3 P1·P3·P4·010.5 P5·P6·010.7 P1, 07.4 P7·P8·P9·P11) | **11**(전부) | 15/15 | 15/15(차 −0.65 ~ +0.09 ns) | 첫 사건(띠) | E5 그대로. 깊이 변화 +0.086 ~ +0.167 m(정답 활동 중앙값 +0.109 m) |
+| ② 현장 9, 첫 사건이 가장 셈, 띠 기준과 안 맞음 | 7 | 0 | 7/7 | 0/6(기준 없음 1) | 첫 사건 | 현장 9는 단일 띠 시각 자체가 활동 안에서 흩어진다(09.7 4.05–7.50 ns) |
+| ③ 첫 사건이 약함 | 28(02.5 P12·07.1 P2, 현장 9 26) | 0 | 0/28 | 0/22(기준 없음 6) | 첫 사건 | 02.5 P12·07.1 P2는 사건 3개이고 첫 사건이 기록 시작 0.32 ns(3 샘플)의 약한 앞쪽 사건이다. 02.5 P12는 둘째 사건(1.41 ns)이 띠 기준(1.45 ns)과 맞으므로 v2.1은 띠보다 1.1 ns 이르게 잡는다(약 +5 cm 깊음). 07.1 P2는 어느 사건도 띠 기준(단일 띠 2.43–2.99 ns)과 맞지 않는다. 옛 규칙은 두 측선 모두 7.8·9.0 ns의 강한 지표 아래 사건을 골라 −0.38·−0.43 m였다. 현장 9 26측선 중 6측선(09.3 P2, 09.5 P4, 09.7 P3, 09.8 P2·P3·P4)은 가장 센(늦은) 사건이 띠 기준과 맞고(차 −0.15 ~ +0.45 ns), 첫 사건은 그보다 1.55–2.60 ns 이르다. 이 약한 앞 사건이 따로 떨어진 직접 결합이면([DP] §7-2 E3의 앞쪽 엽) v2.1은 그 측선을 +5.6 ~ +11.5 cm 깊게 낸다(εr 14.06). 이 묶음은 어느 규칙이 맞는지 정답 없이 가를 수 없다 |
+
+- 깊이 변화(v2.1 − v2.0, 메타 v): 50측선 +0.056 ~ +0.447 m(중앙값 +0.129), 정답 활동 11측선 +0.086 ~ +0.167 m. `dd_first_m` 열.
+- 진폭이 아닌 운동학 진단(11 트레이스 묶음별 사건 추적, ±0.5 ns 창): 늦은 사건이 묶음에서 잡히는 비율의 중앙값 0.40(첫 사건 0.81), 묶음 간 간격 표준편차 중앙값 0.48 ns. 고정 높이 지표 반사라면 측선 전체에 있고 간격이 거의 일정해야 하므로 E5와 같은 방향이다. 다만 단일 띠도 이 추적에서 잡히는 비율이 0.38–1.0이라 정량 판정에는 쓰지 않는다. 늦은 사건의 극성은 첫 사건과 같은 것 25/50, 다른 것 25/50이라 정체(층 경계·천부 물체·다중 반사)를 가르지 못한다(E5 "판단 불가" 그대로).
 
 **규약(현재 동작을 4TU 기준으로 읽은 것)**
 
-1. 4TU의 영점 규칙은 지금처럼 사건 수로 자동 선택한다(`timezero.py` `_air_zero`). 실측에서 기대되는 기본은 `air_single_event`이고, 영점은 **띠 포락선 피크**(라벨 `merged`)다. 두 사건이면 현재 코드는 `air_surface_late`(늦은 쪽)를 쓴다. 이것은 **현재 코드 동작**이고 4TU의 맞는 영점 규칙이 아니다. E5 판정(늦은 사건 = 지표 아래 사건, F7)에 따라 재평가 전에 영점 규칙을 개선한다(사용자 결정 2026-11-07, 규약 5). 데이터셋 이름으로 규칙을 강제하지 않는다.
+1. 4TU의 영점 규칙은 사건 수와 장비 높이로 자동 선택한다(`timezero.py` `_air_zero`). 실측에서 기대되는 기본은 `air_single_event`이고, 영점은 **띠 포락선 피크**(라벨 `merged`)다. (v2.1) 사건이 2개 이상이면 4TU는 `antenna_height_m`가 None이라 §4-2-1 단계 3 `air_first_event`(첫 사건 = 띠, 라벨 `merged`, 플래그 `air_multi_event`)가 된다. v2.0까지의 `air_surface_late`(늦은 쪽)는 E5 판정(F7)으로 버렸다(사용자 결정 2026-11-07, 규약 5). 데이터셋 이름으로 규칙을 강제하지 않는다 — 4TU에 높이 값을 넣지 않는 것은 메타에 그 값이 없기 때문이다.
 2. 메타 t0 두 값은 `alt_depths["t0_sample_est"]`·`alt_depths["t0_sample_act_median"]`으로 계속 낸다(CLAUDE.md 분할 규칙). 단일 사건이면 라벨은 `merged`이고, 주 결과와의 깊이 차는 엽 위상차뿐이다(−0.72 ~ +0.58 ns, v 0.1 m/ns에서 −3.6 ~ +2.9 cm, [FX] §2).
 3. 단일 사건 편향의 코드 `bias_notes` 상한($h_\text{sep}/\sqrt{\varepsilon_r}$, εr 9에서 7.5 cm)과 $\sigma_z$ 0.25 ns는 그대로 둔다(사용자 결정 2026-11-07). 다만 7.5 cm는 500 MHz Ricker 분리 한계에서 나온 값이고, 4TU 실측 파형 기준 상한은 **11–13 cm**(εr 9, [DP] §7-2 E2a)다. 그러므로 7.5 cm는 보수값이 **아니며**, 실측 기준 값은 문서에만 기록한다. 실제 편향 추정(E4, **해석**, 4TU 정답으로 확인하지 않음): F4가 맞다면 **−4 ~ +3 cm**(εr 9, s ≤ 0.1 m, 같은 극성이면 위쪽 +4 cm)이고 **부호는 미정**이다. $h\to0$이면 지면결합처럼 얕게(합성 h 0에서 −1.9 ~ −3.9 cm), 직접 결합이 우세하면 깊게 나온다. E1 전제(메타 εr 9)가 깨져 $h$가 0.3–0.5 m까지 가면 상한은 10–17 cm다.
 4. 곡률 v 금지는 그대로다(§7 순서 2). F4가 금지의 전제(큰 $h$)를 약하게 만들지만 F4 자체가 E1 조건부(메타 εr 9 전제)이고, 금지를 푸는 조건은 아래 P4다.
-5. 두 사건 측선(50측선)에는 현재 [EV] v1.7 `zero_h_implausible` 플래그($h_\text{est}>h_\text{max}$, 21측선)만 붙고, 깊이 경로는 `air_surface_late`(늦은 쪽) 그대로다. 이것은 **현재 코드 동작**이다. E5 판정(F7)으로 늦은 사건은 지표 아래 사건이고, 현 규칙은 이 측선들의 깊이를 0.06–0.45 m 얕게 낸다. 정답 활동의 두 사건 11측선은 현장 3·4·6·8·10에 있고, 현장 9에는 정답 활동이 없다. 사용자 결정(2026-11-07, `docs/CHECKLIST.md` M2-9 줄)으로 두 사건 측선의 영점 규칙을 **4TU 재평가 전에 개선한다**. 이 결정은 개선 E의 "플래그만" 결정을 대체한다. 새 규칙 명세는 다음 작업이고, 이 판(v2.0)은 코드·상수·시험 기대값을 바꾸지 않는다.
+5. (v2.1 개정) 두 사건 측선(50측선)의 영점은 **첫 사건**이다(§4-2-1 단계 3, `air_first_event`, 라벨 `merged`, 플래그 `air_multi_event`). 근거는 지표 반사가 지면에서 온 첫 사건이라는 물리와, 높이를 모르면 직접 결합–지표 반사 쌍을 가정할 근거가 없다는 점이다(4TU 정답 깊이 미사용). F7 보충 표의 ① 15측선(정답 활동 11측선 전부)은 첫 사건이 같은 활동의 단일 띠와 맞아 E5와 일치한다. ②·③ 35측선(정답 없음)은 맞는 규칙을 정답 없이 가를 수 없고, ③의 일부는 v2.1이 약한 앞 사건을 영점으로 잡아 깊게(+5–12 cm) 낼 수 있다 — 한계로 기록한다(§14). v2.0까지의 동작(`air_surface_late` 늦은 쪽 + [EV] v1.7 `zero_h_implausible` 플래그만)은 사용자 결정(2026-11-07, `docs/CHECKLIST.md` M2-9 줄: 재평가 전 개선, 개선 E "플래그만"을 대체)에 따라 바뀐다. 해당 측선의 꼭짓점 후보는 다시 만든다([EV] v1.8 §9-7).
 
 **미구현 항목과 재평가 뒤 계획**(사용자 결정 2026-11-07: 상태만 적고 4TU 재평가 1회 뒤 다시 정함. 재평가 전에는 구현하지 않는다)
 
 | [FX] 제안 | 내용 | 현재 상태 | 재평가 뒤 계획 |
 |---|---|---|---|
 | P3 | 이동 정합 QC: 트레이스별 띠 이동 $s_j$, $C_0$·$C_1$, $C_1>C_0$이면 `zero_tracks_surface`. $\mathrm{std}(s_j)>0.2$ ns면 꼭짓점 트레이스 영점을 $t_z+s_{j_a}\Delta t$로 옮기는 선택지 | **미구현.** 있는 것은 창별 영점 QC `zero_window_drift`(§4-1 1항, 창 std > 0.2 ns)뿐이다. [EV] D 규칙의 영점 띠 정합 이음 검출(`apex_on_trace_seam`)은 꼭짓점 후보 제외용이고 영점을 옮기지 않는다 | 재평가 진단에서 `zero_window_drift` 측선 수와 현장 11(띠 단차 0.5–1 ns, v 0.077에서 1.9–3.9 cm)의 bias를 보고 필요성을 정한다. 도입하면 합성 단차 시험을 먼저 만든다 |
-| P4 | `h_scan_qc`(h ∈ {0, 0.05, 0.1, 0.2, 0.3}, εr 격자), 직선 광선 곡률 εr을 `alt_depths["curvature_straight"]`·`meta_eps_suspect` 판단에 사용 | **미구현.** 곡률은 꼭짓점 후보 QC 예외로만 쓴다(§7 순서 2, [EV] §3-5). `refraction_qc`(2a)는 두 사건 측선에서만 돈다 | 재평가 뒤 활동을 늘려 F4($h\lesssim0.1$ m)가 재현되는지 보고 정한다. F4는 E1 조건부라(메타 εr 9 전제) 곡률만으로는 "εr 12–17이고 $h\approx0.1$ m"를 가르지 못한다. 곡률 금지를 푸는 것은 그 결과와 사용자 결정이 있어야 한다 |
+| P4 | `h_scan_qc`(h ∈ {0, 0.05, 0.1, 0.2, 0.3}, εr 격자), 직선 광선 곡률 εr을 `alt_depths["curvature_straight"]`·`meta_eps_suspect` 판단에 사용 | **미구현.** 곡률은 꼭짓점 후보 QC 예외로만 쓴다(§7 순서 2, [EV] §3-5). `refraction_qc`(2a)는 `air_surface_late` 측선에서만 돈다(v2.1: 4TU에서는 돌지 않음) | 재평가 뒤 활동을 늘려 F4($h\lesssim0.1$ m)가 재현되는지 보고 정한다. F4는 E1 조건부라(메타 εr 9 전제) 곡률만으로는 "εr 12–17이고 $h\approx0.1$ m"를 가르지 못한다. 곡률 금지를 푸는 것은 그 결과와 사용자 결정이 있어야 한다 |
 | P5 | `eps_r_used` = `eps_r_header`(장비 기본 7/9/11)이면 `eps_meta_equals_header_default` 플래그, $\sigma_\varepsilon/\varepsilon$ 0.15 → 0.25 | **미구현.** 모든 4TU 결과에 `meta_eps_unverified`, $\sigma_\varepsilon/\varepsilon=0.15$(§9) | 재평가 뒤 개선 F(메타 εr 잔여 bias, 현장 11·12·4)와 함께 정한다. 0.25는 **가정**이다 |
 | P6 | 현장 11은 직접 결합이 없으므로 띠를 지표 반사로 바로 라벨링 | **미구현**(라벨만의 문제). 영점은 어느 쪽이든 띠 포락선 피크라 깊이는 같다. 뮤트 구간과 DC 제거의 상호작용은 미측정(§14) | 재평가 진단에서 현장 11 뮤트 끝 사건 여부를 본다 |
 
@@ -457,7 +536,7 @@ $v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날�
 |---|---|---|---|---|
 | 1 | `dt_ns` 또는 `dx_m` 없음 | `none` | – | 깊이 금지. `status="no_scale"`, 꼭짓점 픽셀만 |
 | 2 | `air_gap="air"` (4TU, 합성 M12·M13·M15·M18·M20) | `meta_fixed` | $c/\sqrt{\varepsilon_{r,\text{meta}}}$ | **깊이용 직선 광선 곡률 피팅 금지**(QC 전용 예외는 `spec_eval_4tu_v1.md` §3-5: `air_gap="ground"` 우회 라벨로 부르고 결과는 깊이·속도 규칙에 들어가지 않음). 호출 시 `ValueError`. 점 수 검사보다 먼저 거부한다(자료에 따라 결과가 달라지지 않게, v1.3) |
-| 2a | 위 + 사건 2개(h 추정 가능) + 점 충분 | `refraction_qc` (부가) | 굴절 모델로 εr 격자 3–30, 간격 0.25 → 최소 RMS 주변을 `minimize_scalar`로 정밀화. $d$는 꼭짓점 시각에 묶는다 | QC 전용이다. 주 깊이는 `meta_fixed` 결과로 낸다. **v1.4 구간 판정**: QC를 $h_\text{est}$와 $h_\text{est}-\Delta h$($\Delta h=0.06$ m, **가정**: 간섭 편향 실측 +0.029 m 해석·+0.049 m M20에 여유를 둔 값)에서 두 번 돌려 $\varepsilon_\text{lo}=\min\{\varepsilon(h_\text{est}-\Delta h),\varepsilon(h_\text{est})\}$, $\varepsilon_\text{hi}=\max\{\cdot\}$를 낸다(v1.4 확인: 정렬해서 내므로 $h$에 대한 단조성을 가정하지 않는다). $\varepsilon_\text{meta}<0.7\,\varepsilon_\text{lo}$ 또는 $\varepsilon_\text{meta}>1.3\,\varepsilon_\text{hi}$일 때만 `meta_eps_suspect`를 붙인다(v1.3까지의 단일값 30 % 규칙을 대체). 이유: εr이 $h$에 매우 민감하다. 정확한 광선 픽에서 $h$ +1 cm마다 εr이 약 +8 % 오른다(점산란체 R 0, 참 h 0.3 m, εr 9: QC h 0.25/0.269/0.289/0.300/0.329/0.349 → εr 6.80/7.50/8.40/9.00/11.08/13.0). 영점 이동 −0.12 ns는 −0.1밖에 바꾸지 않는다. 그래서 $h_\text{est}$의 한쪽 간섭 편향이 단일값 판정을 거짓 의심으로 만든다. 4TU 메타 εr의 주된 오류 방향은 **과소**(공기결합 곡률값, §9)이고, 아래쪽 판정은 구간에서도 유지된다.<br>**판별 범위(v1.4 실측)**: U4 해석 합성(R 0.05인데 QC는 R 0으로 들어감)의 구간은 (6.85, 9.70)이다. 분해하면 정확한 광선 픽·R 일치에서 (7.50, 11.08), R 불일치(관경 모름 → 0)에서 (7.03, 10.04), 나머지 −0.2~−0.3은 검출 영점(+0.12 ns)·잡음 픽이다. 따라서 아래쪽 문턱은 $0.7\times6.85=4.8$이다. 공기결합 직선 광선 곡률로 얻은 메타값은 $v'/v$ 1.5–1.82(h 0.22–0.3 m, 2a가 도는 범위)에서 εr′ = 9/(v'/v)² = 2.7–4.0이므로 이 문턱으로 잡힌다. 관경을 모르면 구간이 약 10 % 아래로 밀리고(R 0.05 m, d 0.6 m), 큰 관에서는 더 밀린다 |
+| 2a | 위 + 영점 `air_surface_late`(v2.1: 장비 높이와 맞는 지표 반사, §4-2-1 단계 1) + 점 충분 | `refraction_qc` (부가) | 굴절 모델로 εr 격자 3–30, 간격 0.25 → 최소 RMS 주변을 `minimize_scalar`로 정밀화. $d$는 꼭짓점 시각에 묶는다 | QC 전용이다. 주 깊이는 `meta_fixed` 결과로 낸다. **v1.4 구간 판정**: QC를 $h_\text{est}$와 $h_\text{est}-\Delta h$($\Delta h=0.06$ m, **가정**: 간섭 편향 실측 +0.029 m 해석·+0.049 m M20에 여유를 둔 값)에서 두 번 돌려 $\varepsilon_\text{lo}=\min\{\varepsilon(h_\text{est}-\Delta h),\varepsilon(h_\text{est})\}$, $\varepsilon_\text{hi}=\max\{\cdot\}$를 낸다(v1.4 확인: 정렬해서 내므로 $h$에 대한 단조성을 가정하지 않는다). $\varepsilon_\text{meta}<0.7\,\varepsilon_\text{lo}$ 또는 $\varepsilon_\text{meta}>1.3\,\varepsilon_\text{hi}$일 때만 `meta_eps_suspect`를 붙인다(v1.3까지의 단일값 30 % 규칙을 대체). 이유: εr이 $h$에 매우 민감하다. 정확한 광선 픽에서 $h$ +1 cm마다 εr이 약 +8 % 오른다(점산란체 R 0, 참 h 0.3 m, εr 9: QC h 0.25/0.269/0.289/0.300/0.329/0.349 → εr 6.80/7.50/8.40/9.00/11.08/13.0). 영점 이동 −0.12 ns는 −0.1밖에 바꾸지 않는다. 그래서 $h_\text{est}$의 한쪽 간섭 편향이 단일값 판정을 거짓 의심으로 만든다. 4TU 메타 εr의 주된 오류 방향은 **과소**(공기결합 곡률값, §9)이고, 아래쪽 판정은 구간에서도 유지된다.<br>**판별 범위(v1.4 실측)**: U4 해석 합성(R 0.05인데 QC는 R 0으로 들어감)의 구간은 (6.85, 9.70)이다. 분해하면 정확한 광선 픽·R 일치에서 (7.50, 11.08), R 불일치(관경 모름 → 0)에서 (7.03, 10.04), 나머지 −0.2~−0.3은 검출 영점(+0.12 ns)·잡음 픽이다. 따라서 아래쪽 문턱은 $0.7\times6.85=4.8$이다. 공기결합 직선 광선 곡률로 얻은 메타값은 $v'/v$ 1.5–1.82(h 0.22–0.3 m, 2a가 도는 범위)에서 εr′ = 9/(v'/v)² = 2.7–4.0이므로 이 문턱으로 잡힌다. 관경을 모르면 구간이 약 10 % 아래로 밀리고(R 0.05 m, d 0.6 m), 큰 관에서는 더 밀린다 |
 | 3 | `air_gap="ground"`, 점 충분 | `curvature_R_fixed` | §6-3 결과 | $R$ = 기지 관경/2, 없으면 0 |
 | 3a | 위 + `eps_r_meta` 있음 | 둘 다 보고 | 주 결과는 곡률. `alt_depths["meta_fixed"]` | |
 | 4 | `air_gap="ground"`, 점 부족, `eps_r_meta` 있음 | `meta_fixed` | | |
@@ -469,7 +548,7 @@ $v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날�
   - 금지: 공기결합(`air_gap="air"`)에서 직선 광선 곡률 v를 깊이·속도 결과에 쓰지 않는다. `fit_curvature(..., air_gap="air")`는 `ValueError`다(R12, U4(a)). 근거는 합성 M20의 $v'/v$ 1.82·+47.8 cm와 잔차로 실패를 알 수 없다는 점이다(§12 표 3).
   - 예외(깊이 미사용): 4TU 평가의 꼭짓점 후보 QC는 같은 함수를 `air_gap="ground"` 우회 라벨로 불러 곡률 비 $r$(0.7–1.6)만 본다([EV] §3-5-2). 결과는 후보를 주 결과에 넣을지만 정하고 `v_rule`·깊이·`DepthResult.flags`에 들어가지 않는다([EV] §3-5-6, 시험 C11·C11b·C12·C13). ADR-002 결정 5 예외와 같다.
   - 4TU 단일 띠 사실(§4-4 F4, $h\lesssim0.1$ m — 곡률 근거뿐이고 메타 εr 9 전제, [DP] §7-2 E1 조건부)은 이 금지의 전제(큰 공기층)를 약하게 만든다. 그래도 금지는 유지한다. 푸는 조건은 §4-4 P4(재평가 뒤 활동 확대로 재현 확인 + 사용자 결정)다.
-  - 2a `refraction_qc`는 두 사건 측선에서만 돈다. 4TU에서는 50측선(주로 현장 9)이 해당한다. F7(E5)에 따라 그 늦은 사건은 지표 아래 사건이라 $h_\text{est}$가 공기층 높이가 아니므로, 그 구간 판정은 참고로만 본다. 두 사건 측선 영점 규칙 개선(§4-4 규약 5) 때 이 경로도 함께 다시 정한다.
+  - 2a `refraction_qc`는 `air_surface_late` 측선에서만 돈다. (v2.1) 이제 `air_surface_late`는 장비 높이와 맞는 지표 반사를 고른 경우(§4-2-1 단계 1)뿐이고, $h_\text{est}$는 첫 사건–그 사건 간격이다. 4TU는 높이가 없어 `air_surface_late`가 나오지 않으므로 2a가 돌지 않는다(v2.0까지 50측선에서 지표 아래 사건 간격으로 돌던 구간 판정은 없어진다). 합성 M20·U4는 높이를 알아 그대로 돈다.
 - 2a 세부(v1.4 확인):
   - $h$ = `ZeroResult.h_est_m`, $s$ = `antenna_offset_m`(모르면 0), $R$ = 기지 관경/2(모르면 0).
   - 꼭짓점은 §6-4의 $(x_0,t_0)$이다.
@@ -487,7 +566,7 @@ $v$를 고정하면 깊이에 필요한 것은 $t_0$뿐이다. 공기결합 날�
 |---|---|
 | 지면결합, $s$ 모름 | $d_\text{top}=v\,t_0/2$ |
 | 지면결합, $s$ 앎 | $d_\text{top}=\sqrt{(v t_0/2)^2-(s/2)^2}$ (영향 $\approx s^2/(8d)$, s=0.1 m에서 2–4 mm) |
-| 공기결합 | $d_\text{top}=v\,(t_a-t_\text{surf})/2$ (꼭짓점의 굴절·오프셋 영향은 M20에서 −0.9 cm 안). (v2.0 문구 정리) 단일 사건(`air_single_event`, 4TU 대부분)이면 $t_\text{surf}$ 자리에 합쳐진 피크 $t_z$가 들어간다. 코드는 두 경우 모두 $t_0=t_a-t_z$를 쓴다 |
+| 공기결합 | $d_\text{top}=v\,(t_a-t_\text{surf})/2$ (꼭짓점의 굴절·오프셋 영향은 M20에서 −0.9 cm 안). (v2.0 문구 정리) 단일 사건(`air_single_event`, 4TU 대부분)과 (v2.1) `air_first_event`이면 $t_\text{surf}$ 자리에 합쳐진 피크(첫 사건) $t_z$가 들어간다. 코드는 두 경우 모두 $t_0=t_a-t_z$를 쓴다 |
 | 반경 앎 | $d_\text{center}=d_\text{top}+R$ |
 
 ---
@@ -500,7 +579,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 |---|---|---|
 | $\sigma_v/v$ (`meta_fixed`) | $\tfrac12\,\sigma_{\varepsilon}/\varepsilon$, $\sigma_\varepsilon/\varepsilon=0.15$ (**가정**) | 4TU `eps_r_used`는 조사자 기록이다. Reflex-W 쌍곡선 피팅에서 $\varepsilon=(c/v)^2$로 얻었을 가능성이 있다([PA] §5). 공기결합 곡률 피팅값이면 $v$가 과대이고 $\varepsilon$은 과소이므로 **깊이가 깊게** 나오는 한쪽 편향이 된다. `flags`에 `meta_eps_unverified`를 넣는다. (v2.0) [FX]에서 01.1·04.1·010.14의 `eps_r_used`가 헤더 기본값 9.0과 같았다(실측 보증이 더 약함). 기본값 플래그와 0.25 상향(P5)은 **미구현**이며 재평가 뒤 개선 F와 함께 정한다(§4-4). 01.1에서는 직선 광선 εr이 메타와 거의 같아(F4) 공기결합 곡률값이라도 편향이 작을 수 있다 |
 | $\sigma_v/v$ (`curvature_R_fixed`) | $\sqrt{(\sigma_v^\text{fit}/v)^2+0.03^2}$ | 실측 픽 곡률 편향 1.001–1.052([DP] 표 F 반경 열) |
-| $\sigma_z$ | `air_surface_late` 0.3 ns(v1.2, 0.2에서 올림), `air_single_event` 0.25 ns(+편향), `ground_direct_*` 0.15 ns(+편향), `meta_sample0` 0.5 ns. 코드 상수 `SIGMA_ZERO_NS`(`preprocess/timezero.py`)가 이 값을 따른다 | §12 표 1·4. `air_surface_late` 0.3 ns는 직접파 간섭 편향 M20 +0.29 ns를 덮는 값([`surface_zero_shift.csv`](surface_zero_shift.csv), §4-2) |
+| $\sigma_z$ | `air_surface_late` 0.3 ns(v1.2, 0.2에서 올림), `air_single_event` 0.25 ns(+편향), `air_first_event` 0.25 ns(v2.1, 영점이 같은 종류의 합쳐진 띠이므로 `air_single_event`와 같게; +편향), `ground_direct_*` 0.15 ns(+편향), `meta_sample0` 0.5 ns. 코드 상수 `SIGMA_ZERO_NS`(`preprocess/timezero.py`)가 이 값을 따른다 | §12 표 1·4. `air_surface_late` 0.3 ns는 직접파 간섭 편향 M20 +0.29 ns를 덮는 값([`surface_zero_shift.csv`](surface_zero_shift.csv), §4-2) |
 | $\sigma_a$ | $\max(0.05\ \text{ns},\ \text{rms}/\sqrt{n_\text{apex}})$. v1.4 정의: 곡률 경로는 rms = 곡률 피팅 전체 RMS, $n_\text{apex}$ = 피팅 $x_0$ ±0.10 m 안의 픽 수(최소 1). §6-4 경로는 포물선 RMS와 점 수(대체 시 rms 0, n 1 → 바닥값 0.05 ns) | 5 mm 격자 지연 0.05–0.1 ns([DP] §6) |
 | 계통(합산하지 않음) | 기준점 상단/중심 $\pm R$, 영점 편향 부호 | `bias_notes` |
 
@@ -523,6 +602,7 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | $\Delta t$가 커서 포락선 피크가 3 샘플 이하 폭 | 포물선 보간은 유지하고 $\sigma_a\ge\Delta t/2$. v1.4 판정식: 주기 $1/f_c$(없으면 2 ns)가 $3\Delta t$ 이하. 근사이며, 포락선 폭을 한 주기로 본다. 이 조건이면 밴드패스 상한 $2f_c$가 나이퀴스트를 넘으므로 실제 자료(4TU 최소 10 샘플/주기)에서는 걸리지 않는다 |
 | 지면결합, $s$ 앎, 경사거리 $vt_0/2<s/2$ | $d=0$(§8 식의 제곱근 안이 음수). 곡률 경로에도 §8 식을 쓴다 (v1.4) |
 | 스케일 없음 | `no_scale`, `apex_trace`·`apex_sample`만 |
+| (v2.1.1) 공기결합, 스케일 없음, 영점 사건 2개 이상 | 높이 일치(§4-2-1 단계 1)를 하지 않고 `air_first_event`(첫 사건, `merged`) + `air_multi_event` + `zero_px_unverified`. 높이가 있어도 `air_surface_not_found`는 붙이지 않는다(간격을 ns로 비교할 수 없음). v2.0은 `air_surface_late`(마지막 사건). 해당 데이터셋 없음 |
 
 ---
 
@@ -556,6 +636,45 @@ $$\sigma_d=\sqrt{\left(d\,\frac{\sigma_v}{v}\right)^2+\left(\frac v2\right)^2\le
 | Z5 | 측선 700 트레이스, 지면결합, Z3과 같은 얕은 반사($\tau=3.5$ ns, 진폭 −1.5)가 앞쪽 350 트레이스에만 있음 | `ground_direct_peak`, `window_std_ns`가 직접파 기준으로 < 0.05 ns(마지막 피크를 따라가지 않음), `zero_window_event_count_mismatch` 플래그 |
 | Z6 | (v1.2) 공기결합 지표 반사 **단독**(직접파 진폭 0, 지표 반사 −2), 500 MHz, Δt 0.05 ns, h 0.3 m, s 0.1 m, **잡음 없음**(`snr_db=None`; 관 반사는 영점 창 밖이라 둬도 됨) | 사건 1개, (1)–(3) 뒤 포락선 피크와 $t_\text{geom}$의 차가 ±0.01 ns 안(영위상 확인, 현재 0.000 ns). 잡음 없이 판정하는 이유: 시험 대상이 필터의 결정적 성질(영위상)이고, 기준 ±0.01 ns가 잡음 지터(151 트레이스 평균 후 약 0.008 진폭)보다 엄격해서 잡음을 넣으면 필터 회귀와 잡음을 구분할 수 없다 |
 | Z7 | (v1.2) 직접파(+3) + 지표 반사(−2), h 0.3 m, s 0.1 m, 500 MHz, Δt 0.05 ns(생성기 기본). 기존 두 사건 시험과 [B] UB14 마스크 시험(`exclude_traces` 사용 시)의 시각 기준을 이것으로 바꾼다 | `air_surface_late`, 사건 2개, $0 < t_\text{surf}-t_\text{geom} \le 0.2$ ns(현재 +0.122, 마스크 사용 +0.120), $0.30\le h_\text{est}\le0.36$ m(현재 0.329) |
+
+**v2.1 영점 시험(§4-2-1, `tests/preprocess/test_timezero_v21.py`, 구현됨)**. 생성기 규약 변경: `make_radargram`은 `antenna_height_m`을 `spec.air_gap_m`(> 0일 때, 아니면 None)으로 채운다(덮어쓰기 인자로 None을 줄 수 있음). 그래서 기존 공기결합 시험(Z7, U4, [B] UB14, `test_estimate`의 h 0.3 m)은 높이를 아는 경로(단계 1)로 돈다. 공통 조건은 500 MHz, Δt 0.05 ns, εr 9, s 0.1 m, 직접파 +3, 지표 반사 −2, 관은 영점 창 밖(1.5 m), SNR 20 dB, 시드 0이다. 층은 `extra_events`로 지표 반사 뒤 $2z\sqrt{\varepsilon_r}/c$에 놓는다. 깊이 오차는 $\delta d=-v\,(t_z-t_\text{geom})/2$다. 기대값의 실측은 `m29e2_two_event_zero_analytic.csv`다.
+
+| ID | 내용 | 통과 기준 |
+|---|---|---|
+| Z8 | B+L(4TU형): h 0.05 m, 층 z 0.10·0.15 m × 진폭 −0.6·−1.6·+0.6(6경우) + z 0.20·0.30 m 진폭 −1.6(2경우). `antenna_height_m` 0.05와 None 두 번 | 8경우 × 2 모두 사건 2개, `air_first_event`, 라벨 `merged`, 플래그 `air_multi_event`(`air_surface_not_found` 없음), `h_est_m` None, $\sigma_z$ 0.25, $0<\delta d\le2$ cm(실측 +0.97 ~ +1.38). 옛 규칙이면 −9.9 ~ −30.0 cm라 이 시험이 회귀를 잡는다 |
+| Z9 | D+S: h 0.3·0.4·0.5 m. (a) `antenna_height_m` = h, (b) None | (a) `air_surface_late`, 사건 2개, $|\delta d|\le2$ cm(실측 −0.6/−0.3/−0.3), $|h_\text{est}-h|\le0.06$ m. (b) `air_first_event` + `air_multi_event`, $0<\delta d\le h/\sqrt{\varepsilon_r}+2$ cm(실측 +8.8/+11.9/+15.2 — 높이를 모를 때의 문서화된 편향) |
+| Z10 | D+S+L(사건 3개): h 0.3 m + 층 z 0.08 m 진폭 +1.6, z 0.11 m 진폭 −1.6. `antenna_height_m` 0.3. 메타 t0를 셋째 사건 피크에 하나 둠 | 사건 3개, `air_surface_late`가 **가운데** 사건, $|\delta d|\le2$ cm(실측 −0.25/−0.77; 옛 규칙 −8.3/−10.7), $0.30\le h_\text{est}\le0.36$ m. 셋째 사건 위 메타 t0 라벨 `unclassified` |
+| Z11 | 높이 불일치: Z8 z 0.10·진폭 −0.6 자료(간격 약 2.27 ns)에 (a) `antenna_height_m` 0.6($\Delta_h$ 3.68 ns, 차 1.41 > $\tau_h$ 1.0), (b) 0.1($\Delta_h$ 0.41 < $\Delta_\text{sep}$ 1.5). (c) 순수 함수 `surface_event_index(gaps_ns, gap_h_ns, period_ns)`: 간격 $[\Delta_h+\tau_h]$ → 0번, $[\Delta_h+\tau_h+10^{-6}]$ → None, $[\Delta_h-0.2,\ \Delta_h+0.2]$ → 0번(같으면 이른 쪽), $\Delta_h<\Delta_\text{sep}$ → None | (a) `air_first_event` + `air_multi_event` + `air_surface_not_found`. (b) `air_first_event` + `air_multi_event`, `air_surface_not_found` 없음. (c) 표대로(경계 포함 ≤) |
+| Z11(d) | (v2.1.2, 돌연변이 JC) 높이 일치가 Tx–Rx 간격 $s$를 쓰는지. (기록) `surface_gap_ns(h, None) − surface_gap_ns(h, 0.1)`, h 0.3·0.4·0.5 m. (검출) 가짜 `ZeroEvents`(Δt 0.05 ns, 사건 2개)로 `select_zero` 호출, h 0.3 m: $\Delta_h(s)$ 1.695 ns, $\Delta_h(0)$ 2.001 ns, $\tau_h$ 1.0 ns. 판별 구간 $[\Delta_h(s)-\tau_h,\ \Delta_h(0)-\tau_h)$ = [0.695, 1.001) ns, 둘째 사건 간격 = 구간 가운데 0.848 ns | (기록) 차 0.30–0.32 ns ≤ $\tau_h$(수계산 0.306/0.313/0.317 ns). (검출) `air_surface_late`, `k_zero` = 둘째 사건, `air_surface_not_found` 없음. $s$를 버리면 $|0.848-2.001|>\tau_h$라 첫 사건으로 떨어진다. 함수 `test_z11d_ignoring_the_offset_shifts_delta_h_by_less_than_tau_h`·`test_z11d_height_match_uses_the_offset` |
+| Z11(e) | (v2.1.2, 돌연변이 JE) 스케일 없음(`dt_ns=None`) 공기결합 사건 2개: 가짜 `ZeroEvents`, 둘째 사건을 h 0.3 m 지표 반사 간격(샘플 0.05 ns 환산)에 둠. `antenna_height_m` 0.3과 None | `air_first_event`, 라벨 `merged`, `k_zero` = 첫 사건, `t_zero_ns`·`h_est_m` None, `air_multi_event`·`zero_px_unverified` 있음, `air_surface_not_found` 없음. 옛 규칙(마지막 사건)이면 둘째 사건이라 회귀를 잡는다. 함수 `test_z11e_no_scale_multi_event_takes_the_first_event` |
+| Z12 | 메타 라벨·창 QC: (a) Z8 z 0.10 −0.6 자료, 메타 t0 = 첫 사건 + 0.78 ns, 둘째 사건 피크. (b) 측선 700 트레이스, h 0.05 m, 층(z 0.10, −1.0)이 앞쪽 350 트레이스에만 있음, 높이 None | (a) `merged` / `unclassified`. (b) 전역 사건 2개, `air_first_event`, `window_std_ns` < 0.05 ns(첫 사건 추적), `zero_window_missing` 없음, `zero_window_event_count_mismatch` 있음(지표 아래 사건이 측선 일부에만 있는 4TU 양상, [DP] §7-2 E5) |
+| Z13 | 입력 계약: `Radargram(antenna_height_m=0 / −0.1 / nan / inf)`, 합성 로더 M20·M02·`include_height=False`, 4TU 로더 | `ValueError` 4건. M20 → 0.3, M02 → None, `include_height=False` → None, 4TU → None |
+
+v2.1에서 기대값이 바뀌는 기존 시험(구현자가 고치고 보고, §15):
+- `tests/preprocess/test_zero_dewow_z1.py` Z1(b): 상자형 dewow 유령 엽으로 사건이 2개가 되는 판별 단언(`len == 2`)은 그대로다. 규칙 단언은 `air_surface_late` → `air_first_event`가 된다(높이 없는 자료). 유령 엽이 영점이 되던 위험이 높이를 모르는 경로에서 사라진다는 뜻이다.
+- [B] UB14(`tests/depth/test_band_unit.py`): 생성기가 높이 0.3 m를 채우므로 마스크 **없이도** 영점이 지표 반사(Z7 창)다(사건 3개 중 높이와 맞는 가운데 사건). "마스크 없으면 띠가 영점" 단언을 "마스크 유무와 무관하게 Z7 창"으로 바꾸고, `antenna_height_m=None` 변형(마스크 없음 → `air_first_event`, 첫 사건 = 직접파)을 기록 단언으로 더한다. [B] §9-1 UB14 문구도 함께 고친다.
+- 나머지 공기결합 시험(Z2·Z4·Z6·Z7, U4, `test_estimate`, `test_eval_depth_4tu`의 E1·C1b 등)은 기대값 불변이어야 한다. 바뀌면 구현 결함으로 본다.
+- **(v2.1.1 구현 판정) 목록에 없던 변경 1건 — 받아들임.** `tests/preprocess/test_timezero.py::test_z7_excluding_band_traces_keeps_the_surface_reflection`는 이름에 "z7"이 있지만 Z7(직접파 + 지표 반사 두 사건, `test_z7_air_gap_with_two_events_uses_the_late_surface_reflection`, 불변)이 아니라 **UB14의 영점 쪽 짝**이다(같은 자료 — 얕은 띠가 영점 창 안에 있는 공기결합 h 0.3 m — 와 같은 원인). 옛 단언 "마스크 없으면 띠가 영점"은 v2.0의 "마지막 사건" 규칙이 만든 실패 모드를 기록한 것이었다. 높이를 아는 생성기에서는 단계 1이 가운데 사건(지표 반사)을 고르므로 UB14와 같은 개정(사건 3개, 마스크 없이도 `air_surface_late`·Z7 창, 높이 None 변형 → `air_first_event`·첫 사건 = 직접파 ±0.1 ns)이 맞다. 명세가 UB14만 적고 이 짝을 빠뜨린 누락이며 구현 결함이 아니다. 이 시험의 Z7 창 단언(`0 < t_z − t_geom ≤` `SURFACE_LATE_MAX_NS`)과 마스크 쪽 `_assert_surface_zero_z7`은 그대로 남아 높이 경로의 간섭 편향 회귀도 잡는다.
+- (v2.1.1) 평가 쪽 기존 시험 Z4·D9 개정은 [EV] v1.8 §9-7 C가 미리 정한 것이다(그 문서 v1.8.1).
+
+**판정자 독립 돌연변이(v2.1.1, gpr-processing-expert)**: 구현자 M1–M17(§15-2 5)과 겹치지 않는 6개를 `pytest` 플러그인으로 `timezero` 함수에 하나씩 덮어써 영점 시험 76개(Z8–Z13 파일, `test_timezero.py`, Z1, UB14)를 돌렸다(scratchpad `mut/run_mut.py`, `-x`). 돌연변이 없는 기준 76/76 통과.
+
+| # | 돌연변이 | 결과 | 판단 |
+|---|---|---|---|
+| JA | `air_first_event` 메타 라벨 허용폭을 반 주기 없이 0.5 ns로 | 검출(Z12a) | – |
+| JB | `air_first_event` 편향 노트에서 단일 사건 상한 노트를 뺌 | 검출(Z8 편향 노트 시험) | – |
+| JC | 높이 일치에서 Tx–Rx 간격 무시($s=0$으로 $\Delta_h$) | v2.1.1 생존 → **검출(Z11(d), v2.1.2)** | 설계상 성질. $s$ 0.1 m를 무시한 차(h 0.3 m에서 +0.31 ns)는 $\tau_h$ 1.0 ns가 흡수하도록 정한 항목이다(§4-2-1 $\tau_h$ 근거 (ii)). `surface_gap_ns`의 $s$ 식 자체는 Z11(c)가 본다. (v2.1.2 정정) v2.1.1의 보강 후보 문구 "간격 = $\Delta_h(s)+\tau_h$ 바로 안, $s$를 버리면 밖"은 **방향이 반대**였다. $s$를 버리면 $\Delta_h$가 커지므로($\Delta_h(0)>\Delta_h(s)$) 위쪽 경계 근처 간격은 $s$를 버려도 맞는다. $s$를 쓰는 규칙만 받아들이는 간격은 아래쪽 $[\Delta_h(s)-\tau_h,\ \Delta_h(0)-\tau_h)$다. Z11(d)는 이 구간 가운데(h 0.3 m에서 0.848 ns)에 둘째 사건을 둔 가짜 `ZeroEvents`로 `select_zero`를 부른다 |
+| JD | 단계 2(높이 앎, $\Delta_h<\Delta_\text{sep}$)에도 `air_surface_not_found` | 검출(Z8 높이 0.05 m) | – |
+| JE | 스케일 없는 다중 사건을 옛 규칙(마지막 사건)으로 | v2.1.1 생존 → **검출(Z11(e), v2.1.2)** | 명세와 다른 점 (2)의 경로. 해당 데이터셋이 없어 v2.1.1에서는 비차단으로 남겼다. Z11(e)가 `dt_ns=None` 공기결합 두 사건(높이 0.3·None) → `air_first_event`·`air_multi_event`·`zero_px_unverified`를 단언한다 |
+| JG | `air_surface_late`의 `h_est`를 $s$ 없이(첫–고른 사건 간격, $s=0$) | 검출(Z10, $0.30\le h_\text{est}\le0.36$) | – |
+
+v2.1.2 기준 판정자 독립 돌연변이 6개 모두 검출이다(JC·JE는 위 표 Z11(d)·Z11(e)). 근거는 구현 보고(Z11(d) = JC 검출, Z11(e) = JE 검출)와 판정자의 시험 단언 ↔ 돌연변이 동작 대조다. JC는 $s$를 버리면 0.848 ns 간격이 $\Delta_h(0)$ 2.001 ns와 $\tau_h$ 넘게 떨어져 첫 사건이 되고, JE는 마지막(둘째) 사건을 골라 `k_zero` 단언이 깨진다. **판정자는 `mut/run_mut.py`를 다시 돌리지 않았다.**
+
+**JC의 설계 사실(v2.1.2)**: $s$를 무시하는 결함은 **실제 자료($s$ 0.1 m)에서는 통합 경로(`make_bscan` → `detect_zero_events` → `select_zero`)로 판별할 수 없다.** 그래서 Z11(d)는 가짜 `ZeroEvents`로 간격 산술만 본다.
+- 물리 배치에서는 갈린 지표 반사가 $\Delta_h(s)$ 근처(간섭 편향 +0.08 ~ +0.32 ns, §4-2-1 $\tau_h$ 근거 (i))에 있다. $s$를 버린 차 0.31–0.32 ns는 $\tau_h$ 1.0 ns보다 작아, $s$가 있든 없든 같은 사건이 맞는다. 이것은 $\tau_h$ 근거 (ii)가 의도한 성질이다.
+- 결과가 갈리는 간격은 $[\Delta_h(s)-\tau_h,\ \Delta_h(0)-\tau_h)$뿐이다. h 0.3 m(500 MHz)에서 이 구간 [0.695, 1.001) ns는 반대 극성 분리 한계 $\Delta_\text{sep}$ 1.5 ns보다 짧아 평균 트레이스에서 두 사건으로 갈리지 않는다(§4-2 분리 한계).
+- 구간 위 끝이 $\Delta_\text{sep}$을 넘으려면 $\Delta_h(0)\ge\Delta_\text{sep}+\tau_h$ = 2.5 ns, 곧 $h\ge0.375$ m여야 한다(500 MHz, 수계산). 그때도 그 간격의 사건은 직접 결합과 지표 반사 사이(공기 경로)라 물리 원칙 1에 맞는 배치가 아니다.
+- 따라서 $s$의 영향은 단위 산술(Z11(c) `surface_gap_ns`, Z11(d))로만 지킨다. $s$를 실제로 쓰는 경로의 깊이 회귀는 Z9·Z10·R2(M20)가 본다.
 
 Z3·Z5 주석(v1.2, M2-2 구현 대조):
 - $\tau$는 생성기 `extra_events` 규약대로 $t_\text{src}$ 기준이다. 직접파와의 간격은 $\tau-0.7$ ns다.
@@ -631,11 +750,16 @@ Z6·Z7 주석(v1.2):
 | R12 | M20 | 직선 광선 곡률 피팅 요청 | `ValueError`. 참고로 강제 실행 시 $v'/v$ 1.82, +47.8 cm | §12 표 3 |
 | R13a-1 | M20 | (v1.6) `refraction_qc` **알고리즘**: 픽 = json `ray_reflection_time_ns`(트레이스 인덱스 기준, $\tau_i$ = `ray_reflection_time_ns[i]` − `surface_reflection_time(h, s)`; 같은 값인 json `surface_reflection_geom_ns`는 `SyntheticTruth`에 없으므로 식으로 계산), json $h$ 0.3·$s$ 0.1·$R$ 0.1, 기본 격자 3–30. 픽 범위는 json **전체 111 트레이스**(±1.1 m)다. 박스 ±40보다 넓어 더 엄격하고, 정확한 시각이라 박스가 필요 없다(v1.6 구현 확인) | εr 9±0.1, $|d-d_\text{top}|\le1$ cm (실측 9.000, −0.001 cm) | 모델 검증: `reflection_times`와 json 광선 시각의 최대 차 0.0000 ns(M2-5 review 계산) |
 | R13a-2 | M20 | (v1.6) `refraction_qc` **자료**: 현재 경로의 픽(median 배경, (1)–(3), 검출 $t_\text{surf}$, §6-4 꼭짓점), json $h$ 0.3·$s$ 0.1·$R$ 0.1, **기본 격자·전체 픽**(축소·솎기 안 함) | $|\varepsilon/9-1|\le20\%$, $|d-d_\text{top}|\le5$ cm. 결과에 "날개 지연 편향"을 기록한다. 기록값은 이 행의 εr 상대오차(실측 −13.2 %)이고, 위치별 픽−광선 차는 회귀에서 다시 계산하지 않는다(근거 칸의 review 값으로 둔다) | εr 7.81(−13.2 %), d +2.88 cm. 원인: gprMax 포락선 픽이 날개에서 상대적으로 일찍 옴(픽 − 광선: 꼭짓점 쪽 +0.018 ns, 0.7–0.9 m −0.093 ns). 배경·필터·영점을 바꿔도 7.6–8.0(이상 배경 원 신호 7.72)이라 처리 문제가 아니다 |
+| R14 | M20 (v2.1) | 같은 모델을 `load_synthetic(..., include_height=False)`(높이 모름)로 돌림 | `zero_rule == "air_first_event"`, `air_multi_event`, `meta_fixed` 깊이 $0<d-d_\text{top}\le h/\sqrt{\varepsilon_r}+2$ cm(= 12 cm). **기록 시험**(높이를 모를 때의 문서화된 편향) | 시제품 +8.60 cm(직접파 영점, `m29e2_two_event_zero_gprmax.json` `first` 변형 R6 값) |
 | R13b | M20 | (v1.4) `estimate_depth` 경로($h_\text{est}$): 2a 구간이 9를 포함하고 `meta_eps_suspect` 없음 | 위와 같음 | 구간 [7.41, 10.33](M2-5 실측). $h_\text{est}-h$ = +0.049 m(Δh 0.06 안, 여유 0.011 m). 통과는 $h_\text{est}$ 편향(εr↑)과 날개 지연(εr↓)의 부분 상쇄 결과다 |
 
 - R10 기준을 5 %가 아니라 6 %로 둔 이유: 직접파 영점과 반경 모델을 함께 써도 M09(εr 4)에서 +5.2 %가 실측됐다([DP] 표 F). 판정 등급은 정의서 verify 기준(일치 ≤5 %·2 cm, 허용 일치 d ≤10 cm)으로 따로 기록한다.
 - 공기층 모델(M12·M13·M15·M18·M20)은 곡률 v 기준을 적용하지 않고 고정 v의 d 기준만 본다(정의서 verify 규칙).
 - 회귀 시험은 합성 원본 npy를 읽기만 한다. 20개 전체 실행 비용은 Hilbert 2D 20회 + 피팅이라 단일 프로세스 수십 초다(굴절 QC는 M20만).
+- (v2.1) 로더가 `antenna_height_m` = json `air_gap_m`를 채우므로(§1-1) R1–R13은 §4-2-1 단계 1(M20)·`air_single_event`(h 0.1 모델)로 돌고 **기대값이 바뀌지 않는다.** 시제품 실측: 129/129, 20모델 영점·깊이 차 0(`m29e2_two_event_zero_gprmax.json` `first_h`). 높이를 모르는 경로는 R14로 따로 본다. "늘 첫 사건"·"가장 센 사건" 안은 123/129였다(§4-2-1 기각 표).
+- (v2.1.1 구현 판정, 판정자 재실행) `conda run -n gpr-dev python -I scripts/eval_depth_synthetic.py --out-dir <scratchpad>/synth`(단일 프로세스·BelowNormal·BLAS 1스레드, 109 s): **130/130 통과**. HEAD(f5f02b0) `docs/processing/depth_synthetic_v1.csv`와 모델 20행·모든 열이 같고 다른 열은 실행 시간 `seconds`뿐이다. `depth_synthetic_v1_checks.csv`는 R14 한 행이 더해졌고 R1–R13 129행은 HEAD와 문자열까지 같다. **R14 = M20 높이 모름 `air_first_event`·`meta_fixed`·+8.602 cm**(기준 0 < δd ≤ 12.0 cm, 시제품 +8.60 cm와 같음). 비교는 `~/.claude/tools/pyinspect/output_compare.py`(체크 csv는 행 수 129 → 130이라 "불일치"로 나옴)와 R14 행을 뺀 행 단위 대조로 했다.
+- (v2.1.1) 검사 수는 130이다(R14는 기록 시험이지만 통과 술어가 있어 csv `passed`에 들어간다). v2.1.1 시점에는 스크립트 md의 절 제목 "R1-R13 판정"과 명세 줄 "§11-2 (R1-R13, 박스 공급 규칙)"이 그대로였고, 커밋된 `docs/processing/depth_synthetic_v1*.csv`·`.md`는 v2.0 출력(R14 없음)이었다.
+- (v2.1.2) 둘 다 해소했다. `eval_depth_synthetic.py`의 md 명세 줄·절 제목이 "R1-R14"가 됐고, 커밋 대상 `docs/processing/depth_synthetic_v1.csv`·`_checks.csv`·`.md`가 v2.1 출력으로 갱신됐다: `_checks.csv` 131줄(머리 + 130 검사), R14 행 "M20, `air_first_event`, `meta_fixed`, +8.602 cm, True", md 4행 "§11-2 (R1-R14, 박스 공급 규칙)"·8행 "## R1-R14 판정". HEAD 대비 수치 차 0(구현 보고).
 
 ### 11-3. 추적 개선 시험 (v1.9, T1·T2, `tests/depth/test_tracking_v19.py`)
 
@@ -773,11 +897,11 @@ Z6·Z7 주석(v1.2):
 | 모듈 | 내용 |
 |---|---|
 | `src/gpr_detection/io/radargram.py` | `Radargram` dataclass와 `sample_to_ns`(구현됨). 데이터셋별 로더는 별도 파일 `io/{fourtu,guangzhou,gprsd}.py`(구현됨)와 `io/synthetic.py`(M2-4b 구현됨) |
-| `src/gpr_detection/io/synthetic.py` | (v1.5) `load_synthetic(model_id, *, root, include_eps=True, include_radius=True) -> Radargram`(장비 메타만, §1-1), `load_synthetic_background(model_id, *, root) -> ndarray`(`_bg.npy` [n_samples, 3], 트레이스 0/55/110, 분석 전용), `load_synthetic_truth(model_id, *, root) -> SyntheticTruth`(§11-2 필드 표), `list_synthetic_models(root)`(manifest). 기본 경로는 `io/paths.py` `DEFAULT_SYNTHETIC_ROOT`. **x 오프셋 주의**: json x = `trace_x_m_first`(0.4) + i·dx, `Radargram` x = i·dx(§11-2). `_fs.npy` 로더는 두지 않는다(M2-5 불필요) |
+| `src/gpr_detection/io/synthetic.py` | (v1.5) `load_synthetic(model_id, *, root, include_eps=True, include_radius=True) -> Radargram`(장비 메타만, §1-1; v2.1 `include_height=True` 추가 → `antenna_height_m`), `load_synthetic_background(model_id, *, root) -> ndarray`(`_bg.npy` [n_samples, 3], 트레이스 0/55/110, 분석 전용), `load_synthetic_truth(model_id, *, root) -> SyntheticTruth`(§11-2 필드 표), `list_synthetic_models(root)`(manifest). 기본 경로는 `io/paths.py` `DEFAULT_SYNTHETIC_ROOT`. **x 오프셋 주의**: json x = `trace_x_m_first`(0.4) + i·dx, `Radargram` x = i·dx(§11-2). `_fs.npy` 로더는 두지 않는다(M2-5 불필요) |
 | `src/gpr_detection/io/radargram.py`(추가, M2-1) | `SPEED_OF_LIGHT_M_PER_NS`, `velocity_from_eps`, `eps_from_velocity` — depth→io 의존 방향을 지키려고 c 상수를 io에 둔다 |
 | `src/gpr_detection/preprocess/filters.py` | `remove_dc`, `dewow`(`dewow_sigma_samples`), `bandpass`(`bandpass_corners_hz`; 통과대역이 비면, 즉 0.45/Δt ≤ 0.25 f_c이면 `ValueError`), `remove_background(median, window)`, `agc`, `prepare_fitting_branch -> FittingBranch`((1)–(4) 적용). v1.3: `estimate_period_px`(우세 주기를 **px로** 반환, $1/f_\text{px}$, 범위 밖이면 None), 스케일 없을 때 `bandpass_px` 단계(§3), `FittingBranch.flags`(`bandpass_px_skipped`). v1.7: `dominant_period_px`(범위 검사 없는 $1/f_\text{px}$, 생략된 입력의 보고용), `FittingBranch.period_px`([B] §3-5 픽셀 기준) |
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
-| `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
+| `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig`. (v2.1) `surface_gap_ns`, `surface_event_index`, `ZeroRule.AIR_FIRST_EVENT`, `HEIGHT_MATCH_PERIODS`(§4-2-1, §15) |
 | `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값, v1.4 `refraction_h_margin_m=0.06` 추가 — §7 2a Δh, 가정), `zero_config()` |
 | `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config, period_px=None, apex_hint=None) -> HyperbolaPicks`(§13-4; v1.8 `apex_hint`, 힌트 있을 때만 `peak_floor` 전달), `ApexHint(trace, sample)`, `find_apex_candidate(signal, box, candidate_rel, *, top_guard, hint=None, hint_halfwidth=None, peak_floor=0.0) -> tuple[ApexCandidate \| None, flags]`(첫 피크 꼭짓점 후보, 위 끝 거부 `apex_at_box_top`, `apex_hint_unmatched`, §5-7), `noise_sigma(section, searched) -> float`(§5-7 1항 (i)), `widen_box`, `mute_sample`, 추적. v1.9: `descend_apex(signal, candidate, box, hint, hint_traces, back_samples, floor_amplitude) -> ApexCandidate`(§5-7 1항 T1, 힌트·후보·스케일이 있을 때만 호출), `_track_one_side`의 중앙값 역행 판정과 정지 사유 반환(§5-3 T2), `_TrackLimits.reverse_samples` = $\tau_\text{rev}/\Delta t$ |
 | `src/gpr_detection/depth/hyperbola.py` | `hyperbola_time`(§6-1 식), `ransac_init -> RansacInit`, `fit_hyperbola(R fixed) -> HyperbolaFit`, `apex_vertex -> ApexVertex`, `fit_curvature(picks, *, radius_m, air_gap, v_fallback, config) -> CurvatureFit`, `fixed_velocity_apex(picks, config) -> ApexVertex` (§13-4) |
@@ -799,11 +923,11 @@ Z6·Z7 주석(v1.2):
 | `zero_event_label` | `"surface_reflection" \| "direct_wave" \| "merged" \| "meta" \| None` | – | None은 `zero_failed`일 때만 |
 | `pick_mode` | `"envelope" \| "signed_max" \| "signed_min"` | – | 꼭짓점·띠 픽이 같은 값이어야 함 |
 | `events_ns` | tuple[float, ...] | ns | 검출된 앞쪽 사건 전부(스케일 없으면 빈 튜플) |
-| `h_est_m` | float \| None | m | `air_surface_late`일 때만 |
+| `h_est_m` | float \| None | m | `air_surface_late`일 때만. (v2.1) 첫 사건–고른 지표 반사 사건 간격으로 계산(마지막 사건이 아님; `ZeroEvents.h_est_m`은 첫–마지막 간격 진단값으로 그대로 둔다) |
 | `t_zero_per_trace_ns` | ndarray \| None | ns | 선택 사항([B] §3-1 항목 3), v1.1은 None |
 | `meta_t0` | Mapping[str, tuple[float, label]] | ns | §4-3, label ∈ {`direct_wave`, `surface_reflection`, `merged`, `unclassified`} |
 | `excluded_traces` | int | – | 평균 트레이스에서 뺀 트레이스 수 |
-| `flags` | tuple[str, ...] | – | `zero_failed`, `zero_band_overlap`, `zero_unverified`, `amplitude_processed`, `zero_px_unverified`, `air_gap_unknown`, `air_gap_unknown_multi_event`, `ground_zero_shift_unavailable`, `h_est_offset_unknown`, `zero_window_missing`, `zero_window_event_count_mismatch`, `zero_window_drift`, `zero_given`(`given_zero`가 붙임) |
+| `flags` | tuple[str, ...] | – | `zero_failed`, `zero_band_overlap`, `zero_unverified`, `amplitude_processed`, `zero_px_unverified`, `air_gap_unknown`, `air_gap_unknown_multi_event`, `ground_zero_shift_unavailable`, `h_est_offset_unknown`, `zero_window_missing`, `zero_window_event_count_mismatch`, `zero_window_drift`, `zero_given`(`given_zero`가 붙임), (v2.1) `air_multi_event`(`air_first_event`일 때 늘), `air_surface_not_found`(높이를 아는데 맞는 사건이 없을 때). (v2.1.1) `h_est_offset_unknown`은 `ZeroEvents.flags`에서 그대로 옮겨 오는 플래그이고 "사건 2개 이상·스케일 있음·`antenna_offset_m` None이라 **`ZeroEvents.h_est_m`(첫–마지막 간격 진단값)을 $s=0$으로 냈다**"는 뜻이다. 그래서 `ZeroResult.h_est_m`이 None인 `air_first_event` 결과에도 남는다(4TU 두 사건 50측선 모두 해당). `air_surface_late`에서는 같은 $s=0$ 처리가 `ZeroResult.h_est_m`(첫–고른 사건 간격)에도 적용된다. `ZeroEvents`는 규칙 선택 전 객체라 바꾸지 않는다는 §15-1 지시를 따른 결과이며, 이 플래그는 깊이·속도 규칙에 쓰이지 않는다(2a는 `air_surface_late` + `h_est_m`만 본다) |
 | `sigma_zero_ns` | float | ns | §9 $\sigma_z$ (규칙별) |
 | `bias_notes` | tuple[str, ...] | – | 규칙의 부호 있는 계통 편향(`air_single_event`는 수치 상한 포함) |
 | `window_std_ns` | float \| None | ns | §4-1 항목 1 창별 QC(선택 사건 추적). v1.2: `ZeroEvents`에서 이 객체로 옮겼다(선택 사건을 알아야 계산되므로) |
@@ -831,7 +955,7 @@ Z6·Z7 주석(v1.2):
 
 - `classify_meta_t0(candidates_ns, zero_rule, events_ns, f_c_hz=None, tolerance_ns=0.5) -> dict[str, tuple[float, label]]`
   - 라벨 후보는 §4-3 표의 **선택된 규칙** 기준이다.
-  - `air_surface_late`: 첫 사건 → `direct_wave`, 마지막 사건 → `surface_reflection`.
+  - `air_surface_late`: 첫 사건 → `direct_wave`, 마지막 사건 → `surface_reflection`. (v2.1) `surface_reflection`은 §4-2-1 단계 1이 고른 사건이다(아래 `surface_event_ns`).
   - `air_single_event`: `merged`, 허용폭 $\max(\text{tol},0.5/f_c)$.
   - 그 밖(`ground_*`, `meta_sample0`, `given`): 첫 사건 → `direct_wave`만. 사건이 없으면(`zero_failed`) 전부 `unclassified`.
 - `ZeroConfig` 기본값: `h_max_m=0.5`, `early_fraction=0.25`, `height_rel=0.1`, `prominence_rel=0.05`, `window_traces=301`($W_\text{bg}$), `window_match_ns=0.5`(§4-1 항목 1 일치 거리), `window_drift_ns=0.2`(`zero_window_drift` 문턱), `meta_tolerance_ns=0.5`, `ground_zero_shift="none"`.
@@ -842,7 +966,9 @@ Z6·Z7 주석(v1.2):
   - `DELAY_TABLE_OFFSET_TOLERANCE_M=0.02`
   - `antenna_offset_m=None`은 적용 가능으로 본다.
 - `SIGMA_ZERO_NS`: §9 값과 같다(`air_surface_late` 0.3).
-- `SEPARATION_PERIODS=0.75`: §4-2 반대 극성 분리 한계, `air_single_event` 편향 상한에 쓴다.
+- `SEPARATION_PERIODS=0.75`: §4-2 반대 극성 분리 한계, `air_single_event` 편향 상한에 쓴다. (v2.1) §4-2-1 단계 2의 $\Delta_\text{sep}$에도 쓴다.
+- (v2.1) `HEIGHT_MATCH_PERIODS=0.5`: §4-2-1 $\tau_h$. `ZeroRule.AIR_FIRST_EVENT="air_first_event"`, `SIGMA_ZERO_NS["air_first_event"]=0.25`. 플래그 상수 `AIR_MULTI_EVENT="air_multi_event"`, `AIR_SURFACE_NOT_FOUND="air_surface_not_found"`.
+- (v2.1) `classify_meta_t0(..., *, surface_event_ns: float | None = None)`: `air_surface_late`에서 `surface_reflection` 라벨 후보를 이 시각으로 둔다(None이면 지금처럼 마지막 사건 — 기존 호출 호환). `air_first_event`는 `air_single_event`와 같이 첫 사건 → `merged`(허용폭 $\max(\text{tol},0.5/f_c)$).
 
 ### 13-4. 픽·피팅 객체 필드 정본 (v1.3, M2-3 구현 대조)
 
@@ -928,7 +1054,7 @@ Z6·Z7 주석(v1.2):
 | 항목 | 현재 처리 | 확인 방법 |
 |---|---|---|
 | 4TU `eps_r_used`의 출처(실측 vs 곡률 피팅값) | 가정: 미검증, $\sigma_\varepsilon/\varepsilon=0.15$. (v2.0) [FX]: 01.1·04.1·010.14는 헤더 기본값 9.0과 같음, 01.1 직선 광선 εr 중앙값 8.69. 현장 11(15.18)은 꼭짓점 QC 실패로 미검증. 메타 9.0이 기본값이라면 $h\lesssim0.1$ m(F4)의 전제도 약해진다([DP] §7-2 E1 한정 1) | 재평가 뒤 개선 F와 P4·P5(§4-4)에서 다시 본다 |
-| (v2.0) 4TU 공기층 $h$ | $h\lesssim0.1$ m(§4-4 F4, 01.1 중심 4개 활동 근거). **곡률 근거뿐이고 메타 εr 9 전제**([DP] §7-2 E1 조건부: 실제 εr 12–17이면 $h\approx0.1$ m 배제 불가, $h$ 0과 0.05 m 구분 불가; 단일 띠 자체는 $h\lesssim0.3$–0.5 m까지만, E2a). 규칙은 사건 수 자동 선택 그대로 | 재평가 뒤 활동 확대(P4)와 εr 독립 근거. 두 사건 측선의 $h_\text{est}$ 0.30–0.56 m(F7)는 E5로 해소 — 공기층이 아니라 지표 아래 사건이므로 $h$ 근거로 쓰지 않는다 |
+| (v2.0) 4TU 공기층 $h$ | $h\lesssim0.1$ m(§4-4 F4, 01.1 중심 4개 활동 근거). **곡률 근거뿐이고 메타 εr 9 전제**([DP] §7-2 E1 조건부: 실제 εr 12–17이면 $h\approx0.1$ m 배제 불가, $h$ 0과 0.05 m 구분 불가; 단일 띠 자체는 $h\lesssim0.3$–0.5 m까지만, E2a). 규칙은 사건 수 자동 선택 그대로. (v2.1) 이 추정값을 `antenna_height_m`로 넣지 않는다 — 장비 메타가 아니고 E1 조건부이며, 넣어도 $\Delta_h<\Delta_\text{sep}$이라 단계 2로 결과가 같다 | 재평가 뒤 활동 확대(P4)와 εr 독립 근거. 두 사건 측선의 $h_\text{est}$ 0.30–0.56 m(F7)는 E5로 해소 — 공기층이 아니라 지표 아래 사건이므로 $h$ 근거로 쓰지 않는다 |
 | 4TU Tx–Rx 간격 $s$ | 미확인 → $h$ 추정에서 $s=0$ | 장비 사양(InfraRadar) 조사 |
 | 4TU 정답 깊이 기준(상단/중심) | 미정 → 두 가정 모두 보고 | – |
 | 지면결합 $\Delta_\text{dw}$ 보정 | 2D 합성(s=0.1 m)에서만 얻은 값, 기본값 끔 | 광저우 깊이 기지 표적이 생기면 보정 |
@@ -950,5 +1076,110 @@ Z6·Z7 주석(v1.2):
 | (v1.9) 원인 귀속 | 판독자 1명(이 에이전트), 15사례. 코드 경계(H·J·O·L·I·F)는 겹칠 수 있어 부 원인을 함께 적었다(`m29c_track_diagnosis.md` §3, §11) | 4TU 재평가 진단 지표(정지 사유 분포 등)로 다시 본다 |
 | 4TU 현장 11의 앞쪽 0 뮤트(약 48 샘플)와 DC 제거 | 전 구간 평균을 빼면 뮤트 구간이 상수로 바뀌고 뮤트 끝에 계단이 생긴다(영향 미측정). (v2.0) M2-7에서는 확인하지 못했다. 띠 라벨 P6과 함께 미구현(§4-4) | 재평가 진단에서 뮤트 끝 사건 여부 확인, 필요하면 DC를 뮤트 밖 샘플로만 계산 |
 | (v2.0) [FX] P3·P4·P5·P6 미구현 | 상태만 기록(사용자 결정 2026-11-07). 표는 §4-4 | 4TU 재평가 1회 뒤 사용자 결정 |
-| (v2.0) 4TU 두 사건 측선(50측선)의 영점 | 현재 코드 동작은 `air_surface_late`(늦은 쪽) + `zero_h_implausible` 플래그([EV] v1.7). [DP] §7-2 E5 판정으로 늦은 사건은 지표 아래 사건이고, 깊이가 0.06–0.45 m 얕게 나온다. 정답 활동 해당 11측선은 현장 3·4·6·8·10(현장 9에는 정답 활동 없음) | **재평가 전에 영점 규칙 개선**(사용자 결정 2026-11-07, 개선 E "플래그만"을 대체). 명세는 다음 작업(§4-4 규약 5). 늦은 사건의 정체(층 경계·천부 물체·다중 반사)는 판단 불가로 남는다 — 확인 방법은 [DP] §7-2 E5 "판단 불가인 것" |
+| (v2.0) 4TU 두 사건 측선(50측선)의 영점 | v2.0 코드 동작은 `air_surface_late`(늦은 쪽) + `zero_h_implausible` 플래그([EV] v1.7). [DP] §7-2 E5 판정으로 늦은 사건은 지표 아래 사건이고, 깊이가 0.06–0.45 m 얕게 나온다. 정답 활동 해당 11측선은 현장 3·4·6·8·10(현장 9에는 정답 활동 없음) | **v2.1에서 규칙 개선**(§4-2-1, 사용자 결정 2026-11-07). **v2.1.1: 구현됨·판정 합격** — 4TU 후보 재생성에서 50측선 모두 `air_first_event`, 영점이 1.40–11.18 ns(측선 기준 중앙값 3.02, 후보 기준 3.00) 이르게 바뀜([EV] v1.8.1 §9-7). 늦은 사건의 정체(층 경계·천부 물체·다중 반사)는 판단 불가로 남는다 — 확인 방법은 [DP] §7-2 E5 "판단 불가인 것" |
+| (v2.1) 높이 모르는 공기결합에서 직접 결합이 따로 갈린 경우 | `air_first_event`가 직접파를 영점으로 써 $\approx h/\sqrt{\varepsilon_r}$ 깊게 낸다(해석 h 0.3–0.5 m에서 +8.8 ~ +15.2 cm, M20 높이 모름 +8.60 cm). 4TU에서는 F7 보충 ③의 약한 앞 사건 측선(현장 9 등, 정답 없음)이 이 경우일 수 있다(+5.6 ~ +11.5 cm). 플래그 `air_multi_event`로 표시한다 | 장비 높이를 아는 자료는 로더가 `antenna_height_m`를 채운다. 4TU InfraRadar 거치 높이는 장비 사양 조사 항목(위 $s$ 행과 같음). 높이를 알게 되면 4TU도 단계 1로 돈다 |
+| (v2.1) $\tau_h$ = 0.5/f_c의 여유 | 간격 편향(gprMax M20 +0.32 ns) + $s$ 모름(+0.31 ns) + 높이 공차 ±0.05 m(±0.33 ns, **가정**)의 최악 합 0.96 ns로 1.0 ns에 가깝다 | 높이를 아는 실측 자료가 생기면 $g-\Delta_h$ 분포를 재서 확인한다. 4TU 값으로 정하지 않는다 |
+| (v2.1) 기록 시작 근처의 약한 앞 사건 | 02.5 P12·07.1 P2는 첫 사건이 0.32 ns(3 샘플)에 있어 필터 가장자리 영향일 수 있다(§3 "기록 앞머리 효과"). v2.1은 이것을 영점으로 쓴다(정답 없는 측선, 약 +5 cm). 기록 시작 가드(예: 0.5/f_c 안의 피크 무시)는 근거 합성이 없어 넣지 않았다 | 재평가 진단에서 `air_multi_event` 측선의 첫 사건 시각 분포를 본다. (v2.1.1) **사용자 결정(2026-11-07): 첫 사건이 약한 정답 없는 28측선(§4-4 F7 보충 ③)은 한계로 기록만 하고 규칙을 더 바꾸지 않는다** |
 | (v2.0) 단일 띠 영점 편향 상한 | 코드 `bias_notes` 7.5 cm(500 MHz Ricker 분리 한계)는 사용자 결정(2026-11-07)으로 유지. 실측 파형 기준 상한은 11–13 cm(εr 9, E2a)라 7.5 cm는 보수값이 아니다. 편향 추정 −4 ~ +3 cm, 부호 미정(E4) | 문서에만 기록. 코드 상수 변경은 제안하지 않는다 |
+
+---
+
+## 15. v2.1 구현 위임 명세 (python-expert)
+
+상태: **구현됨·판정 합격**(2026-11-07, v2.1.1). 판정 근거와 명세와 다른 점은 §15-4. 후속 권고 1–3 완료(v2.1.2, §15-4 끝). (이하 구현 전 원문) 받는 쪽은 python-expert다. 평가 스크립트 쪽 변경과 꼭짓점 후보 재생성은 [EV] v1.8 §9-7이고, 이 절과 한 묶음으로 넘긴다. 4TU 정답 깊이·M2-8 결과는 읽지 않는다. 실행 규약: 셸 heredoc·`python -` 금지, 스크립트는 파일로 쓰고 `conda run -n gpr-dev python -I <파일>`(PowerShell 도구), 실행 전 `status.py`로 자원 확인(포화면 단일 프로세스·BelowNormal·BLAS 1스레드).
+
+### 15-1. 바꿀 것
+
+| 파일 | 변경 |
+|---|---|
+| `src/gpr_detection/io/radargram.py` | `Radargram.antenna_height_m: float \| None = None`(기존 기본값 필드들 사이, `antenna_offset_m` 다음 권장). `__post_init__`: None이 아니면 유한하고 > 0이어야 함(아니면 `ValueError`). `air_gap`과의 조합은 검사하지 않는다(지면결합이면 쓰이지 않을 뿐) |
+| `src/gpr_detection/io/synthetic.py` | `load_synthetic(model_id, *, root, include_eps=True, include_radius=True, include_height=True)`: `antenna_height_m` = json `air_gap_m`(> 0이고 `include_height`일 때), 아니면 None |
+| `src/gpr_detection/io/fourtu.py`, `guangzhou.py`, `gprsd.py` 등 | 바꾸지 않는다(기본값 None). 4TU 로더가 None을 낸다는 시험만 더한다(Z13) |
+| `src/gpr_detection/preprocess/timezero.py` | (1) `ZeroRule.AIR_FIRST_EVENT = "air_first_event"`, `SIGMA_ZERO_NS["air_first_event"] = 0.25`, `HEIGHT_MATCH_PERIODS = 0.5`, 플래그 상수 `AIR_MULTI_EVENT`, `AIR_SURFACE_NOT_FOUND`. (2) 순수 함수 `surface_gap_ns(h_m: float, offset_m: float \| None) -> float`($\Delta_h$, $s$ None → 0)와 `surface_event_index(gaps_ns: Sequence[float], gap_h_ns: float, period_ns: float) -> int \| None`($\Delta_h<$ `SEPARATION_PERIODS`·period이면 None; 아니면 $\arg\min|g-\Delta_h|$, 같으면 이른 쪽, $\le$ `HEIGHT_MATCH_PERIODS`·period이면 그 인덱스, 아니면 None; 인덱스는 `gaps_ns` 기준, 즉 사건 번호 − 1). (3) `_air_zero(radargram, events)`: §4-2-1 단계 1–3. 사건 1개는 지금과 똑같이 `air_single_event`. `_RuleChoice`에 고른 사건 번호(또는 시각)를 담아 `select_zero`가 쓰게 한다. (4) `select_zero`: `h_est_m`은 `air_surface_late`일 때 `_antenna_height_m((k_choice - k_first) * dt, s)`로 계산(첫–고른 사건; M20처럼 사건 2개면 지금 값과 같음), `air_first_event`는 None. 플래그는 `choice.flags`로 붙인다(`air_multi_event`, `air_surface_not_found`). 창별 QC는 고른 사건(`k_event`)을 추적한다 — `air_first_event`면 첫 사건. (5) `classify_meta_t0(..., *, surface_event_ns=None)`와 `_meta_label_events`: `air_surface_late`의 `surface_reflection` 후보를 `surface_event_ns`(None이면 마지막 사건)로, `air_first_event`는 `air_single_event`와 같은 분기. `select_zero`는 고른 사건 시각을 넘긴다. (6) `bias_notes`: `air_first_event` = `(_single_event_bias_note(radargram), "air_first_event: later events treated as sub-surface; deep by h/sqrt(eps_r) if the first event is a separated direct wave (antenna height unknown)")`. `air_surface_late` 노트는 그대로. (7) 모듈·`select_zero` docstring을 §4-2-1에 맞게 고친다 |
+| `src/gpr_detection/depth/estimate.py` | 코드 변경 없음이어야 한다(2a 조건 `AIR_SURFACE_LATE` + `h_est_m`이 그대로 맞음). 바꿔야 하면 이유를 보고 |
+| `scripts/eval_depth_synthetic.py` | R14 추가(§11-2): M20을 `include_height=False`로 한 번 더 돌려 기록. 기존 R1–R13 계산·출력 열은 바꾸지 않는다(R14 행만 더함; 검사 수 129 → 130) |
+| `tests/synthetic_bscan.py` | `make_radargram`이 `antenna_height_m` = `spec.air_gap_m`(> 0) 또는 None을 넣는다(`overrides`로 덮어쓰기 가능) |
+| 시험 | §11-1 Z8–Z13(새 파일 `tests/preprocess/test_timezero_v21.py` 권장), Z1(b) 규칙 이름, [B] UB14 개정(§11-1 "기대값이 바뀌는 기존 시험") |
+| 문서 | `spec_band_depth_v1.md` §9-1 UB14 행·머리 [S] 동기화 줄은 gpr-processing-expert가 고친다(이 묶음에서 함께 반영됨). 구현자는 docstring만 |
+
+바꾸지 않을 것: `DepthConfig` 기본값, `ZeroConfig`(`h_max_m` 0.5 등), `SEPARATION_PERIODS`, 다른 규칙의 $\sigma_z$, `air_single_event` 편향 노트(7.5 cm), 탐색 창 정의(§4-1 항목 2), 지면결합·`unknown`·`meta_sample0` 규칙, `ZeroEvents` 필드와 그 `h_est_m`(첫–마지막 진단값).
+
+### 15-2. 받아들임 조건
+
+1. 전체 pytest 통과. 기대값이 바뀐 기존 시험은 Z1(b) 규칙 이름과 UB14뿐이어야 한다. 그 밖에 바뀐 기대값이 있으면 고치지 말고 멈춰 보고한다.
+2. gprMax 회귀 `scripts/eval_depth_synthetic.py`: R1–R13 **129/129**, 모델별 출력(깊이·v·영점·`h_est`·2a 구간·픽 수)이 HEAD와 **수치 차 0**(`~/.claude/tools/pyinspect/output_compare.py`로 HEAD 출력과 비교, 표 첨부). R14 기록값 +8.60 cm(±0.05 cm, 시제품 `m29e2_two_event_zero_gprmax.json` `first` 변형의 R6 측정값).
+3. 띠 회귀 `scripts/eval_band_depth_synthetic.py`: 출력이 HEAD와 같음(UB14는 단위 시험이라 별도).
+4. 전후 비교 보고(4TU, 정답 깊이 없이): [EV] §9-7 재생성 뒤 `fourtu_apex_candidate_lines_v1.csv`에서 `zero_rule` 개수 = `air_single_event` 709 · `air_first_event` 50 · `air_surface_late` 0, 단일 사건 709측선의 `t_zero_ns`가 HEAD와 같음, 50측선의 `t_zero_ns`가 `m29e2_two_event_zero_fourtu.csv` `events_ns` 첫 값과 0.001 ns 안.
+5. 돌연변이 판별력(아래 표, 한 번에 하나씩, `-k`로 해당 시험만): 모두 검출되어야 한다. 생존이 있으면 시험을 보강하고 보고한다.
+
+| # | 돌연변이 | 잡아야 할 시험 |
+|---|---|---|
+| M1 | 높이 없으면 마지막 사건(옛 규칙) | Z8, Z9(b) |
+| M2 | 높이 있어도 늘 첫 사건 | Z9(a), Z10, R2·R6(회귀) |
+| M3 | 높이 있으면 맞춤 대신 마지막 사건 | Z10 |
+| M4 | 허용 경계 `<=` → `<` | Z11(c) |
+| M5 | `HEIGHT_MATCH_PERIODS` 0.5 → 0.1 | Z11(c), R2(M20 차 +0.32 ns) |
+| M6 | 단계 2($\Delta_h<\Delta_\text{sep}$) 생략 | Z11(b) |
+| M7 | 동률이면 늦은 쪽 | Z11(c) |
+| M8 | `h_est`를 첫–마지막 간격으로 | Z10 |
+| M9 | `air_multi_event` 플래그 빠짐 | Z8 |
+| M10 | `air_first_event` $\sigma_z$ 0.3 | Z8 |
+| M11 | `air_first_event` 메타 라벨에 늦은 사건을 `surface_reflection` 후보로 | Z12(a) |
+| M12 | `air_first_event` 창 QC가 마지막 사건 추적 | Z12(b) |
+| M13 | 합성 로더가 높이를 안 채움 | Z13, 회귀 R2·R6 |
+| M14 | 4TU 로더가 높이 0.1을 채움 | Z13 |
+| M15 | `Radargram`이 높이 0을 받아들임 | Z13 |
+| M16 | `classify_meta_t0`가 `surface_event_ns`를 무시(마지막 사건 사용) | Z10 |
+| M17 | `make_radargram`이 높이를 안 채움 | Z7, U4 |
+
+6. 보고: 바뀐 파일, 시험 수, 회귀 비교 표, 4TU 전후 비교 수치, 돌연변이 결과, 명세와 다르게 구현한 점(있으면 이유).
+
+### 15-3. 비용
+
+깊이 코드는 측선당 사건 수 $n\le$ 몇 개의 비교라 비용이 없다. 회귀 2개 단일 프로세스 수 분, 4TU 후보 재생성 약 5분(759측선, [EV] §3-1), pytest 전체 수 분.
+
+### 15-4. 구현 판정 (v2.1.1, 2026-11-07, gpr-processing-expert) — **합격**
+
+**코드 대조**(`git diff` HEAD f5f02b0 기준, 미커밋):
+
+| 명세 | 구현 | 일치 |
+|---|---|---|
+| §15-1 `Radargram.antenna_height_m`, 유한·양수 검사 | `radargram.py` 필드(`antenna_offset_m` 다음), `__post_init__` `np.isfinite` + `> 0` | 예 |
+| 합성 로더 `include_height` | `synthetic.py` `air_gap_m > 0`이고 `include_height`일 때만 채움 | 예 |
+| 4TU·광저우·GPR-SD 로더 불변 | 변경 없음(기본 None), Z13 4TU 시험(`@pytest.mark.data`) | 예 |
+| $\Delta_h$ 식, $s$ None → 0 | `surface_gap_ns` = $(2\,\mathrm{hypot}(h,s/2)-s)/c$ | 예 |
+| 단계 1: $\Delta_h\ge\Delta_\text{sep}$, $\arg\min|g_j-\Delta_h|$, 같으면 이른 쪽, $\le\tau_h$(경계 포함) | `surface_event_index`(`min`이 첫 최소를 유지), `_height_matched_event`(인덱스 +1로 `events_k` 기준) | 예 |
+| 단계 2·3, 플래그 | `_air_multi_event_zero`: 맞는 사건 없으면 `air_first_event`, `air_multi_event`, 단계 1에서 못 찾을 때만 `air_surface_not_found` | 예 |
+| `h_est_m` = 첫–고른 사건 간격, `air_first_event`는 None | `select_zero`가 `choice.k_event − events_k[0]`로 `_antenna_height_m` | 예 |
+| 창 QC는 고른 사건 추적 | `_window_qc(events, choice.k_event, …)`(`air_first_event`면 첫 사건) | 예 |
+| `classify_meta_t0(..., surface_event_ns=None)`, `air_first_event` = 단일 사건 분기 | `_meta_label_events` | 예 |
+| 편향 노트 2개(단일 사건 상한 + 첫 사건 노트) | 그대로(문구는 §15-1 (6) 문자열) | 예 |
+| $\sigma_z$ `air_first_event` 0.25, `air_surface_late` 0.3 유지 | `SIGMA_ZERO_NS` | 예 |
+| `estimate.py` 변경 없음 | 변경 없음. 2a는 `AIR_SURFACE_LATE` + `h_est_m`이라 4TU(`air_first_event`, `h_est_m` None)에서 돌지 않는다 | 예 |
+| 바꾸지 않을 것(§15-1 끝) | `DepthConfig`·`ZeroConfig`·`SEPARATION_PERIODS`·다른 규칙 $\sigma_z$·`air_single_event` 노트·탐색 창·지면결합·`unknown`·`meta_sample0`·`ZeroEvents` 필드 불변 | 예 |
+
+**받아들임 조건(§15-2) 확인**:
+
+| # | 조건 | 결과 | 출처 |
+|---|---|---|---|
+| 1 | 전체 pytest, 기대값 변경은 Z1(b)·UB14뿐 | 794 통과·2 xfail(구현자). 변경 3건 = Z1(b)·UB14 + UB14 영점 쪽 짝 1건 → **받아들임**(§11-1 v2.1.1, 명세 누락). 판정자 재실행: 영점 시험 76/76 | 구현 보고, 판정자 `mut/run_mut.py base` |
+| 2 | R1–R13 129/129, HEAD 대비 수치 차 0, R14 +8.60 ± 0.05 cm | §11-2 v2.1.1(판정자 재실행) | `scripts/eval_depth_synthetic.py --out-dir <scratchpad>` |
+| 3 | 띠 회귀 HEAD와 같음 | 180/180 HEAD와 같음(구현자) | 구현 보고 |
+| 4 | 4TU 규칙 709/50/0, 단일 사건 `t_zero_ns` 불변, 50측선 = 시제품 첫 사건 0.001 ns 안 | 성립(판정자 HEAD 대조, [EV] v1.8.1 §9-7) | scratchpad `check_two_event_lines.py` |
+| 5 | 돌연변이 M1–M17 모두 검출 | 구현자 M1–M17 + 평가 J1–J5 22/22. 판정자 독립 6개 중 4개 검출, 생존 2개(JC·JE)는 비차단(§11-1 v2.1.1). (v2.1.2) Z11(d)·Z11(e)로 JC·JE도 검출 → 6/6 | 구현 보고, 판정자 돌연변이 표 |
+
+**명세와 다르게 구현한 점 — 판정**:
+
+| # | 내용 | 판정 | 반영 |
+|---|---|---|---|
+| (1) | 명세 밖 기존 시험 기대값 변경 1건(`test_z7_excluding_band_traces_keeps_the_surface_reflection`, UB14와 같은 개정) | **받아들임.** UB14의 영점 쪽 짝이고 같은 원인이다. 옛 단언은 v2.0 실패 모드(띠가 영점)를 기록한 것이었다. 명세 누락 | §11-1 |
+| (2) | 스케일 없는 공기결합 다중 사건 → `air_first_event`(HEAD `air_surface_late`) | **받아들임.** 단계 1은 ns 간격이 필요하므로 "그 밖"(단계 3)이 맞다. 해당 데이터셋 없음. 직접 시험 없음(JE 생존, 비차단). (v2.1.2) 직접 시험 Z11(e) 추가, JE 검출 | §4-2-1 구현 대조, §10, §11-1 |
+| (3) | `air_first_event` 결과에 `h_est_offset_unknown` 남음 | **받아들임.** `ZeroEvents` 불변 지시의 결과이고, 플래그 뜻을 "`ZeroEvents` 진단값의 $s=0$ 처리"로 문서화. 깊이·속도 규칙 미사용 | §13-1 |
+| (4) | `air_surface_not_found`(높이 앎)에도 노트 "(antenna height unknown)" | **받아들임(문구 부정확, 기록).** §15-1 (6)이 지정한 문자열 그대로다. 플래그가 경우를 가른다. 정정은 선택(권장 문구 §4-2-1). **(v2.1.2) 정정됨**: `air_surface_not_found`이면 "(antenna height known, no event gap matched)", 그 밖은 "(antenna height unknown)"(Z11(a)·Z8 단언). 스케일 없음 + 높이 있음(JE 경로)은 여전히 "(antenna height unknown)" — 기록만, 해당 데이터셋 없음 | §4-2-1 구현 대조 |
+| (5) | R14가 검사 csv·md 검사표에 한 행씩, md 제목 "R1-R13 판정" 유지 | **받아들임.** 검사 수 130으로 센다. md 제목·명세 줄(`§11-2 (R1-R13, …)`)은 다음 스크립트 변경 때 "R1-R14"로 고치는 것을 권한다(비차단). **(v2.1.2) "R1-R14"로 고쳐짐** | §11-2 v2.1.1·v2.1.2 |
+| (6) | J2(사본 측선)는 main 배선 시험(Z7b)으로 확인 | **받아들임.** 사본 제외는 `_line_groups`가 아니라 `main`의 `drop_within_copies` → `write_markdown(eval_candidates)` 단계에서 일어나므로, main 배선 시험이 J2를 잡는 올바른 위치다 | [EV] v1.8.1 §9-7 C |
+
+**후속 권고(비차단, 재평가 판정에 영향 없음)**:
+1. 커밋 전에 `scripts/eval_depth_synthetic.py`를 기본 출력 경로로 다시 돌려 `docs/processing/depth_synthetic_v1.csv`·`_checks.csv`·`.md`·그림을 v2.1 출력(R14 포함)으로 갱신한다(약 2분, 단일 프로세스). 지금 커밋된 파일은 v2.0 출력이다. → **(v2.1.2) 완료**: 커밋 대상 출력이 v2.1(R14 포함, 130 검사, R14 +8.602 cm), HEAD 대비 수치 차 0(§11-2 v2.1.2).
+2. 시험 보강 2개: JC(높이 일치가 $s$를 쓰는지 — 가짜 `ZeroEvents` 단위 시험), JE(스케일 없는 공기결합 다중 사건 → `air_first_event`). python-expert 몫. → **(v2.1.2) 완료**: Z11(d)·Z11(e)(§11-1). JC 판별 구간은 $[\Delta_h(s)-\tau_h,\ \Delta_h(0)-\tau_h)$이고 v2.1.1 문구는 방향이 반대였다(§11-1 JC 행).
+3. 문구 정리 2개: `air_surface_not_found` 편향 노트(§4-2-1 구현 대조), 합성 회귀 md 제목 "R1-R14". 코드 문자열·md 출력이 바뀌므로 1과 함께 하면 한 번에 끝난다. → **(v2.1.2) 완료**: 노트 정정(JE 경로 노트의 남은 부정확함은 기록만, §4-2-1), md 명세 줄·제목 "R1-R14". pytest 기본 776 + synthetic 24 = 800 통과·2 xfail(구현 보고).

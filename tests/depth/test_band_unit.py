@@ -477,9 +477,23 @@ def test_ub14_shallow_band_is_kept_out_of_the_zero() -> None:
     without = find_time_zero(radargram, filtered)
     with_mask = find_time_zero(radargram, filtered, exclude_traces=excluded)
 
+    # spec_depth v2.1: the generator fills antenna_height_m = 0.3 m, so even
+    # without the mask the zero is the height-matched surface reflection (the
+    # middle of three events), not the band.
     geometric_ns = T_SRC_NS + surface_ns
-    assert without.t_zero_ns == pytest.approx(T_SRC_NS + band_tau, abs=0.15)
-    assert 0.0 < with_mask.t_zero_ns - geometric_ns <= 0.2  # Z7 window
+    assert len(without.events_ns) == 3
+    for zero in (without, with_mask):
+        assert zero.zero_rule == "air_surface_late"
+        assert 0.0 < zero.t_zero_ns - geometric_ns <= 0.2  # Z7 window
+
+    # Recorded variant: height unknown and no mask -> the first event (the
+    # direct wave at t_src + s / c) is taken as the merged band.
+    unknown_height = replace(radargram, antenna_height_m=None)
+    first = find_time_zero(unknown_height, filtered)
+    assert first.zero_rule == "air_first_event"
+    assert "air_multi_event" in first.flags
+    direct_ns = T_SRC_NS + offset / SPEED_OF_LIGHT_M_PER_NS
+    assert first.t_zero_ns == pytest.approx(direct_ns, abs=0.1)
 
 
 def test_ub20_layer_inside_the_window_is_flagged_not_corrected() -> None:

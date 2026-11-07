@@ -144,14 +144,17 @@ def load_synthetic(
     root: Path = DEFAULT_SYNTHETIC_ROOT,
     include_eps: bool = True,
     include_radius: bool = True,
+    include_height: bool = True,
 ) -> Radargram:
     """Load one model as a :class:`Radargram` with survey-level metadata only.
 
     Filled: ``dt_ns``, ``dx_m`` (trace ``i`` at ``i * dx``; the json axis starts
     at ``trace_x_m_first``), ``f_c_hz``, ``air_gap`` (``"air"`` when
     ``air_gap_m > 0``), ``antenna_offset_m`` and optionally ``eps_r_meta``
-    (source ``"synthetic_truth"``) and ``pipe_radius_m``. Zero candidates,
-    apex times and depths are **not** passed on (ground truth).
+    (source ``"synthetic_truth"``), ``pipe_radius_m`` and ``antenna_height_m``
+    (json ``air_gap_m`` of air-coupled models: the antenna mounting height is
+    survey metadata, spec_depth_v1 v2.1 section 1-1). Zero candidates, apex
+    times and depths are **not** passed on (ground truth).
 
     Args:
         model_id: e.g. ``"M02"``.
@@ -159,6 +162,8 @@ def load_synthetic(
         include_eps: Pass the true eps_r as ``eps_r_meta``; False tests the
             no-metadata velocity rules.
         include_radius: Pass the true radius as ``pipe_radius_m``.
+        include_height: Pass ``air_gap_m > 0`` as ``antenna_height_m``; False
+            tests the unknown-height zero rule (regression R14).
 
     Raises:
         ValueError: If the array shape disagrees with the json, or a required
@@ -171,11 +176,12 @@ def load_synthetic(
     if raw.shape != expected_shape:
         raise ValueError(f"{npy_path} shape {raw.shape} != json {expected_shape}")
 
+    air_gap_m = float(meta["air_gap_m"])
     return Radargram(
         data=raw.astype(np.float32, copy=False),
         dt_ns=float(meta["dt_ns"]),
         dx_m=float(meta["dx_m"]),
-        air_gap="air" if float(meta["air_gap_m"]) > 0 else "ground",
+        air_gap="air" if air_gap_m > 0 else "ground",
         amplitude_processed=False,
         dataset=DATASET_KEY,
         line_id=model_id,
@@ -183,6 +189,7 @@ def load_synthetic(
         eps_r_meta=float(meta["eps_r"]) if include_eps else None,
         eps_r_meta_source=EPS_R_SOURCE if include_eps else "",
         antenna_offset_m=float(meta["antenna_offset_m"]),
+        antenna_height_m=air_gap_m if include_height and air_gap_m > 0 else None,
         pipe_radius_m=float(meta["pipe_radius_m"]) if include_radius else None,
         metadata={
             "model_id": model_id,

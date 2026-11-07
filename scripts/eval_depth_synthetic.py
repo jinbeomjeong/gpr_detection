@@ -2,10 +2,11 @@
 
 For every model the script loads survey metadata only (``load_synthetic``),
 supplies a box from the ground truth (spec 11-2 "box supply rule"), runs
-``estimate_depth`` with the detected zero and judges R1-R13. Ground-coupled
+``estimate_depth`` with the detected zero and judges R1-R14. Ground-coupled
 models also run with the tabulated direct-wave shift (R9) and with the radius
-withheld (R11). Truth is read separately (``load_synthetic_truth``) and only
-used for the box and for judging.
+withheld (R11); M20 also runs with the antenna height withheld (R14, record).
+Truth is read separately (``load_synthetic_truth``) and only used for the box
+and for judging.
 
 Outputs (``--out-dir``, default ``docs/processing``):
 ``<stem>.csv`` one row per model, ``<stem>_checks.csv`` one row per check,
@@ -56,7 +57,11 @@ from gpr_detection.io.synthetic import (
 )
 from gpr_detection.preprocess.filters import prepare_fitting_branch
 from gpr_detection.preprocess.signals import parabolic_peak, pick_signal
-from gpr_detection.preprocess.timezero import GroundZeroShift
+from gpr_detection.preprocess.timezero import (
+    AIR_MULTI_EVENT,
+    GroundZeroShift,
+    ZeroRule,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_DIR = PROJECT_ROOT / "docs" / "processing"
@@ -136,6 +141,8 @@ class ModelRun:
         refraction_ray_picks: M20 only: QC on the json ray times (R13a-1).
         straight_ray_refused: M20 only: ``fit_curvature`` raised ``ValueError``.
         seconds: Wall time of this model.
+        height_unknown: M20 only: ``estimate_depth`` with the antenna height
+            withheld (``include_height=False``, R14, spec v2.1).
     """
 
     truth: SyntheticTruth
@@ -151,6 +158,7 @@ class ModelRun:
     refraction_ray_picks: RefractionQC | None
     straight_ray_refused: bool | None
     seconds: float
+    height_unknown: DepthResult | None = None
 
     @property
     def model_id(self) -> str:
@@ -262,7 +270,7 @@ def _ideal_apex_and_lateral(
 
 
 def evaluate_model(model_id: str, root: Path = DEFAULT_SYNTHETIC_ROOT) -> ModelRun:
-    """Run every estimate one model needs for R1-R13."""
+    """Run every estimate one model needs for R1-R14."""
     started = time.perf_counter()
     truth = load_synthetic_truth(model_id, root=root)
     radargram = load_synthetic(model_id, root=root)
@@ -272,7 +280,7 @@ def evaluate_model(model_id: str, root: Path = DEFAULT_SYNTHETIC_ROOT) -> ModelR
     picks = _picks_of(radargram, box, inputs)
     ideal_apex_ns, lateral_rel = _ideal_apex_and_lateral(radargram, truth, box, root)
 
-    shifted = radius_free = None
+    shifted = radius_free = height_unknown = None
     refraction_true_h = refraction_ray_picks = straight_ray_refused = None
     if truth.air_gap_m == 0:
         shift_config = DepthConfig(ground_zero_shift=GroundZeroShift.SYNTHETIC_TABLE)
@@ -283,6 +291,8 @@ def evaluate_model(model_id: str, root: Path = DEFAULT_SYNTHETIC_ROOT) -> ModelR
         refraction_true_h = _refraction_with_true_h(radargram, picks, truth)
         refraction_ray_picks = _refraction_on_ray_times(radargram, truth)
         straight_ray_refused = _straight_ray_refused(picks)
+        no_height = load_synthetic(model_id, root=root, include_height=False)
+        height_unknown = estimate_depth(no_height, box)
     return ModelRun(
         truth=truth,
         box=box,
@@ -297,6 +307,7 @@ def evaluate_model(model_id: str, root: Path = DEFAULT_SYNTHETIC_ROOT) -> ModelR
         refraction_ray_picks=refraction_ray_picks,
         straight_ray_refused=straight_ray_refused,
         seconds=time.perf_counter() - started,
+        height_unknown=height_unknown,
     )
 
 
@@ -562,7 +573,44 @@ def _air_depth_checks(run: ModelRun) -> list[Check]:
         ),
     ]
     checks.extend(_refraction_checks(run))
+    checks.append(_height_unknown_check(run))
     return checks
+
+
+def _height_unknown_check(run: ModelRun) -> Check:
+    """R14 (record): M20 with the antenna height withheld takes the first event.
+
+    The documented bias of an unknown height is ``0 < dd <= h / sqrt(eps_r)``
+    plus 2 cm (spec 11-2 v2.1); prototype value +8.60 cm.
+    """
+    truth, result = run.truth, run.height_unknown
+    bound_m = truth.air_gap_m / math.sqrt(truth.eps_r) + MATCH_DEPTH_M
+    if result is None:
+        return Check("R14", run.model_id, "None", _r14_criterion(bound_m), False)
+    error = _depth_error_m(result, truth)
+    passed = (
+        result.zero_rule == ZeroRule.AIR_FIRST_EVENT
+        and AIR_MULTI_EVENT in result.flags
+        and result.v_rule == "meta_fixed"
+        and error is not None
+        and 0 < error <= bound_m
+    )
+    measured = f"{result.zero_rule}, {result.v_rule}, {_fmt(error, ' cm', 100)}"
+    return Check(
+        "R14",
+        run.model_id,
+        measured,
+        _r14_criterion(bound_m),
+        passed,
+        _grade(error, None),
+    )
+
+
+def _r14_criterion(bound_m: float) -> str:
+    return (
+        "height unknown: air_first_event + air_multi_event, meta_fixed, "
+        f"0 < dd <= h/sqrt(eps)+2 cm ({bound_m * 100:.1f} cm)"
+    )
 
 
 def _qc_text(qc: RefractionQC | None, truth: SyntheticTruth) -> str:
@@ -630,7 +678,7 @@ def _refraction_checks(run: ModelRun) -> list[Check]:
 
 
 def regression_checks(runs: Sequence[ModelRun]) -> list[Check]:
-    """R1-R13 over all models, in model order."""
+    """R1-R14 over all models, in model order."""
     checks: list[Check] = []
     for run in runs:
         checks.extend(_zero_checks(run))
@@ -923,12 +971,12 @@ def write_markdown(
         "",
         f"- 생성: `scripts/eval_depth_synthetic.py`, {local_timestamp()}, "
         f"commit {git['commit']} (dirty {git['dirty']})",
-        "- 명세: `docs/processing/spec_depth_v1.md` §11-2 (R1-R13, 박스 공급 규칙)",
+        "- 명세: `docs/processing/spec_depth_v1.md` §11-2 (R1-R14, 박스 공급 규칙)",
         f"- 실행 시간: 전체 {elapsed_s:.1f} s, "
         f"모델별 {fastest_s:.1f}-{slowest_s:.1f} s (단일 프로세스)",
         "- 판정 등급: match ≤5 %·2 cm, acceptable match d ≤10 cm (공기결합은 d만)",
         "",
-        "## R1-R13 판정",
+        "## R1-R14 판정",
         "",
         *_markdown_table(
             _check_summary(checks),

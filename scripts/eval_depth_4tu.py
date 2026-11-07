@@ -29,6 +29,9 @@ Variants reported (spec 5):
   against the file hashes before any depth is computed (spec 4-5).
 * ``zero_h_implausible`` (v1.7): a line flag only (``air_surface_late`` zero
   with ``h_est > h_max``); depths, exclusions and metrics ignore it (spec 7-1).
+  Since spec_depth v2.1 4TU has no ``air_surface_late`` line, so 0 is normal.
+* two-event zero lines (v1.8): lines whose zero rule is ``air_first_event``
+  are counted in an md subsection of the site 9 section; report only.
 
 Outputs: ``<prefix>_candidates.csv``, ``_clusters.csv``, ``_matches.csv``,
 ``_site11.csv``, ``_summary.csv``, ``_dup_sensitivity.csv`` (v1.7) and
@@ -95,7 +98,12 @@ from gpr_detection.io.fourtu import (
 from gpr_detection.io.paths import load_dataset_paths
 from gpr_detection.io.radargram import GridBox, Radargram, velocity_from_eps
 from gpr_detection.preprocess.filters import period_ns_or_default
-from gpr_detection.preprocess.timezero import DEFAULT_PERIOD_NS, ZeroResult, ZeroRule
+from gpr_detection.preprocess.timezero import (
+    AIR_MULTI_EVENT,
+    DEFAULT_PERIOD_NS,
+    ZeroResult,
+    ZeroRule,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_APEX_CANDIDATES = (
@@ -357,6 +365,16 @@ ZERO_FLAG_TABLE_COLUMNS = (
     "flagged_gt_lines",
 )
 """md zero-flag table in the site 9 section (spec 8 v1.7 (iii))."""
+MULTI_EVENT_TABLE_COLUMNS = (
+    "site",
+    "lines",
+    "multi_event",
+    "candidates",
+    "ok",
+    "main_input",
+    "multi_event_gt_lines",
+)
+"""md two-event zero table after the zero-flag table (spec 7-1 / 8 (iii) v1.8)."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -3387,6 +3405,63 @@ def _zero_flag_lines(
     ]
 
 
+def _multi_event_counts(
+    candidates: Sequence[CandidateResult], gt_activities: frozenset[str]
+) -> tuple[dict[int, Counter[str]], list[LineFile]]:
+    """Per-site counts of the two-event zero table and its lines (spec 7-1 v1.8).
+
+    A line counts when its zero rule is ``air_first_event`` (spec_depth v2.1
+    section 4-2-1 step 3). Counted like :func:`_zero_flag_counts`: only lines
+    with candidates; ``main_input`` = ``ok`` and kept by the main QC rule.
+    """
+    counts: dict[int, Counter[str]] = defaultdict(Counter)
+    multi_event_lines = []
+    for line_file, members in _line_groups(candidates).items():
+        site_counts = counts[site_of_activity(line_file[0])]
+        site_counts["lines"] += 1
+        if ZeroRule.AIR_FIRST_EVENT not in {m.result.zero_rule for m in members}:
+            continue
+        multi_event_lines.append(line_file)
+        ok = [m for m in members if m.result.status == "ok"]
+        site_counts["multi_event"] += 1
+        site_counts["candidates"] += len(members)
+        site_counts["ok"] += len(ok)
+        site_counts["main_input"] += sum(not _is_qc_excluded(m, "main") for m in ok)
+        site_counts["multi_event_gt_lines"] += line_file[0] in gt_activities
+    return counts, sorted(multi_event_lines, key=_line_sort_key)
+
+
+def _multi_event_lines(
+    candidates: Sequence[CandidateResult], evaluation: Evaluation
+) -> list[str]:
+    """md two-event zero subsection after the zero-flag one (spec 8 (iii) v1.8)."""
+    counts, multi_event_lines = _multi_event_counts(
+        candidates, evaluation.gt_activities
+    )
+    count_columns = MULTI_EVENT_TABLE_COLUMNS[1:]
+    rows: list[dict[str, object]] = [
+        {"site": site, **{c: site_counts[c] for c in count_columns}}
+        for site, site_counts in sorted(counts.items())
+        if site_counts["multi_event"] > 0
+    ]
+    totals = {c: sum(int(row[c]) for row in rows) for c in count_columns}
+    rows.append({"site": "합계", **totals})
+    lines_text = ", ".join(_file_label(f) for f in multi_event_lines) or "없음"
+    return [
+        f"### 두 사건 영점 (`{ZeroRule.AIR_FIRST_EVENT}`, v1.8 — 깊이 규칙 "
+        "spec_depth §4-2-1)",
+        "",
+        "- 정의: 영점 사건이 2개 이상이라 첫 사건(합쳐진 띠)을 영점으로 쓴 측선"
+        f"(`{ZeroRule.AIR_FIRST_EVENT}`, 플래그 `{AIR_MULTI_EVENT}`). 늦은 사건은 "
+        "지표 아래 사건으로 본다. 활동 안 사본 제외",
+        "",
+        *_md_table(rows, MULTI_EVENT_TABLE_COLUMNS),
+        "",
+        f"- 두 사건 측선: {lines_text}",
+        "",
+    ]
+
+
 def write_markdown(
     path: Path,
     evaluation: Evaluation,
@@ -3521,6 +3596,7 @@ def write_markdown(
         f"- meta_eps_suspect: {suspects}/{len(site9)}",
         "",
         *_zero_flag_lines(candidates, evaluation),
+        *_multi_event_lines(candidates, evaluation),
         "## 현장 11 진단 (eps_r 8 환산, 판정에 쓰지 않음)",
         "",
         "꼭짓점 후보 깊이를 먼저 환산한 뒤 주 결과와 같은 묶기·지지 필터·매칭"

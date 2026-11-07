@@ -2715,6 +2715,98 @@ def test_z4_md_zero_flag_subsection(script, tmp_path) -> None:
     assert [_md_cells(row) for row in rows] == [site_9, ["합계", *site_9[1:]]]
     flagged_line = lines[_index_starting_with(lines, "- 플래그 측선:")]
     assert flagged_line == "- 플래그 측선: 09.1/Path1, 09.2/Path1"
+    # v1.8: the two-event subsection is always written; no air_first_event here.
+    header, rows = _md_table_under(lines, "### 두 사건 영점")
+    assert header == MULTI_EVENT_TABLE_HEADER
+    assert [_md_cells(row) for row in rows] == [["합계", "0", "0", "0", "0", "0", "0"]]
+    multi_line = lines[_index_starting_with(lines, "- 두 사건 측선:")]
+    assert multi_line == "- 두 사건 측선: 없음"
+
+
+MULTI_EVENT_TABLE_HEADER = (
+    "| site | lines | multi_event | candidates | ok | main_input"
+    " | multi_event_gt_lines |"
+)
+
+
+def _z7_candidates(script) -> list:
+    """Site 9: two ``air_first_event`` lines (09.1/Path1: 2 kept candidates,
+    09.1/Path2: 1 out candidate) and one ``air_single_event`` line; site 3: one
+    ``air_first_event`` line of a ground-truth activity (03.1)."""
+    first, single = "air_first_event", "air_single_event"
+    return [
+        _zero_candidate(script, "09.1", "Path1", first, None),
+        _zero_candidate(script, "09.1", "Path1", first, None),
+        _zero_candidate(script, "09.1", "Path2", first, None, qc=_qc(script, "out")),
+        _zero_candidate(script, "09.2", "Path1", single, None),
+        _zero_candidate(script, "03.1", "Path1", first, None),
+    ]
+
+
+Z7_LINES = {"09.1": 2, "09.2": 1, "03.1": 1}
+Z7_GT = {"03.1": [0.5]}
+ZERO_SUBSECTION_ORDER = (
+    "### 영점 h 비현실 플래그",
+    "### 두 사건 영점",
+    "## 현장 11 진단",
+)
+"""md order of the site 9 zero subsections (v1.8) up to the site 11 heading."""
+
+
+def test_z7_md_two_event_zero_subsection(script, tmp_path) -> None:
+    """Z7 (v1.8): position, header, per-site counts, total and the line list."""
+    lines = _write_md(
+        script, tmp_path, _z7_candidates(script), _gt_sets(script, Z7_GT), Z7_LINES
+    )
+    order = [_index_starting_with(lines, prefix) for prefix in ZERO_SUBSECTION_ORDER]
+    assert order == sorted(order)
+    assert lines[order[1]] == (
+        "### 두 사건 영점 (`air_first_event`, v1.8 — 깊이 규칙 spec_depth §4-2-1)"
+    )
+    header, rows = _md_table_under(lines, "### 두 사건 영점")
+    assert header == MULTI_EVENT_TABLE_HEADER
+    site_3 = ["3", "1", "1", "1", "1", "1", "1"]
+    site_9 = ["9", "3", "2", "3", "3", "2", "0"]
+    total = ["합계", "4", "3", "4", "4", "3", "1"]
+    assert [_md_cells(row) for row in rows] == [site_3, site_9, total]
+    multi_line = lines[_index_starting_with(lines, "- 두 사건 측선:")]
+    assert multi_line == "- 두 사건 측선: 03.1/Path1, 09.1/Path1, 09.1/Path2"
+
+
+def test_z7_counts_ok_only_and_reads_the_rule_constant(script) -> None:
+    """A ``fit_failed`` candidate adds to ``candidates`` but not to ``ok`` (J5)."""
+    failed = _zero_candidate(script, "09.1", "Path1", "air_first_event", None)
+    failed = dataclasses.replace(
+        failed, result=dataclasses.replace(failed.result, status=DepthStatus.FIT_FAILED)
+    )
+    counts, multi_lines = script._multi_event_counts(
+        [*_z7_candidates(script), failed], frozenset(Z7_GT)
+    )
+    assert (counts[9]["candidates"], counts[9]["ok"], counts[9]["main_input"]) == (
+        4,
+        3,
+        2,
+    )
+    assert len(multi_lines) == 3
+    source = inspect.getsource(script._multi_event_counts)
+    assert "ZeroRule.AIR_FIRST_EVENT" in source
+    assert '"air_first_event"' not in source
+
+
+def test_z8_md_zero_flag_subsection_is_empty_without_late_zeros(
+    script, tmp_path
+) -> None:
+    """Z8 (v1.8): with spec_depth v2.1 4TU has no air_surface_late line."""
+    lines = _write_md(
+        script, tmp_path, _z7_candidates(script), _gt_sets(script, Z7_GT), Z7_LINES
+    )
+    header, rows = _md_table_under(lines, "### 영점 h 비현실 플래그")
+    assert header == ZERO_FLAG_TABLE_HEADER
+    assert [_md_cells(row) for row in rows] == [
+        ["합계", "0", "0", "0", "0", "0", "0", "0"]
+    ]
+    flagged_line = lines[_index_starting_with(lines, "- 플래그 측선:")]
+    assert flagged_line == "- 플래그 측선: 없음"
 
 
 def test_z5_the_zero_flag_changes_no_result(script) -> None:
@@ -3316,6 +3408,8 @@ def test_d8b_caveat_covers_every_zero_and_assumption(
 
 
 def _without_zero_flag_subsection(lines: list[str]) -> list[str]:
+    """Drop the v1.7 flag and the v1.8 two-event subsections (both lie between
+    the flag heading and the site 11 heading) and the run-time line."""
     start = _index_starting_with(lines, "### 영점 h 비현실 플래그")
     end = _index_starting_with(lines, "## 현장 11 진단")
     kept = lines[:start] + lines[end:]
@@ -3326,6 +3420,10 @@ def _without_zero_flag_subsection(lines: list[str]) -> list[str]:
 def test_d9_md_without_a_duplicate_report_matches_head(script, tmp_path, apex_qc):
     lines = _markdown_lines(script, tmp_path, apex_qc)
     assert not any(line.startswith("## 중복 레이더그램") for line in lines)
+    flag, multi_event, site_11 = (
+        _index_starting_with(lines, prefix) for prefix in ZERO_SUBSECTION_ORDER
+    )
+    assert flag < multi_event < site_11  # v1.8: removed together with the flag
     kept = _without_zero_flag_subsection(lines)
     assert (len(kept), _lines_digest(kept)) == D9_HEAD[apex_qc]
 
@@ -3434,6 +3532,52 @@ def test_d11_main_wiring(script, tmp_path, monkeypatch) -> None:
     assert md[_index_starting_with(md, "- 플래그 측선:")] == (
         "- 플래그 측선: 03.1/P1, 03.1/P3"
     )
+
+
+def test_z7b_two_event_subsection_skips_the_within_copy(
+    script, tmp_path, monkeypatch
+) -> None:
+    """Z7 extension (v1.8, J2): the within copy 03.1/P2 is not counted."""
+    candidates_table, lines_table, duplicates_csv = _d11_inputs(tmp_path)
+
+    def fake_run_line(radargram, group, apex_qc=True):
+        activity, path = radargram.line_id.split("/")
+        rule = "air_first_event" if activity == "03.1" else "air_single_event"
+        return [
+            _zero_candidate(script, activity, path, rule, None, depth_m=depth)
+            for depth in group["depth"]
+        ]
+
+    monkeypatch.setattr(
+        script, "_read_inputs", lambda args: (tmp_path, candidates_table, lines_table)
+    )
+    monkeypatch.setattr(
+        script,
+        "load_ground_truth_sets",
+        lambda root: _gt_sets(script, {"03.1": [0.5], "03.2": [0.7], "03.3": [0.7]}),
+    )
+    monkeypatch.setattr(
+        script,
+        "load_fourtu_radargram",
+        lambda root, activity, path, choice: SimpleNamespace(
+            line_id=f"{activity}/{path}"
+        ),
+    )
+    monkeypatch.setattr(script, "run_line", fake_run_line)
+    monkeypatch.setattr(script, "DEFAULT_DUPLICATES", duplicates_csv)
+    monkeypatch.setattr(
+        script, "verify_duplicate_hashes", lambda root, lines, table: (len(lines), 0.0)
+    )
+    out = tmp_path / "out"
+    trials = ["--baseline-trials", "5", "--baseline-trials-aux", "3"]
+    assert script.main(["--out-dir", str(out), "--prefix", "t", *trials]) == 0
+
+    md = (out / "t.md").read_text(encoding="utf-8").splitlines()
+    assert md[_index_starting_with(md, "- 두 사건 측선:")] == (
+        "- 두 사건 측선: 03.1/P1, 03.1/P3"
+    )
+    _, rows = _md_table_under(md, "### 두 사건 영점")
+    assert _md_cells(rows[0]) == ["3", "4", "2", "2", "2", "2", "2"]
 
 
 def _d11b_inputs(tmp_path: Path):

@@ -73,4 +73,6 @@ def test_z1_box_dewow_would_split_the_event(monkeypatch: pytest.MonkeyPatch) -> 
     assert len(gaussian.events_ns) == 1
     assert gaussian.zero_rule == "air_single_event"
     assert len(box.events_ns) == 2
-    assert box.zero_rule == "air_surface_late"
+    # spec_depth v2.1: without an antenna height two events give the first one,
+    # so the ghost lobe can no longer become the zero on this path.
+    assert box.zero_rule == "air_first_event"

@@ -1,0 +1,133 @@
+{
+  "activities": [
+    "010.5",
+    "010.7",
+    "02.5",
+    "03.4",
+    "03.7",
+    "04.3",
+    "06.6",
+    "07.1",
+    "07.4",
+    "08.3",
+    "09.1",
+    "09.2",
+    "09.3",
+    "09.5",
+    "09.6",
+    "09.7",
+    "09.8"
+  ],
+  "lines": 134,
+  "two_event_lines": 50,
+  "single_lines_same_activities": 84,
+  "two_event_gt_lines": 11,
+  "first_is_strongest": 22,
+  "first_is_strongest_gt": 11,
+  "variant_change_vs_current_lines": {
+    "first": 50,
+    "strongest": 24,
+    "first_h": 50
+  },
+  "dd_first_m_q": [
+    0.056,
+    0.093,
+    0.129,
+    0.165,
+    0.447
+  ],
+  "dd_first_m_q_gt": [
+    0.086,
+    0.1,
+    0.109,
+    0.128,
+    0.167
+  ],
+  "dd_strongest_m_q": [
+    0.0,
+    0.0,
+    0.0,
+    0.129,
+    0.176
+  ],
+  "first_vs_strongest_differ_lines": 28,
+  "first_vs_strongest_differ_gt_lines": 0,
+  "abs_first_minus_ref_q": [
+    0.002,
+    0.502,
+    1.478,
+    1.807,
+    5.552
+  ],
+  "abs_last_minus_ref_q": [
+    0.023,
+    0.942,
+    1.814,
+    3.198,
+    6.846
+  ],
+  "abs_strongest_minus_ref_q": [
+    0.002,
+    0.119,
+    0.714,
+    1.63,
+    6.387
+  ],
+  "first_closer_to_ref_than_last": 25,
+  "lines_with_ref": 43,
+  "gt_first_closer": 11,
+  "last_same_polarity_as_first": 25,
+  "std_first_ns_q_two": [
+    0.0,
+    0.186,
+    0.226,
+    0.299,
+    0.512
+  ],
+  "std_first_ns_q_single": [
+    0.031,
+    0.159,
+    0.234,
+    0.311,
+    0.44
+  ],
+  "std_last_ns_q": [
+    0.067,
+    0.338,
+    0.378,
+    0.417,
+    0.5
+  ],
+  "std_gap_ns_q": [
+    0.067,
+    0.399,
+    0.475,
+    0.558,
+    0.751
+  ],
+  "present_last_q": [
+    0.04,
+    0.23,
+    0.398,
+    0.546,
+    1.0
+  ],
+  "slope_last_on_first_q": [
+    -1397.625,
+    -0.533,
+    -0.168,
+    0.06,
+    3.227
+  ],
+  "corr_last_first_q": [
+    -0.898,
+    -0.326,
+    -0.129,
+    0.06,
+    0.748
+  ],
+  "group_traces": 11,
+  "track_half_ns": 0.5,
+  "gt_use": "activity membership copied from m29e_zero_survey_lines.csv (no depth read)",
+  "elapsed_s": 17.7
+}
