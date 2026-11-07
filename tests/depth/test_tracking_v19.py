@@ -1,6 +1,7 @@
 """Tracking improvements T1 (apex descent) and T2 (reverse rule), spec_depth_v1 11-3.
 
-TK1-TK10 of spec_depth v1.9 section 11-3 (diagnosis ``m29c_track_diagnosis.md``).
+TK1-TK10 of spec_depth v1.9 section 11-3 and TK11-TK14 of v1.9.2
+(diagnosis ``m29c_track_diagnosis.md``).
 The generator has the form of ``base_section`` in
 ``analysis/processing/m29c_track_repro.py`` but lives here (tests never import
 analysis scripts): 500 MHz Ricker, dt 0.098 ns, dx 0.02 m, eps_r 9, 161 traces,
@@ -547,3 +548,186 @@ def test_tk10_amplitude_window_and_aperture_stops() -> None:
     assert picks_module._track_one_side(signal, at_record_end, +1, box, no_window)[
         1
     ] == (TrackStop.WINDOW)
+
+
+# ----------------------------------------------------------------- TK11-TK14 (v1.9.2)
+
+PURE_N_COLUMNS = 7
+PURE_HINT_TRACE = 3
+PURE_FLOOR_AMPLITUDE = 0.2
+RELATIVE_TOL = 1e-12
+
+
+def _triangle_signal(n_samples: int, peaks: dict[int, tuple[int, float]]) -> np.ndarray:
+    """Zero signal with ``s[k-1] = a/2, s[k] = a, s[k+1] = a/2`` per column."""
+    signal = np.zeros((n_samples, PURE_N_COLUMNS))
+    for column, (k, amplitude) in peaks.items():
+        signal[k - 1 : k + 2, column] = (0.5 * amplitude, amplitude, 0.5 * amplitude)
+    return signal
+
+
+def _descend(
+    signal: np.ndarray,
+    candidate: ApexCandidate,
+    box: GridBox,
+    back_samples: float,
+    floor_amplitude: float = PURE_FLOOR_AMPLITUDE,
+) -> ApexCandidate:
+    return picks_module.descend_apex(
+        signal,
+        candidate,
+        box,
+        ApexHint(trace=PURE_HINT_TRACE, sample=candidate.k),
+        hint_traces=CONFIG.hint_traces,
+        back_samples=back_samples,
+        floor_amplitude=floor_amplitude,
+    )
+
+
+def _as_tuple(candidate: ApexCandidate) -> tuple[int, float, float]:
+    return candidate.trace, candidate.k, candidate.amplitude
+
+
+@pytest.mark.parametrize(
+    ("floor_amplitude", "expected"),
+    [
+        (PURE_FLOOR_AMPLITUDE, (4, 38.0, 0.5)),
+        # Control: a floor of 0.1 (what a floor re-based on the current
+        # candidate, 0.2 x 0.5, would give) walks on to column 5.
+        (0.1, (5, 36.0, 0.15)),
+    ],
+)
+def test_tk11_descent_floor_is_the_hint_candidate_value(
+    floor_amplitude: float, expected: tuple[int, float, float]
+) -> None:
+    """TK11 (a): the floor stays ``0.2 x`` the pre-descent candidate value."""
+    signal = _triangle_signal(64, {3: (40, 1.0), 4: (38, 0.5), 5: (36, 0.15)})
+    candidate = ApexCandidate(trace=PURE_HINT_TRACE, k=40.0, amplitude=1.0)
+    box = GridBox(i0=0, i1=6, k0=10, k1=60)
+
+    descended = _descend(signal, candidate, box, 3.0, floor_amplitude)
+
+    assert _as_tuple(descended) == pytest.approx(expected, abs=1e-12)
+
+
+@dataclass
+class _DescentRecord:
+    """Arguments and result of ``descend_apex`` and the wing-tracking calls."""
+
+    descent_inputs: list[tuple[ApexCandidate, float]]
+    descent_results: list[ApexCandidate]
+    tracked: list[tuple[ApexCandidate, float]]
+
+
+@pytest.fixture
+def recorded_tracking(monkeypatch: pytest.MonkeyPatch) -> _DescentRecord:
+    """Wrap ``descend_apex`` and ``_track_one_side`` without changing them."""
+    record = _DescentRecord([], [], [])
+    real_descend = picks_module.descend_apex
+    real_track = picks_module._track_one_side
+
+    def descend(signal, candidate, box, hint, **kwargs):
+        record.descent_inputs.append((candidate, kwargs["floor_amplitude"]))
+        result = real_descend(signal, candidate, box, hint, **kwargs)
+        record.descent_results.append(result)
+        return result
+
+    def track(signal, candidate, step, box, limits):
+        record.tracked.append((candidate, limits.stop_amplitude))
+        return real_track(signal, candidate, step, box, limits)
+
+    monkeypatch.setattr(picks_module, "descend_apex", descend)
+    monkeypatch.setattr(picks_module, "_track_one_side", track)
+    return record
+
+
+def test_tk11_descent_floor_on_the_truncated_hint_line(
+    load_script, recorded_tracking: _DescentRecord
+) -> None:
+    """TK11 (b): on the TK6 line the floor is ``track_stop_rel x`` the hint value."""
+    line, hint = _truncated_hint_line()
+    picks = _picks(load_script, line, hint)
+
+    ((hint_candidate, floor_amplitude),) = recorded_tracking.descent_inputs
+    assert floor_amplitude == pytest.approx(
+        CONFIG.track_stop_rel * hint_candidate.amplitude, rel=RELATIVE_TOL
+    )
+    assert APEX_DESCENDED in picks.flags
+
+
+def test_tk12_track_stop_uses_the_descended_value(
+    load_script, recorded_tracking: _DescentRecord
+) -> None:
+    """TK12: both wings start from the descended candidate and use its value."""
+    line, hint = _truncated_hint_line()
+    picks = _picks(load_script, line, hint)
+
+    ((hint_candidate, _),) = recorded_tracking.descent_inputs
+    (descended,) = recorded_tracking.descent_results
+    # Premise: the two values differ enough for the test to tell them apart.
+    relative_change = abs(hint_candidate.amplitude - descended.amplitude)
+    assert relative_change / descended.amplitude > 0.01
+    assert _apex(picks).trace == APEX_TRACE
+    assert len(recorded_tracking.tracked) == 2
+    for tracked_candidate, stop_amplitude in recorded_tracking.tracked:
+        assert tracked_candidate is descended
+        assert stop_amplitude == pytest.approx(
+            CONFIG.track_stop_rel * descended.amplitude, rel=RELATIVE_TOL
+        )
+
+
+TK13_BACK_SAMPLES = 4.0
+
+
+def test_tk13_descent_ignores_the_box_top() -> None:
+    """TK13 (a): the descent goes above the box top ``k0`` 20."""
+    signal = _triangle_signal(40, {4: (19, 0.8)})
+    candidate = ApexCandidate(trace=PURE_HINT_TRACE, k=22.0, amplitude=1.0)
+    box = GridBox(i0=0, i1=6, k0=20, k1=38)
+
+    descended = _descend(signal, candidate, box, TK13_BACK_SAMPLES)
+
+    assert (descended.trace, descended.k) == (4, pytest.approx(19.0, abs=1e-12))
+
+
+def test_tk13_descent_near_the_record_top() -> None:
+    """TK13 (b): window ``[1, 8]`` holds an interior maximum at k 2."""
+    signal = _triangle_signal(40, {4: (2, 0.8)})
+    candidate = ApexCandidate(trace=PURE_HINT_TRACE, k=4.0, amplitude=1.0)
+    box = GridBox(i0=0, i1=6, k0=0, k1=38)
+
+    descended = _descend(signal, candidate, box, TK13_BACK_SAMPLES)
+
+    assert (descended.trace, descended.k) == (4, pytest.approx(2.0, abs=1e-12))
+
+
+def test_tk13_no_descent_next_to_the_first_record_sample() -> None:
+    """TK13 (c): a peak at k 1 is the window end, so nothing moves."""
+    signal = _triangle_signal(40, {4: (1, 0.8)})
+    candidate = ApexCandidate(trace=PURE_HINT_TRACE, k=4.0, amplitude=1.0)
+    box = GridBox(i0=0, i1=6, k0=0, k1=38)
+
+    descended = _descend(signal, candidate, box, TK13_BACK_SAMPLES)
+
+    assert descended is candidate
+
+
+def test_tk14_descent_stays_inside_the_hint_traces_to_the_left(load_script) -> None:
+    """TK14: the TK8 ridge mirrored (earlier to the left) stops at ``j_h - 3``."""
+    traces = np.arange(N_TRACES)
+    ridge_half_traces = 20
+    centre_time_ns = 2.0 / VELOCITY * PIPE_DEPTH_M
+    ridge_times = centre_time_ns + 0.1 * (traces - APEX_TRACE)
+    ridge_amplitudes = np.where(
+        np.abs(traces - APEX_TRACE) <= ridge_half_traces, 1.0, 0.0
+    )
+    line = _line(depth_m=None, extra=(Event(ridge_times, ridge_amplitudes),))
+    late_ns = 0.5 * PERIOD_NS - DT_NS
+    hint = ApexHint(
+        trace=APEX_TRACE,
+        sample=(T_SRC_NS + centre_time_ns + late_ns) / DT_NS,
+    )
+    picks = _picks(load_script, line, hint)
+
+    assert APEX_DESCENDED in picks.flags
+    assert _apex(picks).trace == APEX_TRACE - CONFIG.hint_traces

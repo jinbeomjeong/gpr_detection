@@ -1,4 +1,4 @@
-"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 E1-E8, B1-B13, C1-C14).
+"""Unit tests of ``scripts/eval_depth_4tu.py`` (spec_eval_4tu_v1 E1-E8, B1-B13, C1-C20).
 
 Analytic B-scans and small in-memory tables only; no 4TU data is read.
 """
@@ -550,8 +550,9 @@ def test_e5_variant_trial_counts_per_variant(script) -> None:
     }
     assert script.baseline_trials_for("a", args) == {"activity": 200}
     assert script.baseline_trials_for("b", args) == {"activity": 200}
-    # v1.4: noqc is an auxiliary variant, reported only with the QC on.
-    assert script.VARIANTS == ("main", "a", "b", "noqc")
+    # v1.5: bd and noqc are auxiliary variants, reported only with the QC on.
+    assert script.VARIANTS == ("main", "a", "b", "bd", "noqc")
+    assert script.baseline_trials_for("bd", args) == {"activity": 200}
     assert script.baseline_trials_for("noqc", args) == {"activity": 200}
     assert script.variants_for(_args(apex_qc="off")) == ("main", "a", "b")
 
@@ -807,6 +808,55 @@ def test_c15_site11_diagnostic_drops_qc_excluded_candidates(
     assert pair["est_depth_m"] == pytest.approx(0.67, abs=1e-4)  # same as E8
     evaluation = script.evaluate_combinations(candidates, gt_sets, lines, args)
     assert evaluation.estimate_counts["main"]["011.1"] == n_main_path
+
+
+def _c15b_candidates(script) -> list:
+    """C15 plus an unknown-curvature 0.20 m on P1 (eps_r 18).
+
+    Kept, it would pair with the E8 stray 0.20 m on P2 (rescaled 0.30 m).
+    """
+    unknown = dataclasses.replace(
+        _candidate(script, "011.1", "P1", 0.20, eps_r=18.0),
+        qc=_qc(script, "unknown"),
+    )
+    return [*_c15_candidates(script), unknown]
+
+
+@pytest.mark.parametrize(
+    ("apex_qc", "n_main_path", "n_unclustered"),
+    [("on", 1, 3), ("off", 3, 6)],
+)
+def test_c15b_site11_diagnostic_drops_unknown_curvature(
+    script, apex_qc, n_main_path, n_unclustered
+) -> None:
+    """C15b (v1.5): the site 11 diagnostic uses the main rule B+D+E."""
+    gt_sets = _site11_gt_sets(script)
+    candidates = _c15b_candidates(script)
+    lines = {"011.1": 2}
+    args = _args(apex_qc=apex_qc)
+    rows, summaries = script.site11_diagnostic(candidates, gt_sets, lines, args)
+    assert summaries[("exclude_x", "top", "main_path")].n_est == n_main_path
+    assert summaries[("exclude_x", "top", "unclustered")].n_est == n_unclustered
+    if apex_qc == "off":
+        return
+    (pair,) = [
+        row
+        for row in rows
+        if row["variant"] == "main_path"
+        and (row["gt_set"], row["assumption"]) == ("exclude_x", "top")
+    ]
+    assert pair["est_depth_m"] == pytest.approx(0.67, abs=1e-4)
+    evaluation = script.evaluate_combinations(candidates, gt_sets, lines, args)
+    counts = evaluation.estimate_counts
+    # bd keeps the unknown 0.20 (P1), which supports the 0.20 (P2) stray.
+    assert counts["main"]["011.1"] == 1
+    assert counts["bd"]["011.1"] == 2
+    assert counts["noqc"]["011.1"] == 3
+    # Added by the implementer: main != bd here, so the md difference sign shows.
+    md_lines = script._qc_diagnostic_lines(candidates, evaluation, args)
+    assert _line_starting_with(md_lines, "  - 전체 활동").endswith(
+        "1개: main 1 / bd 2 / noqc 3 / main-bd -1 / main-noqc -2"
+    )
 
 
 def test_e7_pass_rates_include_the_30_cm_boundary(script) -> None:
@@ -1542,9 +1592,19 @@ def _c10_candidates(script) -> list[_DuckQcCandidate]:
 
 @pytest.mark.parametrize(
     ("variant", "expected"),
-    [("main", [0.61]), ("noqc", [0.61, 1.205]), ("a", [0.61, 1.21])],
+    [
+        # B+D+E: 0.61 (out), 0.62 (unknown) and 1.20 (record end) are dropped
+        # before clustering, so 0.60 (L1) and 1.21 (L2) are each seen on one line.
+        ("main", []),
+        ("a", [0.60, 1.21]),
+        ("b", [0.60, 1.21]),
+        # B+D (the v1.4 main expectation): the unknown 0.62 supports 0.60.
+        ("bd", [0.61]),
+        ("noqc", [0.61, 1.205]),
+    ],
 )
 def test_c10_qc_runs_before_clustering(script, variant, expected) -> None:
+    """C10 (v1.5): each variant's QC rule acts before clustering."""
     estimates, _ = script.estimates_by_activity(
         _c10_candidates(script),
         "detected",
@@ -1554,7 +1614,7 @@ def test_c10_qc_runs_before_clustering(script, variant, expected) -> None:
         linkage="complete",
         min_lines=2,
     )
-    # main: 1.20 is dropped before clustering, so 1.21 loses its second line.
+    # 1.20 is dropped before clustering, so 1.21 loses its second line.
     assert estimates["01.1"] == pytest.approx(expected, abs=DEPTH_ABS_TOL)
 
 
@@ -1715,6 +1775,23 @@ def test_c13_candidate_csv_columns_and_flags(script) -> None:
     assert "apex_on_trace_seam" not in row["flags"].split()
 
 
+def test_c13_unknown_curvature_is_qc_excluded_without_a_new_column(script) -> None:
+    """C13 (b), v1.5: ``qc_excluded`` follows B+D+E; the columns stay the same."""
+    spec = _straight_ray_spec(9.0, 0.5)
+    candidate = _run_one(script, _radargram(spec), *_true_apex(spec))
+    unknown = script.CurvatureQc(script.QcVerdict.UNKNOWN, "insufficient_picks")
+    unknown_copy = dataclasses.replace(
+        candidate, qc=dataclasses.replace(candidate.qc, curvature=unknown)
+    )
+    row = script.candidate_row(candidate, {})
+    copy_row = script.candidate_row(unknown_copy, {})
+    assert row["qc_verdict"] == "in" and row["qc_excluded"] is False
+    assert copy_row["qc_verdict"] == "unknown"
+    assert copy_row["qc_excluded"] is True
+    assert copy_row["flags"].split()[-1] == "curvature_v_unknown"
+    assert list(row) == list(copy_row) == CANDIDATE_CSV_COLUMNS
+
+
 def test_c13f_qc_flags_follow_long_line(script) -> None:
     radargram, trace, sample = _seam_line("dead_trace", 3)
     candidate = _run_one(script, radargram, trace, sample)
@@ -1756,21 +1833,32 @@ def test_c13_apex_qc_off_restores_the_v131_main_result(script) -> None:
     lines = {"01.1": 3}
     on = script.evaluate_combinations(candidates, gt_sets, lines, _args())
     off = script.evaluate_combinations(candidates, gt_sets, lines, _args(apex_qc="off"))
-    assert "noqc" in {row["variant"] for row in on.summary_rows}
-    assert "noqc" not in {row["variant"] for row in off.summary_rows}
-    assert "noqc" not in {row["variant"] for row in off.match_rows}
+    all_variants = {"main", "a", "b", "bd", "noqc"}
+    for rows in (on.summary_rows, on.match_rows):
+        assert {row["variant"] for row in rows} == all_variants
+    for rows in (off.summary_rows, off.match_rows):
+        assert {row["variant"] for row in rows} == {"main", "a", "b"}
     on_main = _main_rows(on.summary_rows)["exclude_x"]
     off_main = _main_rows(off.summary_rows)["exclude_x"]
-    (on_noqc,) = [
-        row
-        for row in on.summary_rows
-        if (row["scope"], row["gt_set"], row["assumption"], row["zero_variant"])
-        == ("all", "exclude_x", "top", "detected")
-        and row["variant"] == "noqc"
-    ]
-    assert on_main["n_est"] == 1 and off_main["n_est"] == 2
+    on_bd = _overall_top_detected_row(on.summary_rows, "bd")
+    on_noqc = _overall_top_detected_row(on.summary_rows, "noqc")
+    # main drops the unknown 1.11 (L2) but 1.10 (L1) and 1.12 (L3) still pair up;
+    # bd keeps 1.11, so the same pipe is one estimate either way.
+    assert on_main["n_est"] == 1 and on_bd["n_est"] == 1
+    assert off_main["n_est"] == 2
     for column in METRIC_COLUMNS:
         assert off_main[column] == on_noqc[column], column
+
+
+def _overall_top_detected_row(rows, variant: str) -> dict[str, object]:
+    (row,) = [
+        row
+        for row in rows
+        if (row["scope"], row["gt_set"], row["assumption"], row["zero_variant"])
+        == ("all", "exclude_x", "top", "detected")
+        and row["variant"] == variant
+    ]
+    return row
 
 
 def test_c13_md_qc_diagnostic_lines(script) -> None:
@@ -1780,27 +1868,31 @@ def test_c13_md_qc_diagnostic_lines(script) -> None:
     args = _args()
     evaluation = script.evaluate_combinations(candidates, gt_sets, {"01.1": 3}, args)
     lines = script._qc_diagnostic_lines(candidates, evaluation, args)
+    assert "v1.5" in lines[0]
     assert _line_starting_with(lines, "- `ok` 후보 5개").endswith(
         "in 2 / out 2 / unknown 1"
     )
     reasons = _line_starting_with(lines, "- 사유")
     assert "out `r_above` 2" in reasons
     assert "unknown `insufficient_picks` 1" in reasons
-    assert "2/5" in _line_starting_with(lines, "- `qc_excluded`")
+    excluded = _line_starting_with(lines, "- `qc_excluded`")
+    assert "(주 결과 B+D+E): 3/5" in excluded
+    assert "B+D(`bd`): 2/5" in excluded
+    assert "E로 더 뺀 후보(곡률 unknown, D 없음): 1" in excluded
+    assert lines[lines.index(excluded) + 1] == "  - E로 더 뺀 후보 출처별: `auto_v1` 1"
     tracking = _line_starting_with(lines, "- 추적 진단")
     assert "`apex_descended` 0/5" in tracking
     assert "왼쪽 `none` 5 / 오른쪽 `none` 5" in tracking
-    assert _line_starting_with(lines, "  - 전체 활동").endswith(
-        "1개: main 1 / noqc 2 / 차 -1"
-    )
-    assert _line_starting_with(lines, "  - 정답 활동").endswith(
-        "1개: main 1 / noqc 2 / 차 -1"
-    )
+    counts = "1개: main 1 / bd 1 / noqc 2 / main-bd +0 / main-noqc -1"
+    assert _line_starting_with(lines, "  - 전체 활동").endswith(counts)
+    assert _line_starting_with(lines, "  - 정답 활동").endswith(counts)
     assert script.PREREGISTERED_QC_NOTE in _line_starting_with(lines, "- 사전 등록")
     off_lines = script._qc_diagnostic_lines(
         candidates, evaluation, _args(apex_qc="off")
     )
     assert any("apex_qc=off" in line for line in off_lines)
+    qc_setting = script._qc_setting(_args())
+    assert "B+D+E" in qc_setting and "`bd`" in qc_setting
 
 
 def _c16_candidates(script) -> list:
@@ -1836,6 +1928,11 @@ def test_c16_md_qc_lines_count_ok_candidates_and_known_verdict_ratios(
     ratio_line = _line_starting_with(lines, "- 알려진 r")
     assert ratio_line.startswith("- 알려진 r 2개")
     assert ratio_line.endswith("[1.0, 1.07, 1.35, 1.63, 1.7]")
+    # v1.5: the fit_failed candidate is not counted under either rule.
+    excluded = _line_starting_with(lines, "- `qc_excluded`")
+    assert "(주 결과 B+D+E): 3/4" in excluded
+    assert "B+D(`bd`): 1/4" in excluded
+    assert "E로 더 뺀 후보(곡률 unknown, D 없음): 2" in excluded
 
 
 def test_c14_a_different_box_or_apex_raises(script) -> None:
@@ -1857,3 +1954,140 @@ def test_c14_a_different_box_or_apex_raises(script) -> None:
     shifted_box = dataclasses.replace(box, i0=trace + 5)
     with pytest.raises(RuntimeError):
         script.curvature_qc(radargram, shifted_box, inputs, hint, candidate.result)
+
+
+# ----------------------------------------------------------------- v1.5 (rule E)
+
+UNKNOWN_REASONS = ("no_box", "no_apex", "insufficient_picks", "fit_failed", "unstable")
+V144_CLI_KEYS = {
+    "root",
+    "candidates",
+    "lines",
+    "out_dir",
+    "prefix",
+    "activities",
+    "cluster_width_m",
+    "cluster_linkage",
+    "min_support_lines",
+    "baseline_trials",
+    "baseline_trials_aux",
+    "baseline_seed",
+    "apex_qc",
+    "dry_run",
+}
+"""``parse_args([])`` attributes of v1.4.4; v1.5 adds no option (spec 9-1)."""
+SPEC_PATH = PROJECT_ROOT / "docs" / "processing" / "spec_eval_4tu_v1.md"
+PREREGISTERED_ITEM_3_PREFIX = "3. **꼭짓점 후보 QC(C, v1.5"
+CURVATURE_FLAGS = {
+    "in": (),
+    "out": ("curvature_v_out",),
+    "unknown": ("curvature_v_unknown",),
+}
+
+
+def _candidate_qc(script, verdict: str, reason: str, record_end: bool, seam: bool):
+    return script.CandidateQc(
+        curvature=script.CurvatureQc(script.QcVerdict(verdict), reason),
+        record_end_margin_ns=10.0,
+        at_record_end=record_end,
+        seam_score=0.1,
+        seam_split=1,
+        on_trace_seam=seam,
+    )
+
+
+def test_c17_exclusion_rule_truth_table(script) -> None:
+    """C17 (v1.5): B+D+E and B+D differ only for (unknown, no D flag)."""
+    reasons = {"in": "", "out": "r_above", "unknown": "insufficient_picks"}
+    differing = []
+    for verdict, record_end, seam in itertools.product(
+        reasons, (False, True), (False, True)
+    ):
+        qc = _candidate_qc(script, verdict, reasons[verdict], record_end, seam)
+        assert qc.excluded == (verdict != "in" or record_end or seam)
+        assert qc.excluded_bd == (verdict == "out" or record_end or seam)
+        expected_flags = (
+            *CURVATURE_FLAGS[verdict],
+            *(("apex_at_record_end",) if record_end else ()),
+            *(("apex_on_trace_seam",) if seam else ()),
+        )
+        assert qc.flags == expected_flags
+        if qc.excluded != qc.excluded_bd:
+            differing.append((verdict, record_end, seam))
+    assert differing == [("unknown", False, False)]
+
+
+@pytest.mark.parametrize("reason", UNKNOWN_REASONS)
+def test_c17_every_unknown_reason_is_excluded_by_e_only(script, reason) -> None:
+    qc = _candidate_qc(script, "unknown", reason, record_end=False, seam=False)
+    assert qc.excluded is True
+    assert qc.excluded_bd is False
+    assert qc.flags == ("curvature_v_unknown",)
+
+
+def test_c18_variants_and_cli(script) -> None:
+    """C18 (v1.5): ``bd`` is an auxiliary variant; the CLI is unchanged."""
+    assert script.VARIANTS == ("main", "a", "b", "bd", "noqc")
+    assert script.variants_for(_args()) == script.VARIANTS
+    assert script.variants_for(_args(apex_qc="off")) == ("main", "a", "b")
+    args = _args()
+    assert script.baseline_trials_for("bd", args) == {
+        "activity": args.baseline_trials_aux
+    }
+    assert script.baseline_trials_for("bd", args) == script.baseline_trials_for(
+        "noqc", args
+    )
+    assert set(vars(script.parse_args([]))) == V144_CLI_KEYS
+    with pytest.raises(SystemExit) as raised:
+        script.parse_args(["--qc-unknown", "keep"])
+    assert raised.value.code == 2
+
+
+def _markdown_lines(script, tmp_path: Path, apex_qc: str) -> list[str]:
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    candidates = _c13_candidates(script)
+    args = script.parse_args(
+        ["--baseline-trials", "30", "--baseline-trials-aux", "10", "--apex-qc", apex_qc]
+    )
+    evaluation = script.evaluate_combinations(candidates, gt_sets, {"01.1": 3}, args)
+    path = tmp_path / f"md_{apex_qc}.md"
+    script.write_markdown(path, evaluation, candidates, args, elapsed_s=0.0)
+    return path.read_text(encoding="utf-8").splitlines()
+
+
+def _index_starting_with(lines: list[str], prefix: str) -> int:
+    (index,) = [i for i, line in enumerate(lines) if line.startswith(prefix)]
+    return index
+
+
+def test_c19_md_auxiliary_tables_follow_the_main_table(script, tmp_path) -> None:
+    """C19 (v1.5): main -> bd -> noqc -> X included; no bd/noqc when off."""
+    lines = _markdown_lines(script, tmp_path, "on")
+    order = [
+        _index_starting_with(lines, prefix)
+        for prefix in (
+            "## 주 결과",
+            "### 보조: B+D (`bd`",
+            "### 보조: QC 없음 (`noqc`",
+            "## 보조: X 포함",
+        )
+    ]
+    assert order == sorted(order)
+    assert any("bd: B+D(곡률 unknown 유지)" in line for line in lines)
+    off_lines = _markdown_lines(script, tmp_path, "off")
+    assert not any(line.startswith("### 보조: B+D") for line in off_lines)
+    assert not any(line.startswith("### 보조: QC 없음") for line in off_lines)
+    assert not any("bd: B+D(곡률 unknown 유지)" in line for line in off_lines)
+
+
+def test_c20_preregistered_note_matches_the_spec(script) -> None:
+    """C20 (v1.5): ``PREREGISTERED_QC_NOTE`` is the spec 11 item 3 text verbatim."""
+    spec_lines = SPEC_PATH.read_text(encoding="utf-8").splitlines()
+    (item_3,) = [
+        line for line in spec_lines if line.startswith(PREREGISTERED_ITEM_3_PREFIX)
+    ]
+    note = script.PREREGISTERED_QC_NOTE
+    assert note in item_3
+    for fragment in ("B+D+E", "14.3", "35.7", "29/41", "126 → 49"):
+        assert fragment in note

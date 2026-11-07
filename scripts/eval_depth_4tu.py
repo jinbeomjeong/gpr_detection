@@ -13,8 +13,11 @@ Variants reported (spec 5):
 * zero_variant: ``detected`` (main), ``est`` / ``act`` (metadata zeros)
 * variant: ``main`` (clusters seen on >= 2 parallel lines), ``a`` (clusters,
   no support filter), ``b`` (every candidate depth, no clustering); these three
-  drop the candidates excluded by the apex-candidate QC (3-5, v1.4) before
-  clustering. ``noqc`` is ``main`` without the QC (the v1.3.1 main result).
+  drop the candidates excluded by the main apex-candidate QC rule B+D+E
+  (3-5-5, v1.5: curvature out or unknown, record end, trace seam) before
+  clustering. ``bd`` drops only the B+D candidates (curvature out, record end,
+  trace seam; the v1.4.4 main result) and then clusters and filters like
+  ``main``. ``noqc`` is ``main`` without the QC (the v1.3.1 main result).
 * gt_set: ``exclude_x`` (main, code X dropped) or ``include_x``; both come
   from the same run and differ only in the matching step
 
@@ -126,16 +129,22 @@ SITE_11_DIAGNOSTIC_EPS = 8.0
 ZERO_VARIANTS = ("detected", "est", "act")
 META_ZERO_KEYS = {"est": "t0_sample_est", "act": "t0_sample_act_median"}
 ASSUMPTIONS = ("top", "center")
-VARIANTS = ("main", "a", "b", "noqc")
-"""``noqc`` (v1.4): ``main`` without the apex-candidate QC (``--apex-qc on`` only)."""
+VARIANTS = ("main", "a", "b", "bd", "noqc")
+"""``bd`` (v1.5): ``main`` with the B+D rule; ``noqc`` (v1.4): ``main`` without the
+apex-candidate QC. Both only exist with ``--apex-qc on`` (spec 5)."""
+BD_VARIANT = "bd"
 NO_QC_VARIANT = "noqc"
+QC_AUX_VARIANTS = (BD_VARIANT, NO_QC_VARIANT)
+"""Auxiliary QC variants, dropped with ``--apex-qc off`` (3-5-5 item 7)."""
+COUNTED_VARIANTS = ("main", *QC_AUX_VARIANTS)
+"""Variants whose detected-zero estimate counts feed md section 8 (v1.5)."""
 CODE_NOT_A_PIPE = "X"
 SITE11_VARIANTS = ("main_path", "unclustered")
 """Site 11 diagnostic: clustered + support filter, or every candidate."""
 ORDER_MATCH_COLUMN = "정답표와 순서 일치"
 ORDER_MATCH_YES = "예"
 BASELINE_TRIALS_AUX = 200
-"""Trials for the auxiliary variants (a, b, noqc) and the global-range baseline (6)."""
+"""Trials for the auxiliary variants (a, b, bd, noqc) and the global baseline (6)."""
 
 # Apex-candidate QC (spec 3-5, v1.4). Values are locked in
 # docs/processing/m29c_qc_constants.json; they are not CLI options.
@@ -174,14 +183,23 @@ TRACE_COUNT_TOL = 1e-9
 must not add a trace (same guard as ``candidate_box``)."""
 QC_R_QUANTILES_PERCENT = (0, 10, 50, 90, 100)
 """Quantiles of the known curvature ratios in md section 8 (spec 8)."""
+# The spec's en dashes and U+2212 minus are kept verbatim (test C20), hence RUF001.
 PREREGISTERED_QC_NOTE = (
-    '"QC(B+D)는 후보 단위로 묶기 전에 적용한다. 곡률 v를 구할 수 없는 후보'
-    "(검토 표본에서 약 절반)는 주 결과에 남는다. 수동 검토 라벨로 센 추정으로는 "
-    "자동 후보 정밀도가 약 10.8 %에서 약 15 %로 오른다(목표가 아니라 추정). "
-    "QC는 추정 수를 줄이므로, 추정 수를 같게 맞춘 무작위 기준선도 함께 바뀐다"
-    '(설계상 성질)." QC 없는 결과(`noqc`)를 보조로 함께 보고한다.'
+    '"QC는 후보 단위로 묶기 전에 적용한다. 주 결과(B+D+E)는 곡률 비가 띠 '
+    "0.7–1.6 밖인 후보(B), 곡률 v를 구할 수 없는 후보(E), 기록 끝·트레이스 "  # noqa: RUF001
+    "이음에 걸린 후보(D)를 뺀다. E는 날개 추적 개선(spec_depth v1.9) 뒤, "
+    "재평가 전에 사용자가 채택한 규칙이다. 채택 근거는 정답 깊이를 가린 수동 "
+    "검토 라벨(판독자 1명, 검토 표본 169개 = 수동 39 + 자동 130)로 센 효과다: "
+    "B+D 대비 자동 후보 정밀도 14.3 %(95 % 7.8–23.2 %) → 35.7 %(18.6–55.9 %), "  # noqa: RUF001
+    "진짜 꼭짓점 남김 39/41 → 29/41(자동 13/14 → 10/14), 남은 후보 126 → "
+    "49(−61 %). 이 수치는 목표가 아니라 추정이다. E는 새 문턱을 만들지 않았고, "  # noqa: RUF001
+    "4TU 정답 깊이와 M2-8 결과를 보지 않고 정했다. E는 추정 수를 크게 줄이므로 "
+    "누락이 늘어 정답 기준 판정률 B가 내려갈 수 있고, 추정 수를 같게 맞춘 무작위 "
+    '기준선도 함께 바뀐다(설계상 성질)." 곡률 unknown을 남긴 B+D 결과(`bd`)와 '
+    "QC 없는 결과(`noqc`)를 보조로 함께 보고한다."
 )
-"""Pre-registration text of spec section 11 item 3, quoted verbatim in md section 8."""
+"""Pre-registration text of spec section 11 item 3 (v1.5), quoted verbatim in md
+section 8 (test C20 compares it with the spec)."""
 QC_COLUMNS = (
     "qc_verdict",
     "qc_reason",
@@ -198,7 +216,7 @@ QC_COLUMNS = (
     "seam_score",
     "seam_split",
     "apex_on_trace_seam",
-    "qc_excluded",
+    "qc_excluded",  # main rule B+D+E (v1.5); B+D = out or record end or seam
 )
 """QC columns of the candidates csv, after ``apex_minus_search_k0`` (spec 8)."""
 TRACKING_COLUMNS = ("stop_left", "stop_right", "apex_descended")
@@ -285,10 +303,24 @@ class CandidateQc:
     on_trace_seam: bool
 
     @property
-    def excluded(self) -> bool:
-        """Dropped from the main result before clustering (3-5-5 item 1)."""
+    def excluded_bd(self) -> bool:
+        """B+D rule (spec 3-5-5, v1.4 main rule; the ``bd`` variant)."""
         return (
             self.curvature.verdict == QcVerdict.OUT
+            or self.at_record_end
+            or self.on_trace_seam
+        )
+
+    @property
+    def excluded(self) -> bool:
+        """B+D+E rule: dropped from the main result before clustering (3-5-5 item 1,
+        v1.5).
+
+        Every curvature verdict other than ``in`` is excluded, so an unknown
+        reason added later is excluded without touching this rule.
+        """
+        return (
+            self.curvature.verdict != QcVerdict.IN
             or self.at_record_end
             or self.on_trace_seam
         )
@@ -1258,15 +1290,16 @@ def estimates_by_activity(
 
     With ``apex_qc``, every variant but ``noqc`` drops the QC-excluded
     candidates **before** clustering, so an excluded candidate never lends its
-    line to another candidate's support. Candidates without a ``qc`` attribute
-    (or ``qc`` ``None``) are kept. ``noqc`` then clusters and filters like
-    ``main``.
+    line to another candidate's support: ``main``, ``a`` and ``b`` use the
+    B+D+E rule, ``bd`` the B+D rule (v1.5). Candidates without a ``qc``
+    attribute (or ``qc`` ``None``) are kept. ``bd`` and ``noqc`` then cluster
+    and filter like ``main``.
     """
     applies_qc = apex_qc and variant != NO_QC_VARIANT
     depths: dict[str, list[float]] = defaultdict(list)
     lines: dict[str, list[str]] = defaultdict(list)
     for candidate in candidates:
-        if applies_qc and _is_qc_excluded(candidate):
+        if applies_qc and _is_qc_excluded(candidate, variant):
             continue
         depth = candidate.depth(zero_variant)
         if depth is not None:
@@ -1282,7 +1315,7 @@ def estimates_by_activity(
             depths.get(activity, []), lines.get(activity, []), width_m, linkage
         )
         kept = supported(clusters, lines_per_activity[activity], min_lines)
-        uses_support = variant in ("main", NO_QC_VARIANT)
+        uses_support = variant in ("main", BD_VARIANT, NO_QC_VARIANT)
         estimates[activity] = [c.depth_m for c in (kept if uses_support else clusters)]
         if variant == "main":
             for index, cluster in enumerate(clusters):
@@ -1304,9 +1337,18 @@ def estimates_by_activity(
     return estimates, cluster_rows
 
 
-def _is_qc_excluded(candidate: object) -> bool:
+def _is_qc_excluded(candidate: object, variant: str) -> bool:
+    """Whether ``variant``'s QC rule drops ``candidate`` (3-5-5 item 1, v1.5).
+
+    ``main``, ``a`` and ``b`` use B+D+E (``excluded``), ``bd`` uses B+D
+    (``excluded_bd``) and ``noqc`` drops nothing. A candidate without QC is kept.
+    """
     qc = getattr(candidate, "qc", None)
-    return qc is not None and qc.excluded
+    if qc is None or variant == NO_QC_VARIANT:
+        return False
+    if variant == BD_VARIANT:
+        return qc.excluded_bd
+    return qc.excluded
 
 
 def apex_qc_enabled(args: argparse.Namespace) -> bool:
@@ -1315,10 +1357,11 @@ def apex_qc_enabled(args: argparse.Namespace) -> bool:
 
 
 def variants_for(args: argparse.Namespace) -> tuple[str, ...]:
-    """Reported variants: ``noqc`` only exists when the QC runs (3-5-5 item 7)."""
+    """Reported variants: ``bd`` and ``noqc`` only exist when the QC runs
+    (3-5-5 item 7)."""
     if apex_qc_enabled(args):
         return VARIANTS
-    return tuple(v for v in VARIANTS if v != NO_QC_VARIANT)
+    return tuple(v for v in VARIANTS if v not in QC_AUX_VARIANTS)
 
 
 @dataclass(frozen=True)
@@ -1386,7 +1429,8 @@ class Evaluation:
     multi_trench_activities: list[str] = field(default_factory=list)
     linkage_comparison: LinkageComparison | None = None
     estimate_counts: dict[str, dict[str, int]] = field(default_factory=dict)
-    """Detected-zero estimate count per activity, keyed by ``main`` / ``noqc``."""
+    """Detected-zero estimate count per activity, keyed by ``main`` / ``bd`` /
+    ``noqc`` (v1.5; ``bd`` and ``noqc`` only with ``--apex-qc on``)."""
     gt_activities: frozenset[str] = frozenset()
     """Activities with ground truth in the main set (``exclude_x``)."""
 
@@ -1460,7 +1504,7 @@ def baseline_trials_for(variant: str, args: argparse.Namespace) -> dict[str, int
     """Trials per baseline mode (spec 6, v1.1).
 
     Main variant: activity range ``--baseline-trials``, global range
-    ``--baseline-trials-aux``. Auxiliary variants (a, b, noqc): activity range
+    ``--baseline-trials-aux``. Auxiliary variants (a, b, bd, noqc): activity range
     ``--baseline-trials-aux`` only.
     """
     if variant == "main":
@@ -1492,7 +1536,7 @@ def evaluate_combinations(
                 apex_qc=apex_qc_enabled(args),
             )
             evaluation.cluster_rows.extend(cluster_rows)
-            if zero_variant == "detected" and variant in ("main", NO_QC_VARIANT):
+            if zero_variant == "detected" and variant in COUNTED_VARIANTS:
                 evaluation.estimate_counts[variant] = {
                     a: len(v) for a, v in estimates.items()
                 }
@@ -1615,9 +1659,10 @@ def site11_estimates(
 
     ``main_path`` clusters the rescaled depths and applies the support filter
     exactly like the main result; ``unclustered`` keeps every candidate.
-    With ``apex_qc`` both drop the QC-excluded candidates before rescaling
-    (3-5-5 item 8), so they see the candidate sets of ``main`` and ``b``. The
-    QC verdicts are the run's (metadata eps_r), never re-judged at eps_r 8.
+    With ``apex_qc`` both drop the candidates excluded by the main rule
+    (B+D+E, v1.5) before rescaling (3-5-5 item 8), so they see the candidate
+    sets of ``main`` and ``b``. The QC verdicts are the run's (metadata eps_r),
+    never re-judged at eps_r 8.
     """
     scaled: dict[str, list[float]] = defaultdict(list)
     unscaled: dict[str, list[float]] = defaultdict(list)
@@ -1625,7 +1670,7 @@ def site11_estimates(
     for candidate in candidates:
         if site_of_activity(candidate.activity_id) != SITE_LONG_DT:
             continue
-        if apex_qc and _is_qc_excluded(candidate):
+        if apex_qc and _is_qc_excluded(candidate, "main"):
             continue
         depth_eps8 = _depth_at_eps8(candidate)
         depth = candidate.depth("detected")
@@ -1940,7 +1985,9 @@ def _cluster_diagnostic_lines(
 def _qc_setting(args: argparse.Namespace) -> str:
     """md run-condition line of the apex-candidate QC (spec 8 item 1)."""
     if not apex_qc_enabled(args):
-        return "- 꼭짓점 후보 QC: `apex_qc=off`(주 결과 = v1.3.1 경로, `noqc` 없음)"
+        return (
+            "- 꼭짓점 후보 QC: `apex_qc=off`(주 결과 = v1.3.1 경로, `bd`·`noqc` 없음)"
+        )
     return (
         f"- 꼭짓점 후보 QC: `apex_qc=on`, 곡률 띠 {QC_R_LO}-{QC_R_HI}"
         f"(R {QC_RADIUS_M} m, unstable: 정상점 < {QC_UNSTABLE_INLIER} 또는 "
@@ -1948,19 +1995,27 @@ def _qc_setting(args: argparse.Namespace) -> str:
         f"기록 끝 T_end {RECORD_END_PERIODS} 주기, "
         f"이음 theta_t {SEAM_TIME_PERIODS} 주기·theta_A ln {SEAM_AMP_RATIO}·"
         f"k {SEAM_NOISE_K:g}(이음 창 ±{SEAM_APEX_HALF_M} m). "
-        "묶기 전에 out·기록 끝·이음 후보를 뺌"
+        "묶기 전에 주 결과(B+D+E)는 곡률 out·unknown·기록 끝·이음 후보를, "
+        "보조 `bd`(B+D)는 out·기록 끝·이음 후보를 뺌"
     )
 
 
-def _noqc_table_lines(
+def _auxiliary_qc_table_lines(
+    bd_rows: Sequence[Mapping[str, object]],
     noqc_rows: Sequence[Mapping[str, object]],
     columns: Sequence[str],
     args: argparse.Namespace,
 ) -> list[str]:
-    """``noqc`` rows right under the main table, same format (spec 5, v1.4)."""
+    """``bd`` then ``noqc`` rows right under the main table, same format
+    (spec 5 and 8, v1.5)."""
     if not apex_qc_enabled(args):
         return []
     return [
+        "### 보조: B+D (`bd` = 곡률 unknown 유지, v1.4.4까지의 주 결과 경로, "
+        "지지 필터, 전체, X 제외)",
+        "",
+        *_md_table(bd_rows, columns),
+        "",
         "### 보조: QC 없음 (`noqc` = v1.3.1 주 결과 경로, 지지 필터, 전체, X 제외)",
         "",
         *_md_table(noqc_rows, columns),
@@ -2052,14 +2107,44 @@ def _tracking_phrase(candidates: Sequence[CandidateResult]) -> str:
 def _estimate_count_phrase(
     label: str, evaluation: Evaluation, activities: Sequence[str]
 ) -> str:
-    main_total = sum(evaluation.estimate_counts["main"].get(a, 0) for a in activities)
-    noqc_total = sum(
-        evaluation.estimate_counts[NO_QC_VARIANT].get(a, 0) for a in activities
-    )
+    """Estimate totals of ``main``, ``bd`` and ``noqc`` and the differences
+    from ``main`` (spec 8 v1.5 (v))."""
+
+    def total(variant: str) -> int:
+        counts = evaluation.estimate_counts[variant]
+        return sum(counts.get(a, 0) for a in activities)
+
+    main_total = total("main")
+    bd_total = total(BD_VARIANT)
+    noqc_total = total(NO_QC_VARIANT)
     return (
-        f"  - {label} {len(activities)}개: main {main_total} / noqc {noqc_total} "
-        f"/ 차 {main_total - noqc_total:+d}"
+        f"  - {label} {len(activities)}개: main {main_total} / bd {bd_total} "
+        f"/ noqc {noqc_total} / main-bd {main_total - bd_total:+d} "
+        f"/ main-noqc {main_total - noqc_total:+d}"
     )
+
+
+def _exclusion_lines(ok: Sequence[CandidateResult]) -> list[str]:
+    """``qc_excluded`` counts under B+D+E and B+D, and the extra E drops by
+    source (spec 8 v1.5 (iv)); ``ok`` candidates all carry a QC."""
+    qcs = [c.qc for c in ok if c.qc is not None]
+    excluded_main = sum(qc.excluded for qc in qcs)
+    excluded_bd = sum(qc.excluded_bd for qc in qcs)
+    extra_by_source = Counter(
+        c.source
+        for c in ok
+        if c.qc is not None and c.qc.excluded and not c.qc.excluded_bd
+    )
+    by_source = (
+        ", ".join(f"`{source}` {n}" for source, n in sorted(extra_by_source.items()))
+        or "없음"
+    )
+    return [
+        f"- `qc_excluded`(주 결과 B+D+E): {excluded_main}/{len(qcs)}; "
+        f"B+D(`bd`): {excluded_bd}/{len(qcs)}; "
+        f"E로 더 뺀 후보(곡률 unknown, D 없음): {excluded_main - excluded_bd}",
+        f"  - E로 더 뺀 후보 출처별: {by_source}",
+    ]
 
 
 def _qc_diagnostic_lines(
@@ -2067,15 +2152,14 @@ def _qc_diagnostic_lines(
     evaluation: Evaluation,
     args: argparse.Namespace,
 ) -> list[str]:
-    """md section 8 (v1.4): QC verdicts of the ``ok`` candidates, never re-tuned."""
-    header = ["## 꼭짓점 후보 QC 진단 (v1.4, 판정에 쓰지 않음)", ""]
+    """md section 8 (v1.5): QC verdicts of the ``ok`` candidates, never re-tuned."""
+    header = ["## 꼭짓점 후보 QC 진단 (v1.5, 판정에 쓰지 않음)", ""]
     if not apex_qc_enabled(args):
         return [*header, "- `apex_qc=off`: QC를 계산하지 않았다.", ""]
     ok = [c for c in candidates if c.result.status == "ok" and c.qc is not None]
     qcs = [c.qc for c in ok if c.qc is not None]
     activities = sorted(evaluation.estimate_counts.get("main", {}))
     gt_activities = [a for a in activities if a in evaluation.gt_activities]
-    excluded = sum(qc.excluded for qc in qcs)
     return [
         *header,
         f"- `ok` 후보 {len(qcs)}개의 곡률 판정: {_verdict_phrase(qcs)}",
@@ -2088,7 +2172,7 @@ def _qc_diagnostic_lines(
         ),
         f"- {_ratio_quantile_phrase(qcs)}",
         f"- D 플래그: {_rule_d_phrase(qcs)}",
-        f"- `qc_excluded`: {excluded}/{len(qcs)}",
+        *_exclusion_lines(ok),
         f"- 추적 진단(v1.9, 판정 미사용): {_tracking_phrase(ok)}",
         "- 추정 수(검출 영점, 지지 필터 뒤):",
         _estimate_count_phrase("전체 활동", evaluation, activities),
@@ -2112,13 +2196,18 @@ def write_markdown(
     main_rows = [
         r for r in main_variant if r["scope"] == "all" and r["gt_set"] == "exclude_x"
     ]
-    noqc_rows = [
-        r
-        for r in evaluation.summary_rows
-        if r["variant"] == NO_QC_VARIANT
-        and r["scope"] == "all"
-        and r["gt_set"] == "exclude_x"
-    ]
+
+    def overall_rows(variant: str) -> list[dict[str, object]]:
+        return [
+            r
+            for r in evaluation.summary_rows
+            if r["variant"] == variant
+            and r["scope"] == "all"
+            and r["gt_set"] == "exclude_x"
+        ]
+
+    bd_rows = overall_rows(BD_VARIANT)
+    noqc_rows = overall_rows(NO_QC_VARIANT)
     with_x_rows = [
         r for r in main_variant if r["scope"] == "all" and r["gt_set"] == "include_x"
     ]
@@ -2191,7 +2280,7 @@ def write_markdown(
         "",
         *_md_table(main_rows, columns),
         "",
-        *_noqc_table_lines(noqc_rows, columns, args),
+        *_auxiliary_qc_table_lines(bd_rows, noqc_rows, columns, args),
         "## 보조: X 포함 (지지 필터, 전체)",
         "",
         *_md_table(with_x_rows, columns),
@@ -2239,7 +2328,11 @@ def write_markdown(
         "## 가정·한계",
         "",
         "- 보조 결과(a: 지지 필터 없음, b: 묶지 않음"
-        + (", noqc: QC 없음" if apex_qc_enabled(args) else "")
+        + (
+            ", bd: B+D(곡률 unknown 유지), noqc: QC 없음"
+            if apex_qc_enabled(args)
+            else ""
+        )
         + ")와 t0 est/act는 csv에 있다.",
         "- 꼭짓점 후보를 `apex_hint`로 넘긴다(spec_depth_v1 §5-7). 힌트 창"
         "(±3 트레이스·±0.5 주기)이 `candidate_moved` 기준과 같으므로 "

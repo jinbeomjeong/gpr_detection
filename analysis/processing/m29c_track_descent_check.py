@@ -183,7 +183,7 @@ def fourtu_part(csv_name="m29c_track_descent_check_fourtu.csv"):
                 n_left=curv.n_left, n_right=curv.n_right,
                 stop_left="" if curv.stop_left is None else curv.stop_left.value,
                 stop_right="" if curv.stop_right is None else curv.stop_right.value,
-                record_end=qc.at_record_end, seam=qc.on_trace_seam, qc_excluded=qc.excluded,
+                record_end=qc.at_record_end, seam=qc.on_trace_seam, qc_excluded=qc.excluded_bd,
             )
             if cand.search_k0 is not None:
                 half = CFG.hint_periods * p_ns / rg.dt_ns
@@ -383,7 +383,7 @@ def ctests_part():
             stop_right="" if curv.stop_right is None else curv.stop_right.value,
             slope_left_ns_per_m=sl, slope_right_ns_per_m=sr,
             descended="apex_descended" in cand.result.flags,
-            record_end=cand.qc.at_record_end, excluded=cand.qc.excluded,
+            record_end=cand.qc.at_record_end, excluded=cand.qc.excluded_bd,
         ))
     df = pd.DataFrame(rows)
     df.to_csv(DOCS / "m29c_track_descent_check_ctests.csv", index=False, float_format="%.4f")
