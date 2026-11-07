@@ -3,7 +3,7 @@
 - 작성: gpr-dataset-curator, 2026-11-07
 - 발단: gpr-processing-expert가 `05_radargrams_npy` 759개를 SHA-256으로 비교해 39쌍을 찾음(`docs/processing/spec_eval_4tu_v1.md` §10·§11-1 조건 4)
 - 쌍별 표: [`fourtu_duplicate_radargrams.csv`](fourtu_duplicate_radargrams.csv) (39행)
-- 재현: `analysis/data/fourtu_dup_scan.py`(해시·SEG-Y 읽기) → `fourtu_dup_analyze.py`(그룹·메타 대조) → `fourtu_dup_extra.py`(활동별 시각·부분 중복) → `fourtu_dup_build_csv.py`(csv). 시드 없음(결정적). 중간 산출물(`fourtu_dup_*.json|log`, `fourtu_dup_pairs_detail.csv`, 최대 50 MB)은 `data/analysis/fourtu_dup/`(git 제외)로 옮겼다. 스크립트 4개는 출력 경로 정리 뒤 커밋한다.
+- 재현: `analysis/data/fourtu_dup_scan.py`(해시·SEG-Y 읽기) → `fourtu_dup_analyze.py`(그룹·메타 대조) → `fourtu_dup_extra.py`(활동별 시각·부분 중복) → `fourtu_dup_build_csv.py`(csv). 시드 없음(결정적). 중간 산출물(`fourtu_dup_*.json|log`, `fourtu_dup_pairs_detail.csv`, 최대 50 MB)은 `data/analysis/fourtu_dup/`(git 제외)로 옮겼다. 스크립트 4개는 절대 경로 없이 `PROJECT_ROOT` 기준으로 실행되며, 재실행 시 이 csv가 바이트 단위로 같음을 확인했다(2026-11-07).
 - 정답 깊이 값은 읽지 않았다(`utilities_groundtruth.csv`는 `activity_id` 열의 행 수만 집계). 4TU 재평가 1회 원칙 유지.
 - 원본 불변: 확인 — `source_guard` snapshot→verify 16묶음(`00_원본` 16개, `01_메타데이터` 5개, `05_radargrams_npy` 1,518개), 변경·추가·삭제 0.
 
@@ -57,6 +57,8 @@
 정답 행이 있는 중복 활동 쌍은 5개(010.11/12, 010.15/16, 012.2/012.4, 013.1/2, 03.5/03.6)이고 두 활동의 정답 행을 모두 합하면 7+14+3+2+2+1+2+2+7+6 = 46행이다. 이 활동들의 같은 B-scan이 서로 다른(대부분 행 수가 다른) 정답 집합에 대해 두 번 평가되거나 한쪽이 틀린 정답 집합과 매칭된다. 02.2/02.4와 09.x 쌍은 정답 행이 없어 깊이 평가에는 영향이 없고 측선 수 통계(`n_lines` 지지 필터)에만 영향이 있다.
 
 ## 4. 처리 규칙 추천
+
+> **채택 규칙(2026-11-07 사용자 결정)은 [`spec_eval_4tu_v1.md`](../processing/spec_eval_4tu_v1.md) §4-5가 정본이다.** 아래는 결정 전 curator 추천이며 채택값과 다른 점: 단서 문턱은 5 %p가 아니라 **2 %p**, `keep_one`은 "측선 수"가 아니라 **엄격 상위 집합, 아니면 활동 번호 작은 쪽**(012.2는 상위 집합이 아니라 번호 규칙으로 남음).
 
 분류가 전부 (i) 원 데이터셋 중복이라 "가공 오류로 고치면 되는" 경우는 없다. 정답이 활동 단위인 이상 어느 쪽이 맞는지 GT를 보지 않고 정할 수 없으므로 아래를 추천한다.
 

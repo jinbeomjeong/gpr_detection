@@ -1,0 +1,293 @@
+{
+  "hash_scan": {
+    "files": 759,
+    "bytes": 470428544,
+    "seconds": 1.52,
+    "duplicate_groups": 39,
+    "max_group_size": 2,
+    "scan_equals_curated_list": true,
+    "curated_hashes_match_files": true
+  },
+  "candidate_identity": {
+    "pairs": 39,
+    "identical": 39,
+    "candidates_on_copies": 219,
+    "not_identical": []
+  },
+  "lines_meta": {
+    "02.2": 8,
+    "02.4": 8,
+    "03.5": 10,
+    "03.6": 13,
+    "09.5": 16,
+    "09.6": 4,
+    "09.7": 9,
+    "010.11": 10,
+    "010.12": 10,
+    "010.15": 1,
+    "010.16": 1,
+    "012.2": 7,
+    "012.4": 2,
+    "013.1": 3,
+    "013.2": 3
+  },
+  "lines_after_within_rule": {
+    "09.5": 11
+  },
+  "within_dropped": [
+    "09.5/Path12",
+    "09.5/Path13",
+    "09.5/Path14",
+    "09.5/Path15",
+    "09.5/Path16"
+  ],
+  "within_dropped_candidates": 26,
+  "keep_one": [
+    {
+      "activities": [
+        "02.2",
+        "02.4"
+      ],
+      "n_shared": 8,
+      "n_lines": [
+        8,
+        8
+      ],
+      "kept": "02.2",
+      "dropped": "02.4",
+      "reason": "equal_sets",
+      "dropped_paths": [
+        "Path1",
+        "Path2",
+        "Path3",
+        "Path4",
+        "Path5",
+        "Path6",
+        "Path7",
+        "Path8"
+      ],
+      "dropped_remaining_lines": 0,
+      "dropped_activity_removed": true
+    },
+    {
+      "activities": [
+        "03.5",
+        "03.6"
+      ],
+      "n_shared": 10,
+      "n_lines": [
+        10,
+        13
+      ],
+      "kept": "03.6",
+      "dropped": "03.5",
+      "reason": "strict_superset",
+      "dropped_paths": [
+        "Path1",
+        "Path10",
+        "Path2",
+        "Path3",
+        "Path4",
+        "Path5",
+        "Path6",
+        "Path7",
+        "Path8",
+        "Path9"
+      ],
+      "dropped_remaining_lines": 0,
+      "dropped_activity_removed": true
+    },
+    {
+      "activities": [
+        "09.6",
+        "09.7"
+      ],
+      "n_shared": 1,
+      "n_lines": [
+        4,
+        9
+      ],
+      "kept": "09.6",
+      "dropped": "09.7",
+      "reason": "lower_number",
+      "dropped_paths": [
+        "Path1"
+      ],
+      "dropped_remaining_lines": 8,
+      "dropped_activity_removed": false
+    },
+    {
+      "activities": [
+        "010.11",
+        "010.12"
+      ],
+      "n_shared": 10,
+      "n_lines": [
+        10,
+        10
+      ],
+      "kept": "010.11",
+      "dropped": "010.12",
+      "reason": "equal_sets",
+      "dropped_paths": [
+        "Path1",
+        "Path10",
+        "Path2",
+        "Path3",
+        "Path4",
+        "Path5",
+        "Path6",
+        "Path7",
+        "Path8",
+        "Path9"
+      ],
+      "dropped_remaining_lines": 0,
+      "dropped_activity_removed": true
+    },
+    {
+      "activities": [
+        "010.15",
+        "010.16"
+      ],
+      "n_shared": 1,
+      "n_lines": [
+        1,
+        1
+      ],
+      "kept": "010.15",
+      "dropped": "010.16",
+      "reason": "equal_sets",
+      "dropped_paths": [
+        "Path1"
+      ],
+      "dropped_remaining_lines": 0,
+      "dropped_activity_removed": true
+    },
+    {
+      "activities": [
+        "012.2",
+        "012.4"
+      ],
+      "n_shared": 1,
+      "n_lines": [
+        7,
+        2
+      ],
+      "kept": "012.2",
+      "dropped": "012.4",
+      "reason": "lower_number",
+      "dropped_paths": [
+        "Path1"
+      ],
+      "dropped_remaining_lines": 1,
+      "dropped_activity_removed": false
+    },
+    {
+      "activities": [
+        "013.1",
+        "013.2"
+      ],
+      "n_shared": 3,
+      "n_lines": [
+        3,
+        3
+      ],
+      "kept": "013.1",
+      "dropped": "013.2",
+      "reason": "equal_sets",
+      "dropped_paths": [
+        "Path1",
+        "Path2",
+        "Path3"
+      ],
+      "dropped_remaining_lines": 0,
+      "dropped_activity_removed": true
+    }
+  ],
+  "keep_one_removed_activities": [
+    "02.4",
+    "03.5",
+    "010.12",
+    "010.16",
+    "013.2"
+  ],
+  "keep_one_gt_rows_removed": 25,
+  "drop_all_activities": [
+    "02.2",
+    "02.4",
+    "03.5",
+    "03.6",
+    "09.6",
+    "09.7",
+    "010.11",
+    "010.12",
+    "010.15",
+    "010.16",
+    "012.2",
+    "012.4",
+    "013.1",
+    "013.2"
+  ],
+  "drop_all_gt_rows_removed": 46,
+  "gt_rows_by_activity_curator": {
+    "02.2": 0,
+    "02.4": 0,
+    "03.5": 7,
+    "03.6": 6,
+    "09.6": 0,
+    "09.7": 0,
+    "010.11": 7,
+    "010.12": 14,
+    "010.15": 3,
+    "010.16": 2,
+    "012.2": 2,
+    "012.4": 1,
+    "013.1": 2,
+    "013.2": 2
+  },
+  "null_sd_pass_change_pct_points": {
+    "keep_one": {
+      "0.2": 0.533,
+      "0.3": 0.611,
+      "0.4": 0.653,
+      "0.5": 0.666
+    },
+    "drop_all": {
+      "0.2": 0.745,
+      "0.3": 0.853,
+      "0.4": 0.912,
+      "0.5": 0.931
+    }
+  },
+  "null_note": "binomial, items independent, N_gt 388; activity clustering widens it",
+  "zero_flag": {
+    "lines_all": 21,
+    "lines_unique": 18,
+    "per_site": {
+      "2": {
+        "all": 1,
+        "unique": 1,
+        "candidates_unique": 2
+      },
+      "3": {
+        "all": 1,
+        "unique": 1,
+        "candidates_unique": 4
+      },
+      "7": {
+        "all": 3,
+        "unique": 3,
+        "candidates_unique": 11
+      },
+      "9": {
+        "all": 16,
+        "unique": 13,
+        "candidates_unique": 74
+      }
+    },
+    "flagged_lines_in_across_duplicates": [],
+    "flagged_unique_with_gt_activity": 1
+  },
+  "elapsed_s": 1.9,
+  "gt_use": "curator row counts only (no depth value read)"
+}

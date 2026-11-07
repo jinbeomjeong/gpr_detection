@@ -22,9 +22,20 @@ Variants reported (spec 5):
   from the same run and differ only in the matching step
 * gate (v1.6, auxiliary only): +-0.30 m gated matching (max pairs, then min
   sum |e|) gives recall, precision and F1 (spec 5-1); never used for the verdict.
+* duplicate radargrams (v1.7): within-activity copies dropped before
+  evaluation; across-activity duplicates kept in the main result, sensitivity
+  keep_one/drop_all in a separate csv (never used for the verdict). The
+  committed list ``docs/datasets/fourtu_duplicate_radargrams.csv`` is checked
+  against the file hashes before any depth is computed (spec 4-5).
+* ``zero_h_implausible`` (v1.7): a line flag only (``air_surface_late`` zero
+  with ``h_est > h_max``); depths, exclusions and metrics ignore it (spec 7-1).
+
+Outputs: ``<prefix>_candidates.csv``, ``_clusters.csv``, ``_matches.csv``,
+``_site11.csv``, ``_summary.csv``, ``_dup_sensitivity.csv`` (v1.7) and
+``<prefix>.md``.
 
 Truth-dependent code stays here, not in ``src``. ``--dry-run`` only parses the
-candidate, line and ground-truth tables (no radargram is loaded).
+candidate, line, ground-truth and duplicate tables (no radargram is loaded).
 
 Example:
     conda run -n gpr-dev python -I scripts/eval_depth_4tu.py --dry-run
@@ -33,10 +44,12 @@ Example:
 
 import argparse
 import csv
+import hashlib
 import itertools
 import json
 import logging
 import math
+import re
 import sys
 import time
 from collections import Counter, defaultdict
@@ -82,7 +95,7 @@ from gpr_detection.io.fourtu import (
 from gpr_detection.io.paths import load_dataset_paths
 from gpr_detection.io.radargram import GridBox, Radargram, velocity_from_eps
 from gpr_detection.preprocess.filters import period_ns_or_default
-from gpr_detection.preprocess.timezero import DEFAULT_PERIOD_NS, ZeroResult
+from gpr_detection.preprocess.timezero import DEFAULT_PERIOD_NS, ZeroResult, ZeroRule
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_APEX_CANDIDATES = (
@@ -285,6 +298,65 @@ GATE_VARIANT_TABLE_COLUMNS = (
     "baseline_gate_p",
 )
 """md gate section table (iii): every variant, detected zero (spec 8, v1.6)."""
+
+# Zero flag and duplicate radargrams (spec 7-1 and 4-5, v1.7). The list path is
+# not a CLI option: the pre-registered list cannot be swapped or switched off.
+FLAG_ZERO_H = "zero_h_implausible"
+DEFAULT_DUPLICATES = (
+    PROJECT_ROOT / "docs" / "datasets" / "fourtu_duplicate_radargrams.csv"
+)
+DUP_WITHIN = "within_activity"
+DUP_ACROSS = "across_activities"
+DUP_SCOPES = (DUP_WITHIN, DUP_ACROSS)
+DUPLICATE_TABLE_COLUMNS = (
+    "pair_id",
+    "sha256_npy",
+    "activity_a",
+    "path_a",
+    "activity_b",
+    "path_b",
+    "scope",
+)
+"""Columns the duplicate list must have; other columns are ignored (4-5-2)."""
+DUPLICATE_CSV_COLUMNS = ("duplicate_radargram", "duplicate_of")
+"""Last two candidates csv columns (spec 8, v1.7)."""
+KEEP_BOTH, KEEP_ONE, DROP_ALL = "keep_both", "keep_one", "drop_all"
+DUP_HANDLINGS = (KEEP_BOTH, KEEP_ONE, DROP_ALL)
+"""Across-activity duplicate handling; ``keep_both`` is the main result (4-5-4)."""
+KEEP_REASON_SUPERSET = "strict_superset"
+KEEP_REASON_EQUAL = "equal_sets"
+KEEP_REASON_LOWER = "lower_number"
+DUP_CAVEAT_PASS_B_PP = 2.0
+DUP_CAVEAT_TOL_PP = 1e-9
+"""Caveat when any |delta pass B| >= 2 %p (+-1e-9; user decision a, spec 4-5-5)."""
+HASH_BLOCK_BYTES = 1 << 20
+RADARGRAM_DIR = "05_radargrams_npy"
+DUP_SENSITIVITY_TABLE_COLUMNS = (
+    "dup_handling",
+    "assumption",
+    "n_activities",
+    "n_gt",
+    "n_est",
+    "mae_m",
+    "pass_a",
+    "pass_b",
+    "d_pass_b_pp",
+    "d_mae_m",
+    "baseline_pass_b_mean",
+    "baseline_p",
+)
+"""md sensitivity table (spec 8 v1.7 (ii)); ``d_*`` against ``keep_both``."""
+ZERO_FLAG_TABLE_COLUMNS = (
+    "site",
+    "lines",
+    "surface_late",
+    "flagged",
+    "candidates",
+    "ok",
+    "main_input",
+    "flagged_gt_lines",
+)
+"""md zero-flag table in the site 9 section (spec 8 v1.7 (iii))."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -418,6 +490,8 @@ class CandidateResult:
     """Search top ``k_top``: the later of ``box_k0`` and the mute (5-7 item 2)."""
     qc: CandidateQc | None = None
     """Apex-candidate QC (3-5); ``None`` with ``--apex-qc off``."""
+    zero_h_implausible: bool = False
+    """Line flag of 7-1 (same value for every candidate of a line); report only."""
 
     def depth(self, zero_variant: str) -> float | None:
         """Pipe-top depth for the detected zero or a metadata zero (never reads qc)."""
@@ -972,13 +1046,39 @@ def run_line(
 
     With ``apex_qc`` every candidate also gets its QC (3-5); the zero-band seam
     scores are computed once per line.
+
+    The ``zero_h_implausible`` line flag (7-1, v1.7) is computed once from the
+    line's zero and copied onto every candidate; the depth calls do not see it.
     """
-    inputs = prepare_depth_inputs(radargram, DepthConfig())
+    config = DepthConfig()
+    inputs = prepare_depth_inputs(radargram, config)
+    is_zero_h_implausible = zero_h_implausible(
+        inputs.zero.zero_rule, inputs.zero.h_est_m, config.h_max_m
+    )
     seam_scores_line = _line_seam_scores(radargram, inputs) if apex_qc else None
-    return [
+    results = [
         _run_candidate(radargram, inputs, candidate, seam_scores_line, apex_qc)
         for candidate in candidates.itertuples(index=False)
     ]
+    return [
+        replace(result, zero_h_implausible=is_zero_h_implausible) for result in results
+    ]
+
+
+def zero_h_implausible(
+    zero_rule: str | None,
+    h_est_m: float | None,
+    h_max_m: float = DEFAULT_DEPTH_CONFIG.h_max_m,
+) -> bool:
+    """Zero flag of spec 7-1: ``air_surface_late`` zero with ``h_est > h_max``.
+
+    The limit is the zero search's own maximum antenna height (no new
+    constant); ``h_est == h_max`` is still allowed by the search, so it is not
+    flagged. Pure; ``zero_rule`` may be a ``ZeroRule`` or its string value.
+    """
+    if zero_rule != ZeroRule.AIR_SURFACE_LATE or h_est_m is None:
+        return False
+    return h_est_m > h_max_m
 
 
 # ----------------------------------------------------------------- ground truth
@@ -1608,6 +1708,395 @@ def compare_with_single_linkage(
     )
 
 
+# ----------------------------------------------------------------- duplicate radargrams
+# (spec 4-5, v1.7)
+#
+# The rules use file hashes, line lists and activity numbers only, never a
+# ground-truth depth. Depths of every line are still computed; the rules only
+# decide which candidates and line counts enter the evaluation.
+
+LineFile = tuple[str, str]
+"""``(activity_id, path)`` of one radargram file."""
+
+
+def activity_order_key(activity_id: str) -> tuple[int, int]:
+    """Numeric order of an activity id: ``"010.11"`` -> ``(10, 11)``.
+
+    String order would put ``"010.10"`` before ``"010.9"``.
+
+    Raises:
+        ValueError: The id is not ``<digits>.<digits>``.
+    """
+    site, separator, sub = activity_id.partition(".")
+    if not (separator and site.isdecimal() and sub.isdecimal()):
+        raise ValueError(f"activity id must look like '010.11', got {activity_id!r}")
+    return int(site), int(sub)
+
+
+def _path_number(path: str) -> int:
+    """Trailing integer of a line path (``"Path12"`` -> 12)."""
+    match = re.search(r"(\d+)$", path)
+    if match is None:
+        raise ValueError(f"line path has no trailing number: {path!r}")
+    return int(match.group(1))
+
+
+def _file_label(line_file: LineFile) -> str:
+    activity, path = line_file
+    return f"{activity}/{path}"
+
+
+@dataclass(frozen=True)
+class DuplicatePair:
+    """One row of the duplicate list: two byte-identical radargram files."""
+
+    pair_id: int
+    sha256: str
+    activity_a: str
+    path_a: str
+    activity_b: str
+    path_b: str
+    scope: str
+    """``DUP_WITHIN`` or ``DUP_ACROSS``."""
+
+    @property
+    def files(self) -> tuple[LineFile, LineFile]:
+        return (self.activity_a, self.path_a), (self.activity_b, self.path_b)
+
+    @property
+    def within_copy(self) -> LineFile:
+        """The file with the higher path number (the representative is the
+        lower one, whatever the column order; 4-5-3 item 1)."""
+        return max(self.files, key=lambda line_file: _path_number(line_file[1]))
+
+
+@dataclass(frozen=True)
+class DuplicateMark:
+    """Candidates csv duplicate columns of one file (spec 8, v1.7)."""
+
+    kind: str
+    """``""`` (no mark, also a within-activity representative), ``DUP_WITHIN``
+    (a within-activity copy) or ``DUP_ACROSS``."""
+    twin: str
+    """The other file of the pair, ``<activity_id>/<path>``."""
+
+
+@dataclass(frozen=True)
+class DuplicateTable:
+    """The committed duplicate list (``load_duplicate_table``)."""
+
+    pairs: tuple[DuplicatePair, ...] = ()
+
+    def within_copies(self) -> frozenset[LineFile]:
+        """Higher-numbered file of every within-activity pair."""
+        return frozenset(p.within_copy for p in self.pairs if p.scope == DUP_WITHIN)
+
+    def marks(self) -> dict[LineFile, DuplicateMark]:
+        """Both files of every pair -> their csv mark."""
+        copies = self.within_copies()
+        marks = {}
+        for pair in self.pairs:
+            first, second = pair.files
+            for line_file, twin in ((first, second), (second, first)):
+                is_representative = pair.scope == DUP_WITHIN and line_file not in copies
+                kind = "" if is_representative else pair.scope
+                marks[line_file] = DuplicateMark(kind, _file_label(twin))
+        return marks
+
+    def across_activities(self) -> frozenset[str]:
+        """Activities with at least one across-activity duplicate line."""
+        return frozenset(
+            activity
+            for pair in self.pairs
+            if pair.scope == DUP_ACROSS
+            for activity in (pair.activity_a, pair.activity_b)
+        )
+
+
+def _duplicate_pair(row: Mapping[str, str]) -> DuplicatePair:
+    return DuplicatePair(
+        pair_id=int(row["pair_id"]),
+        sha256=row["sha256_npy"].strip().lower(),
+        activity_a=row["activity_a"].strip(),
+        path_a=row["path_a"].strip(),
+        activity_b=row["activity_b"].strip(),
+        path_b=row["path_b"].strip(),
+        scope=row["scope"].strip(),
+    )
+
+
+def _check_pair_scope(pair: DuplicatePair) -> None:
+    """Scope rules of 4-5-2 for one row; raises ``ValueError``."""
+    if pair.scope not in DUP_SCOPES:
+        raise ValueError(f"pair {pair.pair_id}: unknown scope {pair.scope!r}")
+    same_activity = pair.activity_a == pair.activity_b
+    if pair.scope == DUP_ACROSS and same_activity:
+        raise ValueError(f"pair {pair.pair_id}: {DUP_ACROSS} within one activity")
+    if pair.scope == DUP_WITHIN:
+        if not same_activity:
+            raise ValueError(f"pair {pair.pair_id}: {DUP_WITHIN} across activities")
+        if _path_number(pair.path_a) == _path_number(pair.path_b):
+            raise ValueError(f"pair {pair.pair_id}: no lower path number to keep")
+
+
+def _check_duplicate_pairs(pairs: Sequence[DuplicatePair]) -> None:
+    """Table rules of 4-5-2: one row per file, one across partner per activity.
+
+    Raises:
+        ValueError: The first rule broken, with the pair or file named.
+    """
+    seen_files: set[LineFile] = set()
+    partners: dict[str, set[str]] = defaultdict(set)
+    for pair in pairs:
+        _check_pair_scope(pair)
+        for line_file in pair.files:
+            if line_file in seen_files:
+                raise ValueError(f"{_file_label(line_file)} appears in two rows")
+            seen_files.add(line_file)
+        if pair.scope == DUP_ACROSS:
+            partners[pair.activity_a].add(pair.activity_b)
+            partners[pair.activity_b].add(pair.activity_a)
+    for activity, others in sorted(partners.items()):
+        if len(others) > 1:
+            # keep_one is undefined when activity pairs overlap (4-5-2).
+            raise ValueError(f"{activity} has across partners {sorted(others)}")
+
+
+def load_duplicate_table(path: Path) -> DuplicateTable:
+    """Read and check the duplicate list (``utf-8-sig``, spec 4-5-2).
+
+    Raises:
+        ValueError: A required column is missing or a table rule is broken.
+    """
+    frame = pd.read_csv(path, dtype=str, encoding="utf-8-sig", keep_default_na=False)
+    missing = [c for c in DUPLICATE_TABLE_COLUMNS if c not in frame.columns]
+    if missing:
+        raise ValueError(f"{path.name}: missing columns {missing}")
+    pairs = tuple(_duplicate_pair(row) for row in frame.to_dict("records"))
+    _check_duplicate_pairs(pairs)
+    return DuplicateTable(pairs)
+
+
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        while block := handle.read(HASH_BLOCK_BYTES):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _run_line_files(lines: pd.DataFrame) -> list[LineFile]:
+    """Distinct ``(activity_id, path)`` of the run's line table, in table order."""
+    pairs = zip(
+        lines["activity_id"].astype(str), lines["path"].astype(str), strict=True
+    )
+    return list(dict.fromkeys(pairs))
+
+
+def _listed_pair_problems(
+    hashes: Mapping[LineFile, str], table: DuplicateTable
+) -> list[str]:
+    """Rule 2 of 4-5-2: every run file of a listed pair has the listed hash."""
+    problems = []
+    for pair in table.pairs:
+        present = [f for f in pair.files if f in hashes]
+        for line_file in present:
+            if hashes[line_file] != pair.sha256:
+                problems.append(
+                    f"{_file_label(line_file)} hash differs from list pair "
+                    f"{pair.pair_id}"
+                )
+        if len(present) == 2 and hashes[present[0]] != hashes[present[1]]:
+            problems.append(
+                f"listed pair {pair.pair_id} differs: "
+                f"{_file_label(present[0])} vs {_file_label(present[1])}"
+            )
+    return problems
+
+
+def _unlisted_group_problems(
+    hashes: Mapping[LineFile, str], table: DuplicateTable
+) -> list[str]:
+    """Rule 3 of 4-5-2: identical run files are exactly the listed pairs."""
+    groups: dict[str, list[LineFile]] = defaultdict(list)
+    for line_file, digest in hashes.items():
+        groups[digest].append(line_file)
+    listed = {frozenset(p.files) for p in table.pairs}
+    problems = []
+    for members in groups.values():
+        labels = ", ".join(_file_label(f) for f in members)
+        if len(members) > 2:
+            problems.append(f"more than two identical files: {labels}")
+        elif len(members) == 2 and frozenset(members) not in listed:
+            problems.append(f"identical files not in the list: {labels}")
+    return problems
+
+
+def verify_duplicate_hashes(
+    root: Path, lines: pd.DataFrame, table: DuplicateTable
+) -> tuple[int, float]:
+    """Check the committed list against the run's radargram files (4-5-2).
+
+    Reads every run line's ``.npy`` bytes (read-only) and computes SHA-256.
+
+    Returns:
+        ``(files hashed, seconds)``.
+
+    Raises:
+        RuntimeError: A listed hash differs, a listed pair is not identical, or
+            identical files are missing from the list (all problems named).
+    """
+    started = time.perf_counter()
+    hashes = {
+        line_file: _file_sha256(
+            root / RADARGRAM_DIR / line_file[0] / f"{line_file[1]}.npy"
+        )
+        for line_file in _run_line_files(lines)
+    }
+    problems = _listed_pair_problems(hashes, table) + _unlisted_group_problems(
+        hashes, table
+    )
+    if problems:
+        raise RuntimeError("duplicate radargram check failed: " + "; ".join(problems))
+    return len(hashes), time.perf_counter() - started
+
+
+def unique_line_counts(lines: pd.DataFrame, table: DuplicateTable) -> dict[str, int]:
+    """Lines per activity without the within-activity copies (4-5-3 item 1).
+
+    Every activity of ``lines`` keeps its key, like the plain line count.
+    """
+    copies = table.within_copies()
+    counts = dict.fromkeys(sorted(set(lines["activity_id"].astype(str))), 0)
+    for line_file in _run_line_files(lines):
+        if line_file not in copies:
+            counts[line_file[0]] += 1
+    return counts
+
+
+def drop_within_copies(
+    candidates: Sequence[CandidateResult], table: DuplicateTable
+) -> list[CandidateResult]:
+    """Candidates without those on within-activity copies (they repeat the
+    representative's candidates row for row, 4-5-3 item 1)."""
+    copies = table.within_copies()
+    return [c for c in candidates if (c.activity_id, c.path) not in copies]
+
+
+@dataclass(frozen=True)
+class KeepOneDecision:
+    """``keep_one`` choice for one across-activity pair of activities (4-5-4)."""
+
+    activities: tuple[str, str]
+    """Both activities in ``activity_order_key`` order."""
+    n_shared: int
+    n_lines: tuple[int, int]
+    """Unique line counts of ``activities`` (same order)."""
+    kept: str
+    dropped: str
+    reason: str
+    """``strict_superset``, ``equal_sets`` or ``lower_number``."""
+    dropped_paths: tuple[str, ...]
+    """Shared lines removed from ``dropped``, by path number."""
+    dropped_activity_removed: bool
+    """No line of ``dropped`` is left, so it leaves the evaluation."""
+
+
+def _keep_one_decision(
+    activities: tuple[str, str],
+    shared_paths: Sequence[tuple[str, str]],
+    lines_per_activity: Mapping[str, int],
+) -> KeepOneDecision:
+    """Strict superset wins; otherwise the lower activity number (4-5-4)."""
+    low, high = activities
+    n_shared = len(shared_paths)
+    n_low, n_high = lines_per_activity[low], lines_per_activity[high]
+    if n_shared == n_low < n_high:
+        kept, dropped, reason = high, low, KEEP_REASON_SUPERSET
+    elif n_shared == n_high < n_low:
+        kept, dropped, reason = low, high, KEEP_REASON_SUPERSET
+    elif n_shared == n_low == n_high:
+        kept, dropped, reason = low, high, KEEP_REASON_EQUAL
+    else:
+        kept, dropped, reason = low, high, KEEP_REASON_LOWER
+    side = 0 if dropped == low else 1
+    dropped_paths = tuple(sorted((p[side] for p in shared_paths), key=_path_number))
+    return KeepOneDecision(
+        activities=activities,
+        n_shared=n_shared,
+        n_lines=(n_low, n_high),
+        kept=kept,
+        dropped=dropped,
+        reason=reason,
+        dropped_paths=dropped_paths,
+        dropped_activity_removed=lines_per_activity[dropped] == n_shared,
+    )
+
+
+def keep_one_plan(
+    table: DuplicateTable, lines_per_activity: Mapping[str, int]
+) -> tuple[KeepOneDecision, ...]:
+    """``keep_one`` decisions for the pairs whose two activities are in the run.
+
+    Args:
+        table: The duplicate list (one across partner per activity is checked
+            on load, so activity pairs do not overlap).
+        lines_per_activity: Unique line counts (``unique_line_counts``).
+    """
+    shared: dict[tuple[str, str], list[tuple[str, str]]] = defaultdict(list)
+    for pair in table.pairs:
+        if pair.scope != DUP_ACROSS:
+            continue
+        if not all(a in lines_per_activity for a in (pair.activity_a, pair.activity_b)):
+            continue
+        low_file, high_file = sorted(
+            pair.files, key=lambda line_file: activity_order_key(line_file[0])
+        )
+        shared[(low_file[0], high_file[0])].append((low_file[1], high_file[1]))
+    ordered = sorted(shared, key=lambda acts: activity_order_key(acts[0]))
+    return tuple(
+        _keep_one_decision(acts, shared[acts], lines_per_activity) for acts in ordered
+    )
+
+
+def apply_dup_handling(
+    candidates: Sequence[CandidateResult],
+    lines_per_activity: Mapping[str, int],
+    table: DuplicateTable,
+    handling: str,
+) -> tuple[list[CandidateResult], dict[str, int]]:
+    """Candidates and line counts of one across-activity handling (4-5-4).
+
+    ``keep_both`` returns copies of the inputs unchanged. Activities removed by
+    ``keep_one`` (no line left) or ``drop_all`` leave ``lines_per_activity``,
+    so their ground truth is not evaluated either.
+
+    Raises:
+        ValueError: ``handling`` is not one of ``DUP_HANDLINGS``.
+    """
+    if handling == KEEP_BOTH:
+        return list(candidates), dict(lines_per_activity)
+    if handling == DROP_ALL:
+        removed = table.across_activities()
+        counts = {a: n for a, n in lines_per_activity.items() if a not in removed}
+        return [c for c in candidates if c.activity_id in counts], counts
+    if handling != KEEP_ONE:
+        raise ValueError(f"unknown duplicate handling {handling!r}")
+    counts = dict(lines_per_activity)
+    dropped_files: set[LineFile] = set()
+    for decision in keep_one_plan(table, lines_per_activity):
+        dropped_files |= {(decision.dropped, p) for p in decision.dropped_paths}
+        counts[decision.dropped] -= len(decision.dropped_paths)
+        if decision.dropped_activity_removed:
+            del counts[decision.dropped]
+    kept = [
+        c
+        for c in candidates
+        if c.activity_id in counts and (c.activity_id, c.path) not in dropped_files
+    ]
+    return kept, counts
+
+
 # ----------------------------------------------------------------- evaluation
 
 
@@ -1748,7 +2237,9 @@ def _baseline_columns(
     """Baseline csv columns (spec 8, v1.2).
 
     The activity-range baseline reports MAE, pass A and pass B; the global
-    range only pass B and ``p``. Blank when there is no baseline.
+    range only pass B and ``p``. Blank when there is no baseline or the value is
+    undefined (v1.7, user decision b: with no estimate in the scope every trial
+    has 0 pairs, so the MAE and pass A means are NaN and are written blank).
     """
     values: dict[str, float | None] = {}
     if prefix == "baseline":
@@ -1769,9 +2260,13 @@ def _baseline_columns(
         else float(np.mean(stats.pass_b_values >= summary.pass_b)),
     }
     return {
-        f"{prefix}_{name}": "" if value is None else round(value, 4)
+        f"{prefix}_{name}": _finite_rounded_or_blank(value, 4)
         for name, value in values.items()
     }
+
+
+def _finite_rounded_or_blank(value: float | None, digits: int) -> object:
+    return "" if value is None or not math.isfinite(value) else round(value, digits)
 
 
 def baseline_trials_for(variant: str, args: argparse.Namespace) -> dict[str, int]:
@@ -1871,7 +2366,15 @@ def _evaluate_one(
     ground_truth: Mapping[str, list[GtItem]],
     combination: Combination,
     args: argparse.Namespace,
+    trials: Mapping[str, int] | None = None,
 ) -> None:
+    """Match, summarize and baseline one combination into ``evaluation``.
+
+    ``trials`` (v1.7) overrides the baseline trials per mode; ``None`` keeps
+    ``baseline_trials_for(combination.variant, args)``.
+    """
+    if trials is None:
+        trials = baseline_trials_for(combination.variant, args)
     gt_depths = {
         a: [item.depth_for(combination.assumption) for item in items]
         for a, items in ground_truth.items()
@@ -1888,8 +2391,8 @@ def _evaluate_one(
     n_est = {a: len(estimates[a]) for a in matches}
     # One draw per baseline mode; every scope is aggregated from these trials.
     draws = {
-        mode: draw_baseline(n_est, gt_depths, trials, args.baseline_seed, mode)
-        for mode, trials in baseline_trials_for(combination.variant, args).items()
+        mode: draw_baseline(n_est, gt_depths, mode_trials, args.baseline_seed, mode)
+        for mode, mode_trials in trials.items()
     }
     sites = sorted({site_of_activity(a) for a in matches})
     scopes = [("all", list(matches))] + [
@@ -2047,12 +2550,90 @@ def site11_diagnostic(
     return rows, summaries
 
 
+def _main_variant_summary_rows(
+    candidates: Sequence[CandidateResult],
+    gt_sets: Mapping[str, Mapping[str, list[GtItem]]],
+    lines_per_activity: Mapping[str, int],
+    args: argparse.Namespace,
+) -> list[dict[str, object]]:
+    """Summary rows of the main path only, activity baseline with aux trials.
+
+    Same order as the ``main`` rows of ``evaluate_combinations`` (zero ->
+    gt set -> assumption -> scope); matches and clusters are discarded.
+    """
+    scratch = Evaluation()
+    trials = {"activity": args.baseline_trials_aux}
+    for zero_variant in ZERO_VARIANTS:
+        estimates, _ = estimates_by_activity(
+            candidates,
+            zero_variant,
+            "main",
+            lines_per_activity,
+            width_m=args.cluster_width_m,
+            linkage=args.cluster_linkage,
+            min_lines=args.min_support_lines,
+            apex_qc=apex_qc_enabled(args),
+        )
+        for gt_set, ground_truth in gt_sets.items():
+            for assumption in ASSUMPTIONS:
+                combination = Combination(gt_set, assumption, zero_variant, "main")
+                _evaluate_one(
+                    scratch, estimates, ground_truth, combination, args, trials=trials
+                )
+    return scratch.summary_rows
+
+
+def duplicate_sensitivity(
+    candidates: Sequence[CandidateResult],
+    gt_sets: Mapping[str, Mapping[str, list[GtItem]]],
+    lines_per_activity: Mapping[str, int],
+    table: DuplicateTable,
+    args: argparse.Namespace,
+    summary_rows: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """Rows of ``<prefix>_dup_sensitivity.csv`` (spec 4-5-4 and 8; never judged).
+
+    ``keep_both`` copies the summary ``main`` rows unchanged. ``keep_one`` and
+    ``drop_all`` rerun the main path (QC rule, clustering, support filter,
+    matching, gate) on their candidates and line counts; depths are not
+    recomputed.
+
+    Args:
+        candidates: Evaluated candidates (within-activity copies dropped).
+        lines_per_activity: Unique line counts (``unique_line_counts``).
+        summary_rows: ``evaluate_combinations`` summary rows; not modified.
+    """
+    rows = [
+        {"dup_handling": KEEP_BOTH, **row}
+        for row in summary_rows
+        if row["variant"] == "main"
+    ]
+    for handling in (KEEP_ONE, DROP_ALL):
+        handled, line_counts = apply_dup_handling(
+            candidates, lines_per_activity, table, handling
+        )
+        rows.extend(
+            {"dup_handling": handling, **row}
+            for row in _main_variant_summary_rows(handled, gt_sets, line_counts, args)
+        )
+    return rows
+
+
 # ----------------------------------------------------------------- outputs
 
 
 def candidate_row(
-    candidate: CandidateResult, lines: Mapping[tuple[str, str], Mapping[str, object]]
+    candidate: CandidateResult,
+    lines: Mapping[tuple[str, str], Mapping[str, object]],
+    duplicates: Mapping[LineFile, DuplicateMark] | None = None,
 ) -> dict[str, object]:
+    """One candidates csv row (spec 8).
+
+    ``flags``: depth flags, ``long_line``, ``zero_h_implausible`` (v1.7), then the
+    QC flags; the last two never enter ``DepthResult.flags``. ``duplicates``
+    (``DuplicateTable.marks``) fills the two v1.7 columns at the end of the row;
+    without it they are blank.
+    """
     result = candidate.result
     est = result.alt_depths.get(META_ZERO_KEYS["est"])
     act = result.alt_depths.get(META_ZERO_KEYS["act"])
@@ -2061,6 +2642,8 @@ def candidate_row(
     flags = list(result.flags)
     if float(line.get("length_m", 0) or 0) >= LONG_LINE_M:
         flags.append("long_line")
+    if candidate.zero_h_implausible:
+        flags.append(FLAG_ZERO_H)
     if candidate.qc is not None:
         flags.extend(candidate.qc.flags)  # only here, never in DepthResult.flags
     return {
@@ -2093,7 +2676,18 @@ def candidate_row(
         **_box_top_columns(candidate),
         **_qc_columns(candidate.qc),
         **_tracking_columns(candidate),
+        **_duplicate_columns(candidate, duplicates or {}),
     }
+
+
+def _duplicate_columns(
+    candidate: CandidateResult, duplicates: Mapping[LineFile, DuplicateMark]
+) -> dict[str, object]:
+    """``duplicate_radargram`` and ``duplicate_of`` (spec 8, v1.7)."""
+    mark = duplicates.get((candidate.activity_id, candidate.path))
+    if mark is None:
+        return dict.fromkeys(DUPLICATE_CSV_COLUMNS, "")
+    return {"duplicate_radargram": mark.kind, "duplicate_of": mark.twin}
 
 
 def _rounded(value: float | None, digits: int) -> object:
@@ -2502,13 +3096,313 @@ def _qc_diagnostic_lines(
     ]
 
 
+@dataclass(frozen=True)
+class DuplicateReport:
+    """Duplicate-radargram facts of one run for the md (spec 8 v1.7 (i), (ii))."""
+
+    table: DuplicateTable
+    list_label: str
+    """List path as written in md item 1 (project-relative when possible)."""
+    decisions: tuple[KeepOneDecision, ...]
+    sensitivity_rows: tuple[Mapping[str, object], ...]
+    copy_lines: tuple[LineFile, ...]
+    """Within-activity copies among the run's lines."""
+    n_copy_candidates: int
+    """Candidates on ``copy_lines`` (in the csv, not evaluated)."""
+    gt_counts: Mapping[str, int]
+    """``exclude_x`` ground-truth items per activity."""
+    hashed_files: int
+    hash_seconds: float
+
+
+def _line_sort_key(line_file: LineFile) -> tuple[tuple[int, int], int, str]:
+    """Activity number, then path number (paths without one first), then name."""
+    activity, path = line_file
+    match = re.search(r"(\d+)$", path)
+    return activity_order_key(activity), int(match.group(1)) if match else -1, path
+
+
+def _candidate_count_line(
+    candidates: Sequence[CandidateResult],
+    evaluation: Evaluation,
+    duplicates: DuplicateReport | None,
+) -> str:
+    """md item 1 candidate line; with copies it names the evaluated subset."""
+    no_gt = (
+        f"정답 없는 활동 {len(evaluation.no_gt_counts)}개"
+        f"(주 결과 추정 {sum(evaluation.no_gt_counts.values())}개, 오검출로 세지 않음)"
+    )
+    if duplicates is None or not duplicates.copy_lines:
+        return f"- 꼭짓점 후보 {len(candidates)}개, {no_gt}"
+    total = len(candidates) + duplicates.n_copy_candidates
+    return (
+        f"- 꼭짓점 후보 {total}개(평가 {len(candidates)}개 — 활동 안 사본 측선 "
+        f"{len(duplicates.copy_lines)}개의 후보 {duplicates.n_copy_candidates}개 "
+        f"제외, csv에는 있음), {no_gt}"
+    )
+
+
+def _duplicate_list_lines(duplicates: DuplicateReport | None) -> list[str]:
+    """md item 1 line on the committed list and the hash check (v1.7)."""
+    if duplicates is None:
+        return []
+    return [
+        f"- 중복 레이더그램: 목록 `{duplicates.list_label}` "
+        f"{len(duplicates.table.pairs)}쌍, 실행 해시 대조 일치"
+        f"(파일 {duplicates.hashed_files}개, {duplicates.hash_seconds:.1f} s)"
+    ]
+
+
+def _within_copy_line(duplicates: DuplicateReport) -> str:
+    if not duplicates.copy_lines:
+        return "- 활동 안 사본: 없음"
+    marks = duplicates.table.marks()
+    copies = ", ".join(_file_label(f) for f in duplicates.copy_lines)
+    representatives = ", ".join(marks[f].twin for f in duplicates.copy_lines)
+    return (
+        f"- 활동 안 사본: {copies}(대표 {representatives}) — 평가·지지 필터·측선 "
+        f"통계에서 뺌, 후보 {duplicates.n_copy_candidates}개"
+    )
+
+
+def _across_line(duplicates: DuplicateReport, evaluation: Evaluation) -> str:
+    """Across-activity pairs whose two activities are in the run (4-5-3 item 2)."""
+    main_counts = evaluation.estimate_counts.get("main", {})
+    pairs = [
+        p
+        for p in duplicates.table.pairs
+        if p.scope == DUP_ACROSS
+        and p.activity_a in main_counts
+        and p.activity_b in main_counts
+    ]
+    activities = {a for p in pairs for a in (p.activity_a, p.activity_b)}
+    gt_activities = [a for a in activities if a in duplicates.gt_counts]
+    n_gt = sum(duplicates.gt_counts[a] for a in gt_activities)
+    n_est = sum(main_counts[a] for a in activities)
+    return (
+        f"- 활동 간 중복: {len(pairs)}쌍, 활동 {len(activities)}개(정답 활동 "
+        f"{len(gt_activities)}개, `exclude_x` 정답 {n_gt}개, 주 결과 추정 {n_est}개)"
+        " — 주 결과는 둘 다 유지"
+    )
+
+
+def _keep_one_line(decisions: Sequence[KeepOneDecision]) -> str:
+    def dropped_phrase(decision: KeepOneDecision) -> str:
+        if decision.dropped_activity_removed:
+            return f"{decision.dropped} 전체"
+        return f"{decision.dropped} {','.join(decision.dropped_paths)}"
+
+    choices = [f"{d.kept} ← {dropped_phrase(d)}({d.reason})" for d in decisions]
+    removed = [d.dropped for d in decisions if d.dropped_activity_removed]
+    return (
+        f"- `keep_one` 남김/뺌: {', '.join(choices) or '없음'}; "
+        f"평가에서 빠진 활동 {', '.join(removed) or '없음'}"
+    )
+
+
+def _drop_all_line(duplicates: DuplicateReport, evaluation: Evaluation) -> str:
+    run_activities = set(evaluation.estimate_counts.get("main", {}))
+    removed = duplicates.table.across_activities() & run_activities
+    return f"- `drop_all`: 활동 {len(removed)}개 제외"
+
+
+def _difference(
+    value: object, reference: object, scale: float, digits: int
+) -> float | None:
+    """``scale * (value - reference)`` rounded; ``None`` when either is missing."""
+    if not isinstance(value, int | float) or not isinstance(reference, int | float):
+        return None
+    return round(scale * (value - reference), digits)
+
+
+def _overall_detected_rows(
+    rows: Sequence[Mapping[str, object]],
+) -> dict[tuple[str, str], Mapping[str, object]]:
+    """Sensitivity rows of (all, exclude_x, detected) by (handling, assumption)."""
+    return {
+        (str(r["dup_handling"]), str(r["assumption"])): r
+        for r in rows
+        if r["scope"] == "all"
+        and r["gt_set"] == "exclude_x"
+        and r["zero_variant"] == "detected"
+    }
+
+
+def _sensitivity_table_rows(
+    rows: Sequence[Mapping[str, object]],
+) -> list[dict[str, object]]:
+    """md sensitivity table: three handlings x two assumptions, ``d_*`` against
+    ``keep_both`` of the same assumption (blank in the ``keep_both`` rows)."""
+    selected = _overall_detected_rows(rows)
+    table_rows = []
+    for handling in DUP_HANDLINGS:
+        for assumption in ASSUMPTIONS:
+            row = selected.get((handling, assumption))
+            reference = selected.get((KEEP_BOTH, assumption))
+            if row is None or reference is None:
+                continue
+            deltas: dict[str, object] = {"d_pass_b_pp": "", "d_mae_m": ""}
+            if handling != KEEP_BOTH:
+                d_pass_b = _difference(
+                    row["pass_b"], reference["pass_b"], scale=100, digits=2
+                )
+                d_mae = _difference(row["mae_m"], reference["mae_m"], scale=1, digits=4)
+                deltas = {
+                    "d_pass_b_pp": "" if d_pass_b is None else d_pass_b,
+                    "d_mae_m": "" if d_mae is None else d_mae,
+                }
+            table_rows.append({**row, **deltas})
+    return table_rows
+
+
+def _caveat_hits(rows: Sequence[Mapping[str, object]]) -> list[tuple[str, float]]:
+    """``(handling/zero/assumption, delta pass B in %p)`` with ``|delta| >= T``.
+
+    Deltas come from the csv values (4 places) of ``all``, ``exclude_x``, over
+    3 zeros x 2 assumptions (spec 4-5-5); the boundary is included.
+    """
+    overall = [r for r in rows if r["scope"] == "all" and r["gt_set"] == "exclude_x"]
+    references = {
+        (r["zero_variant"], r["assumption"]): r
+        for r in overall
+        if r["dup_handling"] == KEEP_BOTH
+    }
+    hits = []
+    for row in overall:
+        reference = references.get((row["zero_variant"], row["assumption"]))
+        if row["dup_handling"] == KEEP_BOTH or reference is None:
+            continue
+        pass_b, reference_pass_b = row["pass_b"], reference["pass_b"]
+        if not isinstance(pass_b, float | int) or not isinstance(
+            reference_pass_b, float | int
+        ):
+            continue
+        delta_pp = 100 * (pass_b - reference_pass_b)
+        if abs(delta_pp) >= DUP_CAVEAT_PASS_B_PP - DUP_CAVEAT_TOL_PP:
+            label = f"{row['dup_handling']}/{row['zero_variant']}/{row['assumption']}"
+            hits.append((label, delta_pp))
+    return hits
+
+
+def _caveat_line(rows: Sequence[Mapping[str, object]]) -> str:
+    prefix = (
+        "- 단서 규칙(§4-5-5, 영점 3 × 가정 2, |Δ판정률 B| ≥ "  # noqa: RUF001
+        f"{DUP_CAVEAT_PASS_B_PP:g} %p): "
+    )
+    hits = _caveat_hits(rows)
+    if not hits:
+        return prefix + "해당 없음"
+    largest = max(abs(delta) for _, delta in hits)
+    listed = ", ".join(f"{label} {delta:+.2f} %p" for label, delta in hits)
+    return f"{prefix}해당 — {listed}(최대 {largest:.2f} %p)"
+
+
+def _duplicate_section_lines(
+    duplicates: DuplicateReport | None, evaluation: Evaluation
+) -> list[str]:
+    """md duplicate section between "상태" and "현장 9" (spec 8 v1.7 (ii))."""
+    if duplicates is None:
+        return []
+    return [
+        "## 중복 레이더그램 (v1.7, 원 데이터셋 자체 중복 — 민감도는 판정에 쓰지 않음)",
+        "",
+        _within_copy_line(duplicates),
+        _across_line(duplicates, evaluation),
+        _keep_one_line(duplicates.decisions),
+        _drop_all_line(duplicates, evaluation),
+        "",
+        "### 민감도 (주 결과 규칙, 검출 영점, 전체, X 제외)",
+        "",
+        *_md_table(
+            _sensitivity_table_rows(duplicates.sensitivity_rows),
+            DUP_SENSITIVITY_TABLE_COLUMNS,
+        ),
+        "",
+        _caveat_line(duplicates.sensitivity_rows),
+        "",
+    ]
+
+
+def _line_groups(
+    candidates: Sequence[CandidateResult],
+) -> dict[LineFile, list[CandidateResult]]:
+    groups: dict[LineFile, list[CandidateResult]] = defaultdict(list)
+    for candidate in candidates:
+        groups[(candidate.activity_id, candidate.path)].append(candidate)
+    return groups
+
+
+def _zero_flag_counts(
+    candidates: Sequence[CandidateResult], gt_activities: frozenset[str]
+) -> tuple[dict[int, Counter[str]], list[LineFile]]:
+    """Per-site counts of the zero-flag table and the flagged lines (spec 7-1).
+
+    Only lines with candidates are seen (the evaluation loads no other line).
+    ``main_input`` = ``ok`` and not dropped by the main QC rule (B+D+E).
+    """
+    counts: dict[int, Counter[str]] = defaultdict(Counter)
+    flagged_lines = []
+    for line_file, members in _line_groups(candidates).items():
+        site_counts = counts[site_of_activity(line_file[0])]
+        site_counts["lines"] += 1
+        rules = {m.result.zero_rule for m in members}
+        site_counts["surface_late"] += ZeroRule.AIR_SURFACE_LATE in rules
+        if not any(m.zero_h_implausible for m in members):
+            continue
+        flagged_lines.append(line_file)
+        ok = [m for m in members if m.result.status == "ok"]
+        site_counts["flagged"] += 1
+        site_counts["candidates"] += len(members)
+        site_counts["ok"] += len(ok)
+        site_counts["main_input"] += sum(not _is_qc_excluded(m, "main") for m in ok)
+        site_counts["flagged_gt_lines"] += line_file[0] in gt_activities
+    return counts, sorted(flagged_lines, key=_line_sort_key)
+
+
+def _zero_flag_lines(
+    candidates: Sequence[CandidateResult], evaluation: Evaluation
+) -> list[str]:
+    """md subsection of the site 9 section (spec 8 v1.7 (iii)); always written."""
+    counts, flagged_lines = _zero_flag_counts(candidates, evaluation.gt_activities)
+    count_columns = ZERO_FLAG_TABLE_COLUMNS[1:]
+    rows: list[dict[str, object]] = [
+        {"site": site, **{c: site_counts[c] for c in count_columns}}
+        for site, site_counts in sorted(counts.items())
+        if site_counts["surface_late"] > 0
+    ]
+    totals = {c: sum(int(row[c]) for row in rows) for c in count_columns}
+    rows.append({"site": "합계", **totals})
+    flagged_text = ", ".join(_file_label(f) for f in flagged_lines) or "없음"
+    return [
+        f"### 영점 h 비현실 플래그 (`{FLAG_ZERO_H}`, v1.7 — 깊이·지표 불변)",
+        "",
+        "- 정의: 영점 `air_surface_late`이고 h_est > h_max(`DepthConfig.h_max_m` = "
+        f"{DEFAULT_DEPTH_CONFIG.h_max_m:g} m)인 측선. 깊이·제외·지표 불변, "
+        "활동 안 사본 제외",
+        "",
+        *_md_table(rows, ZERO_FLAG_TABLE_COLUMNS),
+        "",
+        f"- 플래그 측선: {flagged_text}",
+        "",
+    ]
+
+
 def write_markdown(
     path: Path,
     evaluation: Evaluation,
     candidates: Sequence[CandidateResult],
     args: argparse.Namespace,
     elapsed_s: float,
+    duplicates: DuplicateReport | None = None,
 ) -> None:
+    """Write ``<prefix>.md`` (spec 8).
+
+    Args:
+        candidates: The evaluated candidates (v1.7: within-activity copies
+            already dropped), so every md count is over them.
+        duplicates: v1.7 duplicate facts; ``None`` (tests) leaves item 1
+            unchanged and writes no duplicate section.
+    """
     from gpr_detection.run_info import git_state, local_timestamp
 
     git = git_state(PROJECT_ROOT)
@@ -2592,9 +3486,8 @@ def write_markdown(
         _qc_setting(args),
         "- 정답 집합: 주 결과 `exclude_x`(code X 제외), 보조 `include_x` "
         "(같은 실행의 매칭 단계에서만 다름, summary·matches의 `gt_set` 열)",
-        f"- 꼭짓점 후보 {len(candidates)}개, "
-        f"정답 없는 활동 {len(evaluation.no_gt_counts)}개"
-        f"(주 결과 추정 {sum(evaluation.no_gt_counts.values())}개, 오검출로 세지 않음)",
+        _candidate_count_line(candidates, evaluation, duplicates),
+        *_duplicate_list_lines(duplicates),
         "",
         "## 주 결과 (지지 필터, 전체, X 제외)",
         "",
@@ -2621,11 +3514,13 @@ def write_markdown(
             for (src, mv), n in sorted(moved.items())
         ],
         "",
+        *_duplicate_section_lines(duplicates, evaluation),
         "## 현장 9 (두 사건 측선)",
         "",
         f"- h_est 분위: {h_quantiles}",
         f"- meta_eps_suspect: {suspects}/{len(site9)}",
         "",
+        *_zero_flag_lines(candidates, evaluation),
         "## 현장 11 진단 (eps_r 8 환산, 판정에 쓰지 않음)",
         "",
         "꼭짓점 후보 깊이를 먼저 환산한 뒤 주 결과와 같은 묶기·지지 필터·매칭"
@@ -2763,9 +3658,32 @@ def dry_run(args: argparse.Namespace) -> int:
             if any(i.multi_trench for i in ground_truth.get(a, []))
         ),
         "long_lines": int((lines["length_m"] >= LONG_LINE_M).sum()),
+        **_duplicate_dry_run_counts(candidates, lines),
     }
     print(json.dumps(report, ensure_ascii=True))
     return 0
+
+
+def _duplicate_dry_run_counts(
+    candidates: pd.DataFrame, lines: pd.DataFrame
+) -> dict[str, int]:
+    """dry-run keys of spec 8 v1.7: list checks only, no file is hashed."""
+    table = load_duplicate_table(DEFAULT_DUPLICATES)
+    copies = table.within_copies()
+    run_files = set(_run_line_files(lines))
+    candidate_files = zip(
+        candidates["activity_id"].astype(str),
+        candidates["path"].astype(str),
+        strict=True,
+    )
+    return {
+        "duplicate_within_copies": len(copies & run_files),
+        "duplicate_pairs_across": sum(
+            p.scope == DUP_ACROSS and set(p.files) <= run_files for p in table.pairs
+        ),
+        "lines_unique": sum(unique_line_counts(lines, table).values()),
+        "candidates_on_within_copies": sum(f in copies for f in candidate_files),
+    }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -2776,12 +3694,64 @@ def main(argv: Sequence[str] | None = None) -> int:
     started = time.perf_counter()
     root, candidates_table, lines_table = _read_inputs(args)
     gt_sets = load_ground_truth_sets(root)
-    lines_per_activity = lines_table.groupby("activity_id")["path"].nunique().to_dict()
+    table = load_duplicate_table(DEFAULT_DUPLICATES)
+    # Before any depth: a list that no longer matches the data stops the run.
+    hashed_files, hash_seconds = verify_duplicate_hashes(root, lines_table, table)
     line_info = {
         (r.activity_id, r.path): r._asdict()
         for r in lines_table.itertuples(index=False)
     }
+    candidates = _run_all_lines(root, candidates_table, args)
 
+    # Copies are still in the csv; evaluation, md and diagnostics drop them.
+    eval_candidates = drop_within_copies(candidates, table)
+    lines_per_activity = unique_line_counts(lines_table, table)
+    evaluation = evaluate_combinations(
+        eval_candidates, gt_sets, lines_per_activity, args
+    )
+    marks = table.marks()
+    evaluation.candidate_rows = [candidate_row(s, line_info, marks) for s in candidates]
+    evaluation.site11_rows, evaluation.site11_summaries = site11_diagnostic(
+        eval_candidates, gt_sets, lines_per_activity, args
+    )
+    evaluation.multi_trench_activities = sorted(
+        a
+        for a, items in gt_sets["exclude_x"].items()
+        if a in lines_per_activity and any(i.multi_trench for i in items)
+    )
+    sensitivity_rows = duplicate_sensitivity(
+        eval_candidates,
+        gt_sets,
+        lines_per_activity,
+        table,
+        args,
+        evaluation.summary_rows,
+    )
+    duplicates = DuplicateReport(
+        table=table,
+        list_label=_project_relative(DEFAULT_DUPLICATES),
+        decisions=keep_one_plan(table, lines_per_activity),
+        sensitivity_rows=tuple(sensitivity_rows),
+        copy_lines=tuple(
+            sorted(table.within_copies() & set(line_info), key=_line_sort_key)
+        ),
+        n_copy_candidates=len(candidates) - len(eval_candidates),
+        gt_counts={a: len(items) for a, items in gt_sets["exclude_x"].items()},
+        hashed_files=hashed_files,
+        hash_seconds=hash_seconds,
+    )
+    elapsed_s = time.perf_counter() - started
+    _write_outputs(
+        evaluation, sensitivity_rows, eval_candidates, args, elapsed_s, duplicates
+    )
+    LOGGER.info("done in %.0f s", elapsed_s)
+    return 0
+
+
+def _run_all_lines(
+    root: Path, candidates_table: pd.DataFrame, args: argparse.Namespace
+) -> list[CandidateResult]:
+    """Depth (and QC) of every candidate, one line at a time (4-2)."""
     candidates: list[CandidateResult] = []
     for (activity, path), group in candidates_table.groupby(
         ["activity_id", "path"], sort=True
@@ -2789,19 +3759,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         radargram = load_fourtu_radargram(root, activity, path, T0Choice.BOTH)
         candidates.extend(run_line(radargram, group, apex_qc=apex_qc_enabled(args)))
         LOGGER.info("%s/%s: %d candidates", activity, path, len(group))
+    return candidates
 
-    evaluation = evaluate_combinations(candidates, gt_sets, lines_per_activity, args)
-    evaluation.candidate_rows = [candidate_row(s, line_info) for s in candidates]
-    evaluation.site11_rows, evaluation.site11_summaries = site11_diagnostic(
-        candidates, gt_sets, lines_per_activity, args
-    )
-    evaluation.multi_trench_activities = sorted(
-        a
-        for a, items in gt_sets["exclude_x"].items()
-        if a in lines_per_activity and any(i.multi_trench for i in items)
-    )
-    elapsed_s = time.perf_counter() - started
 
+def _project_relative(path: Path) -> str:
+    """``path`` relative to the project in POSIX form, else as given."""
+    resolved = path.resolve()
+    if resolved.is_relative_to(PROJECT_ROOT):
+        return resolved.relative_to(PROJECT_ROOT).as_posix()
+    return path.as_posix()
+
+
+def _write_outputs(
+    evaluation: Evaluation,
+    sensitivity_rows: Sequence[Mapping[str, object]],
+    eval_candidates: Sequence[CandidateResult],
+    args: argparse.Namespace,
+    elapsed_s: float,
+    duplicates: DuplicateReport,
+) -> None:
+    """Every csv and the md of spec 8 under ``--out-dir`` with ``--prefix``."""
     out, prefix = args.out_dir, args.prefix
     out.mkdir(parents=True, exist_ok=True)
     write_csv(out / f"{prefix}_candidates.csv", evaluation.candidate_rows)
@@ -2809,9 +3786,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_csv(out / f"{prefix}_matches.csv", evaluation.match_rows)
     write_csv(out / f"{prefix}_site11.csv", evaluation.site11_rows)
     write_csv(out / f"{prefix}_summary.csv", evaluation.summary_rows)
-    write_markdown(out / f"{prefix}.md", evaluation, candidates, args, elapsed_s)
-    LOGGER.info("done in %.0f s", elapsed_s)
-    return 0
+    write_csv(out / f"{prefix}_dup_sensitivity.csv", sensitivity_rows)
+    write_markdown(
+        out / f"{prefix}.md",
+        evaluation,
+        eval_candidates,
+        args,
+        elapsed_s,
+        duplicates=duplicates,
+    )
 
 
 if __name__ == "__main__":

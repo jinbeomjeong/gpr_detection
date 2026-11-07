@@ -1,16 +1,21 @@
 """Unit tests of ``scripts/eval_depth_4tu.py``.
 
-spec_eval_4tu_v1 E1-E8, B1-B13, C1-C20 and the v1.6 gate tests G1-G11.
+spec_eval_4tu_v1 E1-E8, B1-B13, C1-C20, the v1.6 gate tests G1-G11 and the
+v1.7 tests Z1-Z6 (zero flag), D1-D11 (duplicate radargrams), N1 and G1b.
 
-Analytic B-scans and small in-memory tables only; no 4TU data is read.
+Analytic B-scans and small in-memory tables only; no 4TU radargram or ground
+truth is read (D1 and D3 read the committed duplicate and line lists).
 """
 
 import argparse
 import ast
 import dataclasses
+import hashlib
+import inspect
 import itertools
 import json
 import math
+import textwrap
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -19,10 +24,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from gpr_detection.depth.config import DepthConfig
 from gpr_detection.depth.estimate import prepare_depth_inputs
 from gpr_detection.depth.refraction import reflection_times
 from gpr_detection.depth.result import DepthResult, DepthStatus
 from gpr_detection.io.radargram import Radargram
+from gpr_detection.preprocess.timezero import ZeroRule
 from synthetic_bscan import (
     DT_NS,
     T_SRC_NS,
@@ -1758,10 +1765,14 @@ CANDIDATE_CSV_COLUMNS = [
     "stop_left",
     "stop_right",
     "apex_descended",
+    "duplicate_radargram",
+    "duplicate_of",
 ]
-"""Column order of the candidates csv (spec 8 v1.4; tracking: spec_depth v1.9)."""
-QC_DEPENDENT_COLUMNS = CANDIDATE_CSV_COLUMNS[25:-1]
-"""Blank with ``--apex-qc off``; ``apex_descended`` comes from the depth flags."""
+"""Column order of the candidates csv (spec 8 v1.4; tracking: spec_depth v1.9;
+the two duplicate columns: v1.7)."""
+QC_DEPENDENT_COLUMNS = CANDIDATE_CSV_COLUMNS[25:-3]
+"""Blank with ``--apex-qc off``; ``apex_descended`` comes from the depth flags and
+the duplicate columns from the duplicate list."""
 
 
 def test_c13_candidate_csv_columns_and_flags(script) -> None:
@@ -2519,3 +2530,842 @@ def test_g11_property_1_is_checked_at_run_time(script) -> None:
         )
     with pytest.raises(ValueError, match="activities"):
         script.summarize({"a": ungated}, {"a": 3}, {"b": no_gate_pairs})
+
+
+def test_g1b_pass_rates_use_the_float_slack(script) -> None:
+    """G1b (v1.6.1, bundled in v1.7): 0.45 - 0.15 = 0.30000000000000004 passes."""
+    error = 0.45 - 0.15
+    match = script.MatchResult(pairs=((0.45, 0, error),), missed=0, false_est=0)
+    summary = script.summarize({"01.1": match}, {"01.1": 1})
+    assert (summary.pass_a, summary.pass_b) == (1.0, 1.0)  # exact compare: 0.0
+    item = script.GtItem(0.15, "S", 0.0, False, "1", False)
+    combination = script.Combination("exclude_x", "top", "detected", "main")
+    (row,) = script._match_rows(
+        {"01.1": match}, {"01.1": [item]}, {"01.1": [0.15]}, combination
+    )
+    assert row["within_30cm"]
+
+
+# ----------------------------------------------------------------- Z1-Z6 (spec 9-2-4)
+#
+# v1.7 zero flag ``zero_h_implausible`` (spec 7-1): a line flag, report only.
+
+ZERO_FLAG_TABLE_HEADER = (
+    "| site | lines | surface_late | flagged | candidates | ok | main_input"
+    " | flagged_gt_lines |"
+)
+
+
+@pytest.mark.parametrize(
+    ("zero_rule", "h_est_m", "expected"),
+    [
+        (ZeroRule.AIR_SURFACE_LATE, 0.51, True),
+        ("air_surface_late", 0.51, True),
+        (ZeroRule.AIR_SURFACE_LATE, 0.5, False),  # h_max itself is allowed
+        (ZeroRule.AIR_SURFACE_LATE, math.nextafter(0.5, 1), True),
+        (ZeroRule.AIR_SURFACE_LATE, None, False),
+        ("air_single_event", 1.2, False),
+        (None, None, False),
+    ],
+)
+def test_z1_zero_h_implausible_boundary(script, zero_rule, h_est_m, expected) -> None:
+    assert script.zero_h_implausible(zero_rule, h_est_m, 0.5) is expected
+
+
+def test_z2_zero_flag_follows_long_line_before_the_qc_flags(script) -> None:
+    radargram, trace, sample = _seam_line("dead_trace", 3)
+    candidate = _run_one(script, radargram, trace, sample)
+    flagged = dataclasses.replace(candidate, zero_h_implausible=True)
+    line_key = (candidate.activity_id, candidate.path)
+    long_row = script.candidate_row(flagged, {line_key: {"length_m": 35.0}})
+    assert long_row["flags"].split()[-3:] == [
+        "long_line",
+        "zero_h_implausible",
+        "apex_on_trace_seam",
+    ]
+    short_row = script.candidate_row(flagged, {})
+    assert short_row["flags"].split()[-2:] == [
+        "zero_h_implausible",
+        "apex_on_trace_seam",
+    ]
+    unflagged = dataclasses.replace(candidate, zero_h_implausible=False)
+    assert "zero_h_implausible" not in script.candidate_row(unflagged, {})["flags"]
+    assert "zero_h_implausible" not in flagged.result.flags
+
+
+@pytest.mark.parametrize(("h_est_m", "expected"), [(0.6, True), (0.5, False)])
+def test_z3_run_line_flags_every_candidate_from_the_line_zero(
+    script, monkeypatch, h_est_m, expected
+) -> None:
+    spec = _straight_ray_spec(9.0, 0.5)
+    radargram = _radargram(spec)
+    trace, sample = _true_apex(spec)
+    table = pd.concat([_candidate_table(radargram, trace, sample)] * 2)
+    original_prepare = script.prepare_depth_inputs
+    original_flag = script.zero_h_implausible
+    calls = []
+
+    def late_zero_inputs(*args, **kwargs):
+        inputs = original_prepare(*args, **kwargs)
+        zero = dataclasses.replace(
+            inputs.zero, zero_rule=ZeroRule.AIR_SURFACE_LATE, h_est_m=h_est_m
+        )
+        return dataclasses.replace(inputs, zero=zero)
+
+    def recording_flag(*args):
+        calls.append(args)
+        return original_flag(*args)
+
+    monkeypatch.setattr(script, "prepare_depth_inputs", late_zero_inputs)
+    monkeypatch.setattr(script, "zero_h_implausible", recording_flag)
+    candidates = script.run_line(radargram, table)
+    assert [c.zero_h_implausible for c in candidates] == [expected, expected]
+    assert calls == [(ZeroRule.AIR_SURFACE_LATE, h_est_m, DepthConfig().h_max_m)]
+    assert all("zero_h_implausible" not in c.result.flags for c in candidates)
+
+
+def _gt_item(script, depth_m: float):
+    return script.GtItem(depth_m, "S", 0.0, False, "1", False)
+
+
+def _gt_sets(script, depths: dict[str, list[float]]):
+    """Both gt sets with the same items (no code X)."""
+    truth = {a: [_gt_item(script, d) for d in ds] for a, ds in depths.items()}
+    return {"exclude_x": truth, "include_x": truth}
+
+
+def _zero_candidate(
+    script,
+    activity: str,
+    path: str,
+    zero_rule: str,
+    h_est_m: float,
+    depth_m: float = 0.5,
+    **fields,
+):
+    """``ok`` candidate on a line with the given zero; ``fields`` replace ``qc``
+    (default in) or ``zero_h_implausible``."""
+    result = DepthResult(
+        status=DepthStatus.OK,
+        depth_top_m=depth_m,
+        eps_r_used=9.0,
+        zero_rule=zero_rule,
+        h_est_m=h_est_m,
+    )
+    candidate = script.CandidateResult(
+        activity_id=activity,
+        path=path,
+        candidate_trace=0,
+        candidate_sample=0.0,
+        source="auto_v1",
+        result=result,
+        candidate_moved=False,
+        qc=_qc(script, "in"),
+    )
+    return dataclasses.replace(candidate, **fields)
+
+
+def _z4_candidates(script) -> list:
+    """Site 9: two flagged lines (2 kept + 1 out candidate) and one h 0.3 line;
+    site 7: one ``air_single_event`` line. Only 09.1 has ground truth."""
+    late = "air_surface_late"
+    return [
+        _zero_candidate(script, "09.1", "Path1", late, 0.6, zero_h_implausible=True),
+        _zero_candidate(script, "09.1", "Path1", late, 0.6, zero_h_implausible=True),
+        _zero_candidate(
+            script,
+            "09.2",
+            "Path1",
+            late,
+            0.6,
+            zero_h_implausible=True,
+            qc=_qc(script, "out"),
+        ),
+        _zero_candidate(script, "09.2", "Path2", late, 0.3),
+        _zero_candidate(script, "07.1", "Path1", "air_single_event", 1.2),
+    ]
+
+
+def _write_md(script, tmp_path: Path, candidates, gt_sets, lines, duplicates=None):
+    args = script.parse_args(["--baseline-trials", "30", "--baseline-trials-aux", "10"])
+    evaluation = script.evaluate_combinations(candidates, gt_sets, lines, args)
+    path = tmp_path / "md.md"
+    script.write_markdown(
+        path, evaluation, candidates, args, elapsed_s=0.0, duplicates=duplicates
+    )
+    return path.read_text(encoding="utf-8").splitlines()
+
+
+def test_z4_md_zero_flag_subsection(script, tmp_path) -> None:
+    lines = _write_md(
+        script,
+        tmp_path,
+        _z4_candidates(script),
+        _gt_sets(script, {"09.1": [0.5]}),
+        {"09.1": 1, "09.2": 2, "07.1": 1},
+    )
+    order = [
+        _index_starting_with(lines, prefix)
+        for prefix in ("## 현장 9", "### 영점 h 비현실 플래그", "## 현장 11 진단")
+    ]
+    assert order == sorted(order)
+    header, rows = _md_table_under(lines, "### 영점 h 비현실 플래그")
+    assert header == ZERO_FLAG_TABLE_HEADER
+    site_9 = ["9", "3", "3", "2", "3", "3", "2", "1"]
+    assert [_md_cells(row) for row in rows] == [site_9, ["합계", *site_9[1:]]]
+    flagged_line = lines[_index_starting_with(lines, "- 플래그 측선:")]
+    assert flagged_line == "- 플래그 측선: 09.1/Path1, 09.2/Path1"
+
+
+def test_z5_the_zero_flag_changes_no_result(script) -> None:
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    candidates = _c13_candidates(script)
+    flagged = [dataclasses.replace(c, zero_h_implausible=True) for c in candidates]
+    plain = script.evaluate_combinations(candidates, gt_sets, {"01.1": 3}, _args())
+    with_flag = script.evaluate_combinations(flagged, gt_sets, {"01.1": 3}, _args())
+    for name in ("summary_rows", "cluster_rows", "match_rows", "estimate_counts"):
+        assert getattr(with_flag, name) == getattr(plain, name), name
+
+
+def test_z6_the_flag_limit_is_the_depth_config_h_max(script) -> None:
+    signature = inspect.signature(script.zero_h_implausible)
+    assert signature.parameters["h_max_m"].default == DepthConfig().h_max_m
+    source = textwrap.dedent(inspect.getsource(script.zero_h_implausible))
+    (function,) = ast.parse(source).body
+    numbers = [
+        node.value
+        for statement in function.body
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Constant)
+        and isinstance(node.value, int | float)
+        and not isinstance(node.value, bool)
+    ]
+    assert numbers == []
+
+
+# ----------------------------------------------------------------- D1-D11, N1
+#
+# v1.7 duplicate radargrams (spec 4-5) and the blank baseline cells (decision b).
+
+DUPLICATES_CSV = PROJECT_ROOT / "docs" / "datasets" / "fourtu_duplicate_radargrams.csv"
+LINES_CSV = PROJECT_ROOT / "docs" / "processing" / "fourtu_lines_v1.csv"
+ACROSS_ACTIVITIES = {
+    "02.2",
+    "02.4",
+    "03.5",
+    "03.6",
+    "09.6",
+    "09.7",
+    "010.11",
+    "010.12",
+    "010.15",
+    "010.16",
+    "012.2",
+    "012.4",
+    "013.1",
+    "013.2",
+}
+"""Activities with an across-activity duplicate (spec 4-5-3 item 2)."""
+DUP_SENSITIVITY_HEADER = (
+    "| dup_handling | assumption | n_activities | n_gt | n_est | mae_m | pass_a"
+    " | pass_b | d_pass_b_pp | d_mae_m | baseline_pass_b_mean | baseline_p |"
+)
+BASELINE_NAN_COLUMNS = (
+    "baseline_mae_mean",
+    "baseline_mae_p025",
+    "baseline_mae_p975",
+    "baseline_pass_a_mean",
+    "baseline_pass_a_p025",
+    "baseline_pass_a_p975",
+)
+"""The six baseline columns that were ``nan`` with no estimate in a scope."""
+N1_HEAD = {
+    "on": (480, "62d6af39467d6612c968302cf2ed3a50ca06fe7acb49bb3b402c18128c2e60e6"),
+    "off": (288, "1e041f4ecaa296669770ae8b4537e354b887637847b8561eeb7505e188038444"),
+}
+"""G8 fixture with the HEAD 7f8a518 code: ``nan`` cell count (all in the est/act
+zero rows, the six columns above) and the SHA-256 of the summary rows with
+those cells blanked (``_rows_digest``). Only ``nan`` -> blank may change."""
+D9_HEAD = {
+    "on": (144, "fcf410ee1602dcd2dc4eb251075f1f04d92b194e02e7fc3f41236c329edd6bef"),
+    "off": (104, "a67393d5d6d9c235c79677320ad5765a0de5afa5882b21fb8b2af210dbe5c4d7"),
+}
+"""``_markdown_lines`` with the HEAD 7f8a518 code, the "- 실행:" line removed:
+line count and SHA-256 (``_lines_digest``)."""
+
+
+def _digest(value) -> str:
+    text = json.dumps(value, ensure_ascii=False, default=repr)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _rows_digest(rows) -> str:
+    return _digest([list(row.items()) for row in rows])
+
+
+def _lines_digest(lines: list[str]) -> str:
+    return _digest(lines)
+
+
+def test_d1_committed_duplicate_list(script) -> None:
+    table = script.load_duplicate_table(DUPLICATES_CSV)
+    scopes = [pair.scope for pair in table.pairs]
+    assert (len(scopes), scopes.count("within_activity")) == (39, 5)
+    assert scopes.count("across_activities") == 34
+    assert table.within_copies() == {("09.5", f"Path{n}") for n in range(12, 17)}
+    marks = table.marks()
+    assert len(marks) == 78
+    mark = script.DuplicateMark
+    assert marks[("09.5", "Path12")] == mark("within_activity", "09.5/Path7")
+    assert marks[("09.5", "Path7")] == mark("", "09.5/Path12")
+    assert marks[("012.2", "Path7")] == mark("across_activities", "012.4/Path1")
+    assert table.across_activities() == ACROSS_ACTIVITIES
+
+
+def _write_duplicate_csv(path: Path, rows: list[tuple], encoding="utf-8") -> Path:
+    """Rows of ``(activity_a, path_a, activity_b, path_b, scope)``."""
+    frame = pd.DataFrame(
+        [
+            {
+                "pair_id": index + 1,
+                "sha256_npy": "0" * 64,
+                "activity_a": row[0],
+                "path_a": row[1],
+                "activity_b": row[2],
+                "path_b": row[3],
+                "scope": row[4],
+            }
+            for index, row in enumerate(rows)
+        ]
+    )
+    frame.to_csv(path, index=False, encoding=encoding)
+    return path
+
+
+@pytest.mark.parametrize(
+    ("rows", "message"),
+    [
+        (
+            [
+                ("01.1", "P1", "01.1", "P2", "within_activity"),
+                ("01.1", "P1", "01.2", "P1", "across_activities"),
+            ],
+            "appears in two rows",
+        ),
+        ([("01.1", "P1", "01.2", "P2", "within_activity")], "across activities"),
+        ([("01.1", "P1", "01.1", "P2", "across_activities")], "within one activity"),
+        ([("01.1", "P1", "01.2", "P1", "elsewhere")], "unknown scope"),
+        (
+            [
+                ("01.1", "P1", "01.2", "P1", "across_activities"),
+                ("01.1", "P2", "01.3", "P1", "across_activities"),
+            ],
+            "across partners",
+        ),
+    ],
+)
+def test_d1b_list_checks(script, tmp_path, rows, message) -> None:
+    path = _write_duplicate_csv(tmp_path / "dups.csv", rows)
+    with pytest.raises(ValueError, match=message):
+        script.load_duplicate_table(path)
+
+
+def test_d1b_missing_column_and_bom(script, tmp_path) -> None:
+    rows = [("01.1", "P1", "01.2", "P1", "across_activities")]
+    path = _write_duplicate_csv(tmp_path / "dups.csv", rows, encoding="utf-8-sig")
+    assert path.read_bytes().startswith(b"\xef\xbb\xbf")
+    (pair,) = script.load_duplicate_table(path).pairs
+    assert (pair.pair_id, pair.activity_a, pair.path_b) == (1, "01.1", "P1")
+    frame = pd.read_csv(path, encoding="utf-8-sig").drop(columns="scope")
+    frame.to_csv(path, index=False)
+    with pytest.raises(ValueError, match="missing columns"):
+        script.load_duplicate_table(path)
+
+
+def _pair(script, a: str, path_a: str, b: str, path_b: str, scope: str, sha="0"):
+    return script.DuplicatePair(1, sha, a, path_a, b, path_b, scope)
+
+
+def _line_table(files: list[tuple[str, str]]) -> pd.DataFrame:
+    return pd.DataFrame(
+        {"activity_id": [a for a, _ in files], "path": [p for _, p in files]}
+    )
+
+
+def test_d2_within_copy_does_not_support_its_original(script) -> None:
+    candidates = [
+        dataclasses.replace(_candidate(script, "01.1", path, 0.80), qc=_qc(script))
+        for path in ("L1", "L2")
+    ]
+    table = script.DuplicateTable(
+        (_pair(script, "01.1", "L1", "01.1", "L2", "within_activity"),)
+    )
+    lines = _line_table([("01.1", "L1"), ("01.1", "L2"), ("01.1", "L3")])
+    gt_sets = _gt_sets(script, {"01.1": [0.80]})
+    line_counts = script.unique_line_counts(lines, table)
+    assert line_counts == {"01.1": 2}
+    kept = script.drop_within_copies(candidates, table)
+    assert [c.path for c in kept] == ["L1"]
+    evaluation = script.evaluate_combinations(kept, gt_sets, line_counts, _args())
+    assert _overall_top_detected_row(evaluation.summary_rows, "main")["n_est"] == 0
+    unfiltered = script.evaluate_combinations(candidates, gt_sets, {"01.1": 3}, _args())
+    assert _overall_top_detected_row(unfiltered.summary_rows, "main")["n_est"] == 1
+
+
+D3_DECISIONS = [
+    (("02.2", "02.4"), 8, (8, 8), "02.2", "02.4", "equal_sets", 8, True),
+    (("03.5", "03.6"), 10, (10, 13), "03.6", "03.5", "strict_superset", 10, True),
+    (("09.6", "09.7"), 1, (4, 9), "09.6", "09.7", "lower_number", 1, False),
+    (("010.11", "010.12"), 10, (10, 10), "010.11", "010.12", "equal_sets", 10, True),
+    (("010.15", "010.16"), 1, (1, 1), "010.15", "010.16", "equal_sets", 1, True),
+    (("012.2", "012.4"), 1, (7, 2), "012.2", "012.4", "lower_number", 1, False),
+    (("013.1", "013.2"), 3, (3, 3), "013.1", "013.2", "equal_sets", 3, True),
+]
+"""Spec 4-5-4 table: activities, s, (n_A, n_B), kept, dropped, reason, number of
+dropped paths (always Path1..PathN here), activity removed."""
+
+
+def test_d3_keep_one_plan_of_the_committed_list(script) -> None:
+    table = script.load_duplicate_table(DUPLICATES_CSV)
+    lines = pd.read_csv(LINES_CSV, dtype={"activity_id": str, "path": str})
+    line_counts = script.unique_line_counts(lines, table)
+    assert sum(line_counts.values()) == 754
+    decisions = script.keep_one_plan(table, line_counts)
+    observed = [
+        (
+            d.activities,
+            d.n_shared,
+            d.n_lines,
+            d.kept,
+            d.dropped,
+            d.reason,
+            len(d.dropped_paths),
+            d.dropped_activity_removed,
+        )
+        for d in decisions
+    ]
+    assert observed == D3_DECISIONS
+    for decision, expected in zip(decisions, D3_DECISIONS, strict=True):
+        assert decision.dropped_paths == tuple(
+            f"Path{n}" for n in range(1, expected[6] + 1)
+        )
+    removed = {d.dropped for d in decisions if d.dropped_activity_removed}
+    assert removed == {"02.4", "03.5", "010.12", "010.16", "013.2"}
+    _, drop_all_counts = script.apply_dup_handling([], line_counts, table, "drop_all")
+    assert set(line_counts) - set(drop_all_counts) == ACROSS_ACTIVITIES
+
+
+def test_d3b_keep_one_rule_edges(script) -> None:
+    across = "across_activities"
+    numbers = script.DuplicateTable(
+        (_pair(script, "010.9", "P1", "010.10", "P1", across),)
+    )
+    (decision,) = script.keep_one_plan(numbers, {"010.9": 1, "010.10": 1})
+    assert (decision.kept, decision.reason) == ("010.9", "equal_sets")  # not "010.10"
+
+    shared = script.DuplicateTable((_pair(script, "01.1", "P1", "01.2", "P1", across),))
+    (decision,) = script.keep_one_plan(shared, {"01.1": 1, "01.2": 2})
+    assert (decision.kept, decision.reason) == ("01.2", "strict_superset")
+    (decision,) = script.keep_one_plan(shared, {"01.1": 2, "01.2": 3})
+    # Neither is a superset: the lower number, not the one with more lines.
+    assert (decision.kept, decision.reason) == ("01.1", "lower_number")
+    assert decision.dropped_paths == ("P1",) and not decision.dropped_activity_removed
+    with pytest.raises(ValueError):
+        script.activity_order_key("10-11")
+
+
+D4_LINES = {"02.1": 2, "02.2": 1, "02.3": 3, "02.4": 2}
+D4_GT = {"02.1": [0.5], "02.2": [0.7], "02.3": [0.9], "02.4": [1.1]}
+
+
+def _d4_table(script):
+    """02.2/P1 = 02.1/P1 (02.1 is a strict superset); 02.4/P1 = 02.3/P1 (lower
+    number keeps 02.3)."""
+    across = "across_activities"
+    return script.DuplicateTable(
+        (
+            _pair(script, "02.1", "P1", "02.2", "P1", across),
+            _pair(script, "02.3", "P1", "02.4", "P1", across),
+        )
+    )
+
+
+def _d4_candidates(script) -> list:
+    """One in-QC candidate per line, at its activity's ground truth."""
+    return [
+        dataclasses.replace(
+            _candidate(script, activity, f"P{n}", depths[0]), qc=_qc(script)
+        )
+        for activity, depths in D4_GT.items()
+        for n in range(1, D4_LINES[activity] + 1)
+    ]
+
+
+def test_d4_handling_applies_to_candidates_and_lines(script) -> None:
+    table, candidates = _d4_table(script), _d4_candidates(script)
+    kept, counts = script.apply_dup_handling(candidates, D4_LINES, table, "keep_both")
+    assert kept == candidates and kept is not candidates
+    assert counts == D4_LINES and counts is not D4_LINES
+    kept, counts = script.apply_dup_handling(candidates, D4_LINES, table, "keep_one")
+    assert counts == {"02.1": 2, "02.3": 3, "02.4": 1}
+    assert [(c.activity_id, c.path) for c in kept if c.activity_id == "02.4"] == [
+        ("02.4", "P2")
+    ]
+    assert "02.2" not in {c.activity_id for c in kept}
+    kept, counts = script.apply_dup_handling(candidates, D4_LINES, table, "drop_all")
+    assert (kept, counts) == ([], {})
+    with pytest.raises(ValueError):
+        script.apply_dup_handling(candidates, D4_LINES, table, "keep_some")
+
+    rows = script.duplicate_sensitivity(
+        candidates, _gt_sets(script, D4_GT), D4_LINES, table, _args(), []
+    )
+    overall = {
+        row["dup_handling"]: row
+        for row in rows
+        if (row["scope"], row["gt_set"], row["assumption"], row["zero_variant"])
+        == ("all", "exclude_x", "top", "detected")
+    }
+    assert set(overall) == {"keep_one", "drop_all"}  # no keep_both without summary
+    keep_one = overall["keep_one"]
+    assert (keep_one["n_activities"], keep_one["n_gt"], keep_one["n_est"]) == (3, 3, 3)
+    assert (overall["drop_all"]["n_activities"], overall["drop_all"]["n_gt"]) == (0, 0)
+
+
+def _d5_inputs(script):
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    for truth in gt_sets.values():
+        truth.update(_gt_sets(script, D4_GT)["exclude_x"])
+    candidates = _c13_candidates(script) + _d4_candidates(script)
+    return gt_sets, candidates, {"01.1": 3, **D4_LINES}
+
+
+def test_d5_sensitivity_rows(script, monkeypatch) -> None:
+    gt_sets, candidates, lines = _d5_inputs(script)
+    args = _args()
+    evaluation = script.evaluate_combinations(candidates, gt_sets, lines, args)
+    summary_before = [dict(row) for row in evaluation.summary_rows]
+    recorded_trials = []
+    original_draw = script.draw_baseline
+
+    def recording_draw(n_est, gt, trials, seed, mode):
+        recorded_trials.append((mode, trials))
+        return original_draw(n_est, gt, trials, seed, mode)
+
+    monkeypatch.setattr(script, "draw_baseline", recording_draw)
+    rows = script.duplicate_sensitivity(
+        candidates, gt_sets, lines, _d4_table(script), args, evaluation.summary_rows
+    )
+    assert evaluation.summary_rows == summary_before
+    summary_columns = list(evaluation.summary_rows[0])
+    assert all(list(row) == ["dup_handling", *summary_columns] for row in rows)
+    main_rows = [r for r in evaluation.summary_rows if r["variant"] == "main"]
+    keep_both = [r for r in rows if r["dup_handling"] == "keep_both"]
+    assert [{k: v for k, v in r.items() if k != "dup_handling"} for r in keep_both] == (
+        main_rows
+    )
+    blocks = [script.DUP_HANDLINGS.index(r["dup_handling"]) for r in rows]
+    assert blocks == sorted(blocks) and set(blocks) == {0, 1, 2}
+    others = [r for r in rows if r["dup_handling"] != "keep_both"]
+    for row in others:
+        assert row["variant"] == "main"
+        global_columns = [c for c in row if c.startswith("baseline_global_")]
+        assert all(row[c] == "" for c in global_columns), row["dup_handling"]
+    assert recorded_trials
+    assert set(recorded_trials) == {("activity", args.baseline_trials_aux)}
+
+
+def _d6_root(tmp_path: Path, contents: dict[tuple[str, str], bytes]) -> Path:
+    root = tmp_path / "root"
+    for (activity, path), data in contents.items():
+        folder = root / "05_radargrams_npy" / activity
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / f"{path}.npy").write_bytes(data)
+    return root
+
+
+def _sha(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def test_d6_hash_check(script, tmp_path) -> None:
+    same, other = b"same bytes", b"other bytes"
+    files = {("01.1", "P1"): same, ("01.2", "P1"): same, ("01.1", "P2"): other}
+    root = _d6_root(tmp_path, files)
+    lines = _line_table(list(files))
+    across = "across_activities"
+
+    def table(sha: str):
+        return script.DuplicateTable(
+            (_pair(script, "01.1", "P1", "01.2", "P1", across, sha=sha),)
+        )
+
+    n_files, seconds = script.verify_duplicate_hashes(root, lines, table(_sha(same)))
+    assert n_files == 3 and seconds >= 0.0
+    with pytest.raises(RuntimeError, match=r"not in the list: 01\.1/P1, 01\.2/P1"):
+        script.verify_duplicate_hashes(root, lines, script.DuplicateTable())
+    with pytest.raises(RuntimeError, match=r"01\.1/P1 hash differs"):
+        script.verify_duplicate_hashes(root, lines, table("0" * 64))
+    one_side = _line_table([("01.1", "P1"), ("01.1", "P2")])
+    assert script.verify_duplicate_hashes(root, one_side, table(_sha(same)))[0] == 2
+
+    changed = _d6_root(tmp_path / "changed", {**files, ("01.2", "P1"): b"changed"})
+    with pytest.raises(RuntimeError, match="listed pair 1 differs"):
+        script.verify_duplicate_hashes(changed, lines, table(_sha(same)))
+    three = _d6_root(tmp_path / "three", {**files, ("01.1", "P2"): same})
+    with pytest.raises(RuntimeError, match="more than two identical files"):
+        script.verify_duplicate_hashes(three, lines, table(_sha(same)))
+
+
+def test_d7_candidate_csv_duplicate_columns(script) -> None:
+    table = script.DuplicateTable(
+        (
+            _pair(script, "09.5", "Path7", "09.5", "Path12", "within_activity"),
+            _pair(script, "012.2", "Path7", "012.4", "Path1", "across_activities"),
+        )
+    )
+    marks = table.marks()
+    expected = {
+        ("09.5", "Path12"): ("within_activity", "09.5/Path7"),
+        ("09.5", "Path7"): ("", "09.5/Path12"),
+        ("012.2", "Path7"): ("across_activities", "012.4/Path1"),
+        ("01.1", "Path1"): ("", ""),
+    }
+    for (activity, path), values in expected.items():
+        row = script.candidate_row(_candidate(script, activity, path, 0.5), {}, marks)
+        assert list(row) == CANDIDATE_CSV_COLUMNS
+        assert (row["duplicate_radargram"], row["duplicate_of"]) == values
+    plain = script.candidate_row(_candidate(script, "09.5", "Path12", 0.5), {})
+    assert list(plain) == CANDIDATE_CSV_COLUMNS
+    assert (plain["duplicate_radargram"], plain["duplicate_of"]) == ("", "")
+
+
+D8_KEEP_BOTH_PASS_B = 0.12
+"""Hand-set (keep_both, detected, top) pass B: 100 * (0.1 - 0.12) is
+-1.9999999999999991, a hair inside T = 2 %p, so only the 1e-9 slack makes the
+decimal boundary count (a plain ``>`` or ``>= T`` would miss it)."""
+
+
+def _d8_report(script, pass_b_override: float | None):
+    """D4 plus a within copy 02.3/P4 of 02.3/P3; ``pass_b_override`` replaces the
+    (keep_one, detected, top) overall pass B and ``D8_KEEP_BOTH_PASS_B`` the
+    keep_both one (the fixture itself gives 1.0 for both)."""
+    table = script.DuplicateTable(
+        (
+            *_d4_table(script).pairs,
+            _pair(script, "02.3", "P3", "02.3", "P4", "within_activity"),
+        )
+    )
+    copy = dataclasses.replace(_candidate(script, "02.3", "P4", 0.9), qc=_qc(script))
+    all_candidates = [*_d4_candidates(script), copy]
+    lines = _line_table(
+        [(a, f"P{n}") for a, n_lines in D4_LINES.items() for n in range(1, n_lines + 1)]
+        + [("02.3", "P4")]
+    )
+    candidates = script.drop_within_copies(all_candidates, table)
+    line_counts = script.unique_line_counts(lines, table)
+    assert line_counts == D4_LINES
+    gt_sets = _gt_sets(script, D4_GT)
+    args = _args()
+    evaluation = script.evaluate_combinations(candidates, gt_sets, line_counts, args)
+    rows = script.duplicate_sensitivity(
+        candidates, gt_sets, line_counts, table, args, evaluation.summary_rows
+    )
+    overrides = {"keep_both": D8_KEEP_BOTH_PASS_B, "keep_one": pass_b_override}
+    for row in rows:
+        key = (row["scope"], row["gt_set"], row["zero_variant"], row["assumption"])
+        if key == ("all", "exclude_x", "detected", "top"):
+            row["pass_b"] = overrides.get(row["dup_handling"], row["pass_b"])
+    report = script.DuplicateReport(
+        table=table,
+        list_label="tests/dups.csv",
+        decisions=script.keep_one_plan(table, line_counts),
+        sensitivity_rows=tuple(rows),
+        copy_lines=(("02.3", "P4"),),
+        n_copy_candidates=1,
+        gt_counts={a: len(v) for a, v in D4_GT.items()},
+        hashed_files=11,
+        hash_seconds=0.0,
+    )
+    return candidates, gt_sets, line_counts, report
+
+
+@pytest.mark.parametrize(
+    ("pass_b", "caveat"),
+    [(0.1, "해당 — keep_one/detected/top -2.00 %p"), (0.1001, "해당 없음")],
+)
+def test_d8_md_duplicate_section_and_caveat(script, tmp_path, pass_b, caveat) -> None:
+    candidates, gt_sets, line_counts, report = _d8_report(script, pass_b)
+    lines = _write_md(script, tmp_path, candidates, gt_sets, line_counts, report)
+    headings = ("## 상태·candidate_moved·출처", "## 중복 레이더그램", "## 현장 9")
+    order = [_index_starting_with(lines, prefix) for prefix in headings]
+    assert order == sorted(order)
+    header, rows = _md_table_under(lines, "### 민감도")
+    assert header == DUP_SENSITIVITY_HEADER
+    cells = [_md_cells(row) for row in rows]
+    assert [row[:2] for row in cells] == [
+        [handling, assumption]
+        for handling in ("keep_both", "keep_one", "drop_all")
+        for assumption in ("top", "center")
+    ]
+    assert all(row[8:10] == ["", ""] for row in cells[:2])
+    caveat_line = lines[_index_starting_with(lines, "- 단서 규칙")]
+    assert "≥ 2 %p" in caveat_line
+    assert caveat_line.split("): ", 1)[1].startswith(caveat)
+    count_line = lines[_index_starting_with(lines, "- 꼭짓점 후보 9")]
+    assert count_line.startswith(
+        "- 꼭짓점 후보 9개(평가 8개 — 활동 안 사본 측선 1개의 후보 1개 제외, "
+        "csv에는 있음)"
+    )
+    list_line = lines[_index_starting_with(lines, "- 중복 레이더그램:")]
+    assert list_line == (
+        "- 중복 레이더그램: 목록 `tests/dups.csv` 3쌍, "
+        "실행 해시 대조 일치(파일 11개, 0.0 s)"
+    )
+    assert lines[_index_starting_with(lines, "- 활동 안 사본:")].startswith(
+        "- 활동 안 사본: 02.3/P4(대표 02.3/P3)"
+    )
+    assert lines[_index_starting_with(lines, "- `keep_one`")] == (
+        "- `keep_one` 남김/뺌: 02.1 ← 02.2 전체(strict_superset), "
+        "02.3 ← 02.4 P1(lower_number); 평가에서 빠진 활동 02.2"
+    )
+
+
+def _without_zero_flag_subsection(lines: list[str]) -> list[str]:
+    start = _index_starting_with(lines, "### 영점 h 비현실 플래그")
+    end = _index_starting_with(lines, "## 현장 11 진단")
+    kept = lines[:start] + lines[end:]
+    return [line for line in kept if not line.startswith("- 실행:")]
+
+
+@pytest.mark.parametrize("apex_qc", ["on", "off"])
+def test_d9_md_without_a_duplicate_report_matches_head(script, tmp_path, apex_qc):
+    lines = _markdown_lines(script, tmp_path, apex_qc)
+    assert not any(line.startswith("## 중복 레이더그램") for line in lines)
+    kept = _without_zero_flag_subsection(lines)
+    assert (len(kept), _lines_digest(kept)) == D9_HEAD[apex_qc]
+
+
+def _d11_inputs(tmp_path: Path):
+    """03.1: P1 (original), P2 (its within copy; a 0.9 m candidate only there),
+    P3; 03.2/P1 = 03.3/P1 across. Every 03.1 line has the zero flag."""
+    candidates = pd.DataFrame(
+        {
+            "activity_id": ["03.1", "03.1", "03.1", "03.1", "03.2", "03.3"],
+            "path": ["P1", "P2", "P2", "P3", "P1", "P1"],
+            "depth": [0.5, 0.5, 0.9, 0.5, 0.7, 0.7],
+        }
+    )
+    lines = pd.DataFrame(
+        {
+            "activity_id": ["03.1", "03.1", "03.1", "03.2", "03.3"],
+            "path": ["P1", "P2", "P3", "P1", "P1"],
+            "length_m": [5.0] * 5,
+        }
+    )
+    duplicates = _write_duplicate_csv(
+        tmp_path / "dups.csv",
+        [
+            ("03.1", "P1", "03.1", "P2", "within_activity"),
+            ("03.2", "P1", "03.3", "P1", "across_activities"),
+        ],
+        encoding="utf-8-sig",
+    )
+    return candidates, lines, duplicates
+
+
+def test_d11_main_wiring(script, tmp_path, monkeypatch) -> None:
+    candidates_table, lines_table, duplicates_csv = _d11_inputs(tmp_path)
+    calls: list[str] = []
+
+    def fake_run_line(radargram, group, apex_qc=True):
+        calls.append("run_line")
+        activity, path = radargram.line_id.split("/")
+        return [
+            _zero_candidate(
+                script,
+                activity,
+                path,
+                "air_surface_late",
+                0.6,
+                depth_m=depth,
+                zero_h_implausible=activity == "03.1",
+            )
+            for depth in group["depth"]
+        ]
+
+    def fake_verify(root, lines, table):
+        calls.append("verify")
+        return len(lines), 0.0
+
+    monkeypatch.setattr(
+        script, "_read_inputs", lambda args: (tmp_path, candidates_table, lines_table)
+    )
+    monkeypatch.setattr(
+        script,
+        "load_ground_truth_sets",
+        lambda root: _gt_sets(script, {"03.1": [0.5], "03.2": [0.7], "03.3": [0.7]}),
+    )
+
+    def fake_radargram(root, activity, path, choice):
+        return SimpleNamespace(line_id=f"{activity}/{path}")
+
+    monkeypatch.setattr(script, "load_fourtu_radargram", fake_radargram)
+    monkeypatch.setattr(script, "run_line", fake_run_line)
+    monkeypatch.setattr(script, "DEFAULT_DUPLICATES", duplicates_csv)
+    monkeypatch.setattr(script, "verify_duplicate_hashes", fake_verify)
+    out = tmp_path / "out"
+    trials = ["--baseline-trials", "5", "--baseline-trials-aux", "3"]
+    assert script.main(["--out-dir", str(out), "--prefix", "t", *trials]) == 0
+
+    assert calls.index("verify") < calls.index("run_line")
+
+    def read(name: str) -> pd.DataFrame:
+        return pd.read_csv(out / f"t_{name}.csv", dtype=str, keep_default_na=False)
+
+    rows = read("candidates")
+    marks = {
+        (r.activity_id, r.path): (r.duplicate_radargram, r.duplicate_of)
+        for r in rows.itertuples(index=False)
+    }
+    assert len(rows) == 6
+    assert marks[("03.1", "P2")] == ("within_activity", "03.1/P1")
+    assert marks[("03.1", "P1")] == ("", "03.1/P2")
+    assert marks[("03.2", "P1")] == ("across_activities", "03.3/P1")
+    clusters = read("clusters")
+    assert "0.9" not in set(clusters["depth_m"])
+    summary = read("summary")
+    main_03_1 = summary[
+        (summary["scope"] == "all")
+        & (summary["gt_set"] == "exclude_x")
+        & (summary["assumption"] == "top")
+        & (summary["zero_variant"] == "detected")
+        & (summary["variant"] == "main")
+    ]
+    assert list(main_03_1["n_est"]) == ["3"]  # 0.5 on 03.1, 0.7 on 03.2 and 03.3
+    handlings = list(dict.fromkeys(read("dup_sensitivity")["dup_handling"]))
+    assert handlings == ["keep_both", "keep_one", "drop_all"]
+    md = (out / "t.md").read_text(encoding="utf-8").splitlines()
+    assert any(line.startswith("## 중복 레이더그램") for line in md)
+    assert md[_index_starting_with(md, "- 플래그 측선:")] == (
+        "- 플래그 측선: 03.1/P1, 03.1/P3"
+    )
+
+
+@pytest.mark.parametrize("apex_qc", ["on", "off"])
+def test_n1_undefined_baseline_cells_are_blank(script, apex_qc) -> None:
+    on, off = _g8_evaluations(script)
+    rows = (on if apex_qc == "on" else off).summary_rows
+    assert not any(
+        isinstance(value, float) and math.isnan(value)
+        for row in rows
+        for value in row.values()
+    )
+    no_estimate = [row for row in rows if row["zero_variant"] in ("est", "act")]
+    assert all(row["n_est"] == 0 for row in no_estimate)
+    blank_cells = [row[c] for row in no_estimate for c in BASELINE_NAN_COLUMNS]
+    n_head_nan, head_digest = N1_HEAD[apex_qc]
+    assert blank_cells == [""] * n_head_nan
+    assert _rows_digest(rows) == head_digest
