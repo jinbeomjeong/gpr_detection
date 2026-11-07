@@ -1071,7 +1071,9 @@ LAYER_TIME_NS = 9.0
 CENTRE_TRACE = 200
 
 
-@pytest.mark.parametrize(("amplitude", "inlier_frac"), [(2.0, 0.2755), (0.5, 0.9524)])
+# v1.9 T2 (spec_depth 5-3): amplitude 0.5 was 0.9524 with the v1.8 reverse rule
+# (wings 5/15); the median reference now follows the layer to 47/46 picks.
+@pytest.mark.parametrize(("amplitude", "inlier_frac"), [(2.0, 0.2755), (0.5, 0.3191)])
 def test_c2_c12_flat_layer_is_out_at_the_upper_v_bound(
     script, amplitude, inlier_frac
 ) -> None:
@@ -1117,20 +1119,22 @@ def _crossing_line(slope_ns_per_m: float, cross: bool) -> Radargram:
 
 
 @pytest.mark.parametrize(
-    ("slope_ns_per_m", "reason"),
+    ("slope_ns_per_m", "verdict", "reason"),
     [
-        (5.0, "insufficient_picks"),
-        (10.0, "fit_failed"),
-        (15.0, "fit_failed"),
-        (20.0, "insufficient_picks"),
-        (30.0, "insufficient_picks"),
+        # v1.9 T2 (spec_depth 5-3); v1.8 gave unknown insufficient_picks,
+        # fit_failed, fit_failed, insufficient_picks for 5, 10, 15, 20 ns/m.
+        (5.0, "out", "r_below"),
+        (10.0, "unknown", "unstable"),
+        (15.0, "unknown", "unstable"),
+        (20.0, "unknown", "unstable"),
+        (30.0, "unknown", "insufficient_picks"),
     ],
 )
-def test_c3_x_crossing_stays_unknown(script, slope_ns_per_m, reason) -> None:
+def test_c3_x_crossing_is_never_in(script, slope_ns_per_m, verdict, reason) -> None:
     radargram = _crossing_line(slope_ns_per_m, cross=True)
     sample = (T_SRC_NS + CROSSING_TIME_NS) / QC_DT_NS
     curvature = _run_one(script, radargram, CENTRE_TRACE, sample).qc.curvature
-    assert (curvature.verdict, curvature.reason) == ("unknown", reason)
+    assert (curvature.verdict, curvature.reason) == (verdict, reason)
 
 
 @pytest.mark.parametrize(
@@ -1170,7 +1174,9 @@ def _record_end_spec(margin_ns: float) -> BScanSpec:
     [
         (0.8, True, "in", ""),
         (1.5, True, "in", ""),
-        (3.0, True, "unknown", "insufficient_picks"),
+        # v1.9 T2 (spec_depth 5-3): v1.8 stopped both wings early (6/2 picks,
+        # unknown insufficient_picks); rule D still excludes the candidate.
+        (3.0, True, "in", ""),
         (6.0, False, "in", ""),
     ],
 )
@@ -1681,8 +1687,13 @@ CANDIDATE_CSV_COLUMNS = [
     "seam_split",
     "apex_on_trace_seam",
     "qc_excluded",
+    "stop_left",
+    "stop_right",
+    "apex_descended",
 ]
-"""Column order of the candidates csv (spec 8, v1.4)."""
+"""Column order of the candidates csv (spec 8 v1.4; tracking: spec_depth v1.9)."""
+QC_DEPENDENT_COLUMNS = CANDIDATE_CSV_COLUMNS[25:-1]
+"""Blank with ``--apex-qc off``; ``apex_descended`` comes from the depth flags."""
 
 
 def test_c13_candidate_csv_columns_and_flags(script) -> None:
@@ -1693,10 +1704,14 @@ def test_c13_candidate_csv_columns_and_flags(script) -> None:
     assert row["seam_score"] == "inf"
     assert row["apex_on_trace_seam"] is True and row["qc_excluded"] is True
     assert row["flags"].split()[-1] == "apex_on_trace_seam"
+    assert row["stop_left"] in {stop.value for stop in script.TrackStop}
+    assert row["stop_right"] in {stop.value for stop in script.TrackStop}
+    assert row["apex_descended"] is False
     without_qc = _run_one(script, radargram, trace, sample, apex_qc=False)
     row = script.candidate_row(without_qc, {})
     assert list(row) == CANDIDATE_CSV_COLUMNS
-    assert all(row[column] == "" for column in CANDIDATE_CSV_COLUMNS[25:])
+    assert all(row[column] == "" for column in QC_DEPENDENT_COLUMNS)
+    assert row["apex_descended"] is False
     assert "apex_on_trace_seam" not in row["flags"].split()
 
 
@@ -1772,6 +1787,9 @@ def test_c13_md_qc_diagnostic_lines(script) -> None:
     assert "out `r_above` 2" in reasons
     assert "unknown `insufficient_picks` 1" in reasons
     assert "2/5" in _line_starting_with(lines, "- `qc_excluded`")
+    tracking = _line_starting_with(lines, "- 추적 진단")
+    assert "`apex_descended` 0/5" in tracking
+    assert "왼쪽 `none` 5 / 오른쪽 `none` 5" in tracking
     assert _line_starting_with(lines, "  - 전체 활동").endswith(
         "1개: main 1 / noqc 2 / 차 -1"
     )

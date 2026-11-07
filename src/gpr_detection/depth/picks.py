@@ -7,10 +7,13 @@
    (water-filled pipe bottom, M18: 2.17 m with the global maximum, 1.027 m now).
    Peaks within 2 samples of the search top are skipped (box-top boundary
    effect, section 5-7); an optional apex hint limits the search to +-3 traces
-   and +-0.5 period around a known apex.
+   and +-0.5 period around a known apex. On the hint path the candidate then
+   descends along its envelope ridge to an earlier neighbour peak, inside the
+   hint traces (v1.9 rule T1, :func:`descend_apex`).
 3. **Tracking**: walk out trace by trace, taking the window maximum after the
    previous pick, until the signal fades, the aperture ends or the pick jumps
-   earlier (another event).
+   earlier than the median of the last 3 accepted picks by more than
+   ``tau_rev = 2 kappa r_stop / f_c`` (another event; v1.9 rule T2).
 
 Input is the background-removed, **un-gained** section and the radargram's
 ``ZeroResult`` (mute and shared pick mode). Without a physical scale only the
@@ -19,6 +22,7 @@ apex candidate is returned, unmuted (tracking windows are in ns and m).
 
 import math
 from dataclasses import dataclass
+from enum import StrEnum
 
 import numpy as np
 from scipy.signal import find_peaks
@@ -37,10 +41,29 @@ APEX_AT_BOX_TOP = "apex_at_box_top"
 """The plain rule would have taken a peak on the search top (section 5-7 item 2)."""
 APEX_HINT_UNMATCHED = "apex_hint_unmatched"
 """No peak above the threshold inside the apex-hint window (section 5-7 item 1)."""
+APEX_DESCENDED = "apex_descended"
+"""The hint candidate moved to an earlier ridge neighbour (5-7 item 1, v1.9 T1)."""
 MAD_TO_SIGMA = 1.4826
 """Gaussian sigma from the median absolute deviation."""
 MIN_HINT_HALF_PX = 2.0
 """No-scale hint window: at least 2 px above and below the hinted sample."""
+
+
+class TrackStop(StrEnum):
+    """Why the tracking of one wing ended (spec_depth_v1 section 13-4, v1.9)."""
+
+    BOX_EDGE = "box_edge"
+    """The next trace lies outside the widened box."""
+    A_MAX = "a_max"
+    """The half-aperture ``a_max_m`` was reached."""
+    AMPLITUDE = "amplitude"
+    """The window maximum fell below ``track_stop_rel`` x the apex value."""
+    REVERSE = "reverse"
+    """The pick was earlier than the reverse rule allows (T2)."""
+    REVERSE_TOP = "reverse_top"
+    """As ``reverse``, with the window maximum on the window's first sample."""
+    WINDOW = "window"
+    """The tracking window was empty (record end)."""
 
 
 @dataclass(frozen=True)
@@ -95,7 +118,10 @@ class HyperbolaPicks:
         n_right: Picks right of the apex (apex excluded).
         scale: ``dt_ns``, ``dx_m`` and ``t_zero_ns`` used for ``x_m``/``tau_ns``.
         flags: e.g. ``apex_at_box_edge``, ``box_in_zero_zone``, ``no_apex_candidate``,
-            ``mute_unavailable``.
+            ``mute_unavailable``, ``apex_descended``.
+        stop_left: Why the left wing ended; ``None`` when it was not tracked
+            (no apex candidate or no physical scale).
+        stop_right: The same for the right wing.
     """
 
     box: GridBox
@@ -107,6 +133,8 @@ class HyperbolaPicks:
     n_right: int
     scale: PickScale
     flags: tuple[str, ...]
+    stop_left: TrackStop | None = None
+    stop_right: TrackStop | None = None
 
     @property
     def n_picks(self) -> int:
@@ -253,13 +281,106 @@ def find_apex_candidate(
     return best, flags
 
 
+def _earlier_ridge_peak(
+    column: np.ndarray, current_k: float, back_samples: float
+) -> tuple[float, float] | None:
+    """Interior maximum of ``column`` within ``current_k +- back_samples``.
+
+    Returns ``(k, amplitude)`` (parabolic) when the window maximum is not on
+    either window end, else ``None``. The window keeps one sample off the
+    record ends so the parabolic refinement always has both neighbours.
+    """
+    lo = max(1, math.floor(current_k - back_samples))
+    hi = min(len(column) - 2, math.ceil(current_k + back_samples))
+    if hi <= lo:
+        return None
+    k_peak = lo + int(np.argmax(column[lo : hi + 1]))
+    if k_peak in (lo, hi):
+        return None
+    return parabolic_peak(column, k_peak)
+
+
+def descend_apex(
+    signal: np.ndarray,
+    candidate: ApexCandidate,
+    box: GridBox,
+    hint: ApexHint,
+    hint_traces: int,
+    back_samples: float,
+    floor_amplitude: float,
+) -> ApexCandidate:
+    """Move a hint candidate down its ridge to the time minimum (5-7 item 1, v1.9 T1).
+
+    ``find_peaks`` cannot see a maximum on or above the hint-window top, so a
+    late hint makes the "earliest visible peak" a locally late trace. While a
+    neighbour trace ``j_c +- 1`` holds an earlier interior envelope maximum
+    within ``k_c +- back_samples`` (one tracking step, so the same event) of
+    at least ``floor_amplitude``, the candidate moves to the earliest such
+    neighbour. Traces stay inside ``|j - j_hint| <= hint_traces`` and the box,
+    so the candidate is never re-selected outside the hint window.
+
+    Args:
+        signal: Pick signal ``[n_samples, n_columns]`` (``box`` coordinates).
+        candidate: Hint-path candidate from :func:`find_apex_candidate`.
+        box: Box whose trace range bounds the descent.
+        hint: The apex hint in the same coordinates.
+        hint_traces: Hint-window half-width in traces (``hint_traces``).
+        back_samples: Ridge step reach ``track_back_ns / dt`` in samples.
+        floor_amplitude: Minimum neighbour value, ``track_stop_rel`` x the
+            value of the hint candidate.
+
+    Returns:
+        ``candidate`` itself when no earlier neighbour qualifies, else the
+        candidate at the end of the descent.
+    """
+    lowest_trace = max(box.i0, hint.trace - hint_traces)
+    highest_trace = min(box.i1, hint.trace + hint_traces)
+    current = candidate
+    while True:
+        earliest: ApexCandidate | None = None
+        for trace in (current.trace - 1, current.trace + 1):
+            if not lowest_trace <= trace <= highest_trace:
+                continue
+            peak = _earlier_ridge_peak(signal[:, trace], current.k, back_samples)
+            if peak is None:
+                continue
+            k, amplitude = peak
+            if amplitude < floor_amplitude or k >= current.k:
+                continue
+            if earliest is None or k < earliest.k:
+                earliest = ApexCandidate(trace=trace, k=k, amplitude=amplitude)
+        if earliest is None:
+            return current
+        current = earliest
+
+
+def reverse_tolerance_ns(f_c_hz: float | None, config: DepthConfig) -> float:
+    """Reverse-stop tolerance ``tau_rev = 2 kappa r_stop / f_c`` (section 5-3, v1.9 T2).
+
+    An interferer of relative amplitude ``a`` moves an envelope peak by at most
+    ``kappa a / f_c``; two neighbours in opposite phase differ by twice that.
+    With ``a = track_stop_rel`` (weaker than what the tracker itself calls an
+    event) the tracker must not stop. A 2 ns period is assumed without ``f_c``.
+    """
+    period_ns = period_ns_or_default(f_c_hz, DEFAULT_PERIOD_NS)
+    return 2.0 * config.track_reverse_kappa * config.track_stop_rel * period_ns
+
+
 @dataclass(frozen=True)
 class _TrackLimits:
-    """Tracking window and stop rules in samples and traces."""
+    """Tracking window and stop rules in samples and traces.
+
+    Attributes:
+        reverse_samples: ``tau_rev / dt``; a pick earlier than the reference
+            by more than this stops the wing.
+        reverse_ref_n: The reference is the median of the last this-many
+            accepted picks, the apex included (1: the previous pick).
+    """
 
     back_samples: float
     forward_samples: float
     reverse_samples: float
+    reverse_ref_n: int
     stop_amplitude: float
     max_steps: int
 
@@ -270,29 +391,40 @@ def _track_one_side(
     step: int,
     box: GridBox,
     limits: _TrackLimits,
-) -> list[tuple[int, float, float]]:
-    """Picks ``(trace, k, amplitude)`` walking from the apex in direction ``step``."""
+) -> tuple[list[tuple[int, float, float]], TrackStop]:
+    """Picks ``(trace, k, amplitude)`` walking from the apex in direction ``step``.
+
+    The window follows the previous pick; the reverse test uses the median of
+    the recent picks, so one jittered pick neither stops the wing nor moves
+    the reference far.
+
+    Returns:
+        The picks and the reason the walk ended.
+    """
     picks: list[tuple[int, float, float]] = []
-    previous_k = candidate.k
+    accepted_k = [candidate.k]
     n_samples = signal.shape[0]
     for distance in range(1, limits.max_steps + 1):
         trace = candidate.trace + step * distance
         if not box.i0 <= trace <= box.i1:
-            break
+            return picks, TrackStop.BOX_EDGE
+        previous_k = accepted_k[-1]
         lo = max(0, math.floor(previous_k - limits.back_samples))
         hi = min(n_samples - 1, math.ceil(previous_k + limits.forward_samples))
         if hi <= lo:
-            break
+            return picks, TrackStop.WINDOW
         column = signal[:, trace]
         k_peak = lo + int(np.argmax(column[lo : hi + 1]))
         k, amplitude = parabolic_peak(column, k_peak)
         if amplitude < limits.stop_amplitude:
-            break
-        if k < previous_k - limits.reverse_samples:
-            break
+            return picks, TrackStop.AMPLITUDE
+        reference_k = float(np.median(accepted_k[-limits.reverse_ref_n :]))
+        if k < reference_k - limits.reverse_samples:
+            is_window_top = k_peak == lo
+            return picks, TrackStop.REVERSE_TOP if is_window_top else TrackStop.REVERSE
         picks.append((trace, k, amplitude))
-        previous_k = k
-    return picks
+        accepted_k.append(k)
+    return picks, TrackStop.A_MAX
 
 
 def mute_sample(t_zero_ns: float, period_ns: float, dt_ns: float) -> int:
@@ -403,7 +535,9 @@ def extract_picks(
         f_c_hz: Centre frequency; ``None`` assumes a 2 ns period.
         config: Thresholds, aperture and pick mode.
         apex_hint: Known apex (L0) limiting the apex search to the hint window
-            (section 5-7 item 1); tracking still uses the widened box.
+            (section 5-7 item 1); with a physical scale the candidate then
+            descends its ridge inside the hint traces (:func:`descend_apex`,
+            flag ``apex_descended``). Tracking still uses the widened box.
         period_px: No-scale dominant period (``FittingBranch.period_px``) that
             sizes the hint window ``max(2, 0.5 P_px)`` px; 2 px when ``None``.
 
@@ -450,6 +584,19 @@ def extract_picks(
     flags.extend(candidate_flags)
     if candidate is None:
         return _empty_picks(searched, scale, (*flags, "no_apex_candidate"))
+    if local_hint is not None and dt_ns is not None:
+        descended = descend_apex(
+            signal,
+            candidate,
+            local_box,
+            local_hint,
+            hint_traces=config.hint_traces,
+            back_samples=config.track_back_ns / dt_ns,
+            floor_amplitude=config.track_stop_rel * candidate.amplitude,
+        )
+        if descended is not candidate:
+            flags.append(APEX_DESCENDED)
+            candidate = descended
 
     apex_trace = searched.i0 + candidate.trace
     near_left = apex_trace - box.i0 < config.apex_edge_traces
@@ -459,16 +606,19 @@ def extract_picks(
 
     left: list[tuple[int, float, float]] = []
     right: list[tuple[int, float, float]] = []
+    stop_left: TrackStop | None = None
+    stop_right: TrackStop | None = None
     if dt_ns is not None and dx_m is not None:
         limits = _TrackLimits(
             back_samples=config.track_back_ns / dt_ns,
             forward_samples=(2.0 * dx_m / config.v_min + config.track_back_ns) / dt_ns,
-            reverse_samples=config.track_reverse_ns / dt_ns,
+            reverse_samples=reverse_tolerance_ns(f_c_hz, config) / dt_ns,
+            reverse_ref_n=config.track_reverse_ref_n,
             stop_amplitude=config.track_stop_rel * candidate.amplitude,
             max_steps=math.floor(config.a_max_m / dx_m + 1e-9),
         )
-        left = _track_one_side(signal, candidate, -1, local_box, limits)
-        right = _track_one_side(signal, candidate, +1, local_box, limits)
+        left, stop_left = _track_one_side(signal, candidate, -1, local_box, limits)
+        right, stop_right = _track_one_side(signal, candidate, +1, local_box, limits)
 
     ordered = [
         *reversed(left),
@@ -487,4 +637,6 @@ def extract_picks(
         n_right=len(right),
         scale=scale,
         flags=tuple(flags),
+        stop_left=stop_left,
+        stop_right=stop_right,
     )

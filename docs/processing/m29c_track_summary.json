@@ -1,0 +1,67 @@
+{
+ "n_cases": 41,
+ "known_montage_seed": 20261107,
+ "known_montage_ids": [
+  "G043",
+  "G051",
+  "G057",
+  "G076",
+  "G100",
+  "G134",
+  "G157",
+  "G160"
+ ],
+ "stop_reason_by_group": {
+  "T_known": {
+   "amplitude": 22,
+   "reverse": 30
+  },
+  "T_unknown": {
+   "amplitude": 3,
+   "reverse": 27
+  }
+ },
+ "qc_reason_by_group": {
+  "T_known|": 24,
+  "T_known|r_above": 2,
+  "T_unknown|insufficient_picks": 11,
+  "T_unknown|unstable": 2,
+  "T_unknown|fit_failed": 2
+ },
+ "cf_recentre_verdict_by_group": {
+  "T_known": {
+   "in": 23,
+   "out": 1,
+   "unknown": 2
+  },
+  "T_unknown": {
+   "in": 4,
+   "out": 1,
+   "unknown": 10
+  }
+ },
+ "cf_rev03_verdict_by_group": {
+  "T_known": {
+   "in": 22,
+   "out": 3,
+   "unknown": 1
+  },
+  "T_unknown": {
+   "in": 7,
+   "out": 0,
+   "unknown": 8
+  }
+ },
+ "cf_both_verdict_by_group": {
+  "T_known": {
+   "in": 22,
+   "out": 2,
+   "unknown": 2
+  },
+  "T_unknown": {
+   "in": 10,
+   "out": 0,
+   "unknown": 5
+  }
+ }
+}

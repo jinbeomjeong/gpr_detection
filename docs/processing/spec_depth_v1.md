@@ -2,6 +2,7 @@
 
 - 작성: gpr-processing-expert, 2026-10-29 (spec 모드)
 - 받는 쪽: python-expert (구현), cv-detection-expert (박스 → 시료 좌표 계약만)
+- 상태: **v1.9.1**(2026-11-07). v1.9(M2-9 C 후속 날개 추적 개선 T1·T2, 사용자 승인)는 **구현됨·구현 판정 합격**(gpr-processing-expert, 2026-11-07)이다. 근거: 코드 대조(§5-3·§5-7 1항·§13-4), §11-3 TK1–TK10 18개 시험과 불변 조건 실측(R1–R13 129/129, 수치 차 0, 정답 힌트 20개 하강 0건, 전체 pytest 642 통과·2 xfail), T1 하강 위치 확인(4TU 검토 표본 하강 11/169, 탐색 위 끝·뮤트 위로 올라간 것 0건; gprMax 0/20, §14). v1.9.1은 구현 대조 반영(문서만, 동작 불변)이다.
 - 1차 근거: `docs/research/depth_physics.md`(이하 [DP]), `docs/research/prior_art.md`(이하 [PA], 출처 번호는 그 문서의 [n]), `docs/datasets/readme_*.md`·`codebook_4tu.md`, `data/synthetic_gprmax/*.json`·`manifest.csv`, `docs/processing/spec_band_depth_v1.md`(이하 [B], v1.1부터 참조)
 - 이 명세를 위한 탐색 실행: `analysis/processing/zero_reference_check.py` → `docs/processing/zero_reference_check.csv`, `zero_reference_curvature.csv`, `zero_reference_airgap_models.csv`, `zero_reference_check.png` (§12에 요약)
 - v1.2 지표 반사 영점 지연 분해: `conda run -n gpr-dev python -I analysis/processing/surface_zero_shift.py` (단일 프로세스, 수 초, 생성기 시드 0) → `docs/processing/surface_zero_shift.csv`(단계·사건 구성·픽 방식별 이동), `surface_zero_shift_hsweep.csv`(공기층·진폭비별 편향), `surface_zero_shift_z1.csv`(후보 처리별 Z1 사건 수), `surface_zero_shift.png`(단독/직접파/합성 포락선, 해석 Ricker·M20)
@@ -22,6 +23,8 @@
 | 2026-10-31 | v1.8 (M2-9 개선 A, 경계 통계로 확정) | §5-7 신설: 꼭짓점 위치 힌트(`apex_hint`, 힌트 창 ±3 트레이스·±0.5 주기, 창 밖으로 되돌아가지 않음), 박스 위 끝 2 샘플 거부 + `apex_at_box_top`, 위 여유 축소안 기각, 합성 회귀 무영향 기준, 시험 A1–A7. 확정 근거: 4TU 재선정의 76.5 %가 탐색 위 끝 0–2 샘플(위 끝 경계 효과), 판정식은 정수 피크 인덱스 ≤ 2, A1(b) 힌트 없음은 strict xfail 유지, A2 경계 효과 재현 시험, candidates csv 진단 열. 보완(2026-10-31): 힌트 창 사건 인정에 잡음 바닥 $k\hat\sigma_n$($k$ 5, 레일리 꼬리)과 박스 최대 −26 dB 하한, A3·A4는 SNR 20 dB 자료로 확정 |
 | 2026-11-07 | v1.8 (상호 참조) | 내용 변경 없음. 4TU 평가의 꼭짓점 후보 QC(곡률 비 0.7–1.6, 기록 끝, 트레이스 이음)는 `spec_eval_4tu_v1.md` v1.4 §3-5에 있다. QC는 이 명세의 `extract_picks`·`fit_curvature`를 같은 인자로 다시 부르며(`air_gap="ground"`는 QC 우회 라벨), 결과는 깊이·속도 규칙(§7 순서 2 `meta_fixed`)에 들어가지 않는다. §5-3 추적 실패(한쪽 날개) 원인 분석은 후속 항목이다 |
 | 2026-11-07 | v1.8 (문서 정리) | 동작 불변. §7 순서 2의 "곡률 피팅 금지"를 깊이용으로 한정하고 QC 전용 예외(`spec_eval_4tu_v1.md` §3-5, v1.4.2)를 가리키게 함 |
+| 2026-11-07 | v1.9 (M2-9 C 후속, 날개 추적 개선 — 사용자 승인 2026-11-07) | 근거 문서: `m29c_track_diagnosis.md`.<br>- §5-3 역행 정지(T2): "직전 픽보다 0.1 ns 넘게 이름"을 "최근 3점(꼭짓점 포함) 중앙값보다 $\tau_\text{rev}$ 넘게 이름"으로 바꿈. $\tau_\text{rev}=2\kappa\,r_\text{stop}/f_c$이고, κ 0.258은 단일 간섭파가 만드는 포락선 피크 최대 이동의 합성 유도값이다(Ricker 0.2581, gprMax 파형 0.2563; `analysis/processing/m29c_track_interference.py`). 500 MHz에서 0.206 ns, 400 MHz에서 0.258 ns다. 정지 사유를 날개별로 남긴다.<br>- §5-7 1항 꼭짓점 하강(T1): 힌트 경로에서만, 같은 포락선 능선의 더 이른 이웃 극대로 힌트 트레이스 창(±3) 안에서 옮기고 `apex_descended`를 붙인다. 새 상수는 없다. 스케일이 없으면 하지 않는다.<br>- §13-4 `HyperbolaPicks.stop_left`·`stop_right`, 플래그 `apex_descended`(§2). `DepthConfig`: `track_reverse_ns` 삭제, `track_reverse_kappa=0.258`·`track_reverse_ref_n=3` 추가.<br>- §11-3 시험 TK1–TK10과 불변 조건(R1–R13 129/129·수치 차 0, A6 하강 0건, 띠 회귀 불변).<br>- §14 한계: O(꼭짓점이 힌트 ±3 밖)·L·I·F는 규칙을 바꾸지 않고 기록, J는 결정론 시험으로만 재현, κ의 유도 가정.<br>- **4TU 값으로 정한 상수는 없다.** 수동 검토 라벨(T인데 곡률 unknown 15개)은 원인 진단에만 썼다. 4TU 검토 표본 169개 효과(T unknown 15 → 10 등)는 진단이며 재평가가 아니다.<br>- 시제품 실측: gprMax R1–R13 129/129·깊이·v·εr QC·픽 수 차 0, 정답 힌트 20개 하강 0건·깊이 차 0 mm(`m29c_track_proto_gprmax*.csv`) |
+| 2026-11-07 | v1.9.1 (v1.9 구현 판정, 문서만 — 동작 불변) | 판정 **합격**. 구현(`picks.py`·`config.py`·`scripts/eval_depth_4tu.py`)이 v1.9 본문과 맞음을 코드로 확인했다(하강 적용 조건·이웃 범위·시간 구간·내부 극대·하강 전 진폭 하한·엄격 감소, 중앙값 기준·창은 직전 픽 기준·정지 사유 순서·추적 안 함 = None).<br>- §13-4: `stop_left`·`stop_right` 형을 구현대로 `TrackStop \| None`(StrEnum, 값 문자열은 v1.9 표와 같음)으로, 상수 `APEX_DESCENDED`, 함수 `reverse_tolerance_ns`·`descend_apex`, `_TrackLimits.reverse_ref_n`, `_track_one_side` 반환 `(picks, TrackStop)`을 적음.<br>- §5-7 1항 5: 하강 시간 이동 상한 문구를 고침("hint_traces×b 0.9 ns" → 단조 이동 최대 2·hint_traces 걸음, 4TU 1.8 ns; 실측 최대 0.38 ns·5 트레이스, G001).<br>- §5-3: 지속 상승 사건 검출 문턱(중앙값 기준에서 걸음당 $\tau_\text{rev}/2$ = 0.103 ns, v1.8 0.100 ns와 사실상 같음)을 근거에 더함. T2는 단일 걸음 지터 허용만 넓혔다.<br>- §11-3: 시험 함수 대응표, "수정 전 strict xfail"을 v1.8 재생 대조로 구현한 점, 불변 조건 구현 실측.<br>- §14: T1 시간 구간 행 해소(위로 올라간 것 0건, 근거 `analysis/processing/m29c_track_descent_check.py`), X 교차·완만한 상승 사건 한계 행 추가, T2 대가 행에 구현 수치.<br>- 4TU 값으로 바꾼 상수는 없다 |
 
 ---
 
@@ -113,7 +116,7 @@
 | `n_picks`, `inlier_frac`, `rms_ns` | int, float, float | –, –, ns | |
 | `h_est_m` | float \| None | m | 공기결합에서 두 사건 간격으로 추정 |
 | `alt_depths` | `dict[str, AltDepth]` | m | 메타 영점별 깊이와 사건 라벨(§4-3, 4TU 필수) |
-| `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10) 등 |
+| `flags` | list[str] | – | `air_single_event`, `meta_eps_unverified`, `dt_hypothesis_A/B`, `amplitude_processed`, `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable`, `ransac_rejected`, `bandpass_px_skipped`(v1.3, §3·§5·§6-2·§10), `apex_at_box_top`·`apex_hint_unmatched`(v1.8, §5-7), `apex_descended`(v1.9, §5-7 1항 T1) 등 |
 
 `AltDepth = {t_zero_ns, label: "direct_wave"|"surface_reflection"|"merged"|"unclassified", depth_top_m}` (`merged`는 v1.1, §4-3).
 
@@ -221,12 +224,47 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
 1. 박스를 트레이스 방향으로 좌우 10 %씩 넓힌다. 포락선은 $E=|\mathcal H[a]|$를 시간축으로 구한다.
 2. **꼭짓점 후보**: 박스 안 최대 포락선을 $E_\text{max}$라 한다. 각 트레이스에서 $k>k_\text{mute}$ 구간의 피크 가운데 $E\ge0.3E_\text{max}$를 넘는 **첫** 피크를 찾는다(v1.3 문구 명확화: 문턱 아래 작은 피크는 건너뛰고 문턱을 넘는 가장 이른 피크; `find_peaks(height=0.3E_max)`의 첫 원소). "첫 피크가 문턱 아래면 그 트레이스는 후보 없음"으로 읽지 않는다. 그렇게 읽으면 사건 앞의 작은 잡음·잔향 피크 하나로 꼭짓점 트레이스가 빠진다. M18 회피 의도(늦게 오는 더 강한 바닥·내부 반사 대신 상단)는 문턱을 넘는 첫 피크로 충분하다(§12 표 4, 1.027 m). 그중 시각이 가장 이른 트레이스를 $j_a$, 그 시각을 $t_a$로 둔다. $k_\text{mute}$는 $t_z+1/f_c$에 해당하는 샘플이다.
    - 근거: 트레이스별 **전역 최대**를 쓰면 물 찬 PVC(M18)에서 바닥·내부 반사를 잡아 깊이가 2.17 m(정답 1.0 m)로 나왔다. 첫 피크 규칙으로 바꾸자 1.027 m가 됐다(§12 표 4).
-3. **추적**: $j_a$에서 좌우로 한 트레이스씩 나간다. 탐색 창은 $[t_\text{prev}-0.3,\ t_\text{prev}+2\Delta x/v_\text{min}+0.3]$ ns이고 $v_\text{min}=0.05$ m/ns다. 창 안 포락선 최대를 포물선 보간으로 잡는다. 다음 중 하나면 멈춘다.
-   - $E<0.2\,E(t_a)$
+3. **추적**: $j_a$에서 좌우로 한 트레이스씩 나간다. 탐색 창은 $[t_\text{prev}-b,\ t_\text{prev}+2\Delta x/v_\text{min}+b]$ ns이고 $b$ = `track_back_ns` = 0.3 ns, $v_\text{min}=0.05$ m/ns다. $t_\text{prev}$는 그 날개에서 직전에 받아들인 픽(첫 걸음은 꼭짓점)이다. 창 안 포락선 최대를 포물선 보간으로 잡는다. 다음 중 하나면 멈춘다.
+   - $E<r_\text{stop}\,E(t_a)$, $r_\text{stop}$ = `track_stop_rel` = 0.2. $E(t_a)$는 추적을 시작한 꼭짓점 후보의 값이다(v1.9: T1로 옮겼으면 옮긴 뒤의 값).
    - $|x-x_a|>a_\text{max}$ ($a_\text{max}=1.0$ m, 박스 경계도 적용)
-   - 바깥으로 갈 때 $t$가 0.1 ns 넘게 줄어듦(다른 사건으로 넘어간 경우)
+   - **역행(v1.9, T2)**: 바깥으로 갈 때 픽이 그 날개의 최근 픽들보다 $\tau_\text{rev}$ 넘게 이름(다른 사건으로 넘어간 경우). 식과 근거는 아래와 같다.
+
+   $$k_j<\operatorname{median}\{k_{j-n_\text{ref}},\dots,k_{j-1}\}-\frac{\tau_\text{rev}}{\Delta t}\ \Rightarrow\ \text{정지},\qquad \tau_\text{rev}=2\kappa\,r_\text{stop}\,P,\quad P=\frac{1}{f_c}$$
+
+   | 기호 | 뜻 | 단위 | 값 |
+   |---|---|---|---|
+   | $k_j$ | 바깥쪽 $j$번째 트레이스의 픽(포물선 보간). $k_0$는 꼭짓점 후보, 음수 첨자는 쓰지 않는다 | 샘플 | – |
+   | $n_\text{ref}$ | 기준 점 수 `track_reverse_ref_n` | 개 | 3 |
+   | $\kappa$ | 단위 진폭비 간섭파 하나가 만드는 포락선 피크 최대 이동(주기 단위) `track_reverse_kappa` | – | 0.258 |
+   | $r_\text{stop}$ | 진폭 정지 비 `track_stop_rel` | – | 0.2 |
+   | $P$ | 주기. $f_c$가 없으면 2 ns(§5-4 뮤트와 같음) | ns | 500 MHz 2.0 |
+   | $\tau_\text{rev}$ | 역행 허용폭 | ns | 500 MHz **0.2064**, 400 MHz 0.2580, $f_c$ 없음 0.2064 |
+
+   - **기준 집합**: 그 날개에서 받아들인 점 가운데 최근 $n_\text{ref}$개이고, 꼭짓점 후보를 포함한다. 점이 $n_\text{ref}$개보다 적으면 있는 점만 쓴다. 첫 걸음은 꼭짓점 하나, 둘째 걸음은 두 점의 평균(`numpy.median`)이다. 정지 판정에서 멈춘 점은 기준에 넣지 않는다.
+   - **탐색 창은 바꾸지 않는다.** 창은 지금처럼 직전 픽 $t_\text{prev}$ 기준이고, 역행 판정만 중앙값 기준이다. 그래서 $f_c<344$ MHz에서 $\tau_\text{rev}>b$가 되어도 그대로 둔다. 이때 규칙은 누적 하강만 잡는다.
+   - **근거(물리)**: 직선 광선 쌍곡선의 날개 시각은 꼭짓점에서 바깥으로 단조 증가한다. 꼭짓점 근처에서는 기하 기울기가 작다($d$ 0.5 m, $v$ 0.1 m/ns에서 $m$ 트레이스 떨어진 곳 약 $0.016m$ ns/트레이스). 그래서 이른 쪽 흔들림은 간섭이 정한다.
+     - 진폭비 $a$인 같은 파형의 간섭파 하나는 맞춤 갈래 처리(DC, 가우스 dewow, 밴드패스) 뒤 포락선 피크를 최대 $\kappa a P$만큼 옮긴다. $a\le0.5$에서 선형이고 최대는 간격 $|g|\approx0.45P$에서 난다. 이웃 트레이스에서 간섭 위상이 반대면 걸음 차는 최대 $2\kappa aP$다.
+     - 추적기는 $E<r_\text{stop}E_a$를 "사건 없음"으로 본다. 그러므로 $a\le r_\text{stop}$인 간섭에는 멈추지 않아야 일관된다. 그 가장 엄격한 허용폭이 $2\kappa r_\text{stop}P$다. v1.8의 0.1 ns는 500 MHz에서 $a\approx0.097$(−20 dB) 간섭 하나에도 멈출 수 있어, −14 dB 진폭 정지와 일관되지 않았다.
+     - 중앙값 기준은 가우스 지터에서 걸음 차 분산을 직전 픽 기준의 $2\sigma^2$에서 약 $1.45\sigma^2$로 줄인다. 지속적인 상승 사건은 2–3 걸음 안에 잡는다(합성 D4: 침입 픽 3).
+     - (v1.9.1, 구현 판정) **지속 상승 검출 문턱**: 걸음당 일정하게 $s$ ns씩 이른 사건을 따라가면 기준 집합이 3점이 된 뒤 중앙값은 두 걸음 전 픽이므로 $2s>\tau_\text{rev}$일 때 멈춘다. 문턱은 $s^*=\tau_\text{rev}/2$ = 0.1032 ns/트레이스(500 MHz, Δx 0.02 m에서 5.16 ns/m)다. 첫 걸음은 $s>\tau_\text{rev}$(0.206 ns), 둘째 걸음은 $1.5s>\tau_\text{rev}$(0.138 ns)다. v1.8의 지속 상승 문턱은 걸음당 0.100 ns(5.0 ns/m)였으므로 **지속 상승 검출력은 사실상 같고, T2는 단일 걸음 지터 허용만 넓혔다.** $s<s^*$인 완만한 상승 사건(다른 쌍곡선 날개, 경사 층)은 두 판 모두 끝까지 따라갈 수 있다(§14, 시험 C3 5 ns/m).
+     - κ 유도: `analysis/processing/m29c_track_interference.py`(500 MHz, Δt 0.098 ns, $g\in[-2P,2P]$ 0.01 P 간격, Ricker와 gprMax M02 꼭짓점 파형). $a$ = 0.2에서 Ricker 0.2581, gprMax 파형 0.2563이다. 요약 표 `docs/processing/m29c_track_interference_max.csv`, 원본 표 `data/processing/m29c_track_interference.csv`(git 제외, 재생성 가능), 그림 `m29c_track_interference.png`.
+     - **4TU 값으로 정한 상수가 아니다.** 4TU 진짜 꼭짓점 근처 걸음 차(robust σ 0.079 ns, −0.1 ns보다 이른 걸음 13.0 %; `m29c_track_jitter.json`)는 진단에만 썼다.
+   - **정지 사유**(v1.9, §13-4 `stop_left`·`stop_right`): 한 걸음 안에서 아래 순서로 처음 걸린 것을 남긴다. 순서는 v1.8 코드의 판정 순서와 같다(동작 불변).
+
+     | 순서 | 조건 | 사유 |
+     |---|---|---|
+     | 1 | 다음 트레이스가 넓힌 박스 밖 | `box_edge` |
+     | 2 | 탐색 창이 비어 있음(기록 경계에서 창 위 끝 ≥ 아래 끝) | `window` |
+     | 3 | $E<r_\text{stop}E(t_a)$ | `amplitude` |
+     | 4 | 역행이고 창 최대가 창 첫 샘플에 있음(정수 argmax = 창 위 끝 인덱스; 사건이 창 위로 빠져나감) | `reverse_top` |
+     | 5 | 역행(4가 아닌 경우) | `reverse` |
+     | – | 멈추지 않고 $a_\text{max}$ 걸음(`floor(a_max/Δx)`)을 다 감 | `a_max` |
+     | – | 추적하지 않음(스케일 없음, 꼭짓점 없음, `box_in_zero_zone`) | `None` |
+
+   - **기각한 대안**(근거 `m29c_track_diagnosis.md` §6-3·§8): 직전 픽 기준 + $\tau_\text{rev}$(`step`, 합성 D1b 실패·상승 사건 한 걸음 더), 지금까지의 최대 기준(`runmax`, 위쪽 지터가 기준을 끌어올림), 창 위 끝 이탈만 멈춤(`topexit`, 허용폭에 물리 근거 없음), v1.8 0.1 ns 유지.
 4. 점 수가 $n\ge9$이고 양쪽 각각 3개 이상이어야 곡률 피팅을 허용한다. 모자라면 `insufficient_picks`이고, v는 메타 고정만 쓴다.
-   - (상호 참조, 2026-11-07) 4TU 수동 검토에서 진짜 꼭짓점의 곡률 unknown 15/41 중 11개가 이 조건(한쪽 추적 끊김)이었다(`m29c_apex_review.md` §4-2, G143은 경계 사례). 원인 분석과 개선은 **후속 항목**이고, 개선 뒤 `spec_eval_4tu_v1.md` §3-5의 E(unknown 제외)를 다시 검토한다. 이 절의 규칙은 지금 바꾸지 않는다.
+   - (상호 참조, 2026-11-07) 4TU 수동 검토에서 진짜 꼭짓점의 곡률 unknown 15/41 중 11개가 이 조건(한쪽 추적 끊김)이었다(`m29c_apex_review.md` §4-2, G143은 경계 사례).
+   - (v1.9) 원인 분석은 `m29c_track_diagnosis.md`에 있다. 30개 날개 가운데 27개가 v1.8 역행 규칙에서 끊겼다. 15개 사례의 주 원인은 H 힌트 창 위 끝 잘림 3, J 꼭짓점 근처 지터 3, O 꼭짓점이 힌트 창 밖 3, L 엽 모호 1, I 인접 사건 간섭 3, F 피팅 단계 2다. H·J는 픽 추출 결함이라 T1(§5-7 1항)·T2(위 3항)로 고쳤다. O·L·I·F는 한계로 기록한다(§14). E(unknown 제외) 재검토는 v1.9 구현 뒤 효과 보고를 보고 사용자가 정한다(`spec_eval_4tu_v1.md` §11). → 2026-11-07 채택(`spec_eval_4tu_v1.md` 사용자 결정 8, 명세 개정·구현은 후속, 그 전까지 4TU 주 결과는 B+D).
    - 탐색 범위(v1.3, M2-3 구현 확인):
      - 꼭짓점 후보의 $E_\text{max}$와 첫 피크는 좌우로 넓힌 박스 안에서, 시간 방향은 박스 $k_0..k_1$(뮤트로 위를 자른 뒤) 안에서만 찾는다. 위로 넓히지 않는다.
      - 추적의 시간 창은 박스 아래 끝에 묶이지 않는다. 날개가 박스 밖으로 내려가도 기록 끝까지 따라간다. 트레이스 방향은 넓힌 박스 경계와 $a_\text{max}$ 중 먼저 닿는 곳에서 멈춘다.
@@ -251,6 +289,21 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
      - (ii) 퇴화 방지: $E_\text{peak}\ge r\,E_\text{box,max}$, $r=0.05$(넓힌 박스 최대의 −26 dB). 잡음 없는 자료에서 $\hat\sigma_n\to0$일 때 수치 부엽이 인정되는 것만 막는다. 강한 얕은 클러터가 꼭짓점보다 20배까지 커도 꼭짓점을 놓치지 않는 값이다(**가정**, 4TU 값으로 정하지 않음).
      - 두 값은 힌트 경로에만 쓴다. 힌트 없는 경로(항목 2와 기존 규칙)는 바뀌지 않는다.
    - 힌트 창에 위 조건을 넘는 피크가 없으면 박스 전체로 되돌아가지 않는다. 픽 없음 + `no_apex_candidate` + `apex_hint_unmatched`, `status="fit_failed"`로 둔다. 조용한 재선정을 막기 위해서다.
+   - **꼭짓점 하강(v1.9, T1 — 사용자 승인 2026-11-07)**: 힌트 창에서 후보 $(j_c,k_c,E_c)$를 고른 뒤 같은 포락선 능선을 따라 더 이른 이웃 극대로 옮긴다.
+     1. 적용 조건: 힌트가 있고, 후보가 있고(`apex_hint_unmatched`가 아님), **스케일이 있을 때**($\Delta t$ 있음)만 한다. 스케일이 없으면 $b$를 샘플로 바꿀 수 없으므로 하지 않는다(A4 불변). 힌트 없는 경로(항목 2, 실제 검출 박스)에는 적용하지 않는다.
+     2. 이웃 $j\in\{j_c-1,\ j_c+1\}$ 가운데 $|j-j_h|\le$ `hint_traces`(3)이고 넓힌 박스의 트레이스 범위 안인 것을 본다. 각 이웃 열의 포락선에서 정수 구간 $[\max(1,\lfloor k_c-b/\Delta t\rfloor),\ \min(N-2,\lceil k_c+b/\Delta t\rceil)]$의 argmax를 찾는다. $b$ = `track_back_ns`, $N$은 샘플 수다. 시간 구간은 기록 경계로만 자르고 박스 위 끝·뮤트로 자르지 않는다(시제품 `m29c_track_proto.py`와 같다; 관련 한계는 §14).
+        - argmax가 구간 양끝이면 버린다(내부 극대만 인정).
+        - 포물선 보간 값이 $E\ge r_\text{stop}E_{c,0}$이어야 한다. $E_{c,0}$는 **하강 전** 힌트 후보의 값이고, 하강하는 동안 바뀌지 않는다(`track_stop_rel`, 추적과 같은 사건 기준).
+        - 보간 위치가 $k<k_c$여야 한다(현재 후보보다 이름).
+     3. 조건을 만족하는 이웃 가운데 $k$가 가장 이른 것으로 후보를 옮기고 2를 되풀이한다. 만족하는 이웃이 없으면 멈춘다. $k$가 엄격히 줄어야 옮기므로 반드시 끝난다.
+     4. 한 번이라도 옮겼으면 `apex_descended` 플래그를 붙인다(`HyperbolaPicks.flags` → `DepthResult.flags`). 이후 모든 단계(`apex_at_box_edge` 판정, 추적 시작점, 진폭 정지 기준 $E(t_a)$, §6-4 꼭짓점, 깊이)는 옮긴 후보로 한다.
+     5. 근거:
+        - 꼭짓점은 능선의 시간 최소다. 후보 이웃이 같은 능선에서 더 이르다면 후보는 꼭짓점이 아니다.
+        - `find_peaks`는 창의 첫 샘플과 창 위의 극대를 보지 못한다. 그래서 힌트 창 위 끝이 사건을 자르면 "가장 이른 보이는 첫 피크"가 국소적으로 늦은 트레이스에 놓이고, 이웃이 더 일러 첫 걸음에서 역행 정지가 걸린다(진단 H, `m29c_track_diagnosis.md` §4-1).
+        - 한 걸음 이동은 추적 창 뒤쪽 폭 $b$ 안이므로 같은 사건이다. 트레이스 범위는 힌트 창 그대로라 "힌트 창 밖으로 재선정하지 않음"을 지킨다. 시간 방향으로는 하강 전 후보보다, 단조 이동이면 최대 2·`hint_traces` 걸음 × $b$(후보가 힌트 창 한쪽 끝에서 반대쪽 끝까지 갈 때, 4TU 1.8 ns) 이를 수 있다. (v1.9.1 정정: v1.9의 "`hint_traces`×$b$ 0.9 ns"는 후보가 힌트 트레이스에 있을 때의 값이다. 4TU 검토 표본 실측은 하강 11건, 최대 0.38 ns·5 트레이스(G001), 힌트 창 위 끝보다 이른 것 6건, 탐색 위 끝·뮤트보다 이른 것 0건이다; §14.)
+     6. 새 상수는 없다. `hint_traces`, `track_back_ns`, `track_stop_rel`을 다시 쓴다.
+     7. 기각한 대안: 힌트 창 위 끝을 $b$만큼 올리는 안(`pad`)은 4TU 검토 표본 35/169에서 깊이를 1 cm 넘게 바꿨다(진단, 재평가 아님). 힌트 창 보호를 넓게 약화하므로 기각했다. 하강 트레이스 범위를 ±0.10 m로 넓히는 안(진단 O 대응)도 기각했다. 0.10 m는 검토 라벨의 T 정의에서 온 값이라 라벨 맞춤에 가깝고, 기울어진 층을 따라 미끄러질 위험이 있다(§14).
+     8. 실측(시제품, `m29c_track_proto_gprmax_hint.csv`): 정답 꼭짓점을 힌트로 준 gprMax 20개에서 하강 0건, 꼭짓점 트레이스 변화 0건, 힌트 있음·없음 깊이 차 0 mm. 합성 D2(힌트 = 꼭짓점 +3 트레이스, 위 끝 잘림)에서 꼭짓점 어긋남 3 → 0 트레이스, $t_0$ 오차 +0.0052 → +0.0019 ns(`m29c_track_repro_det.csv`).
    - **힌트가 없으면**(실제 검출 박스 경로) 항목 2를 그대로 쓰고 아래 2만 더한다.
 2. **박스 위 끝 거부**(힌트 유무와 무관, 실제 검출 박스 견고성)
    - **판정식(확정)**: 탐색 창 위 끝 $k_\text{top}$을 정한다. 넓힌 박스의 $k_0$와 뮤트 선 중 늦은 쪽이다. 트레이스마다 `find_peaks`가 낸 **정수 피크 인덱스** $k_p$가 $k_p-k_\text{top}\le g$이면 그 피크를 버리고, 그 트레이스에서 문턱을 넘는 다음 피크를 본다.
@@ -276,6 +329,7 @@ raw ─► (1) DC ─► (2) dewow ─► (3) bandpass ─┬─► [영점 검�
      - `extract_picks(..., apex_hint: ApexHint | None = None)`. 힌트가 있을 때만 `peak_floor` = `hint_peak_floor` = $\max(k\hat\sigma_n,\ r\,E_\text{box,max})$로 넘긴다. 힌트가 없으면 0이라 기존 경로와 같다.
    - `depth/estimate.py`: `estimate_depth(..., apex_hint: ApexHint | None = None)`로 그대로 넘긴다.
    - `depth/config.py`: `hint_traces=3`, `hint_periods=0.5`, `top_guard_samples=2`, `top_guard_px=1`, `hint_noise_k=5.0`, `hint_box_rel_floor=0.05`(v1.8 보완).
+   - (v1.9) T1·T2 구현 위임은 `m29c_track_diagnosis.md` §9 표다. `descend_apex(signal, candidate, box, hint, hint_traces, back_samples, floor_amplitude) -> ApexCandidate`(1항 꼭짓점 하강), `_track_one_side`의 중앙값 기준과 정지 사유(§5-3), `DepthConfig` 변경(§13-4 아래 설정)이다.
    - `scripts/eval_depth_4tu.py`
      - 꼭짓점 후보를 `apex_hint`로 넘긴다. `candidate_moved` 기준(3 트레이스, 0.5 주기)은 그대로 둔다(힌트 창과 같아 거의 항상 False가 된다는 점을 md에 적는다).
      - candidates csv에 진단 열 `box_k0`(넓힌 박스 위 끝), `search_k0`(뮤트 반영 탐색 위 끝 $k_\text{top}$), `apex_minus_search_k0`(샘플)을 더한다. 재평가 리포트에서 위 끝 경계 효과가 사라졌는지 보려는 것이다.
@@ -530,6 +584,57 @@ Z6·Z7 주석(v1.2):
 - 공기층 모델(M12·M13·M15·M18·M20)은 곡률 v 기준을 적용하지 않고 고정 v의 d 기준만 본다(정의서 verify 규칙).
 - 회귀 시험은 합성 원본 npy를 읽기만 한다. 20개 전체 실행 비용은 Hilbert 2D 20회 + 피팅이라 단일 프로세스 수십 초다(굴절 QC는 M20만).
 
+### 11-3. 추적 개선 시험 (v1.9, T1·T2, `tests/depth/test_tracking_v19.py`)
+
+생성기는 `analysis/processing/m29c_track_repro.py`의 `base_section`과 같은 꼴로 **시험 쪽에** 둔다(분석 스크립트를 import하지 않는다). 공통 조건: 500 MHz Ricker, Δt 0.098 ns, Δx 0.02 m, εr 9, 161 트레이스, 지면결합 직접파 +3을 $t_\text{src}+0.7$ ns에 둔다. 관은 $R$ = 0 점 반사체이고 날개 진폭은 $(d/r)^4$로 줄인다(빔·퍼짐을 흉내 낸 **가정**, $E<0.2E_a$ 정지가 $|x|$ 0.5–0.7 m에서 걸리게 함). 기대값 출처는 `m29c_track_repro_det.csv`(결정론, 시드 없음)다.
+
+| ID | 내용 | 통과 기준 |
+|---|---|---|
+| TK1 | $\tau_\text{rev}$ 계산(순수 함수) | 500 MHz 0.2064 ns, 400 MHz 0.2580 ns, `f_c=None` 0.2064 ns(±1e-4) |
+| TK2 (D1a) | $d$ 0.5 m, 꼭짓점 ±6 트레이스에 교대 이동 ±0.06 ns(간섭 $a\approx0.12<r_\text{stop}$), 힌트 = 꼭짓점 | 수정 전 strict xfail(한쪽 < 3, 실측 26/1). 수정 뒤 `is_enough_for_curvature`, 왼/오 ≥ 20(실측 26/28), 곡률비가 D0(1.0316)과 ±0.005(실측 1.0318) |
+| TK3 (D1b) | 같은 꼴 ±0.12 ns($a\approx0.23$) | 수정 뒤 충분(실측 26/28, 중앙값 기준 확인). 대조: 기준을 직전 픽으로 바꾼 내부 함수 호출은 한쪽 < 3(실측 26/1) |
+| TK4 (D4) | 진폭 1.5, −0.15 ns/트레이스로 오른쪽이 이른 상승 사건이 $x_a$ + 0.12 m에서 날개와 만남 | 오른쪽 픽 가운데 상승 사건에 더 가까운 점 ≤ 3(실측 3), 곡률비가 D0과 ±0.01(실측 1.027 대 깨끗한 D0 1.0316), `stop_right` ∈ {`reverse`, `reverse_top`} |
+| TK5 (D3) | 같은 진폭 점 반사체가 +0.35 m, 0.06 m 얕은 곳에 있음(음성 대조) | 픽이 수정 전과 같음(실측 30/8, r 1.021) |
+| TK6 (D2) | $d$ 0.25 m, 힌트 = 꼭짓점 +3 트레이스, 창 위 끝이 꼭짓점과 ±1·±2 트레이스 피크를 가림, 이동 없음 | 수정 전 꼭짓점 +3 트레이스(strict xfail). 수정 뒤 꼭짓점 트레이스 = 참, `apex_descended`, $|t_0$ 오차$|\le$ 0.005 ns(실측 +0.0019) |
+| TK7 (D0) | 깨끗한 자료, 힌트 = 꼭짓점 | `apex_descended` 없음, 픽이 수정 전과 같음(27/27, r 1.0316) |
+| TK8 | 힌트 창 밖까지 계속 이르는 능선(오른쪽으로 −0.1 ns/트레이스 경사 사건, 꼭짓점 없음) | 하강이 $|j-j_h|\le3$에서 멈춤, 꼭짓점 트레이스 = $j_h+3$ 또는 $j_h-3$ |
+| TK9 | 힌트 없음 경로 | `descend_apex`가 불리지 않음. U1–U8·A1(b)·A2 결과 불변 |
+| TK10 | 정지 사유 | D0 양쪽 `amplitude` 또는 `box_edge`, TK2 수정 전(끊긴 날개) `reverse`, 창 첫 샘플 이탈은 `reverse_top`. 스케일 없음(U7 자료)은 양쪽 `None` |
+
+- TK4 기대값의 "수정 전"은 오른쪽 4픽(침입 1)이다. T2의 대가(상승 사건을 최대 3 트레이스 더 따라감)를 시험이 상한으로 묶는다.
+- TK10의 스케일 없음 줄은 v1.9 본문(§5-3 정지 사유 표)에서 정한 것이다. 구현 위임 표(`m29c_track_diagnosis.md` §9)의 TK10에는 없던 줄이다.
+- 몬테카를로(진단 §5-2, 시드 0–39)는 분석 근거로만 쓰고 CI 시험에 넣지 않는다. 잡음 기반 재현을 시험 기준으로 쓰지 않는다는 v1.8 원칙(§5-7 A2 재지정)을 따른다.
+
+**시험 파일 대응(v1.9.1, 구현 대조)**: `tests/depth/test_tracking_v19.py`, 시험 18개(매개변수 포함). v1.8 코드가 저장소에서 없어졌으므로 표의 "수정 전 strict xfail"은 **v1.8 재생 대조**로 구현했다. 추적은 `_track_one_side`에 v1.8 한계(직전 픽 기준 = `reverse_ref_n` 1, 0.1 ns)를 넣어 다시 돌리고(`_v18_wings`), 꼭짓점은 `descend_apex`를 항등 함수로 바꾼 `extract_picks`로 얻는다(`without_descent` 고정물). 받아들인다. 재생이 v1.8 판정식과 수식상 같기 때문이다(중앙값 1점 = 직전 픽).
+
+| ID | 시험 함수 | 비고 |
+|---|---|---|
+| TK1 | `test_tk1_reverse_tolerance`(3개) | 500·400 MHz·`None` |
+| TK2 | `test_tk2_jitter_006_recovers_both_wings` | 수정 전 대조 = `_v18_wings` 한쪽 < 3 |
+| TK3 | `test_tk3_jitter_012_needs_the_median_reference` | 대조 = `_replay_wings(..., reference_n=1)` |
+| TK4 | `test_tk4_rising_event_is_followed_at_most_three_traces` | `stop_right` ∈ {`reverse`, `reverse_top`} |
+| TK5 | `test_tk5_crossing_reflector_picks_unchanged` | 30/8, v1.8 재생과 같은 날개 |
+| TK6 | `test_tk6_truncated_hint_descends_to_the_apex`, `test_tk6_control_without_descent_the_apex_is_three_traces_off` | 대조는 `without_descent` |
+| TK7 | `test_tk7_clean_apex_hint_changes_nothing` | 27/27, v1.8 재생과 같은 날개 |
+| TK8 | `test_tk8_descent_stays_inside_the_hint_traces` | $j_h+3$ 쪽만 시험(대칭 $j_h-3$은 시험하지 않음) |
+| TK9 | `test_tk9_no_hint_path_never_descends` | `descend_apex` 호출 0회. U·A1(b)·A2 불변은 전체 pytest로 확인 |
+| TK10 | `test_tk10_stop_reasons_on_synthetic_lines`, `test_tk10_no_scale_has_no_stop_reason`, `test_tk10_stop_reason_of_one_step`(3개), `test_tk10_amplitude_window_and_aperture_stops` | `box_edge`·`window`·`amplitude`·`reverse_top`·`reverse`·`a_max` 여섯 사유를 모두 단위 시험으로 만든다 |
+
+- 직접 시험이 없는 경계(판정 때 코드로 확인, 차단 사유 아님): 하강 진폭 하한이 **하강 전** 후보 값이라는 점, 추적 진폭 정지 기준이 **하강 뒤** 후보 값이라는 점, 하강 창이 기록 경계 $[1, N-2]$로만 잘린다는 점. 후속에 단위 시험을 더하면 좋다(위임 필요, python-expert).
+
+**불변 조건(수정 뒤 모두 통과해야 함)**:
+
+| 항목 | 기준 | 시제품 실측 | 구현 실측(v1.9.1, python-expert 2026-11-07) |
+|---|---|---|---|
+| R1–R13(§11-2), `pytest -m synthetic tests/depth/test_regression_synthetic.py` | 129/129 | T2: 129/129 (`m29c_track_proto_gprmax.csv`) | 129/129 |
+| 수정 전후 `scripts/eval_depth_synthetic.py` csv(`tools\pyinspect\output_compare.py`, A5와 같은 방법) | 깊이 차 ≤ 1 mm, 시각 차 ≤ 0.01 ns, 꼭짓점 트레이스 동일, 픽 수 동일, `apex_descended` 0건 | 깊이·v·$R$=0 v·εr QC·픽 수 차 0, 픽 수 바뀐 모델 0/20 | 깊이·v·εr·픽 수 비트 단위 동일 |
+| 정답 꼭짓점 힌트 20개(A6) | 힌트 없음과 깊이 차 ≤ 1 mm, `apex_descended` 0건 | 9개 변형 모두 0 mm, 하강 0/20 (`m29c_track_proto_gprmax_hint.csv`) | 비트 단위 동일, 하강 0/20. 재확인(gpr-processing-expert): 하강 0/20, 힌트 있음·없음 깊이 차 0 mm, 꼭짓점 트레이스 변화 0(`m29c_track_descent_check_gprmax.csv`) |
+| 띠 회귀 UB1–UB15·BR1–BR7 | 기준 그대로 | 구조상 불변: `band.py`는 `mute_sample`만 쓰고 추적기·꼭짓점 후보를 부르지 않는다. 구현 뒤 시험으로 확인 | 띠 시험 101 통과, `-m synthetic` 23 통과 |
+| 전처리 Z, 단위 U, A1–A7, `spec_eval_4tu_v1.md`의 C1–C16·B1–B13·E 시험 등 전체 pytest | 모두 통과 | 구현 뒤 확인 | 642 통과(624 + 18), 2 xfail. 단 C2·C3·C5 기대값이 T2로 바뀜(`spec_eval_4tu_v1.md` §9-2-2 v1.4.4, 판정 받아들임) |
+
+- gprMax 합성은 잡음이 없어 추적이 진폭·박스에서 끝나고, 꼭짓점 근처 역행이 없다. 그래서 T2가 아무것도 바꾸지 않는다. 이 불변 조건은 "합성에서 무해함"을 보이고, 개선의 효과는 TK2–TK6이 보인다.
+- 4TU 진단 비교(검토 표본 169개 전후, `m29c_track_proto.py --part fourtu`)는 효과 보고용이며 **재평가가 아니다**. 정답 깊이와 M2-8 매칭·판정은 읽지 않는다(`spec_eval_4tu_v1.md` §10·§11).
+
 ---
 
 ## 12. 근거: analyze 결과 요약
@@ -606,7 +711,7 @@ Z6·Z7 주석(v1.2):
 | `src/gpr_detection/preprocess/signals.py` | 영점·꼭짓점 공통 위상 기준: `PickMode`, `check_pick_mode`, `require_same_pick_mode`(U6), `pick_signal`(envelope / signed_max / signed_min), `parabolic_peak` |
 | `src/gpr_detection/preprocess/timezero.py` | `detect_zero_events -> ZeroEvents`(§13-2), `select_zero(radargram, events, config) -> ZeroResult`(v1.1, 튜플 대신 §13-1 객체), `find_time_zero`, `classify_meta_t0`(§13-3), `given_zero`, `direct_wave_delay_ns`, `ZeroConfig` |
 | `src/gpr_detection/depth/config.py` | `DepthConfig`(아래 기본값, v1.4 `refraction_h_margin_m=0.06` 추가 — §7 2a Δh, 가정), `zero_config()` |
-| `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config, period_px=None, apex_hint=None) -> HyperbolaPicks`(§13-4; v1.8 `apex_hint`, 힌트 있을 때만 `peak_floor` 전달), `ApexHint(trace, sample)`, `find_apex_candidate(signal, box, candidate_rel, *, top_guard, hint=None, hint_halfwidth=None, peak_floor=0.0) -> tuple[ApexCandidate \| None, flags]`(첫 피크 꼭짓점 후보, 위 끝 거부 `apex_at_box_top`, `apex_hint_unmatched`, §5-7), `noise_sigma(section, searched) -> float`(§5-7 1항 (i)), `widen_box`, `mute_sample`, 추적 |
+| `src/gpr_detection/depth/picks.py` | `extract_picks(section, box, zero, *, dt_ns, dx_m, f_c_hz, config, period_px=None, apex_hint=None) -> HyperbolaPicks`(§13-4; v1.8 `apex_hint`, 힌트 있을 때만 `peak_floor` 전달), `ApexHint(trace, sample)`, `find_apex_candidate(signal, box, candidate_rel, *, top_guard, hint=None, hint_halfwidth=None, peak_floor=0.0) -> tuple[ApexCandidate \| None, flags]`(첫 피크 꼭짓점 후보, 위 끝 거부 `apex_at_box_top`, `apex_hint_unmatched`, §5-7), `noise_sigma(section, searched) -> float`(§5-7 1항 (i)), `widen_box`, `mute_sample`, 추적. v1.9: `descend_apex(signal, candidate, box, hint, hint_traces, back_samples, floor_amplitude) -> ApexCandidate`(§5-7 1항 T1, 힌트·후보·스케일이 있을 때만 호출), `_track_one_side`의 중앙값 역행 판정과 정지 사유 반환(§5-3 T2), `_TrackLimits.reverse_samples` = $\tau_\text{rev}/\Delta t$ |
 | `src/gpr_detection/depth/hyperbola.py` | `hyperbola_time`(§6-1 식), `ransac_init -> RansacInit`, `fit_hyperbola(R fixed) -> HyperbolaFit`, `apex_vertex -> ApexVertex`, `fit_curvature(picks, *, radius_m, air_gap, v_fallback, config) -> CurvatureFit`, `fixed_velocity_apex(picks, config) -> ApexVertex` (§13-4) |
 | `src/gpr_detection/depth/refraction.py` | `leg_time(x_antenna, h, px, pz, v)`, `reflection_times(x_mid_m, *, offset_m, h, x0_m, d_top_m, radius_m, v)`(송신 기준 ns), `surface_reflection_time(h, offset_m)`, `refraction_qc(x_m, tau_ns, *, x0_m, tau_apex_ns, h_m, offset_m, radius_m, config) -> RefractionQC`(`eps_fit`, `v_fit`, `d_top_m`, `rms_ns`, `n_picks`, `h_m`, `offset_m`) (ray_geometry 알고리즘 이식, MIT 호환 자체 코드) |
 | `src/gpr_detection/depth/velocity.py` | (v1.4) `VelocityRule`(StrEnum: `none`, `meta_fixed`, `curvature_R_fixed`; 띠 규칙은 M2-6b에서 추가), `VelocityChoice`([B] §8-2 필드와 같음: `v_rule`, `v_m_per_ns`, `sigma_v`, `eps_r_used`, `v_sources`, `alt_meta_v`, `bias_notes`, `flags`; 속성 `has_velocity`), `meta_velocity(radargram)`, `select_hyperbola_velocity(radargram, curvature, config) -> VelocityChoice`(§7) |
@@ -690,8 +795,16 @@ Z6·Z7 주석(v1.2):
 | `apex` | `ApexCandidate \| None` | – | 꼭짓점 후보. `no_apex_candidate`·`box_in_zero_zone`이면 None |
 | `n_left`, `n_right` | int | – | 꼭짓점 좌·우 픽 수(꼭짓점 제외) |
 | `scale` | `PickScale` | – | 변환에 쓴 축척·영점 |
-| `flags` | tuple[str, ...] | – | `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable` |
+| `flags` | tuple[str, ...] | – | `apex_at_box_edge`, `box_in_zero_zone`, `no_apex_candidate`, `mute_unavailable`; v1.8 `apex_at_box_top`, `apex_hint_unmatched`; v1.9 `apex_descended`(§5-7 1항 T1로 후보를 옮김) |
+| `stop_left`, `stop_right` (v1.9; 형은 v1.9.1 구현 대조) | `TrackStop \| None` — `TrackStop`은 `picks.py`의 StrEnum이고 값 문자열은 `"box_edge"`, `"window"`, `"amplitude"`, `"reverse_top"`, `"reverse"`, `"a_max"`(§5-3 정지 사유 표와 같음) | – | 왼쪽·오른쪽 날개 추적이 끝난 사유. 추적하지 않았으면(스케일 없음 — $\Delta t$ 또는 $\Delta x$ 없음, 꼭짓점 없음, `box_in_zero_zone`) None. 진단 전용이며 피팅·깊이·QC 판정에 쓰지 않는다. 기존 필드 뒤에 기본값 None으로 더한다. StrEnum이므로 문자열과 `==` 비교가 되고 csv에는 `.value`를 쓴다 |
 | 속성 | `n_picks`, `x_m`(=trace·dx), `tau_ns`(=k·dt−t_z), `apex_x_m`, `apex_tau_ns`, `is_enough_for_curvature(config)` | m, ns | 축척이 없으면 `x_m`·`tau_ns`·`apex_*`가 `ValueError` |
+
+**v1.9 이름(v1.9.1 구현 대조, `depth/picks.py`)**:
+- 상수 `APEX_DESCENDED = "apex_descended"`(§5-7 1항 T1 플래그). `HyperbolaPicks.flags`에 붙고 `estimate_depth`가 `DepthResult.flags`로 그대로 넘긴다.
+- `class TrackStop(StrEnum)`: `BOX_EDGE`, `A_MAX`, `AMPLITUDE`, `REVERSE`, `REVERSE_TOP`, `WINDOW`(값은 위 표).
+- `descend_apex(signal, candidate, box, hint, hint_traces, back_samples, floor_amplitude) -> ApexCandidate`: 좌표는 `signal`·`box`·`hint` 모두 탐색 열 기준(로컬)이다. 옮기지 않으면 입력 `candidate` 객체를 그대로 돌려주고, `extract_picks`는 객체 동일성(`is not`)으로 `apex_descended`를 판정한다. 이웃 극대는 내부 함수 `_earlier_ridge_peak(column, current_k, back_samples)`가 찾는다.
+- `reverse_tolerance_ns(f_c_hz, config) -> float`: $\tau_\text{rev}=2\kappa\,r_\text{stop}P$, $P$ = `period_ns_or_default(f_c_hz, 2 ns)`(TK1).
+- `_TrackLimits.reverse_samples` = $\tau_\text{rev}/\Delta t$, `_TrackLimits.reverse_ref_n` = `track_reverse_ref_n`. `_track_one_side(...) -> tuple[list[(trace, k, amplitude)], TrackStop]`.
 
 **`RansacInit`**(§6-2): `x0_m`, `t0_ns`, `v_m_per_ns`(float), `inlier_mask: ndarray[bool]`(RANSAC을 안 돌렸으면 전부 False), `accepted: bool`(False면 대체 초기값).
 
@@ -722,11 +835,22 @@ Z6·Z7 주석(v1.2):
 설정 기본값은 `DepthConfig` dataclass 하나에 모은다: `a_max_m=1.0`, `candidate_rel=0.3`, `track_stop_rel=0.2`, `v_min=0.05`, `ransac_dt_ns=0.3`, `ransac_trials=200`, `f_scale_ns=0.1`, `apex_halfwidth_m=0.10`, `bg_window=301`, `h_max_m=0.5`, `ground_zero_shift="none"`, `sigma_eps_rel=0.15`, `seed=0`.
 - v1.3에서 확인하고 추가한 값(본문 상수와 같음):
   - `pick_mode="envelope"`(§0-4)
-  - `box_expand_frac=0.1`(§5-1), `track_back_ns=0.3`·`track_reverse_ns=0.1`(§5-3), `min_picks=9`·`min_side_picks=3`(§5-4), `apex_edge_traces=3`(§5-6)
+  - `box_expand_frac=0.1`(§5-1), `track_back_ns=0.3`·`track_reverse_ns=0.1`(§5-3; v1.9에서 삭제, 아래), `min_picks=9`·`min_side_picks=3`(§5-4), `apex_edge_traces=3`(§5-6)
   - `apex_min_points=5`(§6-4), `loss="soft_l1"`(§6-3)
   - `curvature_sigma_floor=0.03`(§9)
   - `refraction_eps_min=3.0`·`refraction_eps_max=30.0`·`refraction_eps_step=0.25`·`meta_eps_suspect_rel=0.3`(§7 2a)
 - v1.4 추가: `refraction_h_margin_m=0.06`(§7 2a의 Δh, **가정**, §14).
+- v1.9 변경(§5-3 T2):
+
+  | 설정 | v1.8 | v1.9 | 근거 |
+  |---|---|---|---|
+  | `track_reverse_ns` | 0.1 | **삭제** | 고정 ns 허용폭은 −20 dB 간섭에도 멈춰 진폭 정지(−14 dB)와 일관되지 않음 |
+  | `track_reverse_kappa` | – | **0.258** | 단일 간섭파 포락선 피크 최대 이동의 합성 유도값(Ricker 0.2581, gprMax 파형 0.2563). 4TU 값으로 정하지 않음 |
+  | `track_reverse_ref_n` | – | **3** | 역행 기준 중앙값의 점 수(꼭짓점 포함) |
+
+  - $\tau_\text{rev}$(ns) = `2 * track_reverse_kappa * track_stop_rel * period_ns_or_default(f_c_hz, 2.0)`이다. 설정에 따로 두지 않고 `extract_picks`에서 계산한다.
+  - 이름은 python-expert가 바꿀 수 있다. 바꾸면 이 표와 §5-3을 함께 고친다. `track_reverse_ns`를 폐기 표시로 남기는 경우에도 추적에는 쓰지 않는다.
+  - T1(§5-7 1항)은 새 설정이 없다(`hint_traces`, `track_back_ns`, `track_stop_rel` 재사용).
 - `single_event_h_max_m`은 두지 않는다. v1의 "h ≲ 0.15 m"는 v1.1에서 틀린 표현으로 지웠고, `air_single_event` 상한은 `SEPARATION_PERIODS`(0.375 c/f_c, §4-2)로 계산한다.
 
 ---
@@ -744,4 +868,15 @@ Z6·Z7 주석(v1.2):
 | 2a 구간 판정의 Δh 0.06 m(`refraction_h_margin_m`) | 가정(v1.4): $h_\text{est}$ 간섭 편향 실측 +0.029 m(해석 Ricker)·+0.049 m(M20)에 여유를 둔 값 | (v1.6) M2-5 실측: M20 $h_\text{est}-h$ = +0.049 m로 Δh 안이지만 **여유 0.011 m로 작다**. 공기층 h·주파수가 다른 합성이 생기면 다시 잰다. R13(M20)과 M2-5 합성 세트에서 $h_\text{est}-h$ 분포를 재서 확인 |
 | $f_c$ 없을 때 500 MHz 가정(dewow σ 2 ns, AGC 16 ns, 영점 창 주기 2 ns) | 가정(v1.1) | 해당 입력(GPR-SD·MALA)은 `amplitude_processed`라 현재 쓰이지 않음 |
 | 가우스 dewow가 4TU 단일 띠 판정([FX] 41/41, 상자형으로 측정)을 바꾸지 않는지 | 미확인. 가우스는 유령 엽을 줄이는 쪽이라 단일 판정이 유지될 것으로 봄 | M2-7·M2-8 4TU 실행에서 사건 수 재확인 |
+| (v1.9) κ = 0.258의 유도 가정 | 같은 파형의 간섭파 **하나**, 진폭비 $a\le0.5$(선형 영역), 500 MHz·Δt 0.098 ns, 맞춤 갈래 처리(DC, 가우스 dewow σ = 1/f_c, 영위상 밴드패스 0.25–2 f_c) 뒤 포락선 피크. 파형은 Ricker와 gprMax M02 꼭짓점 트레이스(400 → 500 MHz 시간축 축척)이고 두 값의 차는 0.7 %다. $\tau_\text{rev}$는 이웃 트레이스 간섭 위상이 반대인 최악($2\kappa aP$)을 $a=r_\text{stop}$에서 잰 값이다. 여러 간섭파의 합, 다른 파형, 평탄·다봉 포락선은 다루지 않았다. 4TU 걸음 차 꼬리(−0.3 ns보다 이른 걸음 3.3 %, `m29c_track_jitter.json`, 진단)는 T2로도 다 덮지 못한다 | 실측 파형(다른 장비·주파수)이 생기면 `m29c_track_interference.py`로 κ를 다시 잰다. 4TU 값으로 κ를 바꾸지 않는다 |
+| (v1.9) O: 꼭짓점이 힌트 트레이스 창(±3, ±0.06 m) 밖 | **한계로 기록**(사용자 결정 2026-11-07). 힌트 창·하강 범위를 넓히지 않는다. 4TU 검토 표본 3사례(G098·G131·G143; G143은 재판독 W 경계 사례)가 v1.9 시제품에서도 unknown이다. 검토 T 정의(±0.10 m)와 힌트 창(±0.06 m)의 차이에서 생기는 경계 사례다 | 4TU 재평가 진단에서 `apex_descended` 후보 중 하강이 힌트 창 끝(±3)에서 멈춘 비율을 본다(판정 미사용) |
+| (v1.9) L: 포락선 엽 모호 | **한계로 기록.** 후보는 "첫 피크 ≥ 0.3 창 최대", 추적은 "창 최대"로 고르는 규칙 차이가 다봉 포락선(엽 간격 약 0.4 P)에서 드러난다. 사례 1개(G017), 합성 재현 없음 | 후속 후보. 재현 합성이 생기면 다시 본다 |
+| (v1.9) I: 인접 사건 간섭(강한 얕은 층, 교차, 트레이스 이음) | **한계로 기록.** 날개가 다른 사건에 덮인 자료 문제이며 추적 규칙으로 고치지 않는다. 3사례(G026·G081·G128) | 이음은 `spec_eval_4tu_v1.md` §3-5-4 D 규칙, 교차는 곡률 QC가 일부 맡는다 |
+| (v1.9) F: 피팅 단계 | **한계로 기록.** 양쪽 픽은 충분하나 얕고 넓은 꼭대기에서 직선 광선 $R$ = 0 피팅이 불안정하다(r 1.5–2.1). 2사례(G066·G164) | QC 쪽 한계(`spec_eval_4tu_v1.md` §3-5-2 r 띠·unstable 조건)이며 추적과 무관 |
+| (v1.9) J(꼭짓점 근처 지터)의 합성 재현 | 결정론 시험(TK2·TK3, 교대 이동 ±0.06·±0.12 ns)으로만 재현된다. 점 산란 클러터 몬테카를로(시드 0–39, 밀도 40/m, $(d/r)^4$ 감쇠 — **가정**)는 힌트가 꼭짓점에 있으면 c 0.20까지 정지 실패 0 %라 J를 만들지 못했다. 점 산란 날개는 0.02 m 간격에서 매끄러워 4TU 걸음 차 σ 0.08 ns를 만들지 못한다 | J의 실제 생성원(근접 이중 반사, 평탄 꼭대기)으로 추정되는 관 내부 반사(PVC 공기·물) gprMax 모형은 electromagnetic-simulation-expert 후속 후보 |
+| (v1.9) T2의 대가 | 상승 사건을 최대 3 트레이스 더 따라간다(TK4, 걸음당 0.15 ns 상승). 힌트가 꼭짓점에 있는 얕은 관(0.3 m)·클러터 c 0.20 합성에서 QC in이 0.875 → 0.775로 준다(unstable 증가). 4TU 검토 표본에서 거짓 후보 unknown 67 → 72(진단). (v1.9.1) 구현으로 다시 센 값도 같다: T in/out/unknown 29/2/10, 거짓 21/35/72(B만, D 미적용; 시제품과 169행 판정·하강 일치, 깊이 차 ≤ 5 μm; `m29c_track_descent_check_fourtu.csv`). 합성 시험 C2·C3·C5 기대값이 바뀌었다(`spec_eval_4tu_v1.md` §9-2-2 v1.4.4) | E(곡률 unknown 제외) 채택 결정 자료는 `m29c_track_diagnosis.md` §12. 사용자가 2026-11-07에 채택했다(4TU 재평가 주 결과에 적용, B+D·`noqc`는 보조; `spec_eval_4tu_v1.md` 사용자 결정 8). spec_eval 개정·구현은 후속이며 E 구현 전까지 4TU 평가의 주 결과는 B+D다. 이 문서의 깊이 경로는 바뀌지 않는다 |
+| (v1.9) T1 하강의 시간 구간 | **해소(v1.9.1).** 기록 경계로만 자르고 박스 위 끝·뮤트로 자르지 않는 규칙을 유지한다. 실측: 4TU 검토 표본 169개에서 하강 11건(T 2, 자동 7), 하강 끝이 탐색 위 끝(`search_k0`)보다 위 **0건**, 뮤트 선($t_z+1/f_c$)보다 위 **0건**(가장 가까운 것 G122, 뮤트 = 탐색 위 끝에서 2.46 샘플 아래), 힌트 창 위 끝보다 위 6건, 하강 최대 0.38 ns. gprMax 정답 힌트 20개는 하강 0건. 하강 시작점은 힌트 창 안($k\ge k_s-0.5P$, 4TU 1 ns 위)이고 박스 위 끝은 $k_s-1.5P$(3 ns 위)라 단조 하강 최대 1.8 ns로는 박스 위 끝을 넘을 수 없다. 넘을 수 있는 경계는 뮤트이고, 넘을 수 있는 곳은 탐색 위 끝이 뮤트인 얕은 후보(169개 중 26개)뿐이다. 그래서 뮤트로 자르는 안은 **제안하지 않는다**. 근거: `analysis/processing/m29c_track_descent_check.py` → `m29c_track_descent_check_fourtu.csv`·`_gprmax.csv`·`.json` | 4TU 재평가 진단에서 `apex_descended` 후보의 `apex_minus_search_k0`(csv 열) 최솟값을 본다. 아래 "하강 끝이 위 끝 가드 띠에 들어감" 행 |
+| (v1.9.1) 하강 끝이 박스 위 끝 가드 띠에 들어감 | 꼭짓점 후보 탐색은 탐색 위 끝에서 정수 인덱스 2 샘플 안의 피크를 버리지만(§5-7 2), 하강 걸음에는 이 가드가 없다. 4TU 검토 표본에서 1건(G122, 거짓 L, 자동, 얕은 0.14 m, 정수 피크가 위 끝 + 2): 가드를 하강에도 적용하는 감도 변형에서는 하강하지 않고 꼭짓점 68.46 → 70.33 샘플, 깊이 0.139 → 0.145 m, QC 판정은 둘 다 out `r_below`(`m29c_track_descent_check_fourtu_guard.csv`, 규칙 아님). 영향이 판정을 바꾸지 않아 규칙을 바꾸지 않는다(**기록만**) | 재평가 진단에서 `apex_descended` 이고 `apex_minus_search_k0` ≤ 2.5인 건수를 센다. 판정이 바뀌는 사례가 나오면 "하강 걸음에도 위 끝 가드" 안을 다시 제안한다(4TU 값으로 정하지 않고 §5-7 2의 $g$를 그대로 씀) |
+| (v1.9.1) 완만한 상승 사건과 X 교차 | 지속 상승 검출 문턱은 걸음당 $\tau_\text{rev}/2$ = 0.103 ns(Δx 0.02 m에서 5.16 ns/m)다(§5-3). 이보다 완만한 상승 사건은 끝까지 따라갈 수 있다(v1.8도 0.100 ns로 같다). 합성 X 교차(시험 C3)에서 v1.9는 10–20 ns/m에서 양쪽 날개가 늦어지는 가지를 따라가 V 모양 픽이 되고(날개 기울기 실측 10.0–20.2 ns/m), QC는 `unstable`(정상점 비율 0.43·0.30·0.24 < 0.5)이다. 5 ns/m는 짧은 날개(3/9)로 out `r_below`. 그래서 X가 in이 되지 않는 것은 C3b(V)와 같은 정상점 비율 조건(10 ns/m 여유 0.07)에 기댄다 | 실측 X·V 사례의 정상점 비율 분포를 재평가 진단(`qc_inlier_frac`)에서 본다. 4TU 값으로 0.5를 바꾸지 않는다 |
+| (v1.9) 원인 귀속 | 판독자 1명(이 에이전트), 15사례. 코드 경계(H·J·O·L·I·F)는 겹칠 수 있어 부 원인을 함께 적었다(`m29c_track_diagnosis.md` §3, §11) | 4TU 재평가 진단 지표(정지 사유 분포 등)로 다시 본다 |
 | 4TU 현장 11의 앞쪽 0 뮤트(약 48 샘플)와 DC 제거 | 전 구간 평균을 빼면 뮤트 구간이 상수로 바뀌고 뮤트 끝에 계단이 생긴다(영향 미측정) | M2-7에서 뮤트 끝 사건 여부 확인, 필요하면 DC를 뮤트 밖 샘플로만 계산 |

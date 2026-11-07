@@ -1,0 +1,60 @@
+{
+ "tau_rev_ns_500MHz": 0.20640000000000003,
+ "tau_rev_ns_400MHz": 0.258,
+ "gprmax_hint": {
+  "v18": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "step": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "runmax": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "med3": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "topexit": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "pad": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "descent": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "descent+med3": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  },
+  "pad+med3": {
+   "max_abs_hint_vs_nohint_mm": 0.0,
+   "max_abs_vs_v18_hint_mm": 0.0,
+   "n_descended": 0,
+   "apex_trace_changed_vs_v18": 0
+  }
+ }
+}

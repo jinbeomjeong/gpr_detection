@@ -36,7 +36,7 @@ import sys
 import time
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 
@@ -59,8 +59,10 @@ from gpr_detection.depth.hyperbola import (
     fit_curvature,
 )
 from gpr_detection.depth.picks import (
+    APEX_DESCENDED,
     ApexHint,
     HyperbolaPicks,
+    TrackStop,
     extract_picks,
     mute_sample,
 )
@@ -199,6 +201,11 @@ QC_COLUMNS = (
     "qc_excluded",
 )
 """QC columns of the candidates csv, after ``apex_minus_search_k0`` (spec 8)."""
+TRACKING_COLUMNS = ("stop_left", "stop_right", "apex_descended")
+"""Tracking diagnostic columns after ``qc_excluded`` (spec_depth v1.9, 13-4).
+
+``stop_*`` come from the QC picks (blank with ``--apex-qc off``);
+``apex_descended`` comes from ``DepthResult.flags``. Never used by a verdict."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -246,6 +253,8 @@ class CurvatureQc:
         inlier_frac: Inlier fraction of the QC fit.
         n_picks, n_left, n_right: Pick counts of the depth path's picks.
         aperture_m: ``max |x - x_apex|`` over the picks.
+        stop_left, stop_right: Why each wing of those picks ended
+            (diagnostic only, spec_depth v1.9 13-4).
     """
 
     verdict: QcVerdict
@@ -258,6 +267,8 @@ class CurvatureQc:
     n_left: int = 0
     n_right: int = 0
     aperture_m: float | None = None
+    stop_left: TrackStop | None = None
+    stop_right: TrackStop | None = None
 
 
 @dataclass(frozen=True)
@@ -496,18 +507,13 @@ def classify_curvature(
         picks: The picks that were fitted (the depth path's picks).
         v_meta: Metadata velocity ``v_m`` in m/ns.
     """
-    counts = {
-        "n_picks": picks.n_picks,
-        "n_left": picks.n_left,
-        "n_right": picks.n_right,
-    }
     if picks.apex is None:
-        return CurvatureQc(QcVerdict.UNKNOWN, "no_apex", **counts)
+        return _unknown_curvature("no_apex", picks)
     if curvature.status == FitStatus.INSUFFICIENT_PICKS:
-        return CurvatureQc(QcVerdict.UNKNOWN, "insufficient_picks", **counts)
+        return _unknown_curvature("insufficient_picks", picks)
     fit = curvature.fit
     if fit is None or not fit.converged:
-        return CurvatureQc(QcVerdict.UNKNOWN, "fit_failed", **counts)
+        return _unknown_curvature("fit_failed", picks)
     verdict, reason = _fit_verdict(fit, picks, v_meta)
     sigma_v_rel = fit.sigma_v / v_meta
     return CurvatureQc(
@@ -518,7 +524,19 @@ def classify_curvature(
         sigma_v_rel=sigma_v_rel if math.isfinite(sigma_v_rel) else None,
         inlier_frac=fit.inlier_frac,
         aperture_m=float(np.max(np.abs(picks.x_m - picks.apex_x_m))),
-        **counts,
+        n_picks=picks.n_picks,
+        n_left=picks.n_left,
+        n_right=picks.n_right,
+    )
+
+
+def _unknown_curvature(reason: str, picks: HyperbolaPicks) -> CurvatureQc:
+    return CurvatureQc(
+        QcVerdict.UNKNOWN,
+        reason,
+        n_picks=picks.n_picks,
+        n_left=picks.n_left,
+        n_right=picks.n_right,
     )
 
 
@@ -580,6 +598,8 @@ def curvature_qc(
             n_picks=picks.n_picks,
             n_left=picks.n_left,
             n_right=picks.n_right,
+            stop_left=picks.stop_left,
+            stop_right=picks.stop_right,
         )
     v_meta = _qc_meta_velocity(radargram, result)
     curvature = fit_curvature(
@@ -589,7 +609,8 @@ def curvature_qc(
         v_fallback=v_meta,
         config=config,
     )
-    return classify_curvature(curvature, picks, v_meta)
+    verdict = classify_curvature(curvature, picks, v_meta)
+    return replace(verdict, stop_left=picks.stop_left, stop_right=picks.stop_right)
 
 
 def record_end_margin_ns(sample: float, n_samples: int, dt_ns: float) -> float:
@@ -1747,6 +1768,7 @@ def candidate_row(
         "flags": " ".join(flags),
         **_box_top_columns(candidate),
         **_qc_columns(candidate.qc),
+        **_tracking_columns(candidate),
     }
 
 
@@ -1782,6 +1804,23 @@ def _qc_columns(qc: CandidateQc | None) -> dict[str, object]:
         "apex_on_trace_seam": qc.on_trace_seam,
         "qc_excluded": qc.excluded,
     }
+
+
+def _tracking_columns(candidate: CandidateResult) -> dict[str, object]:
+    """Tracking diagnostic columns (``TRACKING_COLUMNS``, spec_depth v1.9 13-4)."""
+    is_descended = APEX_DESCENDED in candidate.result.flags
+    if candidate.qc is None:
+        return {"stop_left": "", "stop_right": "", "apex_descended": is_descended}
+    curvature = candidate.qc.curvature
+    return {
+        "stop_left": _stop_text(curvature.stop_left),
+        "stop_right": _stop_text(curvature.stop_right),
+        "apex_descended": is_descended,
+    }
+
+
+def _stop_text(stop: TrackStop | None) -> str:
+    return "" if stop is None else stop.value
 
 
 def _box_top_columns(candidate: CandidateResult) -> dict[str, object]:
@@ -1993,6 +2032,23 @@ def _rule_d_phrase(qcs: Sequence[CandidateQc]) -> str:
     )
 
 
+def _stop_count_phrase(stops: Sequence[TrackStop | None]) -> str:
+    counts = Counter("none" if stop is None else stop.value for stop in stops)
+    return ", ".join(f"`{name}` {n}" for name, n in sorted(counts.items())) or "없음"
+
+
+def _tracking_phrase(candidates: Sequence[CandidateResult]) -> str:
+    """Apex descent rate and wing stop reasons of the ``ok`` candidates (v1.9)."""
+    curvatures = [c.qc.curvature for c in candidates if c.qc is not None]
+    descended = sum(APEX_DESCENDED in c.result.flags for c in candidates)
+    left = _stop_count_phrase([q.stop_left for q in curvatures])
+    right = _stop_count_phrase([q.stop_right for q in curvatures])
+    return (
+        f"`{APEX_DESCENDED}` {descended}/{len(candidates)}; "
+        f"정지 사유 왼쪽 {left} / 오른쪽 {right}"
+    )
+
+
 def _estimate_count_phrase(
     label: str, evaluation: Evaluation, activities: Sequence[str]
 ) -> str:
@@ -2033,6 +2089,7 @@ def _qc_diagnostic_lines(
         f"- {_ratio_quantile_phrase(qcs)}",
         f"- D 플래그: {_rule_d_phrase(qcs)}",
         f"- `qc_excluded`: {excluded}/{len(qcs)}",
+        f"- 추적 진단(v1.9, 판정 미사용): {_tracking_phrase(ok)}",
         "- 추정 수(검출 영점, 지지 필터 뒤):",
         _estimate_count_phrase("전체 활동", evaluation, activities),
         _estimate_count_phrase("정답 활동(`exclude_x`)", evaluation, gt_activities),

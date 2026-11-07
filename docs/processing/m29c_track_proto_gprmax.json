@@ -1,0 +1,56 @@
+{
+ "tau_rev_ns_500MHz": 0.20640000000000003,
+ "tau_rev_ns_400MHz": 0.258,
+ "gprmax": {
+  "v18": {
+   "n_checks": 129,
+   "n_pass": 129,
+   "failed": [],
+   "max_abs_delta_depth_mm": 0.0,
+   "max_abs_delta_v_err_pct": 0.0,
+   "max_abs_delta_radius_free_v_pct": 0.0,
+   "max_abs_delta_eps_qc": 0.0,
+   "models_with_pick_change": 0
+  },
+  "step": {
+   "n_checks": 129,
+   "n_pass": 129,
+   "failed": [],
+   "max_abs_delta_depth_mm": 0.0,
+   "max_abs_delta_v_err_pct": 0.0,
+   "max_abs_delta_radius_free_v_pct": 0.0,
+   "max_abs_delta_eps_qc": 0.0,
+   "models_with_pick_change": 0
+  },
+  "runmax": {
+   "n_checks": 129,
+   "n_pass": 129,
+   "failed": [],
+   "max_abs_delta_depth_mm": 0.0,
+   "max_abs_delta_v_err_pct": 0.0,
+   "max_abs_delta_radius_free_v_pct": 0.0,
+   "max_abs_delta_eps_qc": 0.0,
+   "models_with_pick_change": 0
+  },
+  "med3": {
+   "n_checks": 129,
+   "n_pass": 129,
+   "failed": [],
+   "max_abs_delta_depth_mm": 0.0,
+   "max_abs_delta_v_err_pct": 0.0,
+   "max_abs_delta_radius_free_v_pct": 0.0,
+   "max_abs_delta_eps_qc": 0.0,
+   "models_with_pick_change": 0
+  },
+  "topexit": {
+   "n_checks": 129,
+   "n_pass": 129,
+   "failed": [],
+   "max_abs_delta_depth_mm": 0.0,
+   "max_abs_delta_v_err_pct": 0.0,
+   "max_abs_delta_radius_free_v_pct": 0.0,
+   "max_abs_delta_eps_qc": 0.0,
+   "models_with_pick_change": 0
+  }
+ }
+}

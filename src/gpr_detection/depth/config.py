@@ -32,7 +32,13 @@ class DepthConfig:
         pick_mode: Phase reference shared by the zero and the apex.
         box_expand_frac: Box widening per side along traces (section 5-1).
         track_back_ns: Tracking window starts this much before the previous pick.
-        track_reverse_ns: Moving outwards, an earlier pick by more than this stops.
+        track_reverse_kappa: Largest envelope-peak shift per unit relative
+            interferer amplitude, in periods (synthetic derivation,
+            ``analysis/processing/m29c_track_interference.py``).
+            Moving outwards, a pick earlier than the reference by more than
+            ``tau_rev = 2 kappa track_stop_rel / f_c`` stops (section 5-3, v1.9).
+        track_reverse_ref_n: The reverse reference is the median of the last
+            this-many accepted picks of the wing, the apex included.
         min_picks: Minimum picks for a curvature fit (section 5-4).
         min_side_picks: Minimum picks on each side of the apex.
         apex_edge_traces: Apex this close to a box side gets ``apex_at_box_edge``.
@@ -75,7 +81,8 @@ class DepthConfig:
     pick_mode: PickMode = "envelope"
     box_expand_frac: float = 0.1
     track_back_ns: float = 0.3
-    track_reverse_ns: float = 0.1
+    track_reverse_kappa: float = 0.258
+    track_reverse_ref_n: int = 3
     min_picks: int = 9
     min_side_picks: int = 3
     apex_edge_traces: int = 3
