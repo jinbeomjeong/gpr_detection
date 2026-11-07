@@ -1,0 +1,55 @@
+{
+ "purpose": "Pass-B ceiling projection for the 4TU re-evaluation pre-registration (target proposal only, not a result)",
+ "created": "2026-11-07T22:55+09:00",
+ "author": "gpr-processing-expert",
+ "script": "analysis/processing/prereg_4tu_ceiling_projection.py",
+ "inputs": [
+  "docs/processing/fourtu_apex_candidates_v1.csv (tau_ns, source)",
+  "docs/processing/fourtu_lines_v1.csv (eps_r_used)",
+  "docs/datasets/fourtu_duplicate_radargrams.csv (within-activity copies dropped)",
+  "4TU ground truth: number of exclude_x items per activity only (no depth value used or printed)"
+ ],
+ "model": {
+  "depth_proxy": "c / sqrt(eps_r_used) * tau_ns / 2, c = 0.299792458 m/ns",
+  "qc_retention": "independent Bernoulli thinning with the review-sample rates (m29c_track_diagnosis.md 12-5, v1.9): main B+D+E auto 28/130, manual 21/39; bd B+D auto 91/130, manual 35/39; noqc 1",
+  "clustering": "eval_depth_4tu.cluster_depths complete linkage, width 0.10 m, support filter >= 2 lines (eval_depth_4tu.supported)",
+  "ceiling": "sum over gt activities of min(n_est, n_gt) / 388"
+ },
+ "assumptions": [
+  "QC retention independent per candidate (real retention is correlated within a pipe and site)",
+  "apex re-selection within +-0.5 period ignored (depth proxy from candidate tau)",
+  "review-sample rates applied to the whole population without site weighting"
+ ],
+ "seed": 20261108,
+ "draws": 200,
+ "n_candidates_used": 3585,
+ "n_gt_total_exclude_x": 388,
+ "n_gt_activities": 93,
+ "activities": 125,
+ "scenarios": {
+  "main_BDE": {
+   "n_input": {"mean": 786.66, "p05": 746.9, "p50": 785.0, "p95": 831.0},
+   "n_est_all": {"mean": 214.03, "p05": 198.0, "p50": 214.0, "p95": 229.05},
+   "n_est_gt_acts": {"mean": 163.2, "p05": 149.0, "p50": 163.0, "p95": 177.0},
+   "pairs_max": {"mean": 151.065, "p05": 139.0, "p50": 151.0, "p95": 164.0},
+   "ceiling_pass_b": {"mean": 0.3893, "p05": 0.3582, "p50": 0.3892, "p95": 0.4227},
+   "gt_acts_without_estimate": {"mean": 20.49, "p05": 16.0, "p50": 21.0, "p95": 26.0}
+  },
+  "bd_BD": {
+   "n_input": {"mean": 2519.165, "p05": 2476.9, "p50": 2519.0, "p95": 2561.05},
+   "n_est_all": {"mean": 573.2, "p05": 558.95, "p50": 573.0, "p95": 588.0},
+   "n_est_gt_acts": {"mean": 430.975, "p05": 419.0, "p50": 432.0, "p95": 442.0},
+   "pairs_max": {"mean": 301.81, "p05": 294.0, "p50": 302.0, "p95": 308.05},
+   "ceiling_pass_b": {"mean": 0.7779, "p05": 0.7577, "p50": 0.7784, "p95": 0.7939},
+   "gt_acts_without_estimate": {"mean": 1.045, "p05": 0.0, "p50": 1.0, "p95": 2.05}
+  },
+  "noqc": {
+   "n_input": 3585,
+   "n_est_all": 707,
+   "n_est_gt_acts": 526,
+   "pairs_max": 329,
+   "ceiling_pass_b": 0.8479,
+   "gt_acts_without_estimate": 0
+  }
+ }
+}

@@ -3,5 +3,5 @@
 - [Apex candidate QC facts](apex-candidate-qc-facts.md) — auto precision ~10 %, E=unknown-excluded main (bd/noqc aux, no CLI switch), +-30 % band miscentred, unknown caps rejection, one-sided tracking, kappa 0.91, v-bound=flat, record-end ridge, zero-band seam detector
 - [Tracking failure facts](tracking-failure-facts.md) — reverse 0.1 ns vs apex jitter 0.08, hint-top truncation, kappa 0.258, prototype method, v1.9 verify: descent bound, rise threshold, X->V
 - [4TU duplicate radargrams](fourtu-duplicate-radargrams.md) — 39 byte-identical npy pairs; copies have identical candidates; keep_one = strict superset + numeric id fallback; list+hash check
-- [Eval 4TU verify method](eval-4tu-verify-method.md) — scratch mutation runner (-k subset ~25 s each, copy dup/lines csv), HEAD fixture compare, nan->blank since v1.7, known v1.7 test gaps
+- [Eval 4TU verify method](eval-4tu-verify-method.md) — scratch mutation runner (-k subset ~25 s each, copy dup/lines csv), HEAD fixture compare, nan->blank since v1.7, known v1.7 test gaps, baseline p needs pass A ~0.97, new prefix for re-eval, src tree pin drift
 - [Band depth pitfalls](band-depth-pitfalls.md) — median bg erases long bands, pseudo-band, oblique 1/sin bias, no parallel truth, pick follows box top, overlapping detector boxes

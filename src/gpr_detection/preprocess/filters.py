@@ -110,7 +110,7 @@ def dewow(data: np.ndarray, dt_ns: float, f_c_hz: float | None) -> np.ndarray:
     """Step (2): subtract a Gaussian moving average along time (spec v1.1).
 
     The symmetric kernel has zero phase delay, so peak times do not move. A box
-    window would leave ghost lobes at +-T_w/2 that the air-coupled ``late``
+    window would leave ghost lobes at +-T_w/2 that the air-coupled multi-event
     zero rule can mistake for the surface reflection.
 
     Args:
