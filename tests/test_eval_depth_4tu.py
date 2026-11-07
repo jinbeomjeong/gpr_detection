@@ -2863,6 +2863,11 @@ def _write_duplicate_csv(path: Path, rows: list[tuple], encoding="utf-8") -> Pat
             ],
             "across partners",
         ),
+        # Two files whose path numbers tie leave no representative (J16).
+        (
+            [("01.1", "P1", "01.1", "Path1", "within_activity")],
+            "no lower path number",
+        ),
     ],
 )
 def test_d1b_list_checks(script, tmp_path, rows, message) -> None:
@@ -3077,6 +3082,52 @@ def test_d5_sensitivity_rows(script, monkeypatch) -> None:
     assert set(recorded_trials) == {("activity", args.baseline_trials_aux)}
 
 
+def _sensitivity_top_detected(script, candidates) -> dict[str, dict[str, object]]:
+    """D4 table, lines and truth: (all, exclude_x, top, detected) sensitivity row
+    of each handling, and the ``main`` summary row of the keep_one inputs."""
+    table, gt_sets, args = _d4_table(script), _gt_sets(script, D4_GT), _args()
+    evaluation = script.evaluate_combinations(candidates, gt_sets, D4_LINES, args)
+    rows = script.duplicate_sensitivity(
+        candidates, gt_sets, D4_LINES, table, args, evaluation.summary_rows
+    )
+    selected = {
+        row["dup_handling"]: row
+        for row in rows
+        if (row["scope"], row["gt_set"], row["assumption"], row["zero_variant"])
+        == ("all", "exclude_x", "top", "detected")
+    }
+    handled, counts = script.apply_dup_handling(candidates, D4_LINES, table, "keep_one")
+    direct = script.evaluate_combinations(handled, gt_sets, counts, args)
+    selected["keep_one_direct"] = _overall_top_detected_row(direct.summary_rows, "main")
+    return selected
+
+
+def test_d5b_sensitivity_applies_the_main_qc_rule(script) -> None:
+    """D5b(i): QC-excluded 1.50/1.51 m on both 02.1 lines (kept by keep_one)
+    would form a supported second estimate without the QC (J6b)."""
+    excluded = [
+        dataclasses.replace(_candidate(script, "02.1", path, depth), qc=_qc(script, v))
+        for path, depth, v in (("P1", 1.50, "unknown"), ("P2", 1.51, "out"))
+    ]
+    rows = _sensitivity_top_detected(script, [*_d4_candidates(script), *excluded])
+    assert rows["keep_both"]["n_est"] == 4  # one per activity, as in summary main
+    assert rows["keep_one"]["n_est"] == rows["keep_one_direct"]["n_est"] == 3
+    assert rows["keep_one"]["false_est"] == 0
+
+
+def test_d5b_sensitivity_uses_the_handled_candidates(script) -> None:
+    """D5b(ii): keep_one drops 02.4/P1 (2 lines -> 1); a stray 0.50 m there must
+    not come back as an unfiltered one-line estimate (J17)."""
+    stray = dataclasses.replace(_candidate(script, "02.4", "P1", 0.50), qc=_qc(script))
+    candidates = [
+        stray if (c.activity_id, c.path) == ("02.4", "P1") else c
+        for c in _d4_candidates(script)
+    ]
+    rows = _sensitivity_top_detected(script, candidates)
+    assert rows["keep_one"]["n_est"] == rows["keep_one_direct"]["n_est"] == 3
+    assert rows["keep_one"]["false_est"] == 0
+
+
 def _d6_root(tmp_path: Path, contents: dict[tuple[str, str], bytes]) -> Path:
     root = tmp_path / "root"
     for (activity, path), data in contents.items():
@@ -3233,6 +3284,37 @@ def test_d8_md_duplicate_section_and_caveat(script, tmp_path, pass_b, caveat) ->
     )
 
 
+D8B_REFERENCE_PASS_B = 0.50
+D8B_SHIFTED_PASS_B = 0.53
+"""Pass B of the one shifted keep_one row: +3 %p, well past T = 2 %p."""
+
+
+@pytest.mark.parametrize(
+    ("zero_variant", "assumption"),
+    list(itertools.product(("detected", "est", "act"), ("top", "center"))),
+)
+def test_d8b_caveat_covers_every_zero_and_assumption(
+    script, zero_variant, assumption
+) -> None:
+    """D8b: every overall pass B is set to 0.50 except one keep_one row; the
+    caveat must find it for each of the 6 combinations (J5)."""
+    table, gt_sets, args = _d4_table(script), _gt_sets(script, D4_GT), _args()
+    candidates = _d4_candidates(script)
+    evaluation = script.evaluate_combinations(candidates, gt_sets, D4_LINES, args)
+    rows = script.duplicate_sensitivity(
+        candidates, gt_sets, D4_LINES, table, args, evaluation.summary_rows
+    )
+    shifted = ("keep_one", zero_variant, assumption)
+    for row in rows:
+        if (row["scope"], row["gt_set"]) != ("all", "exclude_x"):
+            continue
+        key = (row["dup_handling"], row["zero_variant"], row["assumption"])
+        row["pass_b"] = D8B_SHIFTED_PASS_B if key == shifted else D8B_REFERENCE_PASS_B
+    label = f"keep_one/{zero_variant}/{assumption}"
+    assert script._caveat_hits(rows) == [(label, pytest.approx(3.0))]
+    assert script._caveat_line(rows).endswith(f"해당 — {label} +3.00 %p(최대 3.00 %p)")
+
+
 def _without_zero_flag_subsection(lines: list[str]) -> list[str]:
     start = _index_starting_with(lines, "### 영점 h 비현실 플래그")
     end = _index_starting_with(lines, "## 현장 11 진단")
@@ -3352,6 +3434,112 @@ def test_d11_main_wiring(script, tmp_path, monkeypatch) -> None:
     assert md[_index_starting_with(md, "- 플래그 측선:")] == (
         "- 플래그 측선: 03.1/P1, 03.1/P3"
     )
+
+
+def _d11b_inputs(tmp_path: Path):
+    """011.1 (site 11): P1 and its within copy P2, both with 0.5 m, so it has
+    two metadata lines but one unique line; 03.2/P1 = 03.3/P1 across."""
+    candidates = pd.DataFrame(
+        {
+            "activity_id": ["011.1", "011.1", "03.2", "03.3"],
+            "path": ["P1", "P2", "P1", "P1"],
+            "depth": [0.5, 0.5, 0.7, 0.7],
+        }
+    )
+    lines = pd.DataFrame(
+        {
+            "activity_id": ["011.1", "011.1", "03.2", "03.3"],
+            "path": ["P1", "P2", "P1", "P1"],
+            "length_m": [5.0] * 4,
+        }
+    )
+    duplicates = _write_duplicate_csv(
+        tmp_path / "dups.csv",
+        [
+            ("011.1", "P1", "011.1", "P2", "within_activity"),
+            ("03.2", "P1", "03.3", "P1", "across_activities"),
+        ],
+    )
+    return candidates, lines, duplicates
+
+
+def _run_main_on_d11b(script, tmp_path: Path, monkeypatch) -> tuple[Path, list]:
+    """``main`` on the D11b inputs with the loaders faked as in D11.
+
+    Returns:
+        The output folder and the ``(activity_id, path)`` of every candidate
+        handed to ``site11_diagnostic``.
+    """
+    candidates_table, lines_table, duplicates_csv = _d11b_inputs(tmp_path)
+
+    def fake_run_line(radargram, group, apex_qc=True):
+        activity, path = radargram.line_id.split("/")
+        late = "air_surface_late"
+        return [
+            _zero_candidate(script, activity, path, late, 0.6, depth_m=depth)
+            for depth in group["depth"]
+        ]
+
+    site11_inputs: list[tuple[str, str]] = []
+    original_site11 = script.site11_diagnostic
+
+    def recording_site11(candidates, gt_sets, lines_per_activity, args):
+        site11_inputs.extend((c.activity_id, c.path) for c in candidates)
+        return original_site11(candidates, gt_sets, lines_per_activity, args)
+
+    truth = {"011.1": [0.5], "03.2": [0.7], "03.3": [0.7]}
+    monkeypatch.setattr(
+        script, "_read_inputs", lambda args: (tmp_path, candidates_table, lines_table)
+    )
+    monkeypatch.setattr(
+        script, "load_ground_truth_sets", lambda root: _gt_sets(script, truth)
+    )
+    monkeypatch.setattr(
+        script,
+        "load_fourtu_radargram",
+        lambda root, activity, path, choice: SimpleNamespace(
+            line_id=f"{activity}/{path}"
+        ),
+    )
+    monkeypatch.setattr(script, "run_line", fake_run_line)
+    monkeypatch.setattr(script, "DEFAULT_DUPLICATES", duplicates_csv)
+    monkeypatch.setattr(
+        script, "verify_duplicate_hashes", lambda root, lines, table: (len(lines), 0.0)
+    )
+    monkeypatch.setattr(script, "site11_diagnostic", recording_site11)
+    out = tmp_path / "out"
+    trials = ["--baseline-trials", "5", "--baseline-trials-aux", "3"]
+    assert script.main(["--out-dir", str(out), "--prefix", "t", *trials]) == 0
+    return out, site11_inputs
+
+
+def test_d11b_main_uses_unique_line_counts(script, tmp_path, monkeypatch) -> None:
+    """D11b(i): with the metadata count (2) the support filter would drop the
+    lone 011.1 cluster; the unique count (1) keeps it (J11)."""
+    out, _ = _run_main_on_d11b(script, tmp_path, monkeypatch)
+    clusters = pd.read_csv(out / "t_clusters.csv", dtype=str, keep_default_na=False)
+    site_11 = clusters[
+        (clusters["activity_id"] == "011.1") & (clusters["zero_variant"] == "detected")
+    ]
+    assert list(site_11["kept_by_support"]) == ["True"]
+    summary = pd.read_csv(out / "t_summary.csv", dtype=str, keep_default_na=False)
+    overall_main = summary[
+        (summary["scope"] == "all")
+        & (summary["gt_set"] == "exclude_x")
+        & (summary["assumption"] == "top")
+        & (summary["zero_variant"] == "detected")
+        & (summary["variant"] == "main")
+    ]
+    assert list(overall_main["n_est"]) == ["3"]  # 011.1, 03.2 and 03.3
+
+
+def test_d11b_site11_diagnostic_gets_the_evaluated_candidates(
+    script, tmp_path, monkeypatch
+) -> None:
+    """D11b(ii): the within copy 011.1/P2 stays out of the site 11 diagnostic
+    (J10)."""
+    _, site11_inputs = _run_main_on_d11b(script, tmp_path, monkeypatch)
+    assert sorted(site11_inputs) == [("011.1", "P1"), ("03.2", "P1"), ("03.3", "P1")]
 
 
 @pytest.mark.parametrize("apex_qc", ["on", "off"])

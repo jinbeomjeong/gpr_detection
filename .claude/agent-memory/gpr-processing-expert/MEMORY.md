@@ -1,4 +1,4 @@
-- [4TU zero band facts](fourtu-zero-band.md) — single merged band, meta t0 = +/- lobes, hyperbola shape says h <~ 0.1 m, eps meta = header default
+- [4TU zero band facts](fourtu-zero-band.md) — single merged band, meta t0 = +/- lobes, h <~ 0.1 m from curvature only (eps 9 assumed), two-event late event = sub-surface (EM E5), eps meta = header default
 - [Zero/apex picking pitfalls](zero-and-apex-pitfalls.md) — merged events, argmax|mean| picks direct wave, first-peak apex candidate, median bg, boxcar-dewow ghost lobes, polarity-dependent event split, surface-zero interference bias
 - [Apex candidate QC facts](apex-candidate-qc-facts.md) — auto precision ~10 %, E=unknown-excluded main (bd/noqc aux, no CLI switch), +-30 % band miscentred, unknown caps rejection, one-sided tracking, kappa 0.91, v-bound=flat, record-end ridge, zero-band seam detector
 - [Tracking failure facts](tracking-failure-facts.md) — reverse 0.1 ns vs apex jitter 0.08, hint-top truncation, kappa 0.258, prototype method, v1.9 verify: descent bound, rise threshold, X->V
