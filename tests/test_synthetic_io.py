@@ -18,6 +18,7 @@ from gpr_detection.io.synthetic import (
     list_synthetic_models,
     load_synthetic,
     load_synthetic_background,
+    load_synthetic_pipe_truths,
     load_synthetic_truth,
 )
 
@@ -137,3 +138,10 @@ def test_missing_required_field_is_an_error(tmp_path: Path) -> None:
         load_synthetic_truth(model_id, root=tmp_path)
     with pytest.raises(ValueError, match="missing required fields"):
         load_synthetic(model_id, root=tmp_path)
+
+
+@pytest.mark.data
+def test_single_pipe_jsons_give_one_pipe_truth(model_ids: list[str]) -> None:
+    for model_id in model_ids:
+        assert "n_pipes" not in _json(model_id)
+        assert load_synthetic_pipe_truths(model_id) == [load_synthetic_truth(model_id)]

@@ -1,0 +1,444 @@
+"""Tests for ``scripts/synthetic/export_dataset.py`` (multi-pipe S1g, one-pipe schema).
+
+Fake gprMax h5 files hold Ricker pulses at the ray times the exporter itself
+predicts, so the checks are about the per-pipe bookkeeping (apex trace, picks,
+json keys), not about the ray physics. The regression against the stored M01-M20
+export is opt-in (``-m synthetic``) like the depth regression.
+"""
+
+import csv
+import json
+import math
+import sys
+from pathlib import Path
+from types import ModuleType
+
+import h5py
+import numpy as np
+import pytest
+
+from gpr_detection.io.synthetic import (
+    load_synthetic,
+    load_synthetic_pipe_truths,
+    load_synthetic_truth,
+)
+
+PROJECT = Path(__file__).resolve().parents[1]
+STORED_EXPORT = PROJECT / "data" / "synthetic_gprmax"
+REGRESSION_MODEL = "M12"  # air-coupled with a free-space reference: covers every branch
+
+DT_NS = 0.0118
+N_SAMPLES = 2400
+FREQ_HZ = 500e6
+VELOCITY_M_PER_NS = 0.299792458 / 3.0
+SCAN_START_M = 0.4
+TRACE_STEP_M = 0.04
+N_TRACES = 31
+ANTENNA_HEIGHT_M = 0.1  # y_antenna_m - y_surface_m in the fake models json
+BACKGROUND_LINE_DRIFT = 1e-6  # relative gain change per trace
+
+# Single-pipe json schema of the M01-M20 export, in file order.
+SINGLE_PIPE_KEYS = [
+    "model_id",
+    "array_layout",
+    "dt_ns",
+    "n_samples",
+    "n_traces",
+    "dx_m",
+    "time_of_sample0_ns",
+    "trace_x_m_first",
+    "trace_x_m",
+    "eps_r",
+    "soil_sigma_S_per_m",
+    "velocity_m_per_ns",
+    "pipe_material",
+    "pipe_wall_m",
+    "pipe_center_x_m",
+    "pipe_top_depth_m",
+    "pipe_center_depth_m",
+    "pipe_radius_m",
+    "center_freq_hz",
+    "wavelet",
+    "air_gap_m",
+    "antenna_offset_m",
+    "fdtd_cell_m",
+    "pml_cells",
+    "time_window_ns",
+    "t0_definition",
+    "t0_top_ns",
+    "t0_center_ns",
+    "air_two_way_ns",
+    "ray_reflection_time_ns",
+    "ray_reflection_time_definition",
+    "time_zero_candidates_ns",
+    "surface_reflection_geom_ns",
+    "direct_air_geom_ns",
+    "apex",
+    "t0_effective_ns",
+    "depth_from_t0_effective_m",
+    "velocity_check",
+    "trace_envelope_pick_ns",
+    "checks",
+    "files",
+]
+
+
+@pytest.fixture
+def exporter(load_script, monkeypatch: pytest.MonkeyPatch) -> ModuleType:
+    # The script prepends its own folder to sys.path; keep that local to the test.
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    return load_script("synthetic/export_dataset")
+
+
+def _ricker(t_ns: np.ndarray, centre_ns: float) -> np.ndarray:
+    arg = (math.pi * FREQ_HZ * 1e-9 * (t_ns - centre_ns)) ** 2
+    return (1.0 - 2.0 * arg) * np.exp(-arg)
+
+
+def _write_h5(path: Path, traces: np.ndarray) -> None:
+    with h5py.File(path, "w") as handle:
+        handle.attrs["dt"] = DT_NS * 1e-9
+        handle.attrs["Iterations"] = traces.shape[0]
+        handle["rxs/rx1/Ez"] = traces.astype(np.float32)
+
+
+def _models_json(tmp_path: Path) -> Path:
+    common = {
+        "eps_r": 9.0,
+        "soil_sigma_S_per_m": 0.001,
+        "velocity_m_per_ns": VELOCITY_M_PER_NS,
+        "center_freq_hz": FREQ_HZ,
+        "air_gap_m": 0.1,
+        "antenna_offset_m": 0.1,
+        "fdtd_cell_m": 0.005,
+        "pml_cells": 20,
+        "y_surface_m": 0.7,
+        "y_antenna_m": 0.8,
+        "time_window_ns": 28.0,
+        "pipe_material": "pec",
+        "pipe_radius_m": 0.05,
+        "pipe_top_depth_m": 0.3,
+    }
+    scan = {
+        "scan_start_m": SCAN_START_M,
+        "trace_step_m": TRACE_STEP_M,
+        "n_traces": N_TRACES,
+    }
+    models = [
+        {
+            "id": "T_D060",
+            "input": "in/T_D060.in",
+            "pipe_center_x_m": [1.4, 0.8],
+            "apex_trace_index": [10, 25],
+            "output": "h5/T_D060_merged.h5",
+            **scan,
+        },
+        {
+            "id": "T_C1",
+            "input": "in/T_C1.in",
+            "pipe_center_x_m": [1.0],
+            "apex_trace_index": [15],
+            "output": "h5/T_C1_merged.h5",
+            **scan,
+        },
+        {
+            "id": "T_BGL",
+            "input": "in/T_BGL.in",
+            "pipe_center_x_m": [],
+            "apex_trace_index": [],
+            "output": "h5/T_BGL_merged.h5",
+            **scan,
+        },
+        {"id": "T_bg", "pipe_center_x_m": [], "output": "h5/T_bg_merged.h5"},
+        {"id": "T_fs", "pipe_center_x_m": [], "output": "h5/T_fs.h5"},
+    ]
+    path = tmp_path / "models.json"
+    path.write_text(json.dumps({"common": common, "models": models}), encoding="utf-8")
+    return path
+
+
+def _write_fake_runs(exporter: ModuleType, tmp_path: Path) -> Path:
+    """Write background, free-space and pipe B-scans with echoes at the ray times."""
+    h5_dir = tmp_path / "h5"
+    h5_dir.mkdir()
+    t_ns = np.arange(N_SAMPLES) * DT_NS
+    source_peak_ns = math.sqrt(2.0) / (FREQ_HZ * 1e-9)
+    direct = _ricker(t_ns, source_peak_ns + exporter.direct_air_time(0.1))
+    surface = 0.5 * _ricker(
+        t_ns, source_peak_ns + exporter.surface_reflection_time(0.1, 0.1)
+    )
+    background = direct + surface
+    _write_h5(h5_dir / "T_bg_merged.h5", np.tile(background[:, None], (1, 3)))
+    _write_h5(h5_dir / "T_fs.h5", direct[:, None])
+
+    x_mid = SCAN_START_M + np.arange(N_TRACES) * TRACE_STEP_M
+    # A small lateral gain drift stands in for the FDTD lateral residual of a real line.
+    lateral_gain = 1.0 + BACKGROUND_LINE_DRIFT * np.arange(N_TRACES)
+    for model_id, pipe_xs in (("T_D060", (0.8, 1.4)), ("T_C1", (1.0,)), ("T_BGL", ())):
+        bscan = background[:, None] * lateral_gain[None, :]
+        for amplitude, x0 in zip((1.0, 0.8), pipe_xs, strict=False):
+            ray_ns = exporter.trace_reflection_times(
+                x_mid, 0.1, 0.1, x0, 0.3, 0.05, VELOCITY_M_PER_NS
+            )
+            for i, ray in enumerate(ray_ns):
+                bscan[:, i] += amplitude * _ricker(t_ns, source_peak_ns + ray)
+        _write_h5(h5_dir / f"{model_id}_merged.h5", bscan)
+    return h5_dir
+
+
+@pytest.fixture
+def s1g_export(exporter: ModuleType, tmp_path: Path) -> tuple[ModuleType, Path]:
+    h5_dir = _write_fake_runs(exporter, tmp_path)
+    out_dir = tmp_path / "out"
+    exporter.main(
+        [
+            "--s1g",
+            str(_models_json(tmp_path)),
+            "--h5-dir",
+            str(h5_dir),
+            "--out-dir",
+            str(out_dir),
+        ]
+    )
+    return exporter, out_dir
+
+
+def _read_json(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def test_two_pipe_json_lists_every_pipe_with_its_own_apex(s1g_export):
+    _, out_dir = s1g_export
+    meta = _read_json(out_dir / "T_D060.json")
+    assert meta["n_pipes"] == 2
+    pipes = meta["pipes"]
+    assert [p["pipe_center_x_m"] for p in pipes] == [0.8, 1.4]  # sorted by x
+    assert [p["apex_trace_index"] for p in pipes] == [10, 25]
+    for pipe in pipes:
+        assert pipe["pipe_top_depth_m"] == 0.3
+        assert pipe["pipe_center_depth_m"] == pytest.approx(0.35)
+        assert pipe["t0_top_ns"] == pytest.approx(2 * 0.3 / VELOCITY_M_PER_NS)
+        ray = pipe["ray_reflection_time_ns"]
+        assert len(ray) == N_TRACES
+        assert int(np.argmin(ray)) == pipe["apex_trace_index"]
+        apex = pipe["apex"]
+        assert apex["trace_index"] == pipe["apex_trace_index"]
+        assert apex["wavelet_lag_ns"] == pytest.approx(0.0, abs=0.02)
+        assert pipe["velocity_check"][
+            "apparent_v_ratio_from_pick_slope"
+        ] == pytest.approx(1.0, abs=0.01)
+
+
+def test_velocity_picks_stay_on_their_own_side_of_the_midpoint(s1g_export):
+    _, out_dir = s1g_export
+    pipes = _read_json(out_dir / "T_D060.json")["pipes"]
+    x_mid = SCAN_START_M + np.arange(N_TRACES) * TRACE_STEP_M
+    midpoint_m = 1.1
+    left_picks = [
+        x
+        for x, pick in zip(x_mid, pipes[0]["trace_envelope_pick_ns"], strict=True)
+        if pick is not None
+    ]
+    right_picks = [
+        x
+        for x, pick in zip(x_mid, pipes[1]["trace_envelope_pick_ns"], strict=True)
+        if pick is not None
+    ]
+    assert left_picks and max(left_picks) < midpoint_m
+    assert right_picks and min(right_picks) > midpoint_m
+    assert pipes[0]["velocity_check"]["n_picks"] == len(left_picks)
+
+
+def test_two_pipe_json_keeps_single_pipe_keys_for_pipe_zero(s1g_export):
+    _, out_dir = s1g_export
+    meta = _read_json(out_dir / "T_D060.json")
+    assert list(meta)[: len(SINGLE_PIPE_KEYS)] == SINGLE_PIPE_KEYS
+    first = meta["pipes"][0]
+    for key in (
+        "pipe_center_x_m",
+        "pipe_top_depth_m",
+        "ray_reflection_time_ns",
+        "apex",
+        "velocity_check",
+    ):
+        assert meta[key] == first[key]
+    assert meta["files"]["gprmax_input"] == "in/T_D060.in"
+    assert "bg_lateral_diff_rel_x0.4_x3.6" in meta["checks"]
+    truth = load_synthetic_truth("T_D060", root=out_dir)
+    assert truth.pipe_center_x_m == 0.8
+    assert truth.apex_trace_index == 10
+
+
+def test_single_pipe_s1g_model_also_gets_a_pipe_list(s1g_export):
+    _, out_dir = s1g_export
+    meta = _read_json(out_dir / "T_C1.json")
+    assert meta["n_pipes"] == 1
+    assert meta["pipes"][0]["apex_trace_index"] == 15
+    assert meta["apex"] == meta["pipes"][0]["apex"]
+
+
+def test_background_line_has_no_pipe_and_null_pipe_keys(s1g_export):
+    _, out_dir = s1g_export
+    meta = _read_json(out_dir / "T_BGL.json")
+    assert meta["n_pipes"] == 0
+    assert meta["pipes"] == []
+    assert list(meta)[: len(SINGLE_PIPE_KEYS)] == SINGLE_PIPE_KEYS
+    for key in (
+        "pipe_material", "pipe_center_x_m", "pipe_top_depth_m", "pipe_radius_m",
+        "t0_top_ns", "ray_reflection_time_ns", "apex", "velocity_check",
+        "trace_envelope_pick_ns",
+    ):  # fmt: skip
+        assert meta[key] is None, key
+    assert meta["checks"]["pre_arrival_residual_rel"] is None
+    # Last trace drifts by DRIFT * (N - 1) in amplitude; the envelope peak is >= |peak|.
+    largest_drift = BACKGROUND_LINE_DRIFT * (N_TRACES - 1)
+    assert (
+        0.5 * largest_drift < meta["checks"]["line_residual_max_rel"] <= largest_drift
+    )
+    assert meta["time_zero_candidates_ns"]["surface_reflection_peak"] is not None
+
+
+@pytest.mark.parametrize("model_id", ["T_BGL", "T_C1", "T_D060"])
+def test_every_line_has_the_harness_axes_and_antenna_height(s1g_export, model_id):
+    _, out_dir = s1g_export
+    meta = _read_json(out_dir / f"{model_id}.json")
+    assert meta["trace_x_m_first"] == pytest.approx(SCAN_START_M, abs=1e-12)
+    assert meta["dx_m"] == TRACE_STEP_M
+    assert meta["time_of_sample0_ns"] == 0.0
+    assert meta["dt_ns"] == pytest.approx(DT_NS, rel=1e-12)
+    assert meta["air_gap_m"] == ANTENNA_HEIGHT_M
+
+
+@pytest.mark.parametrize("model_id", ["T_C1", "T_D060"])
+def test_pipe_lines_load_like_the_harness(s1g_export, model_id):
+    _, out_dir = s1g_export
+    radargram = load_synthetic(
+        model_id,
+        root=out_dir,
+        include_eps=True,
+        include_radius=False,
+        include_height=True,
+    )
+    assert radargram.antenna_height_m == ANTENNA_HEIGHT_M
+    assert radargram.dx_m == TRACE_STEP_M
+    assert radargram.metadata["time_of_sample0_ns"] == 0.0
+
+
+@pytest.mark.parametrize("include_radius", [False, True])
+def test_background_line_loads_like_the_harness(s1g_export, include_radius):
+    _, out_dir = s1g_export
+    meta = _read_json(out_dir / "T_BGL.json")
+    radargram = load_synthetic(
+        "T_BGL",
+        root=out_dir,
+        include_eps=True,
+        include_radius=include_radius,
+        include_height=True,
+    )
+    assert radargram.data.shape == (meta["n_samples"], N_TRACES)
+    assert radargram.eps_r_meta == meta["eps_r"]
+    assert radargram.antenna_height_m == ANTENNA_HEIGHT_M
+    assert radargram.pipe_radius_m is None
+    assert radargram.metadata["trace_x_m_first"] == meta["trace_x_m_first"]
+
+
+def test_background_line_has_no_pipe_truth(s1g_export):
+    _, out_dir = s1g_export
+    assert load_synthetic_pipe_truths("T_BGL", root=out_dir) == []
+    with pytest.raises(ValueError, match="background line"):
+        load_synthetic_truth("T_BGL", root=out_dir)
+
+
+def test_pipe_truths_list_every_pipe(s1g_export):
+    _, out_dir = s1g_export
+    two = load_synthetic_pipe_truths("T_D060", root=out_dir)
+    assert [t.pipe_center_x_m for t in two] == [0.8, 1.4]
+    assert [t.apex_trace_index for t in two] == [10, 25]
+    assert all(t.pipe_top_depth_m == 0.3 for t in two)
+    assert two[0] == load_synthetic_truth("T_D060", root=out_dir)
+    one = load_synthetic_pipe_truths("T_C1", root=out_dir)
+    assert one == [load_synthetic_truth("T_C1", root=out_dir)]
+    assert one[0].apex_trace_index == 15
+
+
+def test_s1g_manifest_joins_per_pipe_values(s1g_export):
+    _, out_dir = s1g_export
+    with (out_dir / "manifest.csv").open(encoding="utf-8", newline="") as handle:
+        rows = {row["model_id"]: row for row in csv.DictReader(handle)}
+    assert set(rows) == {"T_D060", "T_C1", "T_BGL"}
+    assert rows["T_BGL"]["n_pipes"] == "0"
+    assert rows["T_BGL"]["pipe_center_x_m"] == ""
+    assert rows["T_D060"]["n_pipes"] == "2"
+    assert rows["T_D060"]["pipe_center_x_m"] == "0.8;1.4"
+    assert len(rows["T_D060"]["apex_envelope_peak_ns"].split(";")) == 2
+    assert rows["T_C1"]["pipe_center_x_m"] == "1.0"
+
+
+def test_apex_trace_mismatch_with_the_spec_is_an_error(exporter, tmp_path):
+    h5_dir = _write_fake_runs(exporter, tmp_path)
+    spec, sources = exporter.load_s1g_specs(_models_json(tmp_path), h5_dir)[0]
+    spec["expected_apex_trace_index"] = [11, 25]
+    with pytest.raises(ValueError, match="apex traces"):
+        exporter.export_model(spec, sources, tmp_path / "out")
+
+
+def test_spec_without_pipe_list_keeps_the_single_pipe_schema(exporter, tmp_path):
+    h5_dir = _write_fake_runs(exporter, tmp_path)
+    spec, sources = exporter.load_s1g_specs(_models_json(tmp_path), h5_dir)[1]
+    del spec["pipes"], spec["expected_apex_trace_index"], spec["gprmax_input"]
+    meta = exporter.export_model(spec, sources, tmp_path / "out")
+    assert list(meta) == SINGLE_PIPE_KEYS
+    assert meta["files"]["gprmax_input"] == "scripts/synthetic/inputs/T_C1.in"
+    exporter.write_manifest(tmp_path / "out", [meta])
+    header = (
+        (tmp_path / "out" / "manifest.csv").read_text(encoding="utf-8").splitlines()[0]
+    )
+    assert header.split(",") == exporter.MANIFEST_FIELDS
+
+
+def _assert_same_json(actual, expected, path="$"):
+    """Same keys in the same order and same values; floats within 1e-9 relative.
+
+    The stored files were written in env gprmax-acceleration; numpy/scipy builds of
+    other envs can change the last printed digit of a float, so exact bytes are only
+    expected there (checked by the before/after export run, not by this test).
+    """
+    if isinstance(expected, dict):
+        assert isinstance(actual, dict), path
+        assert list(actual) == list(expected), path
+        for key in expected:
+            _assert_same_json(actual[key], expected[key], f"{path}.{key}")
+    elif isinstance(expected, list):
+        assert isinstance(actual, list) and len(actual) == len(expected), path
+        for i, (item, expected_item) in enumerate(zip(actual, expected, strict=True)):
+            _assert_same_json(item, expected_item, f"{path}[{i}]")
+    elif isinstance(expected, float):
+        assert actual == pytest.approx(expected, rel=1e-9, abs=1e-12), path
+    else:
+        assert actual == expected, path
+
+
+@pytest.mark.synthetic
+def test_single_pipe_export_matches_the_stored_files(exporter, tmp_path):
+    stored_json = STORED_EXPORT / f"{REGRESSION_MODEL}.json"
+    raw_dir = STORED_EXPORT / "_raw" / REGRESSION_MODEL
+    if not (stored_json.exists() and raw_dir.exists()):
+        pytest.skip(f"{STORED_EXPORT} with _raw/{REGRESSION_MODEL} is not available")
+    specs = json.loads(
+        (PROJECT / "scripts" / "synthetic" / "model_specs.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    spec = next(s for s in specs if s["model_id"] == REGRESSION_MODEL)
+    exporter.export_model(
+        spec, exporter.legacy_source_files(spec, STORED_EXPORT / "_raw"), tmp_path
+    )
+    for name in (
+        f"{REGRESSION_MODEL}.npy",
+        f"{REGRESSION_MODEL}_bg.npy",
+        f"{REGRESSION_MODEL}_fs.npy",
+    ):
+        assert (tmp_path / name).read_bytes() == (STORED_EXPORT / name).read_bytes(), (
+            name
+        )
+    _assert_same_json(_read_json(tmp_path / stored_json.name), _read_json(stored_json))

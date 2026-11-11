@@ -11,6 +11,11 @@ Facts used here (``scripts/synthetic/export_dataset.py`` and the json files):
   zero and apex times). Only the settings a real survey would record go into
   the :class:`Radargram` (``load_synthetic``); the truth is a separate typed
   object (``load_synthetic_truth``) so it cannot leak into depth estimation.
+* Multi-pipe exports (S1g, M2-10) add ``n_pipes`` and a ``pipes`` list; the
+  top-level pipe keys then describe ``pipes[0]``. A background line has
+  ``n_pipes == 0`` and null pipe keys: it loads as a radargram, has no pipe
+  truth (``load_synthetic_pipe_truths`` returns ``[]``). Jsons without
+  ``n_pipes`` (M01-M20) are read exactly as before.
 """
 
 from collections.abc import Mapping
@@ -49,8 +54,31 @@ _REQUIRED_TOP_LEVEL = (
     "apex",
     "time_zero_candidates_ns",
 )
+# Survey settings a background line (n_pipes == 0) still must carry.
+_REQUIRED_WITHOUT_PIPE = (
+    "dt_ns",
+    "dx_m",
+    "n_samples",
+    "n_traces",
+    "center_freq_hz",
+    "eps_r",
+    "velocity_m_per_ns",
+    "air_gap_m",
+    "antenna_offset_m",
+    "trace_x_m_first",
+    "time_zero_candidates_ns",
+)
 _REQUIRED_APEX = ("trace_index", "envelope_peak_ns")
 _REQUIRED_ZERO = ("source_peak",)
+_REQUIRED_PIPE_ENTRY = (
+    "pipe_top_depth_m",
+    "pipe_center_depth_m",
+    "pipe_radius_m",
+    "pipe_center_x_m",
+    "t0_top_ns",
+    "ray_reflection_time_ns",
+    "apex",
+)
 
 
 @dataclass(frozen=True)
@@ -111,18 +139,28 @@ def _missing_fields(record: Mapping[str, Any], fields: tuple[str, ...]) -> list[
     return [name for name in fields if record.get(name) is None]
 
 
+def _is_background_line(meta: Mapping[str, Any]) -> bool:
+    """True for an export without any pipe (``n_pipes == 0``)."""
+    return meta.get("n_pipes") == 0
+
+
 def _read_checked_json(json_path: Path) -> dict[str, Any]:
     """Read a model json and check every field this module relies on.
+
+    A background line (``n_pipes == 0``) is checked for survey settings only.
 
     Raises:
         ValueError: If a required field is missing or null.
     """
     meta = read_json(json_path)
-    missing = _missing_fields(meta, _REQUIRED_TOP_LEVEL)
-    missing += [
-        f"apex.{name}"
-        for name in _missing_fields(meta.get("apex") or {}, _REQUIRED_APEX)
-    ]
+    if _is_background_line(meta):
+        missing = _missing_fields(meta, _REQUIRED_WITHOUT_PIPE)
+    else:
+        missing = _missing_fields(meta, _REQUIRED_TOP_LEVEL)
+        missing += [
+            f"apex.{name}"
+            for name in _missing_fields(meta.get("apex") or {}, _REQUIRED_APEX)
+        ]
     zero_candidates = meta.get("time_zero_candidates_ns") or {}
     missing += [
         f"time_zero_candidates_ns.{name}"
@@ -161,7 +199,8 @@ def load_synthetic(
         root: Folder holding the ``.npy``/``.json`` pairs.
         include_eps: Pass the true eps_r as ``eps_r_meta``; False tests the
             no-metadata velocity rules.
-        include_radius: Pass the true radius as ``pipe_radius_m``.
+        include_radius: Pass the true radius as ``pipe_radius_m`` (None for a
+            background line, ``n_pipes == 0``).
         include_height: Pass ``air_gap_m > 0`` as ``antenna_height_m``; False
             tests the unknown-height zero rule (regression R14).
 
@@ -190,7 +229,10 @@ def load_synthetic(
         eps_r_meta_source=EPS_R_SOURCE if include_eps else "",
         antenna_offset_m=float(meta["antenna_offset_m"]),
         antenna_height_m=air_gap_m if include_height and air_gap_m > 0 else None,
-        pipe_radius_m=float(meta["pipe_radius_m"]) if include_radius else None,
+        # A background line has no pipe, so its radius stays None.
+        pipe_radius_m=(
+            _optional_float(meta["pipe_radius_m"]) if include_radius else None
+        ),
         metadata={
             "model_id": model_id,
             "trace_x_m_first": float(meta["trace_x_m_first"]),
@@ -217,28 +259,27 @@ def _optional_float(value: Any) -> float | None:
     return None if value is None else float(value)
 
 
-def load_synthetic_truth(
-    model_id: str, *, root: Path = DEFAULT_SYNTHETIC_ROOT
+def _truth_from(
+    model_id: str, meta: Mapping[str, Any], pipe: Mapping[str, Any]
 ) -> SyntheticTruth:
-    """Read the ground truth of one model from its json.
+    """Build the truth of one pipe: pipe keys from ``pipe``, the rest from ``meta``.
 
-    Raises:
-        ValueError: If a required field is missing or null.
+    ``pipe`` is the json top level for a single-pipe export or one ``pipes``
+    entry; both use the same key names.
     """
-    meta = _read_checked_json(root / f"{model_id}.json")
-    apex = meta["apex"]
+    apex = pipe["apex"]
     zero_candidates = meta["time_zero_candidates_ns"]
     return SyntheticTruth(
         model_id=model_id,
-        pipe_top_depth_m=float(meta["pipe_top_depth_m"]),
-        pipe_center_depth_m=float(meta["pipe_center_depth_m"]),
-        pipe_radius_m=float(meta["pipe_radius_m"]),
-        pipe_center_x_m=float(meta["pipe_center_x_m"]),
+        pipe_top_depth_m=float(pipe["pipe_top_depth_m"]),
+        pipe_center_depth_m=float(pipe["pipe_center_depth_m"]),
+        pipe_radius_m=float(pipe["pipe_radius_m"]),
+        pipe_center_x_m=float(pipe["pipe_center_x_m"]),
         eps_r=float(meta["eps_r"]),
         velocity_m_per_ns=float(meta["velocity_m_per_ns"]),
         air_gap_m=float(meta["air_gap_m"]),
         antenna_offset_m=float(meta["antenna_offset_m"]),
-        t0_top_ns=float(meta["t0_top_ns"]),
+        t0_top_ns=float(pipe["t0_top_ns"]),
         apex_trace_index=int(apex["trace_index"]),
         apex_envelope_peak_ns=float(apex["envelope_peak_ns"]),
         source_peak_ns=float(zero_candidates["source_peak"]),
@@ -248,6 +289,59 @@ def load_synthetic_truth(
         ),
         wavelet_lag_ns=_optional_float(apex.get("wavelet_lag_ns")),
         trace_x_m_first=float(meta["trace_x_m_first"]),
-        ray_reflection_time_ns=tuple(float(t) for t in meta["ray_reflection_time_ns"]),
-        pipe_material=meta.get("pipe_material"),
+        ray_reflection_time_ns=tuple(float(t) for t in pipe["ray_reflection_time_ns"]),
+        pipe_material=pipe.get("pipe_material"),
     )
+
+
+def load_synthetic_truth(
+    model_id: str, *, root: Path = DEFAULT_SYNTHETIC_ROOT
+) -> SyntheticTruth:
+    """Read the ground truth of one model from its json.
+
+    For a multi-pipe export this is the truth of ``pipes[0]`` (the pipe with
+    the smallest x, mirrored in the top-level keys); use
+    :func:`load_synthetic_pipe_truths` for every pipe.
+
+    Raises:
+        ValueError: If a required field is missing or null, or the model is a
+            background line (``n_pipes == 0``, no pipe truth).
+    """
+    meta = _read_checked_json(root / f"{model_id}.json")
+    if _is_background_line(meta):
+        raise ValueError(
+            f"{model_id} is a background line (n_pipes == 0) and has no pipe truth;"
+            " use load_synthetic_pipe_truths"
+        )
+    return _truth_from(model_id, meta, meta)
+
+
+def load_synthetic_pipe_truths(
+    model_id: str, *, root: Path = DEFAULT_SYNTHETIC_ROOT
+) -> list[SyntheticTruth]:
+    """Read the ground truth of every pipe of one model, sorted by pipe x.
+
+    Returns:
+        ``[]`` for a background line (``n_pipes == 0``); one entry per
+        ``pipes`` element for a multi-pipe export; for a json without
+        ``pipes`` (M01-M20) the single :func:`load_synthetic_truth` result.
+
+    Raises:
+        ValueError: If a required field (top level or pipe entry) is missing
+            or null.
+    """
+    json_path = root / f"{model_id}.json"
+    meta = _read_checked_json(json_path)
+    if "pipes" not in meta:
+        return [_truth_from(model_id, meta, meta)]
+    truths = []
+    for index, pipe in enumerate(meta["pipes"]):
+        missing = _missing_fields(pipe, _REQUIRED_PIPE_ENTRY)
+        missing += [
+            f"apex.{name}"
+            for name in _missing_fields(pipe.get("apex") or {}, _REQUIRED_APEX)
+        ]
+        if missing:
+            raise ValueError(f"{json_path}: pipes[{index}] misses fields {missing}")
+        truths.append(_truth_from(model_id, meta, pipe))
+    return truths
