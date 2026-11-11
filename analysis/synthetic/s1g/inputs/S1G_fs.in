@@ -1,0 +1,10 @@
+#title: S1G_fs free-space reference (no soil) f=500MHz, antenna at y=1.2, trace x=2.0
+#domain_mode: TM
+#domain: 4.0 1.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.95 1.2 inf src_wave
+#rx: 2.05 1.2 inf rx1 Ez

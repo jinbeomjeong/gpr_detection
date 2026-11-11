@@ -1,0 +1,155 @@
+{
+ "structure": {
+  "bg": {
+   "attrs": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "nrx": 1,
+    "nsrc": 1
+   },
+   "shape(time,trace)": [
+    4665,
+    3
+   ],
+   "dtype": "float32",
+   "rx_positions": [
+    [
+     0.45,
+     1.2,
+     0.0
+    ],
+    [
+     2.05,
+     1.2,
+     0.0
+    ],
+    [
+     3.65,
+     1.2,
+     0.0
+    ]
+   ]
+  },
+  "fs": {
+   "attrs": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "nrx": 1,
+    "nsrc": 1
+   },
+   "shape(time,trace)": [
+    4665,
+    1
+   ],
+   "dtype": "float32",
+   "rx_positions": [
+    2.05,
+    1.2,
+    0.0
+   ]
+  },
+  "C1_pilot": {
+   "attrs": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "nrx": 1,
+    "nsrc": 1
+   },
+   "shape(time,trace)": [
+    4665,
+    2
+   ],
+   "dtype": "float32",
+   "rx_positions": [
+    [
+     2.05,
+     1.2,
+     0.0
+    ],
+    [
+     2.35,
+     1.2,
+     0.0
+    ]
+   ]
+  },
+  "D060_pilot": {
+   "attrs": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "nrx": 1,
+    "nsrc": 1
+   },
+   "shape(time,trace)": [
+    4665,
+    2
+   ],
+   "dtype": "float32",
+   "rx_positions": [
+    [
+     1.75,
+     1.2,
+     0.0
+    ],
+    [
+     2.05,
+     1.2,
+     0.0
+    ]
+   ]
+  }
+ },
+ "structure_consistent_dt_iterations": true,
+ "bg_lateral_rel_max_diff": [
+  2.2384585079330968e-06,
+  1.9801748339408166e-06
+ ],
+ "time_zero_ns": {
+  "source_peak": 2.8284271247461903,
+  "free_space_direct_peak": 3.18072926048082,
+  "bg_envelope_peak (direct+surface, single band?)": 3.2184965628077156,
+  "surface_reflection_peak (bg - fs)": 3.6161711292548855,
+  "surface_reflection_geom_vertical_2h_over_c_plus_src": 3.4955553151424943,
+  "surface_reflection_geom_offset": 3.57429911646247
+ },
+ "C1_apex": {
+  "envelope_peak_ns": 15.567466564628555,
+  "fermat_ray_time_ns": 12.703154659715386,
+  "expected_peak_src_plus_ray_ns": 15.531581784461576,
+  "wavelet_lag_ns": 0.035884780166980754,
+  "depth_from_surface_zero_m": 0.5971513724758087,
+  "depth_error_cm": -0.28486275241912384,
+  "note": "depth = v*(t_apex - t_surface_reflection)/2; antenna offset 0.1 m neglected (geom effect 0.138 cm)"
+ },
+ "C1_offset_0p3": {
+  "envelope_peak_ns": 16.412167297288605,
+  "fermat_ray_time_ns": 13.552676249074636,
+  "vertical_leg_time_ns": 13.994168989344308,
+  "lag_vs_fermat_ns": 0.031063923467779957
+ },
+ "D060_midpoint_superposition": {
+  "corr_r": 0.987106763982371,
+  "rel_l2_resid": 0.16181051306301403,
+  "rel_max_resid": 0.12352798499507534,
+  "note": "residual = pipe-pipe multiple scattering + grid placement; first-order superposition expected",
+  "resid_gt_5pct_first_ns": 20.59105235982474,
+  "first_multiple_geom_ns": 21.82605754206278,
+  "rel_max_resid_before_19ns": 4.78278066699453e-06,
+  "corr_r_before_19ns": 0.9999999999903479
+ },
+ "D060_apex_pipeA": {
+  "own_apex_peak_ns": 15.571547384368582,
+  "own_apex_minus_C1_apex_ns": 0.004080819740027249,
+  "own_apex_depth_from_surface_zero_m": 0.597355272305895,
+  "neighbour_fermat_ray_ns": 15.35596634200113,
+  "neighbour_expected_peak_ns": 18.18439346674732,
+  "neighbour_measured_peak_ns": 18.161119594339194,
+  "neighbour_to_own_amplitude_ratio": 0.18061277006621806,
+  "own_vs_neighbour_separation_ns": 2.5895722099706115
+ },
+ "late_time_rel": {
+  "D060_mid_last5ns_over_max": 0.0018520898286461015,
+  "bg_last5ns_over_max": 8.693103511805353e-08
+ },
+ "finite": true
+}

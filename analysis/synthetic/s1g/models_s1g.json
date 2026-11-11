@@ -1,0 +1,674 @@
+{
+ "study": "S1g (M2-10, docs/processing/m210d_event_selection_diagnosis.md section 7): two same-depth PEC pipes, lateral separation 0.6 m and 1.0 m, plus a single-pipe control",
+ "author": "electromagnetic-simulation-expert, 2026-11-11",
+ "simulator": "gprMax 4.0.1 (env gprmax-acceleration), 2D TMz, GPU",
+ "conventions": {
+  "coordinates": "gprMax x horizontal, y up. Ground surface y_surface_m; depth d = y_surface_m - y",
+  "trace_x_m": "x_m[i] = scan_start_m + i * trace_step_m (Tx/Rx midpoint), i = 0..n_traces-1",
+  "antenna": "z-directed Hertzian dipole Tx at x_m - 0.05, Rx (Ez) at x_m + 0.05, both at y_antenna_m (common offset 0.10 m, same as M01-M20)",
+  "wavelet": "gprMax ricker 500 MHz (current of the dipole), peak at sqrt(2)/f = 2.8284 ns",
+  "air_gap": "h = 0.10 m (air-coupled, 4TU-like single direct+surface band; same h as M12/M13)",
+  "array_layout": "rxs/rx1/Ez merged (Iterations, ntraces) float32, raw field, no gain/filter/time-zero shift",
+  "depth_reference": "pipe_top_depth_m is the pipe crown below the ground surface",
+  "export_axes": "same as the M01-M20 export json: trace_x_m_first 0.40 (Tx/Rx midpoint), dx_m 0.02, time_of_sample0_ns 0.0, dt_ns = gprMax dt (raw simulation time)"
+ },
+ "g4_background_line": {
+  "decision": "use G4: export S1G_BGL (161-trace background line) as line S1G/S1G_BGL",
+  "why_not_3_traces": "S1G_bg has 3 traces 1.6 m apart; the generator, apex hint (+-3 traces), NMS 0.3 m and support logic need a 0.02 m line. Tiling one trace into 161 would make any lateral background removal exactly zero, a different numeric path from the pipe lines, which carry the real FDTD lateral residual (pilot bg x 0.4/3.6 vs 2.0: 2.2e-6, 2.0e-6 relative)",
+  "cost": "one more 161-trace run, about 9.5 min GPU (same as each pipe model)",
+  "s1g_bg_role": "S1G_bg (3 traces) and S1G_fs stay as time-zero references (surface reflection = bg - fs)",
+  "applied": "G4 applied (user decision 2026-11-11, spec_eval v1.9 section 12-4-3; G4 failure -> hold, rank 3)",
+  "line_id": "S1G/S1G_BGL",
+  "expected_events": "none (expected_events.S1G_BGL = [])"
+ },
+ "common": {
+  "eps_r": 9.0,
+  "soil_sigma_S_per_m": 0.001,
+  "velocity_m_per_ns": 0.09993081933333334,
+  "center_freq_hz": 500000000.0,
+  "air_gap_m": 0.1,
+  "antenna_offset_m": 0.1,
+  "fdtd_cell_m": 0.005,
+  "pml_cells": 20,
+  "domain_m": [
+   4.0,
+   1.45
+  ],
+  "y_surface_m": 1.1,
+  "y_antenna_m": 1.2,
+  "time_window_ns": 55.0,
+  "dt_s": 1.1793271683748419e-11,
+  "iterations": 4665,
+  "pipe_material": "pec",
+  "pipe_radius_m": 0.05,
+  "pipe_top_depth_m": 0.6,
+  "pipe_center_depth_m": 0.65,
+  "y_pipe_center_m": 0.45
+ },
+ "models": [
+  {
+   "id": "S1G_D060",
+   "input": "analysis/synthetic/s1g/inputs/S1G_D060.in",
+   "pipe_center_x_m": [
+    1.7,
+    2.3
+   ],
+   "separation_m": 0.6,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "n_traces": 161,
+   "apex_trace_index": [
+    65,
+    95
+   ],
+   "output": "data/synthetic_gprmax_s1g/h5/S1G_D060_merged.h5"
+  },
+  {
+   "id": "S1G_D100",
+   "input": "analysis/synthetic/s1g/inputs/S1G_D100.in",
+   "pipe_center_x_m": [
+    1.5,
+    2.5
+   ],
+   "separation_m": 1.0,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "n_traces": 161,
+   "apex_trace_index": [
+    55,
+    105
+   ],
+   "output": "data/synthetic_gprmax_s1g/h5/S1G_D100_merged.h5"
+  },
+  {
+   "id": "S1G_C1",
+   "input": "analysis/synthetic/s1g/inputs/S1G_C1.in",
+   "pipe_center_x_m": [
+    2.0
+   ],
+   "separation_m": null,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "n_traces": 161,
+   "apex_trace_index": [
+    80
+   ],
+   "output": "data/synthetic_gprmax_s1g/h5/S1G_C1_merged.h5"
+  },
+  {
+   "id": "S1G_BGL",
+   "input": "analysis/synthetic/s1g/inputs/S1G_BGL.in",
+   "pipe_center_x_m": [],
+   "role": "background line (no pipe), 161 traces x = 0.4..3.6, for the G4 null test (spec_eval v1.9 section 12-4-3); export as line S1G/S1G_BGL",
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "n_traces": 161,
+   "apex_trace_index": [],
+   "output": "data/synthetic_gprmax_s1g/h5/S1G_BGL_merged.h5"
+  },
+  {
+   "id": "S1G_bg",
+   "input": "analysis/synthetic/s1g/inputs/S1G_bg.in",
+   "pipe_center_x_m": [],
+   "role": "background (no pipe), 3 traces at x = 0.4, 2.0, 3.6",
+   "output": "data/synthetic_gprmax_s1g/h5/S1G_bg_merged.h5"
+  },
+  {
+   "id": "S1G_fs",
+   "input": "analysis/synthetic/s1g/inputs/S1G_fs.in",
+   "pipe_center_x_m": [],
+   "role": "free-space reference (no soil), 1 trace at x = 2.0; bg - fs isolates the surface reflection",
+   "output": "data/synthetic_gprmax_s1g/h5/S1G_fs.h5"
+  }
+ ],
+ "time_zero_candidates_ns_measured_pilot": {
+  "source_peak": 2.8284271247461903,
+  "free_space_direct_peak": 3.18072926048082,
+  "background_envelope_peak_single_band": 3.2184965628077156,
+  "surface_reflection_peak_bg_minus_fs": 3.6161711292548855,
+  "notes": "envelope (Hilbert) peaks with parabolic refinement, trace x = 2.0. surface_reflection_geom (offset path) = 3.5743 ns"
+ },
+ "apex_measured_pilot": {
+  "single_pipe_apex_envelope_peak_ns": 15.567466564628555,
+  "expected_src_plus_fermat_ray_ns": 15.531581784461576,
+  "wavelet_lag_ns": 0.0359,
+  "depth_from_surface_zero_m": 0.5972,
+  "neighbour_echo_at_apex_trace_D060": {
+   "peak_ns": 18.1611,
+   "expected_ns": 18.1844,
+   "amplitude_ratio_to_own_apex": 0.181,
+   "separation_from_own_apex_ns": 2.59
+  }
+ },
+ "known_extra_events": [
+  "pipe-ground-surface multiple near 27-29 ns at the apex (apparent depth about 2 x 0.6 m), about 5-8 % of the primary apex peak (read from pilot_ascans.png), present in all pipe models",
+  "pipe-to-pipe multiples in the two-pipe models from about 20 ns at the midpoint (Fermat apex 21.60 ns for D060, pilot 21.62 ns), about 12 % of the midpoint primary peak; full list with mixed pipe-surface paths in expected_events"
+ ],
+ "pilot": {
+  "inputs": [
+   "analysis/synthetic/s1g/pilot/P_D060.in (traces x = 1.7, 2.0)",
+   "analysis/synthetic/s1g/pilot/P_C1.in (traces x = 2.0, 2.3)"
+  ],
+  "outputs": "data/synthetic_gprmax_s1g/pilot/",
+  "checks": "analysis/synthetic/s1g/pilot/pilot_check.json",
+  "figure": "analysis/synthetic/s1g/pilot/pilot_ascans.png"
+ },
+ "expected_events_meta": {
+  "written": "2026-11-11, before any full-run output existed (pilot traces x=1.7/2.0/2.3 and geometry only)",
+  "axes": "x_m = trace_x_m_first + i*dx with trace_x_m_first 0.40, dx 0.02 (Tx/Rx midpoint); t_ns = time_of_sample0_ns + k*dt with time_of_sample0_ns 0.0 (raw simulation time, two-way, no time-zero shift), i.e. the same axes as the M01-M20 export json",
+  "t_definition": "expected envelope (Hilbert) peak = source peak sqrt(2)/f (2.8284 ns) + Fermat ray time + wavelet lag 0.036 ns (pilot primary)",
+  "x_definition": "apex = trace position (0.02 m grid) of minimum ray time of that path",
+  "apparent_depth_m": "v*(t_ns - 3.616)/2, v = c/3, zero = pilot surface-reflection peak (bg - fs)",
+  "apparent_depth_m_band_zero": "v*(t_ns - 3.218)/2, zero = pilot single direct+surface band envelope peak (what an air_single_event zero would give)",
+  "kinds": {
+   "primary": "pipe crown reflection, the only truth",
+   "multiple_surface": "M1 pipe-surface-same pipe (order 1 and 2)",
+   "multiple_pipe": "M2 pipe-pipe only (A-B, A-B-A)",
+   "multiple_other": "mixed pipe-pipe with surface bounce(s)"
+  },
+  "enumeration": "all paths with <= 3 pipe scatterings and <= 2 surface bounces; reciprocal (reversed) paths are the same event; mirror-symmetric paths with identical curves are merged",
+  "not_listed": "paths with >= 4 scatterings or >= 3 surface bounces (pilot amplitudes of the 3-scattering events are 0.5-5.5 % of the primary, higher orders are expected below ~1 %); hyperbola wings are not events",
+  "pilot_validation": "9 events measured on pilot traces agree with geometry within -0.24..+0.08 ns (largest: Tx-A-S-B-S-A at x 1.70 vs apex 1.72)",
+  "ambiguity": "S1G_D100: M1 order 2 (x 1.5/2.5, 39.58 ns) and Tx-A-B-S-A / Tx-B-A-S-B (x 1.52/2.48, 40.45/40.43 ns) are within the attach window (dt 0.84-0.86 ns); both are non-primary, attach by nearest time",
+  "amplitude_caveat": "2D line-source amplitudes; relative amplitudes are qualitative for 3D",
+  "background_line": "S1G_BGL has no scattering event: only the time-zero band (direct coupling + surface reflection merged, envelope peak 3.218 ns, surface-reflection component 3.616 ns, laterally invariant). Any QC-passing candidate at apparent depth 0.50-0.70 m fails G4; any candidate at all is unexplained (U)"
+ },
+ "expected_events": {
+  "S1G_C1": [
+   {
+    "event_id": "S1G_C1/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 15.567,
+    "apparent_depth_m": 0.597,
+    "apparent_depth_m_band_zero": 0.617,
+    "order": 1,
+    "surface_bounces": 0,
+    "path": "Tx-P-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 2.0,
+     "t_ns": 15.567,
+     "rel_amp": 1.0
+    }
+   },
+   {
+    "event_id": "S1G_C1/E02",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 27.575,
+    "apparent_depth_m": 1.197,
+    "apparent_depth_m_band_zero": 1.217,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-P-S-P-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 2.0,
+     "t_ns": 27.617,
+     "rel_amp": 0.071
+    }
+   },
+   {
+    "event_id": "S1G_C1/E03",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 39.583,
+    "apparent_depth_m": 1.797,
+    "apparent_depth_m_band_zero": 1.817,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-P-S-P-S-P-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 2.0,
+     "t_ns": 39.663,
+     "rel_amp": 0.005
+    }
+   }
+  ],
+  "S1G_D060": [
+   {
+    "event_id": "S1G_D060/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 1.7,
+    "t_ns": 15.567,
+    "apparent_depth_m": 0.597,
+    "apparent_depth_m_band_zero": 0.617,
+    "order": 1,
+    "surface_bounces": 0,
+    "path": "Tx-A-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 1.7,
+     "t_ns": 15.572,
+     "rel_amp": 1.0
+    }
+   },
+   {
+    "event_id": "S1G_D060/E02",
+    "kind": "primary",
+    "pipe_index": 1,
+    "x_m": 2.3,
+    "t_ns": 15.567,
+    "apparent_depth_m": 0.597,
+    "apparent_depth_m_band_zero": 0.617,
+    "order": 1,
+    "surface_bounces": 0,
+    "path": "Tx-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E03",
+    "kind": "multiple_pipe",
+    "x_m": 2.0,
+    "t_ns": 21.6,
+    "apparent_depth_m": 0.899,
+    "apparent_depth_m_band_zero": 0.918,
+    "order": 2,
+    "surface_bounces": 0,
+    "path": "Tx-A-B-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 2.0,
+     "t_ns": 21.623,
+     "rel_amp": 0.188
+    }
+   },
+   {
+    "event_id": "S1G_D060/E04",
+    "kind": "multiple_pipe",
+    "x_m": 1.74,
+    "t_ns": 26.181,
+    "apparent_depth_m": 1.127,
+    "apparent_depth_m_band_zero": 1.147,
+    "order": 3,
+    "surface_bounces": 0,
+    "path": "Tx-A-B-A-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 1.7,
+     "t_ns": 26.205,
+     "rel_amp": 0.044,
+     "note": "pilot trace x=1.70, apex at 1.74"
+    }
+   },
+   {
+    "event_id": "S1G_D060/E05",
+    "kind": "multiple_pipe",
+    "x_m": 2.26,
+    "t_ns": 26.181,
+    "apparent_depth_m": 1.127,
+    "apparent_depth_m_band_zero": 1.147,
+    "order": 3,
+    "surface_bounces": 0,
+    "path": "Tx-B-A-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E06",
+    "kind": "multiple_surface",
+    "x_m": 1.7,
+    "t_ns": 27.575,
+    "apparent_depth_m": 1.197,
+    "apparent_depth_m_band_zero": 1.217,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E07",
+    "kind": "multiple_surface",
+    "x_m": 2.3,
+    "t_ns": 27.575,
+    "apparent_depth_m": 1.197,
+    "apparent_depth_m_band_zero": 1.217,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E08",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 29.495,
+    "apparent_depth_m": 1.293,
+    "apparent_depth_m_band_zero": 1.313,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-A-S-B-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 2.0,
+     "t_ns": 29.415,
+     "rel_amp": 0.086
+    }
+   },
+   {
+    "event_id": "S1G_D060/E09",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 33.69,
+    "apparent_depth_m": 1.503,
+    "apparent_depth_m_band_zero": 1.523,
+    "order": 3,
+    "surface_bounces": 1,
+    "path": "Tx-A-S-A-B-Rx | Tx-A-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "note": "mirror-symmetric paths with identical curves, merged"
+   },
+   {
+    "event_id": "S1G_D060/E10",
+    "kind": "multiple_other",
+    "x_m": 2.28,
+    "t_ns": 34.361,
+    "apparent_depth_m": 1.536,
+    "apparent_depth_m_band_zero": 1.556,
+    "order": 3,
+    "surface_bounces": 1,
+    "path": "Tx-B-A-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E11",
+    "kind": "multiple_other",
+    "x_m": 1.72,
+    "t_ns": 34.388,
+    "apparent_depth_m": 1.538,
+    "apparent_depth_m_band_zero": 1.557,
+    "order": 3,
+    "surface_bounces": 1,
+    "path": "Tx-A-B-S-A-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 1.7,
+     "t_ns": 34.271,
+     "rel_amp": 0.055,
+     "note": "pilot trace x=1.70, apex at 1.72"
+    }
+   },
+   {
+    "event_id": "S1G_D060/E12",
+    "kind": "multiple_surface",
+    "x_m": 1.7,
+    "t_ns": 39.583,
+    "apparent_depth_m": 1.797,
+    "apparent_depth_m_band_zero": 1.817,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-A-S-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E13",
+    "kind": "multiple_surface",
+    "x_m": 2.3,
+    "t_ns": 39.583,
+    "apparent_depth_m": 1.797,
+    "apparent_depth_m_band_zero": 1.817,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-B-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D060/E14",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 41.529,
+    "apparent_depth_m": 1.894,
+    "apparent_depth_m_band_zero": 1.914,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-A-S-A-S-B-Rx | Tx-A-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "note": "mirror-symmetric paths with identical curves, merged"
+   },
+   {
+    "event_id": "S1G_D060/E15",
+    "kind": "multiple_other",
+    "x_m": 1.72,
+    "t_ns": 42.269,
+    "apparent_depth_m": 1.931,
+    "apparent_depth_m_band_zero": 1.951,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-A-S-B-S-A-Rx",
+    "basis": "geometry (Fermat) + pilot measurement",
+    "pilot_measured": {
+     "x_m": 1.7,
+     "t_ns": 42.031,
+     "rel_amp": 0.021,
+     "note": "pilot trace x=1.70, apex at 1.72"
+    }
+   },
+   {
+    "event_id": "S1G_D060/E16",
+    "kind": "multiple_other",
+    "x_m": 2.28,
+    "t_ns": 42.269,
+    "apparent_depth_m": 1.931,
+    "apparent_depth_m_band_zero": 1.951,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-B-S-A-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   }
+  ],
+  "S1G_D100": [
+   {
+    "event_id": "S1G_D100/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 1.5,
+    "t_ns": 15.567,
+    "apparent_depth_m": 0.597,
+    "apparent_depth_m_band_zero": 0.617,
+    "order": 1,
+    "surface_bounces": 0,
+    "path": "Tx-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E02",
+    "kind": "primary",
+    "pipe_index": 1,
+    "x_m": 2.5,
+    "t_ns": 15.567,
+    "apparent_depth_m": 0.597,
+    "apparent_depth_m_band_zero": 0.617,
+    "order": 1,
+    "surface_bounces": 0,
+    "path": "Tx-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E03",
+    "kind": "multiple_pipe",
+    "x_m": 2.0,
+    "t_ns": 26.66,
+    "apparent_depth_m": 1.151,
+    "apparent_depth_m_band_zero": 1.171,
+    "order": 2,
+    "surface_bounces": 0,
+    "path": "Tx-A-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E04",
+    "kind": "multiple_surface",
+    "x_m": 1.5,
+    "t_ns": 27.575,
+    "apparent_depth_m": 1.197,
+    "apparent_depth_m_band_zero": 1.217,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E05",
+    "kind": "multiple_surface",
+    "x_m": 2.5,
+    "t_ns": 27.575,
+    "apparent_depth_m": 1.197,
+    "apparent_depth_m_band_zero": 1.217,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E06",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 32.712,
+    "apparent_depth_m": 1.454,
+    "apparent_depth_m_band_zero": 1.474,
+    "order": 2,
+    "surface_bounces": 1,
+    "path": "Tx-A-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E07",
+    "kind": "multiple_pipe",
+    "x_m": 1.54,
+    "t_ns": 34.178,
+    "apparent_depth_m": 1.527,
+    "apparent_depth_m_band_zero": 1.547,
+    "order": 3,
+    "surface_bounces": 0,
+    "path": "Tx-A-B-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E08",
+    "kind": "multiple_pipe",
+    "x_m": 2.46,
+    "t_ns": 34.178,
+    "apparent_depth_m": 1.527,
+    "apparent_depth_m_band_zero": 1.547,
+    "order": 3,
+    "surface_bounces": 0,
+    "path": "Tx-B-A-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E09",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 38.784,
+    "apparent_depth_m": 1.757,
+    "apparent_depth_m_band_zero": 1.777,
+    "order": 3,
+    "surface_bounces": 1,
+    "path": "Tx-A-S-A-B-Rx | Tx-A-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "note": "mirror-symmetric paths with identical curves, merged"
+   },
+   {
+    "event_id": "S1G_D100/E10",
+    "kind": "multiple_surface",
+    "x_m": 1.5,
+    "t_ns": 39.583,
+    "apparent_depth_m": 1.797,
+    "apparent_depth_m_band_zero": 1.817,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-A-S-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "ambiguous_with": [
+     "S1G_D100/E13"
+    ]
+   },
+   {
+    "event_id": "S1G_D100/E11",
+    "kind": "multiple_surface",
+    "x_m": 2.5,
+    "t_ns": 39.583,
+    "apparent_depth_m": 1.797,
+    "apparent_depth_m_band_zero": 1.817,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-B-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "ambiguous_with": [
+     "S1G_D100/E12"
+    ]
+   },
+   {
+    "event_id": "S1G_D100/E12",
+    "kind": "multiple_other",
+    "x_m": 2.48,
+    "t_ns": 40.426,
+    "apparent_depth_m": 1.839,
+    "apparent_depth_m_band_zero": 1.859,
+    "order": 3,
+    "surface_bounces": 1,
+    "path": "Tx-B-A-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "ambiguous_with": [
+     "S1G_D100/E11"
+    ]
+   },
+   {
+    "event_id": "S1G_D100/E13",
+    "kind": "multiple_other",
+    "x_m": 1.52,
+    "t_ns": 40.447,
+    "apparent_depth_m": 1.84,
+    "apparent_depth_m_band_zero": 1.86,
+    "order": 3,
+    "surface_bounces": 1,
+    "path": "Tx-A-B-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "ambiguous_with": [
+     "S1G_D100/E10"
+    ]
+   },
+   {
+    "event_id": "S1G_D100/E14",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 44.772,
+    "apparent_depth_m": 2.056,
+    "apparent_depth_m_band_zero": 2.076,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-A-S-A-S-B-Rx | Tx-A-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)",
+    "note": "mirror-symmetric paths with identical curves, merged"
+   },
+   {
+    "event_id": "S1G_D100/E15",
+    "kind": "multiple_other",
+    "x_m": 1.52,
+    "t_ns": 46.499,
+    "apparent_depth_m": 2.143,
+    "apparent_depth_m_band_zero": 2.163,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-A-S-B-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   },
+   {
+    "event_id": "S1G_D100/E16",
+    "kind": "multiple_other",
+    "x_m": 2.48,
+    "t_ns": 46.499,
+    "apparent_depth_m": 2.143,
+    "apparent_depth_m_band_zero": 2.163,
+    "order": 3,
+    "surface_bounces": 2,
+    "path": "Tx-B-S-A-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on R=0.05 m circles)"
+   }
+  ],
+  "S1G_BGL": []
+ }
+}
