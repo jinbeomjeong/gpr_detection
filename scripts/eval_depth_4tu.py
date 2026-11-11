@@ -36,7 +36,9 @@ Variants reported (spec 5):
 * tie range and unobservable truths (v1.9, auxiliary only): pass-count range
   over co-optimal assignments (spec 12-1) and truths below the record end on
   every evaluated line (12-2); 11 columns at the end of the summary rows, two
-  new csvs and one md section. The K1 functions (12-3) are not wired.
+  new csvs and one md section. The K1 draft (12-3) was removed after the S1g
+  verdict (docs/processing/m210_k1_s1g_judgment.md); reproduce it at commit
+  90845b4.
 
 Outputs: ``<prefix>_candidates.csv``, ``_clusters.csv``, ``_matches.csv``,
 ``_site11.csv``, ``_summary.csv``, ``_dup_sensitivity.csv`` (v1.7),
@@ -57,6 +59,7 @@ import itertools
 import json
 import logging
 import math
+import os
 import re
 import sys
 import time
@@ -65,6 +68,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
+
+# MKL without conditional numerical reproducibility changes the last bits of the
+# depths between processes, and the exact-tie matchings of the auxiliary variants
+# then pick other pairs (M2-10, 2026-11-11). It must be set before numpy loads
+# MKL; an explicit value from the caller wins.
+os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import numpy as np
 import pandas as pd
@@ -460,10 +469,6 @@ UNOBSERVABLE_TABLE_COLUMNS = (
 PREREG_NEAR_APEX_STEPS = 4
 """Pre-registered value (spec 11 item 6 / 9-8 G), not a verdict threshold: a wing
 "stopped within 4 traces of the apex" stopped on one of tracking steps 1-4."""
-
-# K1 draft (spec 12-3, 9-9-1): never called by main, the variants or the CLI.
-K1_LATERAL_M = 0.30
-"""Lateral link distance of K1 (= ``fourtu_apex_candidate_select.NMS_M``, S1-9)."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -3214,86 +3219,6 @@ def duplicate_sensitivity(
     return rows
 
 
-# ---- K1 multiplicity (v1.9 draft, not wired)
-#
-# Spec 12-3 / 9-9-1 step 1: pure functions for the S1 tests and the S1g harness.
-# main, the variants and the CLI never call them until S1g and a user decision.
-
-
-@dataclass(frozen=True)
-class K1Member:
-    """One clustering input of K1 (spec 9-9-1 (a))."""
-
-    depth_m: float
-    """Clustering input depth (same as ``estimates_by_activity``)."""
-    line: str
-    """Line (``path``)."""
-    apex_x_m: float
-    """Fitted apex position ``result.apex_trace * dx_m`` (not the candidate trace)."""
-    long_line: bool
-    """Line length >= ``LONG_LINE_M``."""
-
-
-def lateral_multiplicity(xs_m: Sequence[float]) -> int:
-    """Single-linkage groups on x, linked when the gap is <= ``K1_LATERAL_M``
-    (+ ``CLUSTER_EDGE_TOL_M``) (spec 12-3-1 item 2); 0 for no x.
-
-    Raises:
-        ValueError: A non-finite x.
-    """
-    if not all(math.isfinite(x) for x in xs_m):
-        raise ValueError("x must be finite (no NaN or inf)")
-    ordered = sorted(xs_m)
-    if not ordered:
-        return 0
-    link_limit_m = K1_LATERAL_M + CLUSTER_EDGE_TOL_M
-    gaps = (right - left for left, right in itertools.pairwise(ordered))
-    return 1 + sum(gap > link_limit_m for gap in gaps)
-
-
-def cluster_multiplicity(cluster: Cluster, members: Sequence[K1Member]) -> int:
-    """Lower median of the per-line multiplicity over the cluster's non-long lines
-    (spec 12-3-1 items 3-4); 1 when every member is on a long line.
-
-    ``members`` is the clustering input, indexed by ``cluster.member_indices``.
-    """
-    xs_by_line: dict[str, list[float]] = defaultdict(list)
-    for index in cluster.member_indices:
-        member = members[index]
-        if not member.long_line:
-            xs_by_line[member.line].append(member.apex_x_m)
-    if not xs_by_line:
-        return 1
-    multiplicities = sorted(lateral_multiplicity(xs) for xs in xs_by_line.values())
-    return multiplicities[(len(multiplicities) - 1) // 2]
-
-
-def k1_estimates(
-    members: Sequence[K1Member],
-    n_lines_in_activity: int,
-    width_m: float = CLUSTER_WIDTH_M,
-    min_lines: int = MIN_SUPPORT_LINES,
-) -> tuple[list[float], list[int]]:
-    """K1 estimates of one activity (spec 12-3-1).
-
-    Complete-linkage clusters and the support filter as today, then every kept
-    cluster gives its depth ``n_c`` times (``cluster_multiplicity``).
-
-    Returns:
-        The estimates in cluster order (copies next to each other) and ``n_c``
-        per kept cluster.
-    """
-    clusters = cluster_depths(
-        [m.depth_m for m in members], [m.line for m in members], width_m, "complete"
-    )
-    kept = supported(clusters, n_lines_in_activity, min_lines)
-    counts = [cluster_multiplicity(cluster, members) for cluster in kept]
-    estimates: list[float] = []
-    for cluster, count in zip(kept, counts, strict=True):
-        estimates.extend([cluster.depth_m] * count)
-    return estimates, counts
-
-
 # ----------------------------------------------------------------- outputs
 
 
@@ -4364,7 +4289,8 @@ def write_markdown(
         "# 4TU 깊이 검증 v1 (M2-8, spec_eval_4tu_v1)",
         "",
         f"- 실행: {local_timestamp()}, commit {git['commit']} (dirty {git['dirty']}), "
-        f"{elapsed_s:.0f} s, 단일 프로세스",
+        f"{elapsed_s:.0f} s, 단일 프로세스, "
+        f"MKL_CBWR {os.environ.get('MKL_CBWR', '(unset)')}",
         "- 설정: `DepthConfig()` 기본값(4TU 튜닝 없음), "
         f"{_clustering_setting(args)}, 지지 측선 >= {args.min_support_lines}, "
         f"`default_rng({args.baseline_seed})`, 기준선 시행: 주 결과 조합 활동 범위 "

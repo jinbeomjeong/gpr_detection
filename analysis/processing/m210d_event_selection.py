@@ -42,9 +42,14 @@ Run: conda run -n gpr-dev python -I analysis/processing/m210d_event_selection.py
 """
 
 import json
+import os
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+
+# Reproducible MKL results across processes, before numpy loads (M2-10,
+# same setting as scripts/eval_depth_4tu.py); an explicit value wins.
+os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import numpy as np
 import pandas as pd

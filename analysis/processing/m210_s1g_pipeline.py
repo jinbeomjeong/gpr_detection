@@ -1,8 +1,14 @@
-"""S1g harness (M2-10 K1, spec_eval_4tu_v1 v1.9 section 9-9-1 (c), 12-4-3).
+"""S1g harness (M2-10, spec_eval_4tu_v1 v1.9 section 9-9-1 (c), 12-4-3).
 
 Runs the 4TU code path on the gprMax S1g scan lines and writes the candidate
-table the S1g verdict (G0-G7, gpr-processing-expert) is read from. **No verdict
+table with each QC-passing candidate attached to an expected event. **No verdict
 is made here.**
+
+K1 was rejected by the S1g verdict and its code removed (user decision
+2026-11-11): this version writes no ``cluster_mu`` column and no K1 estimates.
+The S1g verdict (``docs/processing/m210_k1_s1g_judgment.md``) is reproduced at
+commit 90845b4. Event attachment and the G0 record stay for later re-tests
+(K7).
 
 Per line (``S1G_D060``, ``S1G_D100``, ``S1G_C1``, ``S1G_BGL``):
 
@@ -13,16 +19,15 @@ Per line (``S1G_D060``, ``S1G_D100``, ``S1G_C1``, ``S1G_BGL``):
    ``apex_candidates_for_radargram`` -> ``eval_depth_4tu.run_line(rg,
    candidates, apex_qc=True)`` (the evaluation's own depth and QC calls).
 3. QC-passing candidates (``ok`` and not excluded by B+D+E) are attached to the
-   ``expected_events`` of ``models_s1g.json`` (``attach_event``) and become K1
-   members: complete-linkage clusters, the one-line support filter and
-   ``cluster_multiplicity``.
+   ``expected_events`` of ``models_s1g.json`` (``attach_event``) and clustered
+   by depth (complete linkage, one-line support filter).
 
 Outputs (``--out-dir``, default ``data/processing/m210_s1g``):
 
-* ``candidates.csv``: one row per candidate, the columns of spec 9-9-1 (c).
+* ``candidates.csv``: one row per candidate (``CANDIDATE_COLUMNS``).
 * ``run_info.json``: seal commit and spec blob, input SHA-256, zero rule and
   t_z per line, ``m29c_qc_constants.json`` SHA-256 and the code constants
-  against it, ``DepthConfig()`` defaults, K1 estimates per line and the
+  against it, ``DepthConfig()`` defaults, the ``MKL_CBWR`` value and the
   generator wrapper regression (G0 (i), 4TU apex candidates regenerated into
   ``<out-dir>/wrapper_regression``; no 4TU ground truth is read).
 
@@ -37,11 +42,16 @@ import dataclasses
 import hashlib
 import json
 import math
+import os
 import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
+
+# Reproducible MKL results across processes, before numpy loads (M2-10); an
+# explicit value from the caller wins. Same setting as scripts/eval_depth_4tu.py.
+os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import pandas as pd
 
@@ -117,11 +127,10 @@ CANDIDATE_COLUMNS = (
     "event_pipe_index",
     "cluster_id",
     "cluster_depth_m",
-    "cluster_mu",
     "zero_rule",
     "t_zero_ns",
 )
-"""``candidates.csv`` columns, in the order of spec 9-9-1 (c)."""
+"""``candidates.csv`` columns: spec 9-9-1 (c) without ``cluster_mu`` (K1 removed)."""
 GENERATOR_COLUMNS = ("trace", "sample", "tau_ns", "source")
 GENERATOR_FILES = (
     "fourtu_apex_candidates_v1.csv",
@@ -236,47 +245,26 @@ def _passes_qc(candidate: ev.CandidateResult) -> bool:
 class ClusterLabel:
     cluster_id: int
     depth_m: float
-    mu: int
 
 
-def _k1_labels(
+def _cluster_labels(
     passing: Sequence[ev.CandidateResult], radargram: Radargram
-) -> tuple[dict[int, ClusterLabel], dict[str, object]]:
-    """K1 on one line (12-4-3 "K1 읽기"): labels per index into ``passing``.
+) -> dict[int, ClusterLabel]:
+    """Depth clusters of the QC-passing candidates, per index into ``passing``.
 
-    The line is read as a one-line activity, so the support filter keeps every
-    cluster and ``n_c = mu``.
+    The line is read as a one-line activity (complete linkage, the support
+    filter keeps every cluster), as in the evaluation's ``main`` path.
     """
-    assert radargram.dx_m is not None
-    is_long = (radargram.n_traces - 1) * radargram.dx_m >= ev.LONG_LINE_M
-    members = [
-        ev.K1Member(
-            depth_m=float(c.result.depth_top_m),
-            line=radargram.line_id,
-            apex_x_m=float(c.result.apex_trace) * radargram.dx_m,
-            long_line=is_long,
-        )
-        for c in passing
-    ]
-    clusters = ev.cluster_depths(
-        [m.depth_m for m in members], [m.line for m in members]
-    )
+    depths = [float(c.result.depth_top_m) for c in passing]
+    clusters = ev.cluster_depths(depths, [radargram.line_id] * len(depths))
     kept = ev.supported(clusters, 1, ev.MIN_SUPPORT_LINES)
     labels: dict[int, ClusterLabel] = {}
     for cluster_id, cluster in enumerate(clusters):
         if cluster not in kept:
             continue
-        mu = ev.cluster_multiplicity(cluster, members)
         for index in cluster.member_indices:
-            labels[index] = ClusterLabel(cluster_id, cluster.depth_m, mu)
-    estimates, counts = ev.k1_estimates(members, 1)
-    k1 = {
-        "n_members": len(members),
-        "long_line": is_long,
-        "estimates_m": [round(value, 6) for value in estimates],
-        "n_c": counts,
-    }
-    return labels, k1
+            labels[index] = ClusterLabel(cluster_id, cluster.depth_m)
+    return labels
 
 
 def _blank_or_rounded(value: float | None, digits: int) -> object:
@@ -316,7 +304,6 @@ def _candidate_row(
         "event_pipe_index": pipe_index,
         "cluster_id": "" if label is None else label.cluster_id,
         "cluster_depth_m": "" if label is None else round(label.depth_m, 4),
-        "cluster_mu": "" if label is None else label.mu,
         "zero_rule": result.zero_rule or "",
         "t_zero_ns": _blank_or_rounded(result.t_zero_ns, 4),
     }
@@ -344,7 +331,7 @@ def run_model(
     candidates = ev.run_line(radargram, _generator_table(kept), apex_qc=True)
     axes = _line_axes(radargram)
     passing = [c for c in candidates if _passes_qc(c)]
-    labels, k1 = _k1_labels(passing, radargram)
+    labels = _cluster_labels(passing, radargram)
     passing_index = {id(c): index for index, c in enumerate(passing)}
     rows = []
     for candidate in candidates:
@@ -377,7 +364,6 @@ def run_model(
         "n_candidates": len(candidates),
         "n_qc_passing": len(passing),
         "n_expected_events": len(events),
-        "k1": k1,
     }
     return rows, info
 
@@ -569,6 +555,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "inputs": input_record(args.data_root, args.models_json, model_ids),
         "qc_constants": qc_constants_record(),
         "depth_config": depth_config_record(),
+        "mkl_cbwr": os.environ.get("MKL_CBWR"),
         "attach": {
             "x_m": ATTACH_X_M,
             "periods": ATTACH_PERIODS,

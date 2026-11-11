@@ -3722,15 +3722,13 @@ def _v18_columns(rows) -> list[dict[str, object]]:
     return [dict(list(row.items())[:n_columns]) for row in rows]
 
 
-# ----------------------------------------------------------------- v1.9: S2, O, TS, S1
+# ----------------------------------------------------------------- v1.9: S2, O, TS
 #
-# Tie range (spec 12-1), unobservable truths (12-2), near-apex stops (9-8 G) and
-# the K1 draft (12-3, 9-9-1). Prototype values: docs/processing/m210k_spec_checks.json.
+# Tie range (spec 12-1), unobservable truths (12-2) and near-apex stops (9-8 G).
+# Prototype values: docs/processing/m210k_spec_checks.json. The K1 draft and its
+# S1 tests were removed after the S1g verdict (commit 90845b4 has them).
 
 SPEC_CHECKS_JSON = PROJECT_ROOT / "docs" / "processing" / "m210k_spec_checks.json"
-GENERATOR_PATH = (
-    PROJECT_ROOT / "analysis" / "processing" / "fourtu_apex_candidate_select.py"
-)
 V19_AUX_COLUMNS = [
     "n_pass",
     "tie_pass_min",
@@ -3750,9 +3748,6 @@ V19_SECTION_TITLE = (
 )
 K2_RANDOM_SEED = 20261111
 K2_RANDOM_CASES = 3000
-S1_SEED = 20261112
-S1_LATERAL_STEPS_M = (0.0, 0.6, 1.0)
-"""S1-1: x offset of pipe k from pipe k - 1 (the third pipe is 1.0 m further)."""
 LONG_RECORD_SAMPLES = 1024
 
 
@@ -4505,152 +4500,3 @@ def test_ts5_wing_picks_are_the_stop_step_minus_one(
     assert candidate.result.apex_trace == TS5_APEX_TRACE
     assert (curvature.n_left, curvature.stop_left) == (n_left, TrackStop.AMPLITUDE)
     assert script.near_apex_stop_counts([candidate]).n_any == int(is_near)
-
-
-# ----------------------------------------------------------------- S1 (12-4-1)
-
-
-def _s1_cases() -> list[tuple[str, list[tuple], set[str], np.ndarray]]:
-    """The S1 cases of m210k_spec_checks.py: same seed, draws and permutations."""
-    rng = np.random.default_rng(S1_SEED)
-    cases = []
-
-    def add(name: str, rows: list[tuple], long_lines: tuple[str, ...] = ()) -> None:
-        cases.append((name, rows, set(long_lines), rng.permutation(len(rows))))
-
-    for n_pipes in (2, 3):
-        rows = []
-        for line in range(6):
-            x0_m = 2.0
-            for pipe in range(n_pipes):
-                x0_m += S1_LATERAL_STEPS_M[pipe]
-                depth_m = 0.60 + rng.normal(0, 0.02)
-                rows.append((depth_m, f"L{line}", x0_m + rng.normal(0, 0.02)))
-        add(f"S1-1_k{n_pipes}", rows)
-    rows = [(0.60 + rng.normal(0, 0.02), f"L{line}", 3.0) for line in range(6)]
-    rows += [(1.10 + rng.normal(0, 0.02), f"L{line}", 5.0) for line in range(6)]
-    add("S1-2_null_two_depths", rows)
-    converged = []
-    for line in range(4):
-        converged += [(0.60, f"L{line}", 3.00), (0.61, f"L{line}", 3.30)]
-    add("S1-3_converged_0.30", converged)
-    beyond = []
-    for line in range(4):
-        beyond += [(0.60, f"L{line}", 3.00), (0.61, f"L{line}", 3.30 + 2e-9)]
-    add("S1-3b_just_beyond_0.30", beyond)
-    zigzag = [(0.60, "Z", 5.0), (0.61, "Z", 15.0), (0.60, "Z", 25.0)]
-    add("S1-4_long_line_only", zigzag, long_lines=("Z",))
-    add("S1-4b_same_not_long", zigzag)
-    add("S1-5_mu_2_1", [(0.6, "A", 1.0), (0.6, "A", 2.0), (0.6, "B", 1.0)])
-    add(
-        "S1-5_mu_2_2_1",
-        [
-            (0.6, "A", 1.0),
-            (0.6, "A", 2.0),
-            (0.6, "B", 1.0),
-            (0.6, "B", 2.0),
-            (0.6, "C", 1.0),
-        ],
-    )
-    lateral = (("A", (1, 2, 3)), ("B", (1, 2, 3)), ("C", (1, 2)), ("D", (1, 2)))
-    add("S1-5_mu_3_3_2_2", [(0.6, line, x) for line, xs in lateral for x in xs])
-    minority = [(0.60, f"L{line}", 3.0) for line in range(6)]
-    minority += [(0.61, f"L{line}", 4.0) for line in range(2)]
-    add("S1-6_minority", minority)
-    return cases
-
-
-S1_SPEC_COUNTS = {
-    "S1-1_k2": [2],
-    "S1-1_k3": [3],
-    "S1-2_null_two_depths": [1, 1],
-    "S1-3_converged_0.30": [1],
-    "S1-3b_just_beyond_0.30": [2],
-    "S1-4_long_line_only": [1],
-    "S1-4b_same_not_long": [3],
-    "S1-5_mu_2_1": [1],
-    "S1-5_mu_2_2_1": [2],
-    "S1-5_mu_3_3_2_2": [2],
-    "S1-6_minority": [1],
-}
-"""``n_c`` per kept cluster from the spec 12-4-1 table."""
-
-
-def _k1_members(script, rows, long_lines: set[str]) -> list:
-    return [
-        script.K1Member(depth_m, line, x_m, line in long_lines)
-        for depth_m, line, x_m in rows
-    ]
-
-
-def test_s1_1_to_s1_7_match_the_prototype(script) -> None:
-    expected = _spec_checks()["s1_cases"]
-    cases = _s1_cases()
-    assert [name for name, *_ in cases] == list(expected) == list(S1_SPEC_COUNTS)
-    for name, rows, long_lines, permutation in cases:
-        members = _k1_members(script, rows, long_lines)
-        n_lines = len({line for _, line, _ in rows})
-        estimates, counts = script.k1_estimates(members, n_lines)
-        current = script.supported(
-            script.cluster_depths(
-                [m.depth_m for m in members], [m.line for m in members]
-            ),
-            n_lines,
-            script.MIN_SUPPORT_LINES,
-        )
-        case = expected[name]
-        assert counts == case["counts"] == S1_SPEC_COUNTS[name], name
-        assert (len(current), len(estimates)) == (case["n_current"], case["n_k1"]), name
-        assert [round(v, 6) for v in estimates] == case["k1_depths"], name
-        # K1-P1, K1-P2: never fewer estimates, same depth set, bit-identical at n_c 1.
-        assert len(estimates) >= len(current)
-        assert set(estimates) == {c.depth_m for c in current}
-        if all(count == 1 for count in counts):
-            assert estimates == [c.depth_m for c in current]
-        # S1-7 / K1-P3: input order does not matter.
-        permuted = [members[i] for i in permutation]
-        assert script.k1_estimates(permuted, n_lines) == (estimates, counts), name
-
-
-def test_s1_8_support_filter_comes_first(script) -> None:
-    rows = [(0.60, f"L{line}", 3.0) for line in range(4)]
-    rows += [(1.50, "L0", 1.0), (1.50, "L0", 3.0)]  # mu 2 on a single line
-    members = _k1_members(script, rows, set())
-    assert script.k1_estimates(members, 4) == ([0.60], [1])
-
-
-def test_s1_9_k1_constants_match_the_generator(script) -> None:
-    tree = ast.parse(GENERATOR_PATH.read_text(encoding="utf-8"))
-    constants = {}
-    for node in tree.body:
-        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Tuple):
-            continue
-        for target in node.targets:
-            if isinstance(target, ast.Tuple):
-                names = [element.id for element in target.elts]
-                values = [ast.literal_eval(element) for element in node.value.elts]
-                constants.update(zip(names, values, strict=True))
-    assert script.K1_LATERAL_M == constants["NMS_M"] == 0.3
-    assert script.LONG_LINE_M == 30.0
-
-
-def test_k1_lateral_multiplicity_edges(script) -> None:
-    assert script.lateral_multiplicity([]) == 0
-    assert script.lateral_multiplicity([1.0]) == 1
-    assert script.lateral_multiplicity([1.0, 1.3, 1.6]) == 1  # chained
-    assert script.lateral_multiplicity([1.6, 1.0]) == 2
-    with pytest.raises(ValueError, match="finite"):
-        script.lateral_multiplicity([1.0, math.nan])
-
-
-K1_NAMES = {"K1Member", "lateral_multiplicity", "cluster_multiplicity", "k1_estimates"}
-
-
-def test_k1_is_not_wired(script) -> None:
-    """9-9-1 (a): only the K1 functions themselves use the K1 names."""
-    tree = ast.parse(SCRIPT_PATH.read_text(encoding="utf-8"))
-    for node in tree.body:
-        if not isinstance(node, ast.FunctionDef) or node.name in K1_NAMES:
-            continue
-        used = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
-        assert not used & K1_NAMES, node.name

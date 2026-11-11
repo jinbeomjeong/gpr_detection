@@ -5,7 +5,7 @@
 - **결과를 본 뒤 바꾼 것**: 없음. 봉인 뒤 spec 차이는 4묶음이다(작업 트리 기준, 미커밋: 8행 이력, 1574행 §9-8 B 주석, 1613행 시험 O10, 1885행 §12-2-1 K4 0 이하 깊이). 모두 K4 보조 출력에 관한 것이고, 하네스 실행 전에 정해졌다. §12-4(기준·셈법·결정표)는 한 글자도 바뀌지 않았다(`git diff b3e68fa -- docs/processing/spec_eval_4tu_v1.md` hunk 위치로 확인).
 - 입력: 하네스 출력 `data/processing/m210_s1g/candidates.csv`·`run_info.json`(git 제외), 내보내기 `data/synthetic_gprmax_s1g/S1G_{D060,D100,C1,BGL}`, EM 검증 `analysis/synthetic/s1g/verify/s1g_full_verify.json`.
 - 판정 계산: `analysis/processing/m210_k1_s1g_judge.py` → [`m210_k1_s1g_judgment.json`](m210_k1_s1g_judgment.json)(gpr-dev, CPU 27 1코어, BelowNormal, 약 2분, 난수 없음, 4TU 자료 없음).
-- 재현: 하네스(`analysis/processing/m210_s1g_pipeline.py`)와 판정 스크립트는 평가 스크립트·생성기 래퍼의 작업 트리 코드를 불러 쓴다. 그 코드는 §9-8 정리 뒤 커밋되므로, 하네스·판정 스크립트 재현은 그 코드 커밋 이후에 가능하다. 이 판정 md와 json은 코드보다 먼저 커밋된다.
+- 재현: 판정 당시 코드(하네스 `analysis/processing/m210_s1g_pipeline.py`, 판정 스크립트 `analysis/processing/m210_k1_s1g_judge.py`, K1 함수가 든 평가 스크립트)는 **커밋 90845b4**에 있다. 그 뒤 사용자 결정(K1 코드 지움, 2026-11-11)으로 K1 함수와 판정 스크립트를 지웠고, 하네스에서 K1 출력(`cluster_mu`, `k1`)을 뺐다. 이 판정의 재현은 90845b4를 체크아웃해서 한다(MKL 고정 전이므로 `MKL_CBWR`는 실행 환경에서 지정).
 
 ## 0. 판정
 

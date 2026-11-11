@@ -136,12 +136,13 @@ def test_run_model_end_to_end_on_a_fake_line(harness) -> None:
         0,
     )
     assert row["depth_top_m"] == pytest.approx(0.5, abs=0.02)
-    assert row["cluster_mu"] == 1
+    assert row["cluster_depth_m"] == pytest.approx(row["depth_top_m"], abs=0.01)
     # Not QC-passing candidates are not attached and carry no cluster.
     for other in rows:
         if other["status"] != "ok" or other["qc_excluded"] is not False:
             assert other["event_kind"] == "" and other["cluster_id"] == ""
-    assert info["k1"]["n_c"] == [1] * len(info["k1"]["n_c"])
+    # K1 was removed after the S1g verdict (commit 90845b4 has it).
+    assert "cluster_mu" not in harness.CANDIDATE_COLUMNS and "k1" not in info
     assert info["line_id"] == f"S1G/{FAKE_ID}"
 
 

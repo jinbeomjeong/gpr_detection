@@ -25,9 +25,14 @@ Run (single process, BelowNormal, one core, BLAS threads 1):
 import argparse
 import csv
 import math
+import os
 import sys
 import time
 from pathlib import Path
+
+# Reproducible MKL results across processes, before numpy loads (M2-10,
+# same setting as scripts/eval_depth_4tu.py); an explicit value wins.
+os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import numpy as np
 import pandas as pd

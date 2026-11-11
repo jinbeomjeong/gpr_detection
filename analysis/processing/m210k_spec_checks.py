@@ -25,8 +25,13 @@ from __future__ import annotations
 import itertools
 import json
 import math
+import os
 import sys
 from pathlib import Path
+
+# Reproducible MKL results across processes, before numpy loads (M2-10,
+# same setting as scripts/eval_depth_4tu.py); an explicit value wins.
+os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import numpy as np
 from scipy.optimize import linear_sum_assignment
