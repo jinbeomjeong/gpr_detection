@@ -1,0 +1,39 @@
+#title: L_S6P_NP_S038_J6_T15 Lambda line (no pipe, paving J6 seed 20261116, sigma 0.038, 161 traces, 15 ns)
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 15.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.038 1 0 soil
+#material: 5.0 0.002 1 0 brick
+#material: 4.0 0.001 1 0 sand
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.35 2.2 inf src_wave
+#rx: 0.45 2.2 inf rx1 Ez
+#src_steps: 0.02 0 0
+#rx_steps: 0.02 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#box: 0 1.97 0 4.0 2.02 inf sand
+#box: 0 2.02 0 4.0 2.1 inf brick
+#box: 0.185 2.02 0 0.195 2.1 inf sand
+#box: 0.39 2.02 0 0.4 2.1 inf sand
+#box: 0.585 2.02 0 0.595 2.1 inf sand
+#box: 0.79 2.02 0 0.8 2.1 inf sand
+#box: 0.99 2.02 0 1.0 2.1 inf sand
+#box: 1.18 2.02 0 1.19 2.1 inf sand
+#box: 1.41 2.02 0 1.42 2.1 inf sand
+#box: 1.585 2.02 0 1.595 2.1 inf sand
+#box: 1.78 2.02 0 1.79 2.1 inf sand
+#box: 1.995 2.02 0 2.005 2.1 inf sand
+#box: 2.18 2.02 0 2.19 2.1 inf sand
+#box: 2.38 2.02 0 2.39 2.1 inf sand
+#box: 2.585 2.02 0 2.595 2.1 inf sand
+#box: 2.805 2.02 0 2.815 2.1 inf sand
+#box: 3.01 2.02 0 3.02 2.1 inf sand
+#box: 3.215 2.02 0 3.225 2.1 inf sand
+#box: 3.415 2.02 0 3.425 2.1 inf sand
+#box: 3.59 2.02 0 3.6 2.1 inf sand
+#box: 3.78 2.02 0 3.79 2.1 inf sand

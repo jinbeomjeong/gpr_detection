@@ -777,3 +777,276 @@ def test_v1_defaults_reproduce_batch1_rows(harness, tmp_path) -> None:
     assert len(regenerated) == 2 * 2 * 2 + 1
     for row in regenerated:
         assert row == stored_by_key[tuple(row[c] for c in key_columns)]
+
+
+# ----------------------------------------------------------------- v3 (V3-1 to V3-6)
+
+FAKE_V3_MODELS = {
+    "S4N_D14_S038": (True, False),
+    "S6P_D14_S038_J6": (True, True),
+    "S6P_NP_S038_J6": (False, True),
+}
+V3_EXTRA_COLUMNS = ["accepted_apex_strong_start", "n_strong_starts"]
+"""v3 V3-2 columns after the v2 columns (``runs_v3.csv``)."""
+
+
+def test_v3_plan_follows_the_spec(harness) -> None:
+    plan = harness.V3_PLAN
+    assert plan.n_seeds == 40 and plan.unit_noise_seed == 20281199
+    assert harness.noise_seed(0, 0, 0, plan.seed_base) == 20281120
+    assert harness.noise_seed(5, 1, 39, plan.seed_base) == 20281120 + 5000 + 100 + 39
+    assert plan.rules == ("current", "B_full", "B_min", "C_none")
+    assert plan.pair_index == {
+        "D14_S038": 0, "D13_S042": 1, "D16_S045": 2, "D15_S048": 3,
+        "D13_S012": 4, "NP_S038": 5,
+    }  # fmt: skip
+    assert list(plan.columns) == [
+        *EXPECTED_RUN_COLUMNS, *V2_EXTRA_COLUMNS, *V3_EXTRA_COLUMNS,
+    ]  # fmt: skip
+    assert (
+        harness.calibration_pair(
+            "S6P_NP_S038_J6",
+            dataclasses.replace(plan, no_pipe_calibration_pair="D14_S038"),
+        )
+        == "D14_S038"
+    )
+    assert harness.calibration_pair("S4N_D16_S045", plan) == "D16_S045"
+
+
+def test_v3_seeds_are_disjoint_from_batch1_v2_and_prototype(harness) -> None:
+    record = harness.seed_record(harness.V3_PLAN, "v3")
+    assert record["seed_overlap"] == 0
+    assert set(record["asserted_against"]) == {"batch1", "v2", "prototype"}
+    assert record["n_v3_seeds"] == 6 * 2 * 40 + 1
+    v3_seeds = harness.plan_seeds(harness.V3_PLAN)
+    for earlier in (harness.BATCH1_SEEDS, harness.V2_SEEDS, harness.PROTOTYPE_SEED_SET):
+        assert not v3_seeds & earlier
+
+
+@pytest.mark.parametrize("seed_base", [20271120, 20261120, 20261111])
+def test_v3_seed_overlap_is_asserted(harness, seed_base) -> None:
+    # A v3 plan drawing v2, batch-1 or prototype seeds must not start.
+    plan = dataclasses.replace(harness.V3_PLAN, seed_base=seed_base)
+    with pytest.raises(harness.SeedOverlapError):
+        harness.seed_record(plan, "v3")
+
+
+def test_v2_seed_record_is_unchanged(harness) -> None:
+    record = harness.seed_record(harness.V2_PLAN, "v2")
+    assert record["seed_overlap"] == 0
+    assert set(record["asserted_against"]) == {"batch1"}
+    assert "prototype_seed_overlap" in record and "batch1_seed_set" in record
+
+
+def _strong_start_case(harness, envelope_at_peak: float, threshold: float):
+    """A one-peak line whose start envelope is ``envelope_at_peak``."""
+    background_removed = np.tile(np.array([[-1.0], [1.0]]), (30, 8))  # MAD 1
+    envelope = np.zeros((60, 8))
+    envelope[20, 3] = envelope_at_peak
+    line = {
+        "_floor": {"k_hi": 44},
+        "_peaks": [
+            {"row": 20, "trace0": 3, "trace": 4, "sample": T_A0_NS / 0.098,
+             "status": "accepted"},
+        ],
+    }  # fmt: skip
+    target = harness.ApexTarget(4, T_A0_NS, F_C_HZ)
+    sigma_n = harness.floor_rules.noise_sigma(background_removed[:44])
+    assert threshold == pytest.approx(harness.floor_rules.K_NOISE * sigma_n)
+    return harness.strong_start_outcome(
+        line, envelope, background_removed, target, 0.098
+    )
+
+
+def test_strong_start_boundary_is_included(harness) -> None:
+    threshold = 5 * 1.4826
+    at = _strong_start_case(harness, threshold, threshold)
+    assert (at.n_strong_starts, at.accepted_apex) == (1, True)
+    below = _strong_start_case(harness, np.nextafter(threshold, 0), threshold)
+    assert (below.n_strong_starts, below.accepted_apex) == (0, False)
+
+
+def test_strong_start_needs_an_accepted_point_in_the_window(harness) -> None:
+    background_removed = np.tile(np.array([[-1.0], [1.0]]), (30, 8))
+    envelope = np.full((60, 8), 100.0)
+    target = harness.ApexTarget(4, T_A0_NS, F_C_HZ)
+    peaks = [
+        {"row": 10, "trace0": 1, "trace": 4, "sample": T_A0_NS / 0.098,
+         "status": "few_picks"},
+        {"row": 12, "trace0": 2, "trace": 8, "sample": T_A0_NS / 0.098,
+         "status": "accepted"},  # 4 traces from the apex
+    ]  # fmt: skip
+    line = {"_floor": {"k_hi": 44}, "_peaks": peaks}
+    outcome = harness.strong_start_outcome(
+        line, envelope, background_removed, target, 0.098
+    )
+    assert (outcome.n_strong_starts, outcome.accepted_apex) == (2, False)
+    no_pipe = harness.strong_start_outcome(
+        line, envelope, background_removed, None, 0.098
+    )
+    assert (no_pipe.n_strong_starts, no_pipe.accepted_apex) == (2, None)
+    no_zero = harness.strong_start_outcome({}, None, background_removed, target, 0.098)
+    assert (no_zero.n_strong_starts, no_zero.accepted_apex) == (0, False)
+
+
+def _v3_models_json(path: Path) -> Path:
+    models = [
+        {"id": "S4N_D14_S038", "batch": "v3", "pair": "R1"},
+        {"id": "S6P_D14_S038_J6", "batch": "v3", "pair": "R1"},
+        {"id": "S6P_NP_S038_J6", "batch": "v3", "pair": "NP"},
+        {"id": "S6P_D13_S042_J7", "batch": "v3_excluded", "pair": "R2"},
+    ]
+    meta = {"models": models, "no_pipe_calibration_pair": "D14_S038"}
+    path.write_text(json.dumps(meta), encoding="utf-8")
+    return path
+
+
+def test_v3_models_come_from_json_batch(harness, tmp_path) -> None:
+    included, excluded, pair = harness.load_protocol_models(
+        _v3_models_json(tmp_path / "m.json"), harness.V3_PROTOCOL
+    )
+    assert included == ["S4N_D14_S038", "S6P_D14_S038_J6", "S6P_NP_S038_J6"]
+    assert excluded == ["S6P_D13_S042_J7"] and pair == "D14_S038"
+    wrong = tmp_path / "wrong.json"
+    entry = {"id": "S4N_D16_S045", "batch": "v3", "pair": "F2"}
+    wrong.write_text(json.dumps({"models": [entry]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="json pair"):
+        harness.load_protocol_models(wrong, harness.V3_PROTOCOL)
+
+
+def test_v3_main_writes_runs_v3_with_strong_start_columns(
+    harness, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        harness, "seal_record", lambda seal=None: _clean_seal(harness, seal)
+    )
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, FAKE_V3_MODELS)
+    models_json = _v3_models_json(tmp_path / "m.json")
+    plan = dataclasses.replace(harness.V3_PLAN, **SMALL_PLAN)
+    out = tmp_path / "out"
+    argv = [
+        "--protocol", "v3", "--models-json", str(models_json),
+        "--input-dir", str(data_root), "--out-dir", str(out),
+        "--seal-commit", "v3seal", "--regression-activities", "none",
+    ]  # fmt: skip
+    assert harness.main(argv, plan, _caching_loader(FAKE_V3_MODELS)) == 0
+    assert not (out / "runs_v2.csv").exists()
+    fieldnames, rows = _read_rows(out / "runs_v3.csv")
+    assert fieldnames == [*EXPECTED_RUN_COLUMNS, *V2_EXTRA_COLUMNS, *V3_EXTRA_COLUMNS]
+    pipe = [
+        r for r in rows if r["model_id"] == "S6P_D14_S038_J6" and r["dt_ns"] == "0.098"
+    ]
+    assert {int(r["seed"]) for r in pipe} == {20281120, 20281220}
+    current = [r for r in pipe if r["rule"] == "current"]
+    assert current and all(r["n_strong_starts"] != "" for r in current)
+    assert all(r["accepted_apex_strong_start"] in {"True", "False"} for r in current)
+    others = [r for r in rows if r["rule"] != "current"]
+    assert all(
+        r["n_strong_starts"] == "" and r["accepted_apex_strong_start"] == ""
+        for r in others
+    )
+    no_pipe = [r for r in rows if r["model_id"] == "S6P_NP_S038_J6"]
+    assert {int(r["seed"]) for r in no_pipe} == {20286120, 20286220}
+    assert all(
+        r["accepted_apex_strong_start"] == "" for r in no_pipe if r["rule"] == "current"
+    )
+    info = json.loads((out / "run_info.json").read_text(encoding="utf-8"))
+    assert info["protocol"] == "v3" and info["seed_overlap"] == 0
+    assert set(info["seeds"]["asserted_against"]) == {"batch1", "v2", "prototype"}
+    assert info["runs_csv"] == "runs_v3.csv"
+    assert info["models_excluded_in_json"] == ["S6P_D13_S042_J7"]
+    assert info["models"]["S6P_NP_S038_J6"]["calibration_pair"] == "D14_S038"
+    assert "m210b_selector_floor_v3" in info["spec"]
+    judge_path = PROJECT_ROOT / "analysis" / "processing" / "m210b_v3_judge.py"
+    judge_spec = importlib.util.spec_from_file_location(
+        "m210b_v3_judge_w10", judge_path
+    )
+    judge = importlib.util.module_from_spec(judge_spec)
+    sys.modules[judge_spec.name] = judge
+    judge_spec.loader.exec_module(judge)
+    assert judge.w10_calibration_check(info)["pass"] is True
+
+
+def test_v3_start_guard_needs_head_at_the_seal(harness, tmp_path, monkeypatch) -> None:
+    def seal_record(seal=None):
+        record = _clean_seal(harness, seal)
+        record["head_commit"] = "later"
+        return record
+
+    monkeypatch.setattr(harness, "seal_record", seal_record)
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, FAKE_V3_MODELS)
+    argv = [
+        "--protocol", "v3", "--models-json", str(_v3_models_json(tmp_path / "m.json")),
+        "--input-dir", str(data_root), "--out-dir", str(tmp_path / "out"),
+        "--seal-commit", "v3seal", "--regression-activities", "none",
+    ]  # fmt: skip
+    plan = dataclasses.replace(harness.V3_PLAN, **SMALL_PLAN)
+    assert harness.main(argv, plan, _caching_loader(FAKE_V3_MODELS)) == 1
+    assert not (tmp_path / "out" / "runs_v3.csv").exists()
+
+
+def test_v3_seal_lists_its_files(harness) -> None:
+    sealed = set(harness.V3_SEALED_FILES)
+    assert {
+        "docs/processing/m210b_selector_floor_v3.md",
+        "docs/processing/m210b_selector_floor_v2.md",
+        "analysis/synthetic/s4s6/models_s4s6_v3.json",
+        "analysis/processing/m210b_v3_judge.py",
+        "tests/test_m210b_v3_judge.py",
+        "tests/test_m210b_s4s6_pipeline.py",
+        "tests/test_synthetic_export.py",
+        "analysis/processing/m210b_floor_rules.py",
+        "analysis/processing/fourtu_apex_candidate_select.py",
+    } <= sealed
+
+
+@pytest.mark.parametrize(
+    ("path", "prefix"),
+    [
+        ("analysis/processing/m210b_floor_rules.py", "bad0f95c"),
+        ("analysis/processing/fourtu_apex_candidate_select.py", "7cc2bf2b"),
+    ],
+)
+def test_floor_rules_and_wrapper_are_unchanged_since_752e783(
+    harness, path, prefix
+) -> None:
+    sealed = harness._git("rev-parse", f"752e783:{path}")
+    working = harness._git("hash-object", "--", path)
+    if sealed is None or working is None:
+        pytest.skip("git history with 752e783 is not available")
+    assert sealed.startswith(prefix)
+    assert working == sealed
+
+
+# ----------------------------------------------------------------- v2 replay
+
+V2_RUNS = PROJECT_ROOT / "data" / "processing" / "m210b_s4s6_v2" / "runs_v2.csv"
+V2_DATA = PROJECT_ROOT / "data" / "synthetic_gprmax_s4s6_v2"
+
+
+@pytest.mark.data
+def test_v2_protocol_reproduces_v2_rows(harness, tmp_path) -> None:
+    """Protocol v2: a subset of the stored ``runs_v2.csv`` rows comes back unchanged."""
+    if not (V2_RUNS.exists() and (V2_DATA / "S4N_D14_S040.npy").exists()):
+        pytest.skip("v2 runs_v2.csv or exports are not available")
+    plan = dataclasses.replace(
+        harness.V2_PLAN,
+        n_seeds=1,
+        rules=("current", "B_full"),
+        deltas_ns=(0.0, 2.35),
+        original_dt_rules=("current",),
+        no_pipe_calibration_pair="D14_S040",
+    )
+    models = harness.ModelSet(V2_DATA, plan)
+    new_rows = harness.model_runs("S4N_D14_S040", models)
+    written = tmp_path / "subset.csv"
+    harness.write_runs(written, new_rows, plan.columns)
+    _, regenerated = _read_rows(written)
+    _, stored = _read_rows(V2_RUNS)
+    key_columns = ("model_id", "rho", "seed", "rule", "delta_ns", "ramp_noise", "dt_ns")
+    stored_by_key = {tuple(r[c] for c in key_columns): r for r in stored}
+    assert len(regenerated) == 2 * 2 * 2 + 1
+    for row in regenerated:
+        assert row == stored_by_key[tuple(row[c] for c in key_columns)]

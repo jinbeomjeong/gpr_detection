@@ -559,6 +559,40 @@ def test_s4s6_reference_output_paths_are_used(exporter, tmp_path):
     assert with_dir[0][1].free_space_h5 == tmp_path / "h5" / "FS.h5"
 
 
+def test_s4s6_batch_v3_exports_only_its_models(exporter, tmp_path):
+    meta_path = _s4s6_models_json(tmp_path)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    for model in meta["models"]:
+        if model["id"] in ("S4N_D03_S010", "S6P_NP_S010"):
+            model["batch"] = "v3"
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    h5_dir = _write_fake_s4s6_runs(exporter, tmp_path)
+    out_dir = tmp_path / "out_v3"
+    argv = [
+        "--s4s6", str(meta_path), "--batch", "v3",
+        "--h5-dir", str(h5_dir), "--out-dir", str(out_dir),
+    ]  # fmt: skip
+    exporter.main(argv)
+    exported = sorted(p.stem for p in out_dir.glob("*.json"))
+    assert exported == ["S4N_D03_S010", "S6P_NP_S010"]
+    assert _read_json(out_dir / "S4N_D03_S010.json")["s4s6"]["batch"] == "v3"
+
+
+def test_s4s6_batch_folders_never_fall_back_to_batch_1(exporter):
+    project = exporter.PROJECT
+    assert exporter.s4s6_out_dir("v3", None) == (
+        project / "data" / "synthetic_gprmax_s4s6_v3"
+    )
+    assert exporter.s4s6_out_dir("v2", None) == (
+        project / "data" / "synthetic_gprmax_s4s6_v2"
+    )
+    assert exporter.s4s6_out_dir(None, None) == exporter.S4S6_OUT
+    with pytest.raises(SystemExit, match="no default folder"):
+        exporter.s4s6_out_dir("v4", None)
+    with pytest.raises(SystemExit, match="--batch needs --s4s6"):
+        exporter.main(["--batch", "v3"])
+
+
 def test_s4s6_pipe_line_json_has_the_harness_keys(s4s6_export):
     _, out_dir = s4s6_export
     meta = _read_json(out_dir / "S6P_D03_S010.json")

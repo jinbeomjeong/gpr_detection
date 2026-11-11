@@ -1,0 +1,40 @@
+#title: S6P_D13_S012_J8 soil eps=9.0 sigma=0.012 clutter=paving joints J8 seed 20261118 pipe=pec R=0.1 d_top=1.3 x=2.0 f=500MHz h=0.1
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.012 1 0 soil
+#material: 5.0 0.002 1 0 brick
+#material: 4.0 0.001 1 0 sand
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.35 2.2 inf src_wave
+#rx: 0.45 2.2 inf rx1 Ez
+#src_steps: 0.02 0 0
+#rx_steps: 0.02 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#box: 0 1.97 0 4.0 2.02 inf sand
+#box: 0 2.02 0 4.0 2.1 inf brick
+#box: 0.19 2.02 0 0.2 2.1 inf sand
+#box: 0.395 2.02 0 0.405 2.1 inf sand
+#box: 0.59 2.02 0 0.6 2.1 inf sand
+#box: 0.775 2.02 0 0.785 2.1 inf sand
+#box: 0.985 2.02 0 0.995 2.1 inf sand
+#box: 1.2 2.02 0 1.21 2.1 inf sand
+#box: 1.38 2.02 0 1.39 2.1 inf sand
+#box: 1.575 2.02 0 1.585 2.1 inf sand
+#box: 1.805 2.02 0 1.815 2.1 inf sand
+#box: 2.015 2.02 0 2.025 2.1 inf sand
+#box: 2.195 2.02 0 2.205 2.1 inf sand
+#box: 2.405 2.02 0 2.415 2.1 inf sand
+#box: 2.58 2.02 0 2.59 2.1 inf sand
+#box: 2.8 2.02 0 2.81 2.1 inf sand
+#box: 3.005 2.02 0 3.015 2.1 inf sand
+#box: 3.2 2.02 0 3.21 2.1 inf sand
+#box: 3.38 2.02 0 3.39 2.1 inf sand
+#box: 3.615 2.02 0 3.625 2.1 inf sand
+#box: 3.785 2.02 0 3.795 2.1 inf sand
+#cylinder: 2.0 0.7 0 2.0 0.7 inf 0.1 pec

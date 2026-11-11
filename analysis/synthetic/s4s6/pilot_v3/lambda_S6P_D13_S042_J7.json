@@ -1,0 +1,49 @@
+{
+ "note": "model-selection estimate (doc 4-2-7), not a batch-1 result",
+ "apex": {
+  "A0": 0.09040576919626594,
+  "t_apex_ns": 28.714000000000002,
+  "subtracted_nopipe": true
+ },
+ "line": {
+  "n_traces": 161,
+  "n_samples": 154,
+  "t_zero_ns": 3.1761237796915927,
+  "zero_rule": "air_single_event",
+  "line_traces_ok": true,
+  "delta_-1.00": {
+   "k_lo": 45,
+   "L": 1.407379582037777,
+   "t_argmax_ns": 5.978000000000001,
+   "periods_after_mute": 0.784,
+   "window_ok": true
+  },
+  "delta_+0.00": {
+   "k_lo": 55,
+   "L": 1.6184612656803439,
+   "t_argmax_ns": 5.390000000000001,
+   "periods_after_mute": 0.0,
+   "window_ok": true
+  },
+  "delta_+1.00": {
+   "k_lo": 66,
+   "L": 0.8953234513938101,
+   "t_argmax_ns": 6.468,
+   "periods_after_mute": 0.0,
+   "window_ok": true
+  },
+  "delta_+2.35": {
+   "k_lo": 79,
+   "L": 0.33906941519061895,
+   "t_argmax_ns": 8.82,
+   "periods_after_mute": 0.539,
+   "window_ok": true
+  }
+ },
+ "Lambda_est": {
+  "delta_-1.00": 15.567364721851252,
+  "delta_+0.00": 17.902190093275504,
+  "delta_+1.00": 9.903388460200059,
+  "delta_+2.35": 3.75052851388851
+ }
+}

@@ -1,0 +1,17 @@
+#title: P_S4N_D15_S048_X5 pilot 5 traces x=1.8..2.2 step 0.1 (A0 and apex flatness) of S4N_D15_S048
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.048 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.75 2.2 inf src_wave
+#rx: 1.85 2.2 inf rx1 Ez
+#src_steps: 0.1 0 0
+#rx_steps: 0.1 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#cylinder: 2.0 0.5 0 2.0 0.5 inf 0.1 pec

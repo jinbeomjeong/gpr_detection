@@ -43,6 +43,9 @@ Run:
         --s1g analysis/synthetic/s1g/models_s1g.json [--models S1G_D060 ...]
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
         --s4s6 analysis/synthetic/s4s6/models_s4s6.json [--models S4N_D15_S010 ...]
+    conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
+        --s4s6 analysis/synthetic/s4s6/models_s4s6_v3.json --batch v3
+        (json batch "v3" only, into data/synthetic_gprmax_s4s6_v3; "v2" likewise)
 """
 
 import argparse
@@ -72,6 +75,11 @@ OUT = PROJECT / "data" / "synthetic_gprmax"
 RAW = OUT / "_raw"
 S1G_OUT = PROJECT / "data" / "synthetic_gprmax_s1g"
 S4S6_OUT = PROJECT / "data" / "synthetic_gprmax_s4s6"
+S4S6_BATCH_OUT = {
+    "v2": PROJECT / "data" / "synthetic_gprmax_s4s6_v2",
+    "v3": PROJECT / "data" / "synthetic_gprmax_s4s6_v3",
+}
+"""Default output folder of each re-test batch (``--batch``); never batch 1's."""
 
 # Search windows, in periods of the centre frequency (1/f).
 APEX_WINDOW_PERIODS = 0.6
@@ -1072,6 +1080,27 @@ def write_manifest(out_dir: Path, metas: list[dict]) -> None:
         w.writerows(rows)
 
 
+def s4s6_batch(spec: dict) -> str:
+    """json ``batch`` of an S4/S6 spec as text (batch 1 stores the number 1)."""
+    return str(spec["extra_meta"]["s4s6"]["batch"])
+
+
+def s4s6_out_dir(batch: str | None, out_dir: Path | None) -> Path:
+    """Output folder of an S4/S6 export; each re-test batch has its own folder.
+
+    Raises:
+        SystemExit: A batch without a default folder and no ``--out-dir`` (a
+            new batch must not fall back to the batch-1 folder).
+    """
+    if out_dir is not None:
+        return out_dir
+    if batch is None:
+        return S4S6_OUT
+    if batch not in S4S6_BATCH_OUT:
+        raise SystemExit(f"--batch {batch} has no default folder: give --out-dir")
+    return S4S6_BATCH_OUT[batch]
+
+
 def _parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument(
@@ -1083,6 +1112,13 @@ def _parse_args(argv):
         "--s4s6",
         type=Path,
         help="S4/S6 models json (analysis/synthetic/s4s6/models_s4s6.json)",
+    )
+    parser.add_argument(
+        "--batch",
+        help=(
+            "S4/S6 only: export only the models whose json batch is this value; "
+            f"the default output folder follows it ({', '.join(S4S6_BATCH_OUT)})"
+        ),
     )
     parser.add_argument(
         "--h5-dir", type=Path, help="S1g, S4/S6 only: folder of the gprMax h5 outputs"
@@ -1110,9 +1146,13 @@ def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
     if args.s1g is not None and args.s4s6 is not None:
         raise SystemExit("--s1g and --s4s6 are exclusive")
+    if args.batch is not None and args.s4s6 is None:
+        raise SystemExit("--batch needs --s4s6")
     if args.s4s6 is not None:
         jobs = load_s4s6_specs(args.s4s6, args.h5_dir)
-        out_dir = S4S6_OUT if args.out_dir is None else args.out_dir
+        out_dir = s4s6_out_dir(args.batch, args.out_dir)
+        if args.batch is not None:
+            jobs = [(spec, src) for spec, src in jobs if s4s6_batch(spec) == args.batch]
     elif args.s1g is not None:
         jobs = load_s1g_specs(args.s1g, args.h5_dir)
         out_dir = S1G_OUT if args.out_dir is None else args.out_dir

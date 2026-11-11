@@ -45,7 +45,15 @@ the exports from ``--input-dir`` (default ``data/synthetic_gprmax_s4s6_v2``);
 (disjointness from batch 1 is asserted at start), rules current, B_full, B_min,
 B_noise, C_none, and six more columns at the row end (``NEAREST_COLUMNS``: the
 nearest kept for F5-B and its depth for F5-C); output ``runs_v2.csv``.
-The default protocol v1.4 writes the batch-1 ``runs.csv`` unchanged.
+Protocol v3 (``--protocol v3``, m210b_selector_floor_v3.md sections 5-6): the
+same run as v2 with models (json ``batch == "v3"``) from
+``analysis/synthetic/s4s6/models_s4s6_v3.json``, exports from
+``data/synthetic_gprmax_s4s6_v3``, 40 seeds, seed ``20281120 + 1000 p + 100 q +
+s``, unit-noise seed 20281199 (no seed shared with batch 1, v2 or the prototype,
+asserted at start), rules current, B_full, B_min, C_none, and two more columns
+(``STRONG_START_COLUMNS``, F3-S, current rows only); output ``runs_v3.csv``.
+The default protocol v1.4 writes the batch-1 ``runs.csv`` unchanged, and v2
+writes ``runs_v2.csv`` as sealed at 752e783.
 
 Run guards (pre-run audit): the seal record is taken at start and end. A sealed
 file that differs from its seal blob, a dirty working tree, an end HEAD other
@@ -363,6 +371,78 @@ V2_PLAN = HarnessPlan(
 )
 """v2 plan; ``no_pipe_calibration_pair`` comes from the v2 json (see
 ``load_v2_models``)."""
+
+PROTOCOL_V3 = "v3"
+V3_MODELS_JSON = (
+    PROJECT_ROOT / "analysis" / "synthetic" / "s4s6" / "models_s4s6_v3.json"
+)
+"""v3 section 6 V3-1 (EM); ``--models-json`` overrides it."""
+V3_DEFAULT_DATA_ROOT = PROJECT_ROOT / "data" / "synthetic_gprmax_s4s6_v3"
+V3_DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "processing" / "m210b_s4s6_v3"
+V3_RUNS_CSV = "runs_v3.csv"
+V3_BATCH = "v3"
+V3_N_SEEDS = 40
+V3_SEED_BASE = 20281120
+V3_UNIT_NOISE_SEED = 20281199
+V3_RULES = ("current", "B_full", "B_min", "C_none")
+"""v3 section 5: B_full, B_min judged; C_none reported; B_noise and A_skip1 out."""
+V3_PAIR_INDEX = {
+    "D14_S038": 0,
+    "D13_S042": 1,
+    "D16_S045": 2,
+    "D15_S048": 3,
+    "D13_S012": 4,
+    "NP_S038": 5,
+}
+"""v3 section 5: R1, R2, F1, F2, P3 -> p 0-4, the no-pipe line -> p 5."""
+V3_PAIR_LABELS = {0: "R1", 1: "R2", 2: "F1", 3: "F2", 4: "P3", 5: "NP"}
+"""json ``pair`` label of each p (v3 section 4 table), cross-checked on load."""
+V3_SEALED_FILES = (
+    *SEALED_FILES,
+    "docs/processing/m210b_selector_floor_v3.md",
+    "docs/processing/m210b_selector_floor_v2.md",
+    "docs/processing/m210b_harness_interpretation.md",
+    "analysis/synthetic/s4s6/models_s4s6_v3.json",
+    "analysis/processing/m210b_s4s6_pipeline.py",
+    "tests/test_m210b_s4s6_pipeline.py",
+    "analysis/processing/fourtu_apex_candidate_select.py",
+    "analysis/processing/m210b_v3_judge.py",
+    "tests/test_m210b_v3_judge.py",
+    "scripts/synthetic/export_dataset.py",
+    "tests/test_synthetic_export.py",
+)
+"""v3 section 7 sealed files (checked at the v3 seal commit, ``--seal-commit``);
+the folder ``SEALED_FOLDER`` also holds models_s4s6_v3.json, inputs_v3/,
+pilot_v3/ and the run ``.cmd`` at that commit."""
+
+STRONG_START_COLUMNS = ("accepted_apex_strong_start", "n_strong_starts")
+"""v3 V3-2 (F3-S): current rows only; blank for the other rules by definition."""
+V3_RUN_COLUMNS = (*V2_RUN_COLUMNS, *STRONG_START_COLUMNS)
+V3_COLUMN_DEFINITIONS = {
+    **V2_COLUMN_DEFINITIONS,
+    "seed": "full seed 20281120 + 1000 p + 100 q + s (v3 section 5; run_info)",
+    "accepted_apex_strong_start": (
+        "current rows only (v3 section 3, F3-S): some detection peak with "
+        "E >= 5 sigma_n (sigma_n = 1.4826 MAD of S over the whole record above "
+        "the end trim, as B_full) whose own crest_apex -> accept gives an "
+        "accepted candidate in the apex window; blank without a pipe and for "
+        "the other rules"
+    ),
+    "n_strong_starts": (
+        "current rows only: number of detection peaks with E >= 5 sigma_n; "
+        "blank for the other rules"
+    ),
+}
+V3_PLAN = HarnessPlan(
+    n_seeds=V3_N_SEEDS,
+    rules=V3_RULES,
+    seed_base=V3_SEED_BASE,
+    unit_noise_seed=V3_UNIT_NOISE_SEED,
+    pair_index=dict(V3_PAIR_INDEX),
+    no_pipe_calibration_pair="",
+    columns=V3_RUN_COLUMNS,
+)
+"""v3 plan; ``no_pipe_calibration_pair`` comes from the v3 json (W10 form)."""
 
 
 # ----------------------------------------------------------------- small helpers
@@ -837,7 +917,7 @@ def run_row(
     columns (v2) also runs the F5-C depth path.
     """
     dt, f_c = noisy.dt_ns, noisy.f_c_hz
-    line, kept, _ = generator.apex_candidates_for_radargram(
+    line, kept, envelope = generator.apex_candidates_for_radargram(
         noisy,
         inputs,
         act=LINE_ACTIVITY,
@@ -884,7 +964,68 @@ def run_row(
     row.update(_outcome_fields(line, kept, dt, target))
     if "kept_nearest_trace" in columns:
         row.update(_nearest_fields(noisy, inputs, kept, target))
+    if "accepted_apex_strong_start" in columns:
+        row.update(dict.fromkeys(STRONG_START_COLUMNS, ""))
+        if rule == "current":
+            strong = strong_start_outcome(
+                line, envelope, inputs.branch.background_removed, target, dt
+            )
+            row["n_strong_starts"] = strong.n_strong_starts
+            row["accepted_apex_strong_start"] = (
+                "" if strong.accepted_apex is None else strong.accepted_apex
+            )
     return {column: row[column] for column in columns}
+
+
+@dataclass(frozen=True)
+class StrongStartOutcome:
+    """F3-S of one current run (v3 section 3)."""
+
+    n_strong_starts: int
+    accepted_apex: bool | None
+    """None without a pipe (no apex window)."""
+
+
+def strong_start_outcome(
+    line: Mapping,
+    envelope: np.ndarray | None,
+    background_removed: np.ndarray,
+    target: ApexTarget | None,
+    dt_ns: float,
+) -> StrongStartOutcome:
+    """Strong starts (E >= 5 sigma_n, boundary included) and their apex success.
+
+    sigma_n is B_full's: 1.4826 MAD of the background-removed section over the
+    whole record above the end trim (``S[:k_hi]``). Each detection peak was
+    already moved along its crest and tested on its own by the wrapper
+    (``_peaks``: ``status == "accepted"``, crest-moved trace and sample); a
+    strong start succeeds when that accepted point lies in the apex window.
+    The point's time is rounded like the candidate rows (3 decimals).
+    """
+    floor = line.get("_floor")
+    if floor is None or envelope is None:
+        return StrongStartOutcome(0, None if target is None else False)
+    sigma_n = floor_rules.noise_sigma(background_removed[: floor["k_hi"]])
+    threshold = floor_rules.K_NOISE * sigma_n
+    strong = [
+        peak
+        for peak in line.get("_peaks", [])
+        if envelope[peak["row"], peak["trace0"]] >= threshold
+    ]
+    if target is None:
+        return StrongStartOutcome(len(strong), None)
+    has_apex = any(
+        peak["status"] == "accepted"
+        and is_in_apex_window(
+            peak["trace"],
+            round(peak["sample"] * dt_ns, 3),
+            target.trace,
+            target.t_a0_ns,
+            target.f_c_hz,
+        )
+        for peak in strong
+    )
+    return StrongStartOutcome(len(strong), has_apex)
 
 
 def nearest_kept(
@@ -1456,71 +1597,161 @@ class RunSetup:
     excluded_models: tuple[str, ...] = ()
 
 
-def load_v2_models(models_json: Path) -> tuple[list[str], list[str], str | None]:
-    """Models with ``batch == "v2"`` (json order), the excluded ones, and the
+@dataclass(frozen=True)
+class NewRealisationProtocol:
+    """A re-test on new realisations (v2, v3): what changes between them.
+
+    The run identity, guards and row logic are shared; a protocol fixes its
+    files, json batch, seeds and rules, pair labels, seal list and the earlier
+    seed sets it must not reuse.
+    """
+
+    name: str
+    models_json: Path
+    data_root: Path
+    out_dir: Path
+    runs_csv_name: str
+    batch: str
+    plan: HarnessPlan
+    pair_labels: Mapping[int, str]
+    sealed_files: tuple[str, ...]
+    sealed_folders: tuple[str, ...]
+    column_definitions: Mapping[str, str]
+    spec_text: str
+    earlier_seed_sets: Mapping[str, frozenset[int]]
+    """Name -> seeds that must not be reused (asserted at start)."""
+    reported_seed_sets: Mapping[str, frozenset[int]]
+    """Name -> seeds whose overlap is only reported."""
+
+
+BATCH1_SEEDS = frozenset(plan_seeds(DEFAULT_PLAN))
+V2_SEEDS = frozenset(plan_seeds(V2_PLAN))
+PROTOTYPE_SEED_SET = frozenset(PROTOTYPE_SEEDS)
+
+V2_PROTOCOL = NewRealisationProtocol(
+    name=PROTOCOL_V2,
+    models_json=V2_MODELS_JSON,
+    data_root=V2_DEFAULT_DATA_ROOT,
+    out_dir=V2_DEFAULT_OUT_DIR,
+    runs_csv_name=V2_RUNS_CSV,
+    batch=V2_BATCH,
+    plan=V2_PLAN,
+    pair_labels=V2_PAIR_LABELS,
+    sealed_files=V2_SEALED_FILES,
+    sealed_folders=V2_SEALED_FOLDERS,
+    column_definitions=V2_COLUMN_DEFINITIONS,
+    spec_text="m210b_selector_floor_v2 section 8-1 (H1-H8) on v1.4",
+    earlier_seed_sets={"batch1": BATCH1_SEEDS},
+    reported_seed_sets={"prototype": PROTOTYPE_SEED_SET},
+)
+V3_PROTOCOL = NewRealisationProtocol(
+    name=PROTOCOL_V3,
+    models_json=V3_MODELS_JSON,
+    data_root=V3_DEFAULT_DATA_ROOT,
+    out_dir=V3_DEFAULT_OUT_DIR,
+    runs_csv_name=V3_RUNS_CSV,
+    batch=V3_BATCH,
+    plan=V3_PLAN,
+    pair_labels=V3_PAIR_LABELS,
+    sealed_files=V3_SEALED_FILES,
+    sealed_folders=(SEALED_FOLDER,),
+    column_definitions=V3_COLUMN_DEFINITIONS,
+    spec_text="m210b_selector_floor_v3 sections 5-6 (V3-1 to V3-3) on v2.1",
+    earlier_seed_sets={
+        "batch1": BATCH1_SEEDS,
+        "v2": V2_SEEDS,
+        "prototype": PROTOTYPE_SEED_SET,
+    },
+    reported_seed_sets={},
+)
+NEW_REALISATION_PROTOCOLS = {PROTOCOL_V2: V2_PROTOCOL, PROTOCOL_V3: V3_PROTOCOL}
+
+
+def load_protocol_models(
+    models_json: Path, protocol: NewRealisationProtocol
+) -> tuple[list[str], list[str], str | None]:
+    """Models with ``batch == protocol.batch`` (json order), the others, and the
     optional json ``no_pipe_calibration_pair``.
 
     Raises:
-        ValueError: A v2 model whose pair is not one of v2 H2, or an S6P whose
-            S4N control is not a v2 model.
+        ValueError: A model whose pair is not one of the protocol's, a json
+            ``pair`` label that disagrees with it, or an S6P whose S4N control
+            is not a model of the batch.
     """
     meta = json.loads(models_json.read_text(encoding="utf-8"))
-    included = [m["id"] for m in meta["models"] if m.get("batch") == V2_BATCH]
-    excluded = [m["id"] for m in meta["models"] if m.get("batch") != V2_BATCH]
+    pair_index = protocol.plan.pair_index
+    included = [m["id"] for m in meta["models"] if m.get("batch") == protocol.batch]
+    excluded = [m["id"] for m in meta["models"] if m.get("batch") != protocol.batch]
     labels = {m["id"]: m.get("pair") for m in meta["models"]}
     for model_id in included:
-        if model_pair(model_id) not in V2_PAIR_INDEX:
-            raise ValueError(f"{model_id}: pair {model_pair(model_id)} not in v2 H2")
-        expected_label = V2_PAIR_LABELS[V2_PAIR_INDEX[model_pair(model_id)]]
+        pair = model_pair(model_id)
+        if pair not in pair_index:
+            raise ValueError(f"{model_id}: pair {pair} not in {protocol.name}")
+        expected_label = protocol.pair_labels[pair_index[pair]]
         if labels[model_id] not in (None, expected_label):
             raise ValueError(
                 f"{model_id}: json pair {labels[model_id]} is not {expected_label}"
             )
-        pair = model_pair(model_id)
         needs_control = model_id.startswith("S6P_") and not pair.startswith(
             NO_PIPE_PAIR_PREFIX
         )
         if needs_control and control_id(pair) not in included:
             raise ValueError(
-                f"{model_id}: control {control_id(pair)} is not a v2 model"
+                f"{model_id}: control {control_id(pair)} is not a "
+                f"{protocol.batch} model"
             )
     return included, excluded, meta.get("no_pipe_calibration_pair")
 
 
-def v2_setup(args: argparse.Namespace, plan: HarnessPlan | None) -> RunSetup:
+def load_v2_models(models_json: Path) -> tuple[list[str], list[str], str | None]:
+    """``load_protocol_models`` for v2 (kept for its callers and tests)."""
+    return load_protocol_models(models_json, V2_PROTOCOL)
+
+
+def protocol_setup(
+    args: argparse.Namespace,
+    plan: HarnessPlan | None,
+    protocol: NewRealisationProtocol,
+) -> RunSetup:
+    """Run setup of a new-realisation protocol (v2, v3)."""
+    name = protocol.name
     if args.models is not None:
-        raise SystemExit("--models is not used with --protocol v2 (json batch v2)")
+        raise SystemExit(f"--models is not used with --protocol {name} (json batch)")
     if not args.seal_commit:
-        raise SystemExit("--protocol v2 needs --seal-commit (the v2 seal commit)")
-    models_json = args.models_json or V2_MODELS_JSON
-    model_ids, excluded, json_pair = load_v2_models(models_json)
+        raise SystemExit(f"--protocol {name} needs --seal-commit (its seal commit)")
+    models_json = args.models_json or protocol.models_json
+    model_ids, excluded, json_pair = load_protocol_models(models_json, protocol)
     no_pipe_pair = json_pair or args.no_pipe_calibration_pair
     if json_pair and args.no_pipe_calibration_pair not in (None, json_pair):
         raise SystemExit("--no-pipe-calibration-pair differs from the json")
     has_no_pipe = any(model_pair(m).startswith(NO_PIPE_PAIR_PREFIX) for m in model_ids)
     if has_no_pipe and not no_pipe_pair:
         raise SystemExit(
-            "v2 no-pipe line needs a calibration pair: json "
+            f"{name} no-pipe line needs a calibration pair: json "
             "no_pipe_calibration_pair or --no-pipe-calibration-pair "
-            "(not fixed by the v2 spec)"
+            "(not fixed by the spec)"
         )
-    base_plan = V2_PLAN if plan is None else plan
+    base_plan = protocol.plan if plan is None else plan
     if no_pipe_pair:
         base_plan = dataclasses.replace(
             base_plan, no_pipe_calibration_pair=no_pipe_pair
         )
     return RunSetup(
-        protocol=PROTOCOL_V2,
+        protocol=name,
         plan=base_plan,
         model_ids=tuple(model_ids),
-        data_root=args.data_root or V2_DEFAULT_DATA_ROOT,
+        data_root=args.data_root or protocol.data_root,
         models_json=models_json,
-        out_dir=args.out_dir or V2_DEFAULT_OUT_DIR,
-        runs_csv_name=V2_RUNS_CSV,
-        seal=v2_seal(args.seal_commit),
-        column_definitions=V2_COLUMN_DEFINITIONS,
+        out_dir=args.out_dir or protocol.out_dir,
+        runs_csv_name=protocol.runs_csv_name,
+        seal=SealSpec(args.seal_commit, protocol.sealed_files, protocol.sealed_folders),
+        column_definitions=protocol.column_definitions,
         excluded_models=tuple(excluded),
     )
+
+
+def v2_setup(args: argparse.Namespace, plan: HarnessPlan | None) -> RunSetup:
+    return protocol_setup(args, plan, V2_PROTOCOL)
 
 
 def v1_setup(args: argparse.Namespace, plan: HarnessPlan | None) -> RunSetup:
@@ -1540,20 +1771,36 @@ def v1_setup(args: argparse.Namespace, plan: HarnessPlan | None) -> RunSetup:
 
 
 def seed_record(plan: HarnessPlan, protocol: str) -> dict[str, object]:
-    """v2 H2: assert no shared seed with batch 1; ``seed_overlap`` = 0."""
-    if protocol != PROTOCOL_V2:
+    """Assert that no seed of a new-realisation protocol was used before.
+
+    v2 (H2): batch 1 is asserted, the prototype only reported. v3 (section 5):
+    batch 1, v2 and the prototype are all asserted. ``seed_overlap`` = 0.
+
+    Raises:
+        SeedOverlapError: A shared seed.
+    """
+    spec = NEW_REALISATION_PROTOCOLS.get(protocol)
+    if spec is None:
         return {"seed_overlap": None, "note": "batch-1 protocol, nothing to compare"}
     seeds = plan_seeds(plan)
-    overlap = assert_no_seed_overlap(seeds, plan_seeds(DEFAULT_PLAN))
-    return {
+    earlier = frozenset().union(*spec.earlier_seed_sets.values())
+    overlap = assert_no_seed_overlap(seeds, set(earlier))
+    record: dict[str, object] = {
         "seed_overlap": overlap,
-        "batch1_seed_set": (
-            "20261120 + 1000 p + 100 q + s, p 0-4, q 0-1, s 0-9; 20261199"
-        ),
-        "n_v2_seeds": len(seeds),
-        "v2_seed_range": [min(seeds), max(seeds)],
-        "prototype_seed_overlap": len(seeds & set(PROTOTYPE_SEEDS)),
+        "asserted_against": {
+            name: len(seed_set) for name, seed_set in spec.earlier_seed_sets.items()
+        },
+        f"n_{protocol}_seeds": len(seeds),
+        f"{protocol}_seed_range": [min(seeds), max(seeds)],
     }
+    if protocol == PROTOCOL_V2:
+        # v2 run_info keys as sealed at 752e783.
+        record["batch1_seed_set"] = (
+            "20261120 + 1000 p + 100 q + s, p 0-4, q 0-1, s 0-9; 20261199"
+        )
+    for name, seed_set in spec.reported_seed_sets.items():
+        record[f"{name}_seed_overlap"] = len(seeds & seed_set)
+    return record
 
 
 # ----------------------------------------------------------------- entry point
@@ -1571,34 +1818,43 @@ def write_runs(
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
-        "--protocol", choices=(PROTOCOL_V1, PROTOCOL_V2), default=PROTOCOL_V1
+        "--protocol",
+        choices=(PROTOCOL_V1, PROTOCOL_V2, PROTOCOL_V3),
+        default=PROTOCOL_V1,
     )
     parser.add_argument(
         "--data-root",
         "--input-dir",
         dest="data_root",
         type=Path,
-        help=f"exported lines (default {DEFAULT_DATA_ROOT}; v2 {V2_DEFAULT_DATA_ROOT})",
+        help=(
+            f"exported lines (default {DEFAULT_DATA_ROOT}; v2 {V2_DEFAULT_DATA_ROOT}; "
+            f"v3 {V3_DEFAULT_DATA_ROOT})"
+        ),
     )
     parser.add_argument(
         "--models-json",
         type=Path,
-        help=f"default {DEFAULT_MODELS_JSON}; v2 {V2_MODELS_JSON}",
+        help=f"default {DEFAULT_MODELS_JSON}; v2 {V2_MODELS_JSON}; v3 {V3_MODELS_JSON}",
     )
     parser.add_argument(
         "--out-dir",
         type=Path,
-        help=f"default {DEFAULT_OUT_DIR}; v2 {V2_DEFAULT_OUT_DIR}",
+        help=(
+            f"default {DEFAULT_OUT_DIR}; v2 {V2_DEFAULT_OUT_DIR}; "
+            f"v3 {V3_DEFAULT_OUT_DIR}"
+        ),
     )
     parser.add_argument(
-        "--models", help="v1.4 only: comma list (default batch 1); v2 uses the json"
+        "--models",
+        help="v1.4 only: comma list (default batch 1); v2 and v3 use the json",
     )
     parser.add_argument(
-        "--seal-commit", help=f"seal commit (v1.4: {SEAL_COMMIT}; v2: required)"
+        "--seal-commit", help=f"seal commit (v1.4: {SEAL_COMMIT}; v2, v3: required)"
     )
     parser.add_argument(
         "--no-pipe-calibration-pair",
-        help="v2 only, when the json has no no_pipe_calibration_pair",
+        help="v2, v3 only, when the json has no no_pipe_calibration_pair",
     )
     parser.add_argument(
         "--regression-activities",
@@ -1644,9 +1900,11 @@ def main(
         0, or 1 when a run guard failed (outputs are written in both cases).
     """
     args = parse_args(argv)
-    setup = (
-        v2_setup(args, plan) if args.protocol == PROTOCOL_V2 else v1_setup(args, plan)
-    )
+    new_protocol = NEW_REALISATION_PROTOCOLS.get(args.protocol)
+    if new_protocol is None:
+        setup = v1_setup(args, plan)
+    else:
+        setup = protocol_setup(args, plan, new_protocol)
     seeds = seed_record(setup.plan, setup.protocol)
     start = seal_record(setup.seal)
     started_at = start["taken_at"]
@@ -1657,7 +1915,7 @@ def main(
     write_identity_file(setup.out_dir / "pre_run.txt", start)
     inputs = input_record(setup.data_root, setup.models_json)
     start_failures = start_guard_failures(
-        start, head_must_be_seal=setup.protocol == PROTOCOL_V2
+        start, head_must_be_seal=new_protocol is not None
     )
     if start_failures:
         write_start_failure(setup, start, inputs, start_failures)
@@ -1691,8 +1949,8 @@ def main(
     run_info = {
         "spec": (
             "m210b_selector_floor v1.4 sections 4-2 and 8-3"
-            if setup.protocol == PROTOCOL_V1
-            else "m210b_selector_floor_v2 section 8-1 (H1-H8) on v1.4"
+            if new_protocol is None
+            else new_protocol.spec_text
         )
         + "; no verdict here",
         "protocol": setup.protocol,
