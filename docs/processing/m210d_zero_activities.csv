@@ -1,0 +1,19 @@
+activity_id,site,n_gt,gt_depths_m,n_lines,eps_meta,n_peaks,n_accepted,n_kept,n_fit_ok,n_out,n_unknown,n_in,n_D,n_after_qc,n_clusters,cluster_lines_max,unknown_reasons,bottleneck,truth_loss_stages
+010.4,10,1,0.98,1,9.0,290,94,6,6,4,2,0,0,0,0,0,fit_failed=1;unstable=1,all removed by QC,not_B=1
+010.5,10,2,0.53 0.53,7,9.0,119,46,15,15,5,8,2,0,2,1,1,insufficient_picks=3;unstable=5,single-line clusters only (support),supported=2
+010.7,10,1,1.10,2,13.06,375,72,12,12,3,6,3,1,2,2,1,insufficient_picks=2;unstable=4,single-line clusters only (support),kept=1
+011.1,11,3,3.61 4.21 4.57,4,17.36,442,150,24,24,8,15,1,0,1,1,1,unstable=15,single-line clusters only (support),peak=3
+011.11,11,5,0.34 0.54 0.65 0.70 0.71,5,17.36,209,63,30,30,16,12,2,1,2,2,1,fit_failed=3;insufficient_picks=2;unstable=7,single-line clusters only (support),supported=5
+011.13,11,1,0.35,2,17.36,402,135,12,12,8,4,0,0,0,0,0,unstable=4,all removed by QC,not_E=1
+011.15,11,1,0.35,1,15.18,300,120,6,6,2,4,0,0,0,0,0,insufficient_picks=1;unstable=3,all removed by QC,not_E=1
+011.16,11,3,0.60 0.70 0.72,9,17.36,194,35,28,28,10,16,2,0,2,2,1,fit_failed=1;insufficient_picks=3;unstable=12,single-line clusters only (support),supported=3
+011.6,11,2,2.45 2.70,6,19.46,461,135,36,36,16,18,2,0,2,2,1,fit_failed=2;insufficient_picks=2;unstable=14,single-line clusters only (support),peak=2
+011.7,11,6,0.27 0.40 0.58 0.58 0.65 2.10,2,19.46,598,195,12,12,8,4,0,0,0,0,0,unstable=4,all removed by QC,not_E=5;peak=1
+012.4,12,1,2.23,2,9.0,83,10,9,9,1,6,2,0,2,1,1,insufficient_picks=3;unstable=3,single-line clusters only (support),peak=1
+013.1,13,2,0.50 0.52,3,9.0,448,135,15,11,3,4,4,0,4,3,1,insufficient_picks=2;unstable=2,single-line clusters only (support),supported=2
+013.2,13,2,0.63 0.64,3,9.0,448,135,15,11,3,4,4,0,4,3,1,insufficient_picks=2;unstable=2,single-line clusters only (support),supported=2
+013.4,13,1,0.50,1,9.0,109,43,6,6,3,3,0,2,0,0,0,insufficient_picks=1;unstable=2,all removed by QC,not_D=1
+04.2,4,2,0.74 0.91,3,9.0,84,27,18,18,2,10,6,0,6,5,1,fit_failed=4;insufficient_picks=2;unstable=4,single-line clusters only (support),supported=2
+04.6,4,3,0.62 0.97 1.22,3,9.0,108,26,15,15,1,11,3,0,3,3,1,fit_failed=1;insufficient_picks=2;unstable=8,single-line clusters only (support),not_E=2;supported=1
+04.8,4,3,0.63 0.69 0.78,3,9.0,51,16,11,11,1,9,1,0,1,1,1,fit_failed=2;insufficient_picks=3;unstable=4,single-line clusters only (support),not_E=1;supported=2
+05.9,5,1,0.65,1,8.16,295,80,6,6,2,4,0,0,0,0,0,fit_failed=1;insufficient_picks=1;unstable=2,all removed by QC,not_E=1

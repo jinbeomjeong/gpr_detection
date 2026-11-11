@@ -5,4 +5,4 @@
 - [4TU duplicate radargrams](fourtu-duplicate-radargrams.md) — 39 byte-identical npy pairs; copies have identical candidates; keep_one = strict superset + numeric id fallback; list+hash check
 - [Eval 4TU verify method](eval-4tu-verify-method.md) — scratch mutation runner (-k subset ~25 s each, copy dup/lines csv), HEAD fixture compare, nan->blank since v1.7, known v1.7 test gaps, baseline p needs pass A ~0.97, new prefix for re-eval, src tree pin drift
 - [Band depth pitfalls](band-depth-pitfalls.md) — median bg erases long bands, pseudo-band, oblique 1/sin bias, no parallel truth, pick follows box top, overlapping detector boxes
-- [4TU 평가 기준선·실패 패턴](fourtu-eval-baseline-and-failure-pattern.md) — 활동 범위 기준선 A≈0.95, 얕은 꼬리는 사건 선택 오류(εr 아님), M2-9 종료
+- [4TU 평가 기준선·실패 패턴](fourtu-eval-baseline-and-failure-pattern.md) — 기준선 A≈0.95, 얕은 실패 짝 = 남는 얕은 사건+자기 추정 없는 정답, 깊이 묶기 합침, L1 동률 133–148

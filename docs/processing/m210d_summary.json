@@ -1,0 +1,376 @@
+{
+ "note": "already-seen 4TU data, exploration only (M2-10 d); not a verdict, not for tuning",
+ "reproduction": {
+  "rebuild_pass_other_optimum": 141,
+  "pass_range_over_cooptimal_assignments": [
+   133,
+   148
+  ],
+  "activities_with_pass_range": [
+   [
+    "01.1",
+    2,
+    5
+   ],
+   [
+    "01.7",
+    1,
+    2
+   ],
+   [
+    "01.9",
+    2,
+    4
+   ],
+   [
+    "03.1",
+    3,
+    4
+   ],
+   [
+    "03.3",
+    0,
+    1
+   ],
+   [
+    "05.1",
+    1,
+    2
+   ],
+   [
+    "06.3",
+    5,
+    6
+   ],
+   [
+    "08.3",
+    1,
+    2
+   ],
+   [
+    "08.6",
+    1,
+    2
+   ],
+   [
+    "010.10",
+    2,
+    3
+   ],
+   [
+    "010.24",
+    0,
+    1
+   ],
+   [
+    "012.2",
+    0,
+    1
+   ]
+  ],
+  "clusters_equal_depths": true,
+  "n_clusters": [
+   418,
+   418
+  ],
+  "n_supported": [
+   254,
+   254
+  ],
+  "n_pairs": [
+   184,
+   184
+  ],
+  "n_pass": [
+   140,
+   140
+  ],
+  "n_gt": 388,
+  "pairs_identical_within_1e-4": true,
+  "gate_pass_gain_same_estimates": 8,
+  "fit_minus_nominal_depth_m_q": [
+   -0.0381,
+   -0.0011,
+   0.0191
+  ]
+ },
+ "status_counts": {
+  "failed": 44,
+  "pass": 140,
+  "missed": 204
+ },
+ "mechanism_counts_all_nonpass": {
+  "ii assignment conflict": 122,
+  "i-sup support filter / cluster": 54,
+  "i-gen0 no peak (no detectable energy)": 16,
+  "i-qcE curvature unknown": 32,
+  "i-gen1 rejected by acceptance rule": 7,
+  "i-gen2 cut by ranking/NMS/cap 6": 4,
+  "iv-window truth below record end": 7,
+  "i-qcB curvature out": 5,
+  "i-qcD record end / seam": 1
+ },
+ "mechanism_by_status": {
+  "failed": {
+   "ii assignment conflict": 17,
+   "i-sup support filter / cluster": 15,
+   "i-qcE curvature unknown": 5,
+   "i-gen1 rejected by acceptance rule": 2,
+   "i-gen0 no peak (no detectable energy)": 2,
+   "i-qcB curvature out": 2,
+   "iv-window truth below record end": 1
+  },
+  "missed": {
+   "ii assignment conflict": 105,
+   "i-gen0 no peak (no detectable energy)": 14,
+   "i-qcE curvature unknown": 27,
+   "i-sup support filter / cluster": 39,
+   "i-gen1 rejected by acceptance rule": 5,
+   "i-gen2 cut by ranking/NMS/cap 6": 4,
+   "iv-window truth below record end": 6,
+   "i-qcB curvature out": 3,
+   "i-qcD record end / seam": 1
+  }
+ },
+ "sub_mechanism_by_status": {
+  "failed": {
+   "ii-b assignment choice": 8,
+   "i-sup-a one line only": 10,
+   "ii-a shared estimate": 7,
+   "i-sup-b >=2 lines, no cluster within 0.30 m": 5,
+   "i-qcE fit_failed": 1,
+   "ii-a shared estimate (lateral multi)": 2,
+   "i-qcE insufficient_picks": 2,
+   "i-gen1 rejected by acceptance rule": 2,
+   "i-gen0 no peak (no detectable energy)": 2,
+   "i-qcB curvature out": 2,
+   "i-qcE unstable": 2,
+   "iv-window truth below record end": 1
+  },
+  "missed": {
+   "ii-a shared estimate (lateral multi)": 69,
+   "ii-a shared estimate": 36,
+   "i-gen0 no peak (no detectable energy)": 14,
+   "i-qcE unstable": 23,
+   "i-qcE insufficient_picks": 3,
+   "i-sup-b >=2 lines, no cluster within 0.30 m": 20,
+   "i-sup-a one line only": 19,
+   "i-gen1 rejected by acceptance rule": 5,
+   "i-qcE fit_failed": 1,
+   "i-gen2 cut by ranking/NMS/cap 6": 4,
+   "iv-window truth below record end": 6,
+   "i-qcB curvature out": 3,
+   "i-qcD record end / seam": 1
+  }
+ },
+ "depth_bin_by_mechanism": {
+  "(0.0, 0.5]": {
+   "i-gen0 no peak (no detectable energy)": 0,
+   "i-gen1 rejected by acceptance rule": 0,
+   "i-gen2 cut by ranking/NMS/cap 6": 1,
+   "i-qcB curvature out": 0,
+   "i-qcD record end / seam": 1,
+   "i-qcE curvature unknown": 11,
+   "i-sup support filter / cluster": 5,
+   "ii assignment conflict": 21,
+   "iv-window truth below record end": 0,
+   "pass": 39
+  },
+  "(0.5, 0.8]": {
+   "i-gen0 no peak (no detectable energy)": 0,
+   "i-gen1 rejected by acceptance rule": 1,
+   "i-gen2 cut by ranking/NMS/cap 6": 0,
+   "i-qcB curvature out": 0,
+   "i-qcD record end / seam": 0,
+   "i-qcE curvature unknown": 8,
+   "i-sup support filter / cluster": 21,
+   "ii assignment conflict": 74,
+   "iv-window truth below record end": 0,
+   "pass": 80
+  },
+  "(0.8, 1.1]": {
+   "i-gen0 no peak (no detectable energy)": 0,
+   "i-gen1 rejected by acceptance rule": 0,
+   "i-gen2 cut by ranking/NMS/cap 6": 2,
+   "i-qcB curvature out": 2,
+   "i-qcD record end / seam": 0,
+   "i-qcE curvature unknown": 8,
+   "i-sup support filter / cluster": 20,
+   "ii assignment conflict": 23,
+   "iv-window truth below record end": 0,
+   "pass": 19
+  },
+  "(1.1, 1.4]": {
+   "i-gen0 no peak (no detectable energy)": 4,
+   "i-gen1 rejected by acceptance rule": 5,
+   "i-gen2 cut by ranking/NMS/cap 6": 1,
+   "i-qcB curvature out": 2,
+   "i-qcD record end / seam": 0,
+   "i-qcE curvature unknown": 5,
+   "i-sup support filter / cluster": 8,
+   "ii assignment conflict": 4,
+   "iv-window truth below record end": 0,
+   "pass": 2
+  },
+  "(1.4, 6.0]": {
+   "i-gen0 no peak (no detectable energy)": 12,
+   "i-gen1 rejected by acceptance rule": 1,
+   "i-gen2 cut by ranking/NMS/cap 6": 0,
+   "i-qcB curvature out": 1,
+   "i-qcD record end / seam": 0,
+   "i-qcE curvature unknown": 0,
+   "i-sup support filter / cluster": 0,
+   "ii assignment conflict": 0,
+   "iv-window truth below record end": 7,
+   "pass": 0
+  }
+ },
+ "depth_bin_by_status": {
+  "(0.0, 0.5]": {
+   "failed": 2,
+   "missed": 37,
+   "pass": 39
+  },
+  "(0.5, 0.8]": {
+   "failed": 11,
+   "missed": 93,
+   "pass": 80
+  },
+  "(0.8, 1.1]": {
+   "failed": 17,
+   "missed": 38,
+   "pass": 19
+  },
+  "(1.1, 1.4]": {
+   "failed": 13,
+   "missed": 16,
+   "pass": 2
+  },
+  "(1.4, 6.0]": {
+   "failed": 1,
+   "missed": 20,
+   "pass": 0
+  }
+ },
+ "labelfree_cluster_multiplicity": {
+  "supported_clusters": 254,
+  "with_lateral_multi": 70,
+  "extra_estimates_if_median_per_line": 25,
+  "extra_estimates_if_max_per_line": 84
+ },
+ "loss_stage_1line": {
+  "final": 122,
+  "supported": 54,
+  "peak": 23,
+  "not_E": 32,
+  "accepted": 7,
+  "kept": 4,
+  "not_B": 5,
+  "not_D": 1
+ },
+ "loss_stage_2lines": {
+  "final": 121,
+  "kept": 11,
+  "not_E": 50,
+  "supported": 25,
+  "peak": 26,
+  "not_B": 5,
+  "accepted": 9,
+  "not_D": 1
+ },
+ "chance_coverage_mean_nonpass": {
+  "peak": 0.639,
+  "accepted": 0.576,
+  "kept": 0.528,
+  "fit_ok": 0.517,
+  "not_B": 0.485,
+  "not_D": 0.477,
+  "not_E": 0.389,
+  "supported": 0.281
+ },
+ "chance_coverage_mean_pass": {
+  "peak": 0.671,
+  "accepted": 0.602,
+  "kept": 0.573,
+  "fit_ok": 0.567,
+  "not_B": 0.519,
+  "not_D": 0.508,
+  "not_E": 0.458,
+  "supported": 0.401
+ },
+ "evidence_rate_nonpass": {
+  "peak": 0.907,
+  "accepted": 0.879,
+  "kept": 0.863,
+  "fit_ok": 0.863,
+  "not_B": 0.843,
+  "not_D": 0.839,
+  "not_E": 0.71,
+  "supported": 0.492
+ },
+ "evidence_rate_nonpass_2lines": {
+  "peak": 0.766,
+  "accepted": 0.73,
+  "kept": 0.694,
+  "fit_ok": 0.702,
+  "not_B": 0.677,
+  "not_D": 0.677,
+  "not_E": 0.52,
+  "supported": 0.0
+ },
+ "failed_pairs": {
+  "n": 44,
+  "shallow": 40,
+  "ratio_median_shallow": 0.447,
+  "paired_event_class": {
+   "iii-a second event of a listed pipe (paired pipe passes)": 9,
+   "iii-b unlisted event": 17,
+   "iii-a' near another listed pipe": 7,
+   "iii-c near-surface event (< 0.25 m, unlisted)": 11
+  },
+  "truth_mechanism": {
+   "ii assignment conflict": 17,
+   "i-sup support filter / cluster": 15,
+   "i-qcE curvature unknown": 5,
+   "i-gen1 rejected by acceptance rule": 2,
+   "i-gen0 no peak (no detectable energy)": 2,
+   "i-qcB curvature out": 2,
+   "iv-window truth below record end": 1
+  },
+  "center_rescues": 5,
+  "with_review_label": 6
+ },
+ "truth_flags_nonpass": {
+  "beyond_record_end": 7,
+  "multi_trench": 6,
+  "same_depth_gt_010": 171,
+  "distance_is_range": 0
+ },
+ "truth_flags_pass": {
+  "same_depth_gt_010": 97
+ },
+ "depth_quantiles": {
+  "failed": [
+   0.643,
+   0.97,
+   1.388
+  ],
+  "missed": [
+   0.4,
+   0.705,
+   1.382
+  ],
+  "pass": [
+   0.4,
+   0.635,
+   0.902
+  ]
+ },
+ "zero_estimate_activities": {
+  "n": 18,
+  "bottleneck": {
+   "all removed by QC": 6,
+   "single-line clusters only (support)": 12
+  }
+ }
+}
