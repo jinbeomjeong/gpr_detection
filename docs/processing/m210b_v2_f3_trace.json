@@ -1,0 +1,571 @@
+{
+ "note": "diagnostic only (already-seen v2); harness functions unchanged",
+ "model": "S4N_D15_S045",
+ "rho": 20,
+ "apex_trace": 80,
+ "t_a0_ns": 33.516,
+ "apex_row": 342.0,
+ "seeds": {
+  "20273220": {
+   "current": {
+    "n_peaks": 172,
+    "F": 4.178693568401737e-05,
+    "E_at_apex": 0.008091424830201747,
+    "E_max_window": 0.008974275606502515,
+    "peaks_near_apex": [
+     {
+      "trace0": 83,
+      "t0_ns": 33.467,
+      "E0": 0.008974275606502515,
+      "trace": 83,
+      "t_ns": 33.467,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 99,
+      "t0_ns": 34.055,
+      "E0": 0.007933408991713803,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 55,
+      "t0_ns": 31.2,
+      "E0": 0.0015205714027478538,
+      "trace": 55,
+      "t_ns": 31.2,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 76,
+      "t0_ns": 31.097,
+      "E0": 0.001350343625210344,
+      "trace": 76,
+      "t_ns": 31.097,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 90,
+      "t0_ns": 30.722,
+      "E0": 0.0012157203718448522,
+      "trace": 106,
+      "t_ns": 24.96,
+      "status": "few_picks",
+      "in_window": false
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 3,
+    "F": 0.0010623653659456098,
+    "E_at_apex": 0.008091424830201747,
+    "E_max_window": 0.008974275606502515,
+    "peaks_near_apex": [
+     {
+      "trace0": 83,
+      "t0_ns": 33.526,
+      "E0": 0.008974275606502515,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 67,
+      "t0_ns": 33.962,
+      "E0": 0.008167410131953696,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 99,
+      "t0_ns": 34.132,
+      "E0": 0.007933408991713803,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 83,
+      "t0_ns": 33.526,
+      "E0": 0.008974275606502515,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 67,
+      "t0_ns": 33.962,
+      "E0": 0.008167410131953696,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 99,
+      "t0_ns": 34.132,
+      "E0": 0.007933408991713803,
+      "trace": 77,
+      "t_ns": 33.501,
+      "status": "accepted",
+      "in_window": true
+     }
+    ]
+   }
+  },
+  "20273221": {
+   "current": {
+    "n_peaks": 165,
+    "F": 3.962793757565104e-05,
+    "E_at_apex": 0.007928615144647357,
+    "E_max_window": 0.008468290661126667,
+    "peaks_near_apex": [
+     {
+      "trace0": 74,
+      "t0_ns": 33.467,
+      "E0": 0.008796395596147462,
+      "trace": 82,
+      "t_ns": 33.459,
+      "status": "few_picks",
+      "in_window": true
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 2,
+    "F": 0.0010687586431284012,
+    "E_at_apex": 0.007928615144647357,
+    "E_max_window": 0.008468290661126667,
+    "peaks_near_apex": [
+     {
+      "trace0": 74,
+      "t0_ns": 33.551,
+      "E0": 0.008796395596147462,
+      "trace": 82,
+      "t_ns": 33.459,
+      "status": "few_picks",
+      "in_window": true
+     },
+     {
+      "trace0": 86,
+      "t0_ns": 33.484,
+      "E0": 0.008302416759489416,
+      "trace": 82,
+      "t_ns": 33.459,
+      "status": "few_picks",
+      "in_window": true
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 74,
+      "t0_ns": 33.551,
+      "E0": 0.008796395596147462,
+      "trace": 82,
+      "t_ns": 33.459,
+      "status": "few_picks",
+      "in_window": true
+     },
+     {
+      "trace0": 86,
+      "t0_ns": 33.484,
+      "E0": 0.008302416759489416,
+      "trace": 82,
+      "t_ns": 33.459,
+      "status": "few_picks",
+      "in_window": true
+     }
+    ]
+   }
+  },
+  "20273223": {
+   "current": {
+    "n_peaks": 172,
+    "F": 3.778219265007356e-05,
+    "E_at_apex": 0.008277703991190011,
+    "E_max_window": 0.008668549313925352,
+    "peaks_near_apex": [
+     {
+      "trace0": 79,
+      "t0_ns": 33.553,
+      "E0": 0.008668549313925352,
+      "trace": 86,
+      "t_ns": 33.499,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 1,
+    "F": 0.0010562806057107356,
+    "E_at_apex": 0.008277703991190011,
+    "E_max_window": 0.008668549313925352,
+    "peaks_near_apex": [
+     {
+      "trace0": 79,
+      "t0_ns": 33.553,
+      "E0": 0.008668549313925352,
+      "trace": 86,
+      "t_ns": 33.499,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 79,
+      "t0_ns": 33.553,
+      "E0": 0.008668549313925352,
+      "trace": 86,
+      "t_ns": 33.499,
+      "status": "accepted",
+      "in_window": false
+     }
+    ]
+   }
+  },
+  "20273224": {
+   "current": {
+    "n_peaks": 166,
+    "F": 3.910444776780658e-05,
+    "E_at_apex": 0.007925411474981018,
+    "E_max_window": 0.008234683520087042,
+    "peaks_near_apex": [
+     {
+      "trace0": 78,
+      "t0_ns": 33.467,
+      "E0": 0.008234683520087042,
+      "trace": 78,
+      "t_ns": 33.467,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 102,
+      "t0_ns": 31.568,
+      "E0": 0.001096998263859848,
+      "trace": 102,
+      "t_ns": 31.568,
+      "status": "few_picks",
+      "in_window": false
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 3,
+    "F": 0.0010768182234770231,
+    "E_at_apex": 0.007925411474981018,
+    "E_max_window": 0.008234683520087042,
+    "peaks_near_apex": [
+     {
+      "trace0": 78,
+      "t0_ns": 33.521,
+      "E0": 0.008234683520087042,
+      "trace": 84,
+      "t_ns": 33.471,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 78,
+      "t0_ns": 33.521,
+      "E0": 0.008234683520087042,
+      "trace": 84,
+      "t_ns": 33.471,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 124,
+      "t0_ns": 37.392,
+      "E0": 0.003245134855836654,
+      "trace": 99,
+      "t_ns": 34.26,
+      "status": "few_picks",
+      "in_window": false
+     },
+     {
+      "trace0": 92,
+      "t0_ns": 52.662,
+      "E0": 0.0021917958859476307,
+      "trace": 104,
+      "t_ns": 51.303,
+      "status": "v_out_of_range",
+      "in_window": false
+     }
+    ]
+   }
+  },
+  "20273226": {
+   "current": {
+    "n_peaks": 169,
+    "F": 4.0921035852894685e-05,
+    "E_at_apex": 0.008187447100026213,
+    "E_max_window": 0.008901010079994992,
+    "peaks_near_apex": [
+     {
+      "trace0": 83,
+      "t0_ns": 33.467,
+      "E0": 0.008901010079994992,
+      "trace": 83,
+      "t_ns": 33.467,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 61,
+      "t0_ns": 31.053,
+      "E0": 0.0013440822865134223,
+      "trace": 36,
+      "t_ns": 20.966,
+      "status": "few_picks",
+      "in_window": false
+     },
+     {
+      "trace0": 104,
+      "t0_ns": 30.994,
+      "E0": 0.0013200309164780898,
+      "trace": 107,
+      "t_ns": 29.351,
+      "status": "few_picks",
+      "in_window": false
+     },
+     {
+      "trace0": 72,
+      "t0_ns": 30.585,
+      "E0": 0.0010382660942486284,
+      "trace": 70,
+      "t_ns": 30.452,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 71,
+      "t0_ns": 36.407,
+      "E0": 0.0012920973985781955,
+      "trace": 74,
+      "t_ns": 33.473,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 1,
+    "F": 0.0010553020777768966,
+    "E_at_apex": 0.008187447100026213,
+    "E_max_window": 0.008901010079994992,
+    "peaks_near_apex": [
+     {
+      "trace0": 83,
+      "t0_ns": 33.485,
+      "E0": 0.008901010079994992,
+      "trace": 74,
+      "t_ns": 33.473,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 83,
+      "t0_ns": 33.485,
+      "E0": 0.008901010079994992,
+      "trace": 74,
+      "t_ns": 33.473,
+      "status": "accepted",
+      "in_window": false
+     }
+    ]
+   }
+  },
+  "20273230": {
+   "current": {
+    "n_peaks": 165,
+    "F": 4.146943186480516e-05,
+    "E_at_apex": 0.007780550522888813,
+    "E_max_window": 0.008309518076055457,
+    "peaks_near_apex": [
+     {
+      "trace0": 79,
+      "t0_ns": 33.369,
+      "E0": 0.008028500809695222,
+      "trace": 79,
+      "t_ns": 33.369,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 102,
+      "t0_ns": 30.976,
+      "E0": 0.0014786617191073195,
+      "trace": 110,
+      "t_ns": 28.273,
+      "status": "few_picks",
+      "in_window": false
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 2,
+    "F": 0.0010847529954248728,
+    "E_at_apex": 0.007780550522888813,
+    "E_max_window": 0.008309518076055457,
+    "peaks_near_apex": [
+     {
+      "trace0": 78,
+      "t0_ns": 33.555,
+      "E0": 0.008309518076055457,
+      "trace": 75,
+      "t_ns": 33.456,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 89,
+      "t0_ns": 33.696,
+      "E0": 0.00813420950256568,
+      "trace": 75,
+      "t_ns": 33.456,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 78,
+      "t0_ns": 33.555,
+      "E0": 0.008309518076055457,
+      "trace": 75,
+      "t_ns": 33.456,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 89,
+      "t0_ns": 33.696,
+      "E0": 0.00813420950256568,
+      "trace": 75,
+      "t_ns": 33.456,
+      "status": "accepted",
+      "in_window": false
+     }
+    ]
+   }
+  },
+  "20273231": {
+   "current": {
+    "n_peaks": 154,
+    "F": 4.0817201264998305e-05,
+    "E_at_apex": 0.007983267757023271,
+    "E_max_window": 0.008412857749635764,
+    "peaks_near_apex": [
+     {
+      "trace0": 77,
+      "t0_ns": 33.467,
+      "E0": 0.008412857749635764,
+      "trace": 77,
+      "t_ns": 33.467,
+      "status": "accepted",
+      "in_window": true
+     },
+     {
+      "trace0": 105,
+      "t0_ns": 31.104,
+      "E0": 0.0011953094976725584,
+      "trace": 106,
+      "t_ns": 30.209,
+      "status": "v_out_of_range",
+      "in_window": false
+     },
+     {
+      "trace0": 96,
+      "t0_ns": 30.715,
+      "E0": 0.0011226683898258253,
+      "trace": 90,
+      "t_ns": 26.9,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": null
+   },
+   "B_full": {
+    "n_peaks": 3,
+    "F": 0.0010765379872536497,
+    "E_at_apex": 0.007983267757023271,
+    "E_max_window": 0.008412857749635764,
+    "peaks_near_apex": [
+     {
+      "trace0": 77,
+      "t0_ns": 33.552,
+      "E0": 0.008412857749635764,
+      "trace": 85,
+      "t_ns": 33.49,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 92,
+      "t0_ns": 33.805,
+      "E0": 0.008257678185290274,
+      "trace": 85,
+      "t_ns": 33.49,
+      "status": "accepted",
+      "in_window": false
+     }
+    ],
+    "all_peaks": [
+     {
+      "trace0": 77,
+      "t0_ns": 33.552,
+      "E0": 0.008412857749635764,
+      "trace": 85,
+      "t_ns": 33.49,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 92,
+      "t0_ns": 33.805,
+      "E0": 0.008257678185290274,
+      "trace": 85,
+      "t_ns": 33.49,
+      "status": "accepted",
+      "in_window": false
+     },
+     {
+      "trace0": 33,
+      "t0_ns": 53.43,
+      "E0": 0.002420466697070425,
+      "trace": 32,
+      "t_ns": 52.404,
+      "status": "v_out_of_range",
+      "in_window": false
+     }
+    ]
+   }
+  }
+ }
+}
