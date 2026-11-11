@@ -224,14 +224,34 @@ def accept(E, j, k, dt, dx, t_z):
     return v, nl, nr, ""
 
 
+def _site_label(act: str) -> int | None:
+    """4TU site of ``act``; ``None`` for a non-4TU line such as ``S1G`` (S1g)."""
+    site_text = act.split(".", 1)[0]
+    return site_of_activity(act) if site_text.isdigit() else None
+
+
 def apex_candidates_for_line(act: str, path: str):
+    """Apex candidates of one 4TU line (reads the radargram, then the wrapper)."""
     rg = load_fourtu_radargram(BASE, act, path)
-    dt, dx = rg.dt_ns, rg.dx_m
     inputs = prepare_depth_inputs(rg)
+    return apex_candidates_for_radargram(rg, inputs, act=act, path=path)
+
+
+def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
+    """Apex candidates of a loaded radargram and its depth inputs (spec_eval 9-9-1 (b)).
+
+    The generator body of ``apex_candidates_for_line`` after loading, unchanged, so
+    a synthetic B-scan (S1g) goes through the same rules as a 4TU line.
+
+    Returns:
+        ``(line, kept, E)``: the line row, the kept candidate rows and the envelope
+        (``None`` when the zero failed).
+    """
+    dt, dx = rg.dt_ns, rg.dx_m
     zero = inputs.zero
     line = {
         "activity_id": act,
-        "site": site_of_activity(act),
+        "site": _site_label(act),
         "path": path,
         "n_traces": rg.n_traces,
         "dt_ns": dt,
@@ -288,7 +308,7 @@ def apex_candidates_for_line(act: str, path: str):
         accepted.append(
             {
                 "activity_id": act,
-                "site": site_of_activity(act),
+                "site": _site_label(act),
                 "path": path,
                 "trace": j,
                 "sample": round(k, 2),

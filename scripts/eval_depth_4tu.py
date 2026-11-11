@@ -33,9 +33,14 @@ Variants reported (spec 5):
 * two-event zero lines (v1.8): lines whose zero rule is ``air_first_event``
   are counted in an md subsection of the site 9 section; report only.
 
+* tie range and unobservable truths (v1.9, auxiliary only): pass-count range
+  over co-optimal assignments (spec 12-1) and truths below the record end on
+  every evaluated line (12-2); 11 columns at the end of the summary rows, two
+  new csvs and one md section. The K1 functions (12-3) are not wired.
+
 Outputs: ``<prefix>_candidates.csv``, ``_clusters.csv``, ``_matches.csv``,
-``_site11.csv``, ``_summary.csv``, ``_dup_sensitivity.csv`` (v1.7) and
-``<prefix>.md``.
+``_site11.csv``, ``_summary.csv``, ``_dup_sensitivity.csv`` (v1.7),
+``_ties.csv``, ``_unobservable.csv`` (v1.9) and ``<prefix>.md``.
 
 Truth-dependent code stays here, not in ``src``. ``--dry-run`` only parses the
 candidate, line, ground-truth and duplicate tables (no radargram is loaded).
@@ -68,6 +73,7 @@ from scipy.optimize import linear_sum_assignment
 from gpr_detection.depth.config import DEFAULT_DEPTH_CONFIG, DepthConfig
 from gpr_detection.depth.estimate import (
     DepthInputs,
+    depth_from_time,
     estimate_depth,
     prepare_depth_inputs,
 )
@@ -142,6 +148,9 @@ Shared by the pass rates (spec 5) and the gate (5-1) through ``_within_pass_limi
 GATE_PENALTY_OFFSET_M = 1.0
 """The "+1" of the gate penalty P = m * g + 1 (spec 5-1): finite, yet larger than
 any assignment cost inside the gate."""
+TIE_COST_TOL_M = 1e-9
+"""Co-optimal band on the sum of |e| (spec 12-1-2): assignments within 1e-9 m of
+the optimum tie (float noise of a 19-truth activity is ~1e-14 m)."""
 
 BASELINE_TRIALS = 1000
 BASELINE_SEED = 0
@@ -375,6 +384,86 @@ MULTI_EVENT_TABLE_COLUMNS = (
     "multi_event_gt_lines",
 )
 """md two-event zero table after the zero-flag table (spec 7-1 / 8 (iii) v1.8)."""
+
+# Tie range and unobservable truths (spec 12-1 and 12-2, v1.9; auxiliary only).
+# K4 has no constant of its own: it reuses rule D (RECORD_END_*, 12-2-1).
+OBS_UNOBSERVABLE = "unobservable"
+OBS_UNKNOWN = "window_unknown"
+AUX_COLUMNS = (
+    "n_pass",
+    "tie_pass_min",
+    "tie_pass_max",
+    "tie_pass_b_min",
+    "tie_pass_b_max",
+    "tie_activities",
+    "n_gt_unobservable",
+    "n_pass_unobservable",
+    "n_gt_window_unknown",
+    "n_gt_observable",
+    "pass_b_observable",
+)
+"""The 11 v1.9 columns after ``baseline_global_gate_p`` (spec 9-8 C)."""
+TIE_CSV_COLUMNS = (
+    "variant",
+    "zero_variant",
+    "gt_set",
+    "assumption",
+    "activity_id",
+    "site",
+    "n_est",
+    "n_gt",
+    "n_pass",
+    "tie_pass_min",
+    "tie_pass_max",
+)
+"""``<prefix>_ties.csv`` (spec 12-1-5)."""
+UNOBSERVABLE_CSV_COLUMNS = (
+    "zero_variant",
+    "gt_set",
+    "assumption",
+    "activity_id",
+    "site",
+    "gt_index",
+    "gt_depth_m",
+    "gt_code",
+    "observability",
+    "depth_limit_m",
+    "n_windows",
+    "pass_main",
+)
+"""``<prefix>_unobservable.csv`` (spec 12-2-4)."""
+TIE_TABLE_COLUMNS = (
+    "assumption",
+    "zero_variant",
+    "n_gt",
+    "n_pass",
+    "tie_pass_min",
+    "tie_pass_max",
+    "pass_b",
+    "tie_pass_b_min",
+    "tie_pass_b_max",
+    "tie_activities",
+)
+"""md tie-range table (spec 12-1-5 item 2)."""
+UNOBSERVABLE_TABLE_COLUMNS = (
+    "assumption",
+    "zero_variant",
+    "n_gt",
+    "n_gt_unobservable",
+    "n_pass_unobservable",
+    "n_gt_window_unknown",
+    "pass_b",
+    "pass_b_observable",
+)
+"""md unobservable-truth table (spec 12-1-5 item 4)."""
+
+PREREG_NEAR_APEX_STEPS = 4
+"""Pre-registered value (spec 11 item 6 / 9-8 G), not a verdict threshold: a wing
+"stopped within 4 traces of the apex" stopped on one of tracking steps 1-4."""
+
+# K1 draft (spec 12-3, 9-9-1): never called by main, the variants or the CLI.
+K1_LATERAL_M = 0.30
+"""Lateral link distance of K1 (= ``fourtu_apex_candidate_select.NMS_M``, S1-9)."""
 LOGGER = logging.getLogger("eval_depth_4tu")
 
 
@@ -492,6 +581,29 @@ class CandidateQc:
 
 
 @dataclass(frozen=True)
+class RecordWindow:
+    """Record window of one line for the unobservable-truth rule (spec 12-2-1).
+
+    A property of the line, not of a candidate: every candidate of a line holds
+    the same window.
+    """
+
+    n_samples: int
+    dt_ns: float
+    f_c_hz: float
+    v_m_per_ns: float | None
+    """``velocity_from_eps(radargram.eps_r_meta)``; ``None`` without a metadata
+    eps_r."""
+    air_gap: str | None
+    """``radargram.air_gap`` (4TU ``"air"``)."""
+    offset_m: float | None
+    """``radargram.antenna_offset_m`` (4TU ``None``)."""
+    t_zero_ns: Mapping[str, float | None]
+    """Zero time per ``ZERO_VARIANTS`` key: ``detected`` = ``inputs.zero.t_zero_ns``,
+    ``est`` / ``act`` = the metadata zero ``inputs.zero.meta_t0[...][0]``."""
+
+
+@dataclass(frozen=True)
 class CandidateResult:
     """One candidate and its ``estimate_depth`` result (spec 4-2)."""
 
@@ -510,6 +622,8 @@ class CandidateResult:
     """Apex-candidate QC (3-5); ``None`` with ``--apex-qc off``."""
     zero_h_implausible: bool = False
     """Line flag of 7-1 (same value for every candidate of a line); report only."""
+    record_window: RecordWindow | None = None
+    """Line record window (12-2, v1.9); only the unobservable-truth report reads it."""
 
     def depth(self, zero_variant: str) -> float | None:
         """Pipe-top depth for the detected zero or a metadata zero (never reads qc)."""
@@ -1067,6 +1181,7 @@ def run_line(
 
     The ``zero_h_implausible`` line flag (7-1, v1.7) is computed once from the
     line's zero and copied onto every candidate; the depth calls do not see it.
+    The line's ``record_window`` (12-2, v1.9) is attached the same way.
     """
     config = DepthConfig()
     inputs = prepare_depth_inputs(radargram, config)
@@ -1078,8 +1193,10 @@ def run_line(
         _run_candidate(radargram, inputs, candidate, seam_scores_line, apex_qc)
         for candidate in candidates.itertuples(index=False)
     ]
+    window = record_window(radargram, inputs)
     return [
-        replace(result, zero_h_implausible=is_zero_h_implausible) for result in results
+        replace(result, zero_h_implausible=is_zero_h_implausible, record_window=window)
+        for result in results
     ]
 
 
@@ -1097,6 +1214,111 @@ def zero_h_implausible(
     if zero_rule != ZeroRule.AIR_SURFACE_LATE or h_est_m is None:
         return False
     return h_est_m > h_max_m
+
+
+# ----------------------------------------------------------------- record window (12-2)
+
+
+def record_window(radargram: Radargram, inputs: DepthInputs) -> RecordWindow:
+    """The line's record window for the unobservable-truth rule (spec 12-2-1).
+
+    Raises:
+        ValueError: The line has no ``dt_ns`` or ``f_c_hz``.
+    """
+    if radargram.dt_ns is None or radargram.f_c_hz is None:
+        raise ValueError(f"{radargram.line_id}: record window needs dt_ns and f_c_hz")
+    zero = inputs.zero
+    t_zero_ns: dict[str, float | None] = {"detected": zero.t_zero_ns}
+    for zero_variant, key in META_ZERO_KEYS.items():
+        meta = zero.meta_t0.get(key)
+        t_zero_ns[zero_variant] = None if meta is None else meta[0]
+    eps_r = radargram.eps_r_meta
+    return RecordWindow(
+        n_samples=radargram.n_samples,
+        dt_ns=radargram.dt_ns,
+        f_c_hz=radargram.f_c_hz,
+        v_m_per_ns=None if eps_r is None else velocity_from_eps(eps_r),
+        air_gap=radargram.air_gap,
+        offset_m=radargram.antenna_offset_m,
+        t_zero_ns=t_zero_ns,
+    )
+
+
+def time_from_depth(
+    depth_m: float, v_m_per_ns: float, *, air_gap: str | None, offset_m: float | None
+) -> float:
+    """Two-way time after the zero for a pipe-top depth (inverse of
+    ``depth_from_time``, spec 12-2-1).
+
+    Raises:
+        ValueError: ``depth_m < 0`` or ``v_m_per_ns <= 0``.
+    """
+    if depth_m < 0:
+        raise ValueError(f"depth must be >= 0, got {depth_m}")
+    if not v_m_per_ns > 0:
+        raise ValueError(f"velocity must be positive, got {v_m_per_ns}")
+    if air_gap == "air" or offset_m is None:
+        return 2.0 * depth_m / v_m_per_ns
+    return 2.0 * math.hypot(depth_m, offset_m / 2.0) / v_m_per_ns
+
+
+def _usable_zero(window: RecordWindow, zero_variant: str) -> float | None:
+    """The window's zero time, or ``None`` if the window cannot be used."""
+    if window.v_m_per_ns is None:
+        return None
+    return window.t_zero_ns.get(zero_variant)
+
+
+def _below_record_end(depth_m: float, window: RecordWindow, t_zero_ns: float) -> bool:
+    """Rule D (3-5-3) on the sample where a truth at ``depth_m`` would appear."""
+    assert window.v_m_per_ns is not None
+    tau_ns = time_from_depth(
+        depth_m, window.v_m_per_ns, air_gap=window.air_gap, offset_m=window.offset_m
+    )
+    sample = (t_zero_ns + tau_ns) / window.dt_ns
+    return apex_at_record_end(sample, window.n_samples, window.dt_ns, window.f_c_hz)
+
+
+def truth_observability(
+    depth_m: float, windows: Sequence[RecordWindow], zero_variant: str
+) -> str | None:
+    """Spec 12-2-1: ``None`` (observable), ``OBS_UNOBSERVABLE`` or ``OBS_UNKNOWN``.
+
+    Unobservable when every usable window puts the truth in the record-end zone
+    of rule D; unknown when no window is usable (no metadata velocity or no zero
+    of ``zero_variant``).
+
+    A negative truth depth (centre assumption with a radius larger than the
+    depth, 4TU 08.4 / 08.5) is judged as ``max(d, 0)``; the truth value itself
+    is not changed (spec 12-2-1).
+    """
+    effective_depth_m = max(depth_m, 0.0)
+    verdicts = []
+    for window in windows:
+        t_zero_ns = _usable_zero(window, zero_variant)
+        if t_zero_ns is not None:
+            verdicts.append(_below_record_end(effective_depth_m, window, t_zero_ns))
+    if not verdicts:
+        return OBS_UNKNOWN
+    return OBS_UNOBSERVABLE if all(verdicts) else None
+
+
+def depth_limit_m(window: RecordWindow, zero_variant: str) -> float | None:
+    """Deepest depth outside the record-end zone (report only, spec 9-8 B).
+
+    ``None`` when the window is unusable or the limit is negative.
+    """
+    t_zero_ns = _usable_zero(window, zero_variant)
+    if t_zero_ns is None:
+        return None
+    assert window.v_m_per_ns is not None
+    end_zone_ns = RECORD_END_PERIODS * 1e9 / window.f_c_hz
+    time_ns = (window.n_samples - 1) * window.dt_ns - end_zone_ns - t_zero_ns
+    if time_ns < 0:
+        return None
+    return depth_from_time(
+        window.v_m_per_ns, time_ns, air_gap=window.air_gap, offset_m=window.offset_m
+    )
 
 
 # ----------------------------------------------------------------- ground truth
@@ -1347,6 +1569,72 @@ def match_activity_gated(est: Sequence[float], gt: Sequence[float]) -> GateMatch
 
 
 @dataclass(frozen=True)
+class TieRange:
+    """Pass count of one activity over its co-optimal assignments (spec 12-1)."""
+
+    n_pass: int
+    """Official count: scipy's default solution, predicate ``_within_pass_limit``."""
+    pass_min: int
+    """Minimum over the co-optimal assignments (12-1-1)."""
+    pass_max: int
+
+
+def _n_pass(match: MatchResult) -> int:
+    return sum(bool(_within_pass_limit(abs(error))) for _, _, error in match.pairs)
+
+
+def _perturbed_assignment(
+    cost: np.ndarray, passes: np.ndarray, lam_m: float
+) -> tuple[int, float]:
+    """Pass count and sum |e| of ``argmin [S(sigma) + lam k(sigma)]`` (12-1-2)."""
+    rows, cols = linear_sum_assignment(cost + lam_m * passes)
+    return int(passes[rows, cols].sum()), float(cost[rows, cols].sum())
+
+
+def tie_range(
+    est: Sequence[float], gt: Sequence[float], match: MatchResult | None = None
+) -> TieRange:
+    """Pass-count range over the co-optimal ungated assignments (spec 12-1-2).
+
+    Two linear assignments on ``cost -/+ lam P`` with ``lam = TIE_COST_TOL_M /
+    (m + 1)`` find the most and the fewest passing pairs among the assignments
+    whose sum |e| ties with the optimum. The official assignment is not re-solved.
+
+    Args:
+        est: Estimated depths (m).
+        gt: Ground-truth depths (m).
+        match: The official ``MatchResult`` of ``(est, gt)``; computed with
+            ``match_activity`` when ``None``.
+
+    Raises:
+        RuntimeError: A perturbed solution leaves the tie band or the official
+            count lies outside ``[pass_min, pass_max]`` (both code defects).
+    """
+    if len(est) == 0 or len(gt) == 0:
+        return TieRange(0, 0, 0)
+    if match is None:
+        match = match_activity(est, gt)
+    cost = np.abs(np.subtract.outer(np.asarray(est, float), np.asarray(gt, float)))
+    passes = np.asarray(_within_pass_limit(cost), dtype=float)
+    lam_m = TIE_COST_TOL_M / (min(cost.shape) + 1)
+    n_pass = _n_pass(match)
+    official_sum_m = float(sum(abs(error) for _, _, error in match.pairs))
+    pass_max, sum_max_m = _perturbed_assignment(cost, passes, -lam_m)
+    pass_min, sum_min_m = _perturbed_assignment(cost, passes, lam_m)
+    if max(sum_max_m, sum_min_m) > official_sum_m + TIE_COST_TOL_M:
+        raise RuntimeError(
+            f"tie solution sum {max(sum_max_m, sum_min_m)} m exceeds the official "
+            f"{official_sum_m} m + {TIE_COST_TOL_M} m (spec 12-1-2)"
+        )
+    if not pass_min <= n_pass <= pass_max:
+        raise RuntimeError(
+            f"official pass count {n_pass} outside [{pass_min}, {pass_max}] "
+            "(spec 12-1-2)"
+        )
+    return TieRange(n_pass=n_pass, pass_min=pass_min, pass_max=pass_max)
+
+
+@dataclass(frozen=True)
 class Summary:
     """Spec 5 metrics over a set of activities (+ spec 5-1 gate metrics, v1.6)."""
 
@@ -1368,6 +1656,23 @@ class Summary:
     gate_precision: float | None = None
     gate_f1: float | None = None
     gate_mae_m: float | None = None
+    tie_pass_min: int | None = None
+    tie_pass_max: int | None = None
+    tie_activities: int | None = None
+    n_gt_unobservable: int | None = None
+    n_pass_unobservable: int | None = None
+    n_gt_window_unknown: int | None = None
+
+
+AUX_SUMMARY_FIELDS = (
+    "tie_pass_min",
+    "tie_pass_max",
+    "tie_activities",
+    "n_gt_unobservable",
+    "n_pass_unobservable",
+    "n_gt_window_unknown",
+)
+"""v1.9 ``Summary`` fields (12-1, 12-2); written only by ``_aux_columns``."""
 
 
 def _ratio_or_none(numerator: float, denominator: float) -> float | None:
@@ -1416,19 +1721,83 @@ def _gate_fields(
     }
 
 
+def _tie_fields(
+    matches: Mapping[str, MatchResult], ties: Mapping[str, TieRange]
+) -> dict[str, int]:
+    """Pooled tie range (spec 12-1-1): activities are independent, so the range
+    of the scope is the sum of the activity ranges.
+
+    Raises:
+        ValueError: ``ties`` does not cover exactly the activities of ``matches``.
+        RuntimeError: A ``TieRange.n_pass`` differs from its official count.
+    """
+    if set(ties) != set(matches):
+        raise ValueError("ties must cover exactly the activities of matches")
+    for activity, match in matches.items():
+        if ties[activity].n_pass != _n_pass(match):
+            raise RuntimeError(
+                f"{activity}: tie n_pass {ties[activity].n_pass} differs from the "
+                f"official pass count {_n_pass(match)}"
+            )
+    return {
+        "tie_pass_min": sum(tie.pass_min for tie in ties.values()),
+        "tie_pass_max": sum(tie.pass_max for tie in ties.values()),
+        "tie_activities": sum(tie.pass_max > tie.pass_min for tie in ties.values()),
+    }
+
+
+def _observability_fields(
+    matches: Mapping[str, MatchResult],
+    n_gt: Mapping[str, int],
+    observability: Mapping[str, Sequence[str | None]],
+) -> dict[str, int]:
+    """Unobservable-truth counts (spec 12-2-3) on the official pairs.
+
+    Raises:
+        ValueError: ``observability`` does not cover exactly the activities of
+            ``matches`` or has the wrong length for an activity.
+    """
+    if set(observability) != set(matches):
+        raise ValueError("observability must cover exactly the activities of matches")
+    for activity, verdicts in observability.items():
+        if len(verdicts) != n_gt[activity]:
+            raise ValueError(
+                f"{activity}: {len(verdicts)} verdicts for {n_gt[activity]} truths"
+            )
+    n_pass_unobservable = 0
+    for activity, match in matches.items():
+        for _, gt_index, error in match.pairs:
+            is_unobservable = observability[activity][gt_index] == OBS_UNOBSERVABLE
+            if is_unobservable and _within_pass_limit(abs(error)):
+                n_pass_unobservable += 1
+    verdicts = [v for activity in matches for v in observability[activity]]
+    return {
+        "n_gt_unobservable": verdicts.count(OBS_UNOBSERVABLE),
+        "n_pass_unobservable": n_pass_unobservable,
+        "n_gt_window_unknown": verdicts.count(OBS_UNKNOWN),
+    }
+
+
 def summarize(
     matches: Mapping[str, MatchResult],
     n_gt: Mapping[str, int],
     gate_matches: Mapping[str, GateMatch] | None = None,
+    ties: Mapping[str, TieRange] | None = None,
+    observability: Mapping[str, Sequence[str | None]] | None = None,
 ) -> Summary:
     """Pooled pair metrics; pass A per pair, pass B per ground truth (5).
 
     With ``gate_matches`` (one per activity of ``matches``) the gate fields are
-    filled (spec 5-1, auxiliary); without them they stay ``None``.
+    filled (spec 5-1, auxiliary); without them they stay ``None``. ``ties`` and
+    ``observability`` (v1.9, spec 12-1 and 12-2, auxiliary) fill the tie-range
+    and unobservable-truth fields the same way; ``observability`` holds one
+    verdict per truth of each activity, in truth-index order.
 
     Raises:
-        ValueError: ``gate_matches`` does not describe the same activities.
-        RuntimeError: gate pairs < ungated passing pairs in an activity.
+        ValueError: ``gate_matches``, ``ties`` or ``observability`` does not
+            describe the same activities (or truths).
+        RuntimeError: gate pairs < ungated passing pairs in an activity, or a
+            ``TieRange.n_pass`` differs from the official pass count.
     """
     errors = np.array([e for m in matches.values() for _, _, e in m.pairs], dtype=float)
     total_gt = sum(n_gt[a] for a in matches)
@@ -1436,10 +1805,14 @@ def summarize(
     n_pairs = len(errors)
     absolute = np.abs(errors)
     n_pass = int(np.sum(_within_pass_limit(absolute)))
-    gate: dict[str, float | int | None] = {}
+    auxiliary: dict[str, float | int | None] = {}
     if gate_matches is not None:
         _check_gate_matches(matches, n_gt, gate_matches)
-        gate = _gate_fields(gate_matches, total_gt, total_est)
+        auxiliary |= _gate_fields(gate_matches, total_gt, total_est)
+    if ties is not None:
+        auxiliary |= _tie_fields(matches, ties)
+    if observability is not None:
+        auxiliary |= _observability_fields(matches, n_gt, observability)
     return Summary(
         n_activities=len(matches),
         n_gt=total_gt,
@@ -1454,7 +1827,7 @@ def summarize(
         pass_b=n_pass / total_gt if total_gt else None,
         missed=sum(m.missed for m in matches.values()),
         false_est=sum(m.false_est for m in matches.values()),
-        **gate,
+        **auxiliary,
     )
 
 
@@ -2136,6 +2509,10 @@ class Evaluation:
     ``noqc`` (v1.5; ``bd`` and ``noqc`` only with ``--apex-qc on``)."""
     gt_activities: frozenset[str] = frozenset()
     """Activities with ground truth in the main set (``exclude_x``)."""
+    tie_rows: list[dict[str, object]] = field(default_factory=list)
+    """``<prefix>_ties.csv`` rows (12-1-5, v1.9)."""
+    unobservable_rows: list[dict[str, object]] = field(default_factory=list)
+    """``<prefix>_unobservable.csv`` rows (12-2-4, v1.9)."""
 
 
 @dataclass(frozen=True)
@@ -2163,7 +2540,9 @@ def _summary_row(
         **{
             key: (round(value, 4) if isinstance(value, float) else value)
             for key, value in summary.__dict__.items()
-            if key != "n_pass" and key not in GATE_SUMMARY_FIELDS
+            if key != "n_pass"
+            and key not in GATE_SUMMARY_FIELDS
+            and key not in AUX_SUMMARY_FIELDS
         },
     }
     row.update(_baseline_columns("baseline", baselines.get("activity"), summary))
@@ -2180,7 +2559,41 @@ def _summary_row(
             "baseline_global", baselines.get("global"), summary.gate_pairs
         )
     )
+    # v1.9 columns after the gate columns, for the same reason (spec 9-8 C).
+    row.update(_aux_columns(summary))
     return row
+
+
+def _aux_columns(summary: Summary) -> dict[str, object]:
+    """The 11 ``AUX_COLUMNS`` (spec 9-8 C): counts as is, ratios to 4 places,
+    blank where undefined."""
+    n_gt = summary.n_gt
+    tie_min, tie_max = summary.tie_pass_min, summary.tie_pass_max
+    n_unobservable = summary.n_gt_unobservable
+    n_pass_unobservable = summary.n_pass_unobservable
+    n_observable = None if n_unobservable is None else n_gt - n_unobservable
+    pass_b_observable = None
+    if n_observable is not None and n_pass_unobservable is not None:
+        pass_b_observable = _ratio_or_none(
+            summary.n_pass - n_pass_unobservable, n_observable
+        )
+    values: dict[str, float | int | None] = {
+        "n_pass": summary.n_pass,
+        "tie_pass_min": tie_min,
+        "tie_pass_max": tie_max,
+        "tie_pass_b_min": None if tie_min is None else _ratio_or_none(tie_min, n_gt),
+        "tie_pass_b_max": None if tie_max is None else _ratio_or_none(tie_max, n_gt),
+        "tie_activities": summary.tie_activities,
+        "n_gt_unobservable": n_unobservable,
+        "n_pass_unobservable": n_pass_unobservable,
+        "n_gt_window_unknown": summary.n_gt_window_unknown,
+        "n_gt_observable": n_observable,
+        "pass_b_observable": pass_b_observable,
+    }
+    return {
+        name: value if isinstance(value, int) else _finite_rounded_or_blank(value, 4)
+        for name, value in values.items()
+    }
 
 
 def _observed_gate_columns(summary: Summary) -> dict[str, object]:
@@ -2308,8 +2721,10 @@ def evaluate_combinations(
     """All gt set x assumption x zero x variant combinations, overall and per site.
 
     Depths and clusters do not depend on the gt set; only matching does.
+    The record windows of the evaluated lines (12-2) come from ``candidates``.
     """
     evaluation = Evaluation(gt_activities=frozenset(gt_sets["exclude_x"]))
+    windows = activity_windows(candidates)
     for zero_variant in ZERO_VARIANTS:
         for variant in variants_for(args):
             estimates, cluster_rows = estimates_by_activity(
@@ -2343,9 +2758,53 @@ def evaluate_combinations(
                 for assumption in ASSUMPTIONS:
                     combination = Combination(gt_set, assumption, zero_variant, variant)
                     _evaluate_one(
-                        evaluation, estimates, ground_truth, combination, args
+                        evaluation,
+                        estimates,
+                        ground_truth,
+                        combination,
+                        args,
+                        windows=windows,
                     )
+    _sort_auxiliary_rows(evaluation, list(gt_sets))
     return evaluation
+
+
+def activity_windows(
+    candidates: Sequence[object],
+) -> dict[str, list[RecordWindow]]:
+    """One record window per evaluated line ``(activity_id, path)`` (12-2-1).
+
+    Every candidate counts whatever its status or QC (the window is a line
+    property); candidates without a ``record_window`` give none.
+    """
+    by_line: dict[tuple[str, str], RecordWindow] = {}
+    for candidate in candidates:
+        window = getattr(candidate, "record_window", None)
+        if window is not None:
+            by_line.setdefault((candidate.activity_id, candidate.path), window)
+    windows: dict[str, list[RecordWindow]] = defaultdict(list)
+    for (activity, _), window in by_line.items():
+        windows[activity].append(window)
+    return dict(windows)
+
+
+def _sort_auxiliary_rows(evaluation: Evaluation, gt_set_order: Sequence[str]) -> None:
+    """Row order of the ties and unobservable csvs (12-1-5, 12-2-4)."""
+
+    def common_key(row: Mapping[str, object]) -> tuple:
+        return (
+            ZERO_VARIANTS.index(str(row["zero_variant"])),
+            gt_set_order.index(str(row["gt_set"])),
+            ASSUMPTIONS.index(str(row["assumption"])),
+            activity_order_key(str(row["activity_id"])),
+        )
+
+    evaluation.tie_rows.sort(
+        key=lambda row: (VARIANTS.index(str(row["variant"])), *common_key(row))
+    )
+    evaluation.unobservable_rows.sort(
+        key=lambda row: (*common_key(row), int(str(row["gt_index"])))
+    )
 
 
 def _match_rows(
@@ -2385,14 +2844,18 @@ def _evaluate_one(
     combination: Combination,
     args: argparse.Namespace,
     trials: Mapping[str, int] | None = None,
+    windows: Mapping[str, Sequence[RecordWindow]] | None = None,
 ) -> None:
     """Match, summarize and baseline one combination into ``evaluation``.
 
     ``trials`` (v1.7) overrides the baseline trials per mode; ``None`` keeps
-    ``baseline_trials_for(combination.variant, args)``.
+    ``baseline_trials_for(combination.variant, args)``. ``windows`` (v1.9) are
+    the record windows per activity for the unobservable truths (12-2); an
+    activity without windows has only ``window_unknown`` truths.
     """
     if trials is None:
         trials = baseline_trials_for(combination.variant, args)
+    windows = windows or {}
     gt_depths = {
         a: [item.depth_for(combination.assumption) for item in items]
         for a, items in ground_truth.items()
@@ -2402,9 +2865,25 @@ def _evaluate_one(
     gate_matches = {
         a: match_activity_gated(estimates[a], gt_depths[a]) for a in gt_depths
     }
+    # The official matches are reused as they are: no re-solve (spec 9-8 item 1).
+    ties = {a: tie_range(estimates[a], gt_depths[a], matches[a]) for a in gt_depths}
+    observability = {
+        a: [
+            truth_observability(depth, windows.get(a, ()), combination.zero_variant)
+            for depth in gt_depths[a]
+        ]
+        for a in gt_depths
+    }
     evaluation.match_rows.extend(
         _match_rows(matches, ground_truth, gt_depths, combination)
     )
+    evaluation.tie_rows.extend(_tie_rows(ties, estimates, gt_depths, combination))
+    if combination.variant == "main":
+        evaluation.unobservable_rows.extend(
+            _unobservable_rows(
+                observability, matches, ground_truth, gt_depths, combination, windows
+            )
+        )
     n_gt = {a: len(v) for a, v in gt_depths.items()}
     n_est = {a: len(estimates[a]) for a in matches}
     # One draw per baseline mode; every scope is aggregated from these trials.
@@ -2422,10 +2901,101 @@ def _evaluate_one(
         baselines = {
             mode: baseline_stats(draw, activities) for mode, draw in draws.items()
         }
-        summary = summarize(subset, n_gt, gate_subset)
+        summary = summarize(
+            subset,
+            n_gt,
+            gate_subset,
+            ties={a: ties[a] for a in activities},
+            observability={a: observability[a] for a in activities},
+        )
         evaluation.summary_rows.append(
             _summary_row(scope, combination, summary, baselines)
         )
+
+
+def _tie_rows(
+    ties: Mapping[str, TieRange],
+    estimates: Mapping[str, Sequence[float]],
+    gt_depths: Mapping[str, Sequence[float]],
+    combination: Combination,
+) -> list[dict[str, object]]:
+    """Ties csv rows: activities whose pass count changes with the tie (12-1-5)."""
+    return [
+        {
+            "variant": combination.variant,
+            "zero_variant": combination.zero_variant,
+            "gt_set": combination.gt_set,
+            "assumption": combination.assumption,
+            "activity_id": activity,
+            "site": site_of_activity(activity),
+            "n_est": len(estimates[activity]),
+            "n_gt": len(gt_depths[activity]),
+            "n_pass": tie.n_pass,
+            "tie_pass_min": tie.pass_min,
+            "tie_pass_max": tie.pass_max,
+        }
+        for activity, tie in ties.items()
+        if tie.pass_max > tie.pass_min
+    ]
+
+
+def _passing_truths(match: MatchResult) -> set[int]:
+    return {
+        gt_index for _, gt_index, error in match.pairs if _within_pass_limit(abs(error))
+    }
+
+
+def _largest_depth_limit(
+    windows: Sequence[RecordWindow], zero_variant: str
+) -> tuple[float | None, int]:
+    """Largest ``depth_limit_m`` over the usable windows and their count."""
+    limits = []
+    n_usable = 0
+    for window in windows:
+        if _usable_zero(window, zero_variant) is None:
+            continue
+        n_usable += 1
+        limit = depth_limit_m(window, zero_variant)
+        if limit is not None:
+            limits.append(limit)
+    return (max(limits) if limits else None), n_usable
+
+
+def _unobservable_rows(
+    observability: Mapping[str, Sequence[str | None]],
+    matches: Mapping[str, MatchResult],
+    ground_truth: Mapping[str, list[GtItem]],
+    gt_depths: Mapping[str, Sequence[float]],
+    combination: Combination,
+    windows: Mapping[str, Sequence[RecordWindow]],
+) -> list[dict[str, object]]:
+    """Unobservable csv rows of one ``main`` combination (12-2-4)."""
+    rows = []
+    for activity, verdicts in observability.items():
+        limit_m, n_windows = _largest_depth_limit(
+            windows.get(activity, ()), combination.zero_variant
+        )
+        passing = _passing_truths(matches[activity])
+        for gt_index, verdict in enumerate(verdicts):
+            if verdict is None:
+                continue
+            rows.append(
+                {
+                    "zero_variant": combination.zero_variant,
+                    "gt_set": combination.gt_set,
+                    "assumption": combination.assumption,
+                    "activity_id": activity,
+                    "site": site_of_activity(activity),
+                    "gt_index": gt_index,
+                    "gt_depth_m": round(gt_depths[activity][gt_index], 4),
+                    "gt_code": ground_truth[activity][gt_index].code,
+                    "observability": verdict,
+                    "depth_limit_m": _rounded(limit_m, 4),
+                    "n_windows": n_windows,
+                    "pass_main": gt_index in passing,
+                }
+            )
+    return rows
 
 
 @dataclass(frozen=True)
@@ -2581,6 +3151,7 @@ def _main_variant_summary_rows(
     """
     scratch = Evaluation()
     trials = {"activity": args.baseline_trials_aux}
+    windows = activity_windows(candidates)  # the handled lines only (12-2-1)
     for zero_variant in ZERO_VARIANTS:
         estimates, _ = estimates_by_activity(
             candidates,
@@ -2596,7 +3167,13 @@ def _main_variant_summary_rows(
             for assumption in ASSUMPTIONS:
                 combination = Combination(gt_set, assumption, zero_variant, "main")
                 _evaluate_one(
-                    scratch, estimates, ground_truth, combination, args, trials=trials
+                    scratch,
+                    estimates,
+                    ground_truth,
+                    combination,
+                    args,
+                    trials=trials,
+                    windows=windows,
                 )
     return scratch.summary_rows
 
@@ -2635,6 +3212,86 @@ def duplicate_sensitivity(
             for row in _main_variant_summary_rows(handled, gt_sets, line_counts, args)
         )
     return rows
+
+
+# ---- K1 multiplicity (v1.9 draft, not wired)
+#
+# Spec 12-3 / 9-9-1 step 1: pure functions for the S1 tests and the S1g harness.
+# main, the variants and the CLI never call them until S1g and a user decision.
+
+
+@dataclass(frozen=True)
+class K1Member:
+    """One clustering input of K1 (spec 9-9-1 (a))."""
+
+    depth_m: float
+    """Clustering input depth (same as ``estimates_by_activity``)."""
+    line: str
+    """Line (``path``)."""
+    apex_x_m: float
+    """Fitted apex position ``result.apex_trace * dx_m`` (not the candidate trace)."""
+    long_line: bool
+    """Line length >= ``LONG_LINE_M``."""
+
+
+def lateral_multiplicity(xs_m: Sequence[float]) -> int:
+    """Single-linkage groups on x, linked when the gap is <= ``K1_LATERAL_M``
+    (+ ``CLUSTER_EDGE_TOL_M``) (spec 12-3-1 item 2); 0 for no x.
+
+    Raises:
+        ValueError: A non-finite x.
+    """
+    if not all(math.isfinite(x) for x in xs_m):
+        raise ValueError("x must be finite (no NaN or inf)")
+    ordered = sorted(xs_m)
+    if not ordered:
+        return 0
+    link_limit_m = K1_LATERAL_M + CLUSTER_EDGE_TOL_M
+    gaps = (right - left for left, right in itertools.pairwise(ordered))
+    return 1 + sum(gap > link_limit_m for gap in gaps)
+
+
+def cluster_multiplicity(cluster: Cluster, members: Sequence[K1Member]) -> int:
+    """Lower median of the per-line multiplicity over the cluster's non-long lines
+    (spec 12-3-1 items 3-4); 1 when every member is on a long line.
+
+    ``members`` is the clustering input, indexed by ``cluster.member_indices``.
+    """
+    xs_by_line: dict[str, list[float]] = defaultdict(list)
+    for index in cluster.member_indices:
+        member = members[index]
+        if not member.long_line:
+            xs_by_line[member.line].append(member.apex_x_m)
+    if not xs_by_line:
+        return 1
+    multiplicities = sorted(lateral_multiplicity(xs) for xs in xs_by_line.values())
+    return multiplicities[(len(multiplicities) - 1) // 2]
+
+
+def k1_estimates(
+    members: Sequence[K1Member],
+    n_lines_in_activity: int,
+    width_m: float = CLUSTER_WIDTH_M,
+    min_lines: int = MIN_SUPPORT_LINES,
+) -> tuple[list[float], list[int]]:
+    """K1 estimates of one activity (spec 12-3-1).
+
+    Complete-linkage clusters and the support filter as today, then every kept
+    cluster gives its depth ``n_c`` times (``cluster_multiplicity``).
+
+    Returns:
+        The estimates in cluster order (copies next to each other) and ``n_c``
+        per kept cluster.
+    """
+    clusters = cluster_depths(
+        [m.depth_m for m in members], [m.line for m in members], width_m, "complete"
+    )
+    kept = supported(clusters, n_lines_in_activity, min_lines)
+    counts = [cluster_multiplicity(cluster, members) for cluster in kept]
+    estimates: list[float] = []
+    for cluster, count in zip(kept, counts, strict=True):
+        estimates.extend([cluster.depth_m] * count)
+    return estimates, counts
 
 
 # ----------------------------------------------------------------- outputs
@@ -2780,6 +3437,16 @@ def write_csv(path: Path, rows: Sequence[Mapping[str, object]]) -> None:
         return
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def write_csv_with_header(
+    path: Path, rows: Sequence[Mapping[str, object]], columns: Sequence[str]
+) -> None:
+    """Like ``write_csv``, but the header is written even without rows (v1.9)."""
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(columns))
         writer.writeheader()
         writer.writerows(rows)
 
@@ -2952,6 +3619,151 @@ def _gate_section_lines(evaluation: Evaluation, args: argparse.Namespace) -> lis
         "",
         *_md_table(variant_rows, GATE_VARIANT_TABLE_COLUMNS),
         "",
+    ]
+
+
+@dataclass(frozen=True)
+class NearApexStops:
+    """Wings that stopped within ``PREREG_NEAR_APEX_STEPS`` traces (spec 9-8 G)."""
+
+    n_candidates: int
+    """``ok`` candidates with a QC (the md section 8 denominator N)."""
+    n_any: int
+    """Candidates with at least one such wing."""
+    n_both: int
+    n_wings: int
+    """``2 N``: untracked wings stay in the denominator."""
+    n_wings_near: int
+    reasons: Mapping[str, int]
+    """Stop reason (``TrackStop`` value) of the counted wings, by name."""
+
+
+def _stopped_near_apex(n_picks: int, stop: TrackStop | None) -> bool:
+    """Tracking walks one trace per step and stops at the first failed step, so
+    ``n_picks`` = stop step - 1 (spec 9-8 G)."""
+    return stop is not None and n_picks <= PREREG_NEAR_APEX_STEPS - 1
+
+
+def near_apex_stop_counts(candidates: Sequence[object]) -> NearApexStops:
+    """Near-apex stop counts over the ``ok`` candidates with a QC (spec 9-8 G)."""
+    n_candidates = n_any = n_both = 0
+    reasons: Counter[str] = Counter()
+    for candidate in candidates:
+        qc = getattr(candidate, "qc", None)
+        if candidate.result.status != "ok" or qc is None:
+            continue
+        n_candidates += 1
+        curvature = qc.curvature
+        wings = (
+            (curvature.n_left, curvature.stop_left),
+            (curvature.n_right, curvature.stop_right),
+        )
+        near_stops = [stop for n, stop in wings if _stopped_near_apex(n, stop)]
+        n_any += bool(near_stops)
+        n_both += len(near_stops) == len(wings)
+        reasons.update(stop.value for stop in near_stops)
+    return NearApexStops(
+        n_candidates=n_candidates,
+        n_any=n_any,
+        n_both=n_both,
+        n_wings=2 * n_candidates,
+        n_wings_near=sum(reasons.values()),
+        reasons=dict(sorted(reasons.items())),
+    )
+
+
+def _percent_phrase(numerator: int, denominator: int) -> str:
+    if not denominator:
+        return f"{numerator}/{denominator}"
+    return f"{numerator}/{denominator}({100 * numerator / denominator:.1f} %)"
+
+
+def _near_apex_lines(
+    candidates: Sequence[CandidateResult], args: argparse.Namespace
+) -> list[str]:
+    """Last subsection of the v1.9 auxiliary section (spec 9-8 G)."""
+    if not apex_qc_enabled(args):
+        return ["- 꼭짓점 4 트레이스 안 정지: `apex_qc=off`(계산 안 함)", ""]
+    stops = near_apex_stop_counts(candidates)
+    reasons = ", ".join(f"`{name}` {n}" for name, n in stops.reasons.items())
+    return [
+        f"### 꼭짓점 {PREREG_NEAR_APEX_STEPS} 트레이스 안 정지 "
+        "(`ok` 후보, 사전 등록 §4 항목 6 — 판정 미사용)",
+        "",
+        f"- 후보 기준(한쪽 이상): {_percent_phrase(stops.n_any, stops.n_candidates)}, "
+        f"양쪽: {stops.n_both}",
+        f"- 날개 기준: {_percent_phrase(stops.n_wings_near, stops.n_wings)}",
+        f"- 정지 사유(날개): {reasons or '없음'}",
+        "",
+    ]
+
+
+def _tie_activity_phrase(evaluation: Evaluation) -> str:
+    rows = [
+        r
+        for r in evaluation.tie_rows
+        if (r["variant"], r["zero_variant"], r["assumption"], r["gt_set"])
+        == ("main", "detected", "top", "exclude_x")
+    ]
+    phrases = [
+        f"{r['activity_id']} {r['tie_pass_min']}–{r['tie_pass_max']}"  # noqa: RUF001
+        f"(판정 {r['n_pass']})"
+        for r in rows
+    ]
+    return ", ".join(phrases) or "없음"
+
+
+def _unobservable_phrase(evaluation: Evaluation) -> str:
+    rows = [
+        r
+        for r in evaluation.unobservable_rows
+        if (r["zero_variant"], r["assumption"], r["gt_set"], r["observability"])
+        == ("detected", "top", "exclude_x", OBS_UNOBSERVABLE)
+    ]
+    phrases = [
+        f"{r['activity_id']} {r['gt_depth_m']} m(창 한계 {r['depth_limit_m']} m)"
+        for r in rows
+    ]
+    return ", ".join(phrases) or "없음"
+
+
+def _auxiliary_v19_section_lines(
+    evaluation: Evaluation,
+    candidates: Sequence[CandidateResult],
+    args: argparse.Namespace,
+) -> list[str]:
+    """md section between the gate section and "현장별" (spec 12-1-5, 9-8 G)."""
+    main_rows = [
+        r
+        for r in evaluation.summary_rows
+        if r["variant"] == "main" and r["scope"] == "all" and r["gt_set"] == "exclude_x"
+    ]
+    return [
+        "## 보조: 동률 범위·관측 불가 정답 (v1.9, M2-10 — 판정·U-3에 쓰지 않음)",
+        "",
+        "- 동률 범위: 게이트 없는 헝가리안(§5)의 최소합 배정이 여럿일 때"
+        "(합 차 ≤ 1e-9 m) 그 배정들의 통과 수 최소·최대. 판정값은 해법기 기본 해"
+        "(`n_pass`)이고 바뀌지 않는다.",
+        "- 관측 불가 정답: 메타 v로 바꾼 정답 시각이 평가에 들어간 모든 측선에서 "
+        "기록 끝 영역(D 규칙, 2.5 주기) 안인 정답. 분모는 그대로 두고, 그것을 뺀 "
+        "판정률을 보조로 낸다(공식 짝 그대로, 다시 매칭하지 않음).",
+        "- 이 절의 값은 결과를 본 뒤 만든 사후 보조 출력이다(이미 본 자료).",
+        "",
+        "### 동률 범위 (`main`, 전체, X 제외)",
+        "",
+        *_md_table(main_rows, TIE_TABLE_COLUMNS),
+        "",
+        "- 통과 수가 동률로 달라지는 활동(`main`, 검출 영점, 상단, X 제외): "
+        + _tie_activity_phrase(evaluation),
+        "",
+        "### 관측 불가 정답 (기록 끝 아래, `main`, 전체, X 제외)",
+        "",
+        *_md_table(main_rows, UNOBSERVABLE_TABLE_COLUMNS),
+        "",
+        "- 관측 불가 정답(검출 영점, 상단, X 제외): "
+        + _unobservable_phrase(evaluation),
+        "",
+        *_near_apex_lines(candidates, args),
     ]
 
 
@@ -3574,6 +4386,7 @@ def write_markdown(
         *_md_table(with_x_rows, columns),
         "",
         *_gate_section_lines(evaluation, args),
+        *_auxiliary_v19_section_lines(evaluation, candidates, args),
         "## 현장별 (주 결과, 검출 영점, X 제외)",
         "",
         *_md_table(site_rows, ("scope", "assumption", *columns[2:])),
@@ -3863,6 +4676,14 @@ def _write_outputs(
     write_csv(out / f"{prefix}_site11.csv", evaluation.site11_rows)
     write_csv(out / f"{prefix}_summary.csv", evaluation.summary_rows)
     write_csv(out / f"{prefix}_dup_sensitivity.csv", sensitivity_rows)
+    write_csv_with_header(
+        out / f"{prefix}_ties.csv", evaluation.tie_rows, TIE_CSV_COLUMNS
+    )
+    write_csv_with_header(
+        out / f"{prefix}_unobservable.csv",
+        evaluation.unobservable_rows,
+        UNOBSERVABLE_CSV_COLUMNS,
+    )
     write_markdown(
         out / f"{prefix}.md",
         evaluation,

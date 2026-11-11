@@ -9,6 +9,7 @@ truth is read (D1 and D3 read the committed duplicate and line lists).
 
 import argparse
 import ast
+import csv
 import dataclasses
 import hashlib
 import inspect
@@ -16,6 +17,7 @@ import itertools
 import json
 import math
 import textwrap
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,10 +27,11 @@ import pandas as pd
 import pytest
 
 from gpr_detection.depth.config import DepthConfig
-from gpr_detection.depth.estimate import prepare_depth_inputs
+from gpr_detection.depth.estimate import depth_from_time, prepare_depth_inputs
+from gpr_detection.depth.picks import TrackStop
 from gpr_detection.depth.refraction import reflection_times
 from gpr_detection.depth.result import DepthResult, DepthStatus
-from gpr_detection.io.radargram import Radargram
+from gpr_detection.io.radargram import Radargram, velocity_from_eps
 from gpr_detection.preprocess.timezero import ZeroRule
 from synthetic_bscan import (
     DT_NS,
@@ -2458,7 +2461,8 @@ def test_g8_summary_columns_values_and_v15_regression(script) -> None:
     assert list(script.GATE_COLUMNS) == V16_GATE_COLUMNS
     on, off = _g8_evaluations(script)
     for row in on.summary_rows + off.summary_rows:
-        assert list(row) == V15_SUMMARY_COLUMNS + V16_GATE_COLUMNS
+        # v1.9 (S2-8): the 11 auxiliary columns are appended after the gate ones.
+        assert list(row) == V15_SUMMARY_COLUMNS + V16_GATE_COLUMNS + V19_AUX_COLUMNS
         _assert_gate_properties(row)
         globals_filled = [row[c] != "" for c in GLOBAL_GATE_COLUMNS]
         assert globals_filled == [row["variant"] == "main"] * 4, row["variant"]
@@ -3424,8 +3428,17 @@ def test_d9_md_without_a_duplicate_report_matches_head(script, tmp_path, apex_qc
         _index_starting_with(lines, prefix) for prefix in ZERO_SUBSECTION_ORDER
     )
     assert flag < multi_event < site_11  # v1.8: removed together with the flag
-    kept = _without_zero_flag_subsection(lines)
+    kept = _without_v19_section(_without_zero_flag_subsection(lines))
     assert (len(kept), _lines_digest(kept)) == D9_HEAD[apex_qc]
+
+
+def _without_v19_section(lines: list[str]) -> list[str]:
+    """Drop the v1.9 auxiliary section (it ends where "## 현장별" starts)."""
+    starts = [i for i, line in enumerate(lines) if line.startswith(V19_SECTION_TITLE)]
+    if not starts:
+        return list(lines)
+    end = _index_starting_with(lines, "## 현장별")
+    return lines[: starts[0]] + lines[end:]
 
 
 def _d11_inputs(tmp_path: Path):
@@ -3700,4 +3713,944 @@ def test_n1_undefined_baseline_cells_are_blank(script, apex_qc) -> None:
     blank_cells = [row[c] for row in no_estimate for c in BASELINE_NAN_COLUMNS]
     n_head_nan, head_digest = N1_HEAD[apex_qc]
     assert blank_cells == [""] * n_head_nan
-    assert _rows_digest(rows) == head_digest
+    assert _rows_digest(_v18_columns(rows)) == head_digest
+
+
+def _v18_columns(rows) -> list[dict[str, object]]:
+    """Summary rows cut to the columns up to v1.8 (the v1.9 ones come last)."""
+    n_columns = len(V15_SUMMARY_COLUMNS) + len(V16_GATE_COLUMNS)
+    return [dict(list(row.items())[:n_columns]) for row in rows]
+
+
+# ----------------------------------------------------------------- v1.9: S2, O, TS, S1
+#
+# Tie range (spec 12-1), unobservable truths (12-2), near-apex stops (9-8 G) and
+# the K1 draft (12-3, 9-9-1). Prototype values: docs/processing/m210k_spec_checks.json.
+
+SPEC_CHECKS_JSON = PROJECT_ROOT / "docs" / "processing" / "m210k_spec_checks.json"
+GENERATOR_PATH = (
+    PROJECT_ROOT / "analysis" / "processing" / "fourtu_apex_candidate_select.py"
+)
+V19_AUX_COLUMNS = [
+    "n_pass",
+    "tie_pass_min",
+    "tie_pass_max",
+    "tie_pass_b_min",
+    "tie_pass_b_max",
+    "tie_activities",
+    "n_gt_unobservable",
+    "n_pass_unobservable",
+    "n_gt_window_unknown",
+    "n_gt_observable",
+    "pass_b_observable",
+]
+"""The 11 v1.9 columns after ``baseline_global_gate_p`` (spec 9-8 C)."""
+V19_SECTION_TITLE = (
+    "## 보조: 동률 범위·관측 불가 정답 (v1.9, M2-10 — 판정·U-3에 쓰지 않음)"
+)
+K2_RANDOM_SEED = 20261111
+K2_RANDOM_CASES = 3000
+S1_SEED = 20261112
+S1_LATERAL_STEPS_M = (0.0, 0.6, 1.0)
+"""S1-1: x offset of pipe k from pipe k - 1 (the third pipe is 1.0 m further)."""
+LONG_RECORD_SAMPLES = 1024
+
+
+def _spec_checks() -> dict:
+    return json.loads(SPEC_CHECKS_JSON.read_text(encoding="utf-8"))
+
+
+def _tie(script, est, gt) -> tuple[int, int, int]:
+    tie = script.tie_range(est, gt)
+    return tie.n_pass, tie.pass_min, tie.pass_max
+
+
+def _brute_tie_range(script, est, gt) -> tuple[int, int]:
+    """Pass-count range over every injective assignment of size m whose sum |e|
+    is within 1e-9 m of the minimum (the prototype's brute force)."""
+    if len(est) == 0 or len(gt) == 0:
+        return 0, 0
+    cost = np.abs(np.subtract.outer(np.asarray(est, float), np.asarray(gt, float)))
+    passes = script._within_pass_limit(cost)
+    n_est, n_gt = cost.shape
+    if n_est <= n_gt:
+        assignments = [
+            list(zip(range(n_est), cols, strict=True))
+            for cols in itertools.permutations(range(n_gt), n_est)
+        ]
+    else:
+        assignments = [
+            list(zip(rows, range(n_gt), strict=True))
+            for rows in itertools.permutations(range(n_est), n_gt)
+        ]
+    scored = [
+        (sum(cost[i, j] for i, j in pairs), sum(bool(passes[i, j]) for i, j in pairs))
+        for pairs in assignments
+    ]
+    best = min(total for total, _ in scored)
+    counts = [count for total, count in scored if total <= best + 1e-9]
+    return min(counts), max(counts)
+
+
+@pytest.mark.parametrize(
+    ("key", "expected"),
+    [
+        ("S2-1b_all_shallow", (2, 1, 2)),  # S2-1
+        ("S2-1_diagnosis_table", (1, 1, 1)),  # S2-1c
+        ("S2-2_unique_optimum", (2, 2, 2)),  # S2-2
+        ("S2-8_float_tie", (0, 0, 1)),  # S2-6
+        ("S2-8b_float_tie_reversed", (0, 0, 1)),  # S2-6
+        ("S2-5_empty_est", (0, 0, 0)),  # S2-5
+        ("S2-5_empty_gt", (0, 0, 0)),  # S2-5
+    ],
+)
+def test_s2_examples_match_the_prototype(script, key, expected) -> None:
+    case = _spec_checks()["k2_examples"][key]
+    assert (case["official"], case["lo"], case["hi"]) == expected
+    assert (case["brute_lo"], case["brute_hi"]) == expected[1:]
+    assert _tie(script, case["est"], case["gt"]) == expected
+
+
+def test_s2_1_all_shallow_optimum_and_gate_pairs(script) -> None:
+    est, gt = [0.20, 0.25, 0.30], [0.50, 0.55, 0.95, 1.40]
+    match = script.match_activity(est, gt)
+    assert sum(abs(error) for *_, error in match.pairs) == pytest.approx(1.25)
+    assert script.match_activity_gated(est, gt).n_pairs == 2
+
+
+def test_s2_5_empty_activity_does_not_call_the_solver(script, monkeypatch) -> None:
+    def no_solver(*_args):
+        raise AssertionError("linear_sum_assignment must not be called")
+
+    monkeypatch.setattr(script, "linear_sum_assignment", no_solver)
+    assert script.tie_range([], [0.5, 0.7]) == script.TieRange(0, 0, 0)
+    assert script.tie_range([0.5], []) == script.TieRange(0, 0, 0)
+
+
+def _k2_random_tables():
+    """The S2-3 tables of m210k_spec_checks.py: same seed and draw order."""
+    rng = np.random.default_rng(K2_RANDOM_SEED)
+    for case in range(K2_RANDOM_CASES):
+        is_fine_grid = case % 2 == 0
+        grid_m = 0.01 if is_fine_grid else 0.05
+        low_m, high_m = (0.1, 2.0) if is_fine_grid else (0.2, 1.2)
+        n_est, n_gt = int(rng.integers(0, 6)), int(rng.integers(0, 6))
+        est = list(np.round(rng.uniform(low_m, high_m, n_est) / grid_m) * grid_m)
+        gt = list(np.round(rng.uniform(low_m, high_m, n_gt) / grid_m) * grid_m)
+        shuffled_est = list(rng.permutation(est)) if est else []
+        shuffled_gt = list(rng.permutation(gt)) if gt else []
+        yield est, gt, shuffled_est, shuffled_gt
+
+
+def test_s2_3_s2_4_random_tables_equal_the_brute_force(script) -> None:
+    expected = _spec_checks()["k2_random"]
+    widths: Counter[int] = Counter()
+    for est, gt, shuffled_est, shuffled_gt in _k2_random_tables():
+        tie = script.tie_range(est, gt)
+        assert (tie.pass_min, tie.pass_max) == _brute_tie_range(script, est, gt)
+        gate_pairs = script.match_activity_gated(est, gt).n_pairs
+        assert tie.pass_min <= tie.n_pass <= tie.pass_max <= gate_pairs
+        shuffled = script.tie_range(shuffled_est, shuffled_gt)
+        assert (shuffled.pass_min, shuffled.pass_max) == (tie.pass_min, tie.pass_max)
+        widths[tie.pass_max - tie.pass_min] += 1
+    histogram = {str(width): n for width, n in sorted(widths.items())}
+    assert (
+        histogram
+        == expected["range_width_histogram"]
+        == {
+            "0": 2808,
+            "1": 178,
+            "2": 14,
+        }
+    )
+    assert K2_RANDOM_CASES - widths[0] == expected["cases_with_range"] == 192
+
+
+def test_s2_4_input_order_keeps_the_range(script) -> None:
+    est, gt = [0.20, 0.25, 0.30], [0.50, 0.55, 0.95, 1.40]
+    for est_order in itertools.permutations(est):
+        for gt_order in itertools.permutations(gt):
+            tie = script.tie_range(list(est_order), list(gt_order))
+            assert (tie.pass_min, tie.pass_max) == (1, 2)
+
+
+def _s27_inputs(script):
+    tables = {
+        "A": ([0.20, 0.25, 0.30], [0.50, 0.55, 0.95, 1.40]),
+        "B": ([0.10, 0.12], [0.41, 0.50]),
+    }
+    matches = {a: script.match_activity(e, g) for a, (e, g) in tables.items()}
+    ties = {a: script.tie_range(e, g, matches[a]) for a, (e, g) in tables.items()}
+    return matches, ties
+
+
+def test_s2_7_pooled_tie_columns(script) -> None:
+    matches, ties = _s27_inputs(script)
+    summary = script.summarize(matches, {"A": 4, "B": 2}, ties=ties)
+    columns = script._aux_columns(summary)
+    assert list(columns) == V19_AUX_COLUMNS
+    counts = ("n_pass", "tie_pass_min", "tie_pass_max", "tie_activities")
+    assert tuple(columns[c] for c in counts) == (2, 1, 3, 2)
+    assert (columns["tie_pass_b_min"], columns["tie_pass_b_max"]) == (
+        round(1 / 6, 4),
+        0.5,
+    )
+    # No observability given: those columns stay blank.
+    assert all(columns[c] == "" for c in V19_AUX_COLUMNS[6:])
+
+
+def test_s2_10_tie_inputs_are_checked(script) -> None:
+    matches, ties = _s27_inputs(script)
+    n_gt = {"A": 4, "B": 2}
+    with pytest.raises(ValueError, match="ties"):
+        script.summarize(matches, n_gt, ties={"A": ties["A"]})
+    wrong = {**ties, "A": dataclasses.replace(ties["A"], n_pass=1)}
+    with pytest.raises(RuntimeError, match="n_pass"):
+        script.summarize(matches, n_gt, ties=wrong)
+    # An "official" match that is not an optimum leaves the range: code defect.
+    not_official = script.MatchResult(((0.5, 0, 1.0),), missed=0, false_est=0)
+    with pytest.raises(RuntimeError, match="outside"):
+        script.tie_range([0.5], [0.52], not_official)
+
+
+# S2-8, S2-9, O8: a main run on faked loaders (as D11). 03.1/P4 is a within copy of
+# P1 and 03.2/P1 = 03.3/P1 across; P4 and 03.3/P1 have a long record, so their
+# windows would make the 2.5 m truths observable if they were used.
+S28_CANDIDATES = (
+    ("03.1", "P1", 0.20),
+    ("03.1", "P1", 0.30),
+    ("03.1", "P2", 0.21),
+    ("03.1", "P2", 0.31),
+    ("03.1", "P3", 0.20),
+    ("03.1", "P4", 0.20),
+    ("03.1", "P4", 0.30),
+    ("03.2", "P1", 0.70),
+    ("03.2", "P2", 0.71),
+    ("03.3", "P1", 0.70),
+    ("03.3", "P2", 0.72),
+)
+S28_LONG_RECORD_LINES = {("03.1", "P4"), ("03.3", "P1")}
+S28_TRUTH = {"03.1": [0.50, 0.55, 1.40, 2.5], "03.2": [0.7, 2.5], "03.3": [0.7, 2.5]}
+S28_HEAD = {
+    "candidates": "c99a75c35a4304da515c0364684027d1d9b1357dc36a9439de06b4a77cb9c8a2",
+    "clusters": "dbb5592d88d99a5d7d078a3c41c59a950ea647bc479aac5006adaa651f648736",
+    "matches": "adc5cc90c35f7776129c74981068ea04822f47473c8d76c862c7d8b92f98898e",
+    "site11": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "summary": "6ce044575b4e37e045180c6fcc8f7e02a53910bbff7d3cef2d256c54666981cf",
+    "dup_sensitivity": (
+        "365b2c790b52388f935423c5fe7edfea974e571a33bad4253868b6f9cd824e87"
+    ),
+    "md": "e790b1ec69e41096690cb3cc256d15678ce260fdfd0a3bc4a2c4f5c0b6f8db7b",
+}
+"""Digests of the S2-8 run with the HEAD 7a327de code (before v1.9): the four csvs
+byte for byte, summary / dup_sensitivity cut to their first 51 / 52 columns and
+the md without the v1.9 section and the run-time line (``_s28_digests``)."""
+
+
+def _window(
+    script,
+    n_samples: int = QC_RECORD_SAMPLES,
+    dt_ns: float = QC_DT_NS,
+    eps_r: float | None = 9.0,
+    t_zero_ns: dict[str, float | None] | None = None,
+):
+    """4TU-like record window: 500 MHz, air-coupled, detected zero 5 ns."""
+    return script.RecordWindow(
+        n_samples=n_samples,
+        dt_ns=dt_ns,
+        f_c_hz=QC_F_C_HZ,
+        v_m_per_ns=None if eps_r is None else velocity_from_eps(eps_r),
+        air_gap="air",
+        offset_m=None,
+        t_zero_ns=t_zero_ns or {"detected": 5.0, "est": 4.0, "act": None},
+    )
+
+
+def _run_main_on_s28(script, tmp_path: Path, monkeypatch) -> Path:
+    """``main`` on the S28 inputs; works with the HEAD code too (no windows)."""
+    candidates_table = pd.DataFrame(
+        S28_CANDIDATES, columns=["activity_id", "path", "depth"]
+    )
+    lines_table = pd.DataFrame(
+        sorted({(a, p) for a, p, _ in S28_CANDIDATES}), columns=["activity_id", "path"]
+    )
+    lines_table["length_m"] = 5.0
+    duplicates_csv = _write_duplicate_csv(
+        tmp_path / "dups.csv",
+        [
+            ("03.1", "P1", "03.1", "P4", "within_activity"),
+            ("03.2", "P1", "03.3", "P1", "across_activities"),
+        ],
+    )
+    has_windows = hasattr(script, "RecordWindow")
+
+    def fake_run_line(radargram, group, apex_qc=True):
+        activity, path = radargram.line_id.split("/")
+        extra = {}
+        if has_windows:
+            is_long = (activity, path) in S28_LONG_RECORD_LINES
+            n_samples = LONG_RECORD_SAMPLES if is_long else QC_RECORD_SAMPLES
+            extra["record_window"] = _window(script, n_samples=n_samples)
+        return [
+            _zero_candidate(
+                script, activity, path, "air_single_event", None, depth_m=d, **extra
+            )
+            for d in group["depth"]
+        ]
+
+    monkeypatch.setattr(
+        script, "_read_inputs", lambda args: (tmp_path, candidates_table, lines_table)
+    )
+    monkeypatch.setattr(
+        script, "load_ground_truth_sets", lambda root: _gt_sets(script, S28_TRUTH)
+    )
+    monkeypatch.setattr(
+        script,
+        "load_fourtu_radargram",
+        lambda root, activity, path, choice: SimpleNamespace(
+            line_id=f"{activity}/{path}"
+        ),
+    )
+    monkeypatch.setattr(script, "run_line", fake_run_line)
+    monkeypatch.setattr(script, "DEFAULT_DUPLICATES", duplicates_csv)
+    monkeypatch.setattr(
+        script, "verify_duplicate_hashes", lambda root, lines, table: (len(lines), 0.0)
+    )
+    out = tmp_path / "out"
+    trials = ["--baseline-trials", "5", "--baseline-trials-aux", "3"]
+    assert script.main(["--out-dir", str(out), "--prefix", "t", *trials]) == 0
+    return out
+
+
+def _read_rows(path: Path) -> list[list[str]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        return list(csv.reader(handle))
+
+
+def _s28_digests(out: Path, tmp_path: Path) -> dict[str, str]:
+    digests = {}
+    for name in ("candidates", "clusters", "matches", "site11"):
+        digests[name] = hashlib.sha256((out / f"t_{name}.csv").read_bytes()).hexdigest()
+    for name, n_old_columns in (("summary", 51), ("dup_sensitivity", 52)):
+        rows = _read_rows(out / f"t_{name}.csv")
+        digests[name] = _digest([row[:n_old_columns] for row in rows])
+    md = (
+        (out / "t.md").read_text(encoding="utf-8").replace(tmp_path.as_posix(), "<tmp>")
+    )
+    kept = [
+        line
+        for line in _without_v19_section(md.splitlines())
+        if not line.startswith("- 실행:")
+    ]
+    digests["md"] = _lines_digest(kept)
+    return digests
+
+
+def test_s2_8_existing_outputs_are_unchanged(script, tmp_path, monkeypatch) -> None:
+    out = _run_main_on_s28(script, tmp_path, monkeypatch)
+    assert _s28_digests(out, tmp_path) == S28_HEAD
+    summary_header = _read_rows(out / "t_summary.csv")[0]
+    assert summary_header == V15_SUMMARY_COLUMNS + V16_GATE_COLUMNS + V19_AUX_COLUMNS
+    dup_header = _read_rows(out / "t_dup_sensitivity.csv")[0]
+    assert dup_header == ["dup_handling", *summary_header]
+    assert list(script.AUX_COLUMNS) == V19_AUX_COLUMNS
+
+
+def _s28_frame(out: Path, name: str) -> pd.DataFrame:
+    return pd.read_csv(out / f"t_{name}.csv", dtype=str, keep_default_na=False)
+
+
+def test_s2_9_md_section(script, tmp_path, monkeypatch) -> None:
+    out = _run_main_on_s28(script, tmp_path, monkeypatch)
+    md = (out / "t.md").read_text(encoding="utf-8").splitlines()
+    order = [
+        _index_starting_with(md, prefix)
+        for prefix in ("## 게이트 보조 지표", V19_SECTION_TITLE, "## 현장별")
+    ]
+    assert order == sorted(order)
+    start = order[1]
+    assert md[start + 2].startswith("- 동률 범위: 게이트 없는 헝가리안(§5)의 최소합")
+    assert md[start + 3].startswith("- 관측 불가 정답: 메타 v로 바꾼 정답 시각이")
+    assert (
+        md[start + 4]
+        == "- 이 절의 값은 결과를 본 뒤 만든 사후 보조 출력이다(이미 본 자료)."
+    )
+    header, rows = _md_table_under(md, "### 동률 범위 (`main`, 전체, X 제외)")
+    assert _md_cells(header) == list(script.TIE_TABLE_COLUMNS)
+    assert len(rows) == 6
+    ties = _s28_frame(out, "ties")
+    official = ties[
+        (ties["variant"] == "main")
+        & (ties["zero_variant"] == "detected")
+        & (ties["gt_set"] == "exclude_x")
+        & (ties["assumption"] == "top")
+    ]
+    (n_pass,) = official["n_pass"]
+    assert md[_index_starting_with(md, "- 통과 수가 동률로")] == (
+        "- 통과 수가 동률로 달라지는 활동(`main`, 검출 영점, 상단, X 제외): "
+        f"03.1 1–2(판정 {n_pass})"  # noqa: RUF001 (spec 12-1-5 en dash)
+    )
+    header, rows = _md_table_under(md, "### 관측 불가 정답 (기록 끝 아래")
+    assert _md_cells(header) == list(script.UNOBSERVABLE_TABLE_COLUMNS)
+    assert len(rows) == 6
+    limit = round(script.depth_limit_m(_window(script), "detected"), 4)
+    assert md[_index_starting_with(md, "- 관측 불가 정답(검출 영점")] == (
+        "- 관측 불가 정답(검출 영점, 상단, X 제외): "
+        f"03.1 2.5 m(창 한계 {limit} m), 03.2 2.5 m(창 한계 {limit} m)"
+    )
+
+
+def test_o8_unobservable_csv_and_windows_of_handled_lines(
+    script, tmp_path, monkeypatch
+) -> None:
+    out = _run_main_on_s28(script, tmp_path, monkeypatch)
+    rows = _s28_frame(out, "unobservable")
+    assert list(rows.columns) == list(script.UNOBSERVABLE_CSV_COLUMNS)
+    keys = [
+        (r.zero_variant, r.gt_set, r.assumption, r.activity_id, int(r.gt_index))
+        for r in rows.itertuples(index=False)
+    ]
+    assert keys == sorted(
+        keys,
+        key=lambda k: (
+            script.ZERO_VARIANTS.index(k[0]),
+            ("exclude_x", "include_x").index(k[1]),
+            script.ASSUMPTIONS.index(k[2]),
+            script.activity_order_key(k[3]),
+            k[4],
+        ),
+    )
+    detected_top = rows[
+        (rows["zero_variant"] == "detected")
+        & (rows["gt_set"] == "exclude_x")
+        & (rows["assumption"] == "top")
+    ]
+    # The within copy 03.1/P4 lends no window; 03.3/P1 (kept by keep_both) does.
+    limit = str(round(script.depth_limit_m(_window(script), "detected"), 4))
+    assert detected_top.values.tolist() == [
+        ["detected", "exclude_x", "top", "03.1", "3", "3", "2.5", "S",
+         "unobservable", limit, "3", "False"],
+        ["detected", "exclude_x", "top", "03.2", "3", "1", "2.5", "S",
+         "unobservable", limit, "2", "False"],
+    ]  # fmt: skip
+    # act has no metadata zero on any line: every truth is window_unknown (O3).
+    act = rows[(rows["zero_variant"] == "act") & (rows["gt_set"] == "exclude_x")]
+    assert set(act["observability"]) == {"window_unknown"}
+    assert len(act) == 2 * 8
+    assert set(act["n_windows"]) == {"0"} and set(act["depth_limit_m"]) == {""}
+
+    sensitivity = _s28_frame(out, "dup_sensitivity")
+    overall = sensitivity[
+        (sensitivity["scope"] == "all")
+        & (sensitivity["gt_set"] == "exclude_x")
+        & (sensitivity["assumption"] == "top")
+        & (sensitivity["zero_variant"] == "detected")
+    ]
+    unobservable = dict(
+        zip(overall["dup_handling"], overall["n_gt_unobservable"], strict=True)
+    )
+    # keep_one drops 03.3/P1, so 03.3's 2.5 m truth loses its long window.
+    assert unobservable == {"keep_both": "2", "keep_one": "3", "drop_all": "1"}
+
+    summary = _s28_frame(out, "summary")
+    act_main = summary[
+        (summary["scope"] == "all")
+        & (summary["gt_set"] == "exclude_x")
+        & (summary["assumption"] == "top")
+        & (summary["zero_variant"] == "act")
+        & (summary["variant"] == "main")
+    ].iloc[0]
+    # window_unknown stays in the denominator (12-2-1).
+    assert (act_main["n_gt_window_unknown"], act_main["n_gt_observable"]) == ("8", "8")
+    assert act_main["pass_b_observable"] == act_main["pass_b"]
+
+
+def test_o1_record_end_boundary_is_observable(script) -> None:
+    window = _window(script)
+    end_zone_ns = script.RECORD_END_PERIODS * 1e9 / window.f_c_hz
+    boundary_ns = (
+        (window.n_samples - 1) * window.dt_ns
+        - end_zone_ns
+        - window.t_zero_ns["detected"]
+    )
+    depth_at_boundary = window.v_m_per_ns * boundary_ns / 2
+    assert script.truth_observability(depth_at_boundary, [window], "detected") is None
+    depth_beyond = window.v_m_per_ns * (boundary_ns + 2e-9) / 2
+    assert (
+        script.truth_observability(depth_beyond, [window], "detected")
+        == script.OBS_UNOBSERVABLE
+    )
+    assert script.depth_limit_m(window, "detected") == pytest.approx(
+        depth_at_boundary, abs=1e-12
+    )
+
+
+def test_o2_one_deep_window_makes_a_truth_observable(script) -> None:
+    shallow = _window(script, dt_ns=0.098, eps_r=9.0)
+    deep = _window(script, dt_ns=0.195, eps_r=16.0)
+    shallow_limit = script.depth_limit_m(shallow, "detected")
+    deep_limit = script.depth_limit_m(deep, "detected")
+    assert shallow_limit < deep_limit
+    between = (shallow_limit + deep_limit) / 2
+    assert script.truth_observability(between, [shallow, deep], "detected") is None
+    assert script.truth_observability(between, [deep, shallow], "detected") is None
+    assert (
+        script.truth_observability(between, [shallow], "detected")
+        == script.OBS_UNOBSERVABLE
+    )
+    assert (
+        script.truth_observability(deep_limit + 0.01, [shallow, deep], "detected")
+        == script.OBS_UNOBSERVABLE
+    )
+
+
+def test_o3_zero_variants_and_unusable_windows(script) -> None:
+    failed_zero = _window(script, t_zero_ns={"detected": None, "est": 4.0, "act": 6.0})
+    unknown = script.OBS_UNKNOWN
+    assert script.truth_observability(0.5, [failed_zero], "detected") == unknown
+    assert script.truth_observability(0.5, [failed_zero], "est") is None
+    assert script.truth_observability(0.5, [_window(script, eps_r=None)], "est") == (
+        unknown
+    )
+    assert script.truth_observability(0.5, [], "detected") == unknown
+    # A failed window does not hide a usable one.
+    both = [failed_zero, _window(script)]
+    assert script.truth_observability(0.5, both, "detected") is None
+    est_limit = script.depth_limit_m(failed_zero, "est")
+    act_limit = script.depth_limit_m(failed_zero, "act")
+    assert act_limit < est_limit  # the later zero leaves less record
+    assert script.truth_observability(
+        (act_limit + est_limit) / 2, [failed_zero], "act"
+    ) == (script.OBS_UNOBSERVABLE)
+    assert script.depth_limit_m(failed_zero, "detected") is None
+
+
+def test_o3_record_window_reads_the_line_and_its_zeros(script) -> None:
+    radargram = _radargram(_straight_ray_spec(9.0, 0.5, n_samples=QC_RECORD_SAMPLES))
+    inputs = SimpleNamespace(
+        zero=SimpleNamespace(t_zero_ns=5.5, meta_t0={"t0_sample_est": (4.0, "x")})
+    )
+    window = script.record_window(radargram, inputs)
+    assert window.t_zero_ns == {"detected": 5.5, "est": 4.0, "act": None}
+    assert (window.n_samples, window.dt_ns, window.f_c_hz) == (512, 0.098, 500e6)
+    assert (window.air_gap, window.offset_m) == ("air", radargram.antenna_offset_m)
+    assert window.v_m_per_ns == pytest.approx(velocity_from_eps(9.0))
+
+
+def test_o3_run_line_attaches_the_line_window(script) -> None:
+    spec = _straight_ray_spec(9.0, 0.5, n_samples=QC_RECORD_SAMPLES)
+    radargram = _radargram(spec)
+    trace, sample = _true_apex(spec)
+    candidate = _run_one(script, radargram, trace, sample, apex_qc=False)
+    inputs = prepare_depth_inputs(radargram, DepthConfig())
+    assert candidate.record_window == script.record_window(radargram, inputs)
+
+
+def _o4_o6_evaluation(script, items, depths):
+    """One activity on two lines with the default window; ``depths`` per line."""
+    window = _window(script)
+    candidates = [
+        dataclasses.replace(
+            _candidate(script, "01.1", path, depth),
+            qc=_qc(script),
+            record_window=window,
+        )
+        for path in ("L1", "L2")
+        for depth in depths
+    ]
+    gt_sets = {"exclude_x": {"01.1": items}, "include_x": {"01.1": items}}
+    return script.evaluate_combinations(candidates, gt_sets, {"01.1": 2}, _args())
+
+
+def test_o4_center_assumption_judges_depth_minus_radius(script) -> None:
+    limit = script.depth_limit_m(_window(script), "detected")
+    item = script.GtItem(limit + 0.05, "S", 0.10, True, "1", False)
+    evaluation = _o4_o6_evaluation(script, [item], [0.5])
+    assumptions = {
+        r["assumption"]
+        for r in evaluation.unobservable_rows
+        if (r["zero_variant"], r["gt_set"]) == ("detected", "exclude_x")
+    }
+    assert assumptions == {"top"}
+
+
+def test_o5_observable_pass_rate_and_blank_denominator(script) -> None:
+    match = script.match_activity([0.6, 1.8], [0.6, 2.05])
+    unobs = script.OBS_UNOBSERVABLE
+    summary = script.summarize(
+        {"a": match}, {"a": 2}, observability={"a": [None, unobs]}
+    )
+    columns = script._aux_columns(summary)
+    assert (summary.pass_b, columns["n_pass_unobservable"]) == (1.0, 1)
+    assert (columns["n_gt_observable"], columns["pass_b_observable"]) == (1, 1.0)
+    all_unobservable = script.summarize(
+        {"a": match}, {"a": 2}, observability={"a": [unobs, unobs]}
+    )
+    columns = script._aux_columns(all_unobservable)
+    assert (columns["n_gt_observable"], columns["pass_b_observable"]) == (0, "")
+    with pytest.raises(ValueError, match="verdicts"):
+        script.summarize({"a": match}, {"a": 2}, observability={"a": [None]})
+    with pytest.raises(ValueError, match="observability"):
+        script.summarize({"a": match}, {"a": 2}, observability={"b": [None, None]})
+
+
+def test_o6_unobservable_truth_paired_by_another_event(script) -> None:
+    limit = script.depth_limit_m(_window(script), "detected")
+    items = [_gt_item(script, 0.6), _gt_item(script, limit + 0.05)]
+    evaluation = _o4_o6_evaluation(script, items, [0.6, limit - 0.20])
+    row = _overall_top_detected_row(evaluation.summary_rows, "main")
+    assert (row["n_pass"], row["pass_b"]) == (2, 1.0)  # the verdict is unchanged
+    assert (row["n_gt_unobservable"], row["n_pass_unobservable"]) == (1, 1)
+    assert row["pass_b_observable"] == 1.0
+    (unobservable,) = [
+        r
+        for r in evaluation.unobservable_rows
+        if (r["zero_variant"], r["gt_set"], r["assumption"])
+        == ("detected", "exclude_x", "top")
+    ]
+    assert (unobservable["gt_index"], unobservable["pass_main"]) == (1, True)
+
+
+@pytest.mark.parametrize(
+    ("air_gap", "offset_m"), [("air", None), ("ground", 0.3), ("ground", None)]
+)
+def test_o7_time_from_depth_inverts_depth_from_time(script, air_gap, offset_m) -> None:
+    v_m_per_ns = 0.1
+    for depth_m in (0.0, 0.3, 1.2, 3.0):
+        tau_ns = script.time_from_depth(
+            depth_m, v_m_per_ns, air_gap=air_gap, offset_m=offset_m
+        )
+        back = depth_from_time(v_m_per_ns, tau_ns, air_gap=air_gap, offset_m=offset_m)
+        assert back == pytest.approx(depth_m, abs=1e-12)
+    with pytest.raises(ValueError, match="depth"):
+        script.time_from_depth(-0.1, v_m_per_ns, air_gap="air", offset_m=None)
+    with pytest.raises(ValueError, match="velocity"):
+        script.time_from_depth(0.5, 0.0, air_gap="air", offset_m=None)
+
+
+def test_o10_negative_centre_depth_is_judged_as_zero(script) -> None:
+    """Centre assumption with R > depth (4TU 08.4 seq 3: -0.19 m): max(d, 0)."""
+    window = _window(script)
+    for depth_m in (-0.19, 0.0):
+        assert script.truth_observability(depth_m, [window], "detected") is None
+    end_ns = (window.n_samples - 1) * window.dt_ns
+    late_zero = _window(
+        script, t_zero_ns={"detected": end_ns - 1.0, "est": None, "act": None}
+    )
+    for depth_m in (-0.19, 0.0):
+        assert (
+            script.truth_observability(depth_m, [late_zero], "detected")
+            == script.OBS_UNOBSERVABLE
+        )
+    with pytest.raises(ValueError, match="depth"):
+        script.time_from_depth(-0.19, 0.1, air_gap="air", offset_m=None)
+
+
+def test_o10_negative_centre_truth_runs_through_the_evaluation(script) -> None:
+    item = script.GtItem(0.06, "S", 0.25, True, "1", False)  # centre -0.19 m
+    evaluation = _o4_o6_evaluation(script, [item], [0.5])
+    center_rows = [
+        r
+        for r in evaluation.match_rows
+        if (r["assumption"], r["zero_variant"], r["variant"])
+        == ("center", "detected", "main")
+    ]
+    assert {r["gt_depth_m"] for r in center_rows} == {-0.19}  # truth unchanged
+    row = next(
+        r
+        for r in evaluation.summary_rows
+        if (r["scope"], r["gt_set"], r["assumption"], r["zero_variant"], r["variant"])
+        == ("all", "exclude_x", "center", "detected", "main")
+    )
+    assert row["n_gt_unobservable"] == 0
+
+
+def test_o9_duck_candidates_only_give_unknown_windows(script) -> None:
+    on, _ = _g8_evaluations(script)
+    row = _overall_top_detected_row(on.summary_rows, "main")
+    assert row["n_gt_window_unknown"] == row["n_gt"] == row["n_gt_observable"]
+    assert (row["n_gt_unobservable"], row["n_pass_unobservable"]) == (0, 0)
+    assert row["pass_b_observable"] == row["pass_b"]
+    unknown = {r["observability"] for r in on.unobservable_rows}
+    assert unknown == {script.OBS_UNKNOWN}
+
+
+# ----------------------------------------------------------------- TS1-TS5 (9-8 G)
+
+
+def _wing_candidate(
+    script,
+    n_left: int,
+    n_right: int,
+    stop_left: TrackStop | None = TrackStop.REVERSE_TOP,
+    stop_right: TrackStop | None = TrackStop.AMPLITUDE,
+    path: str = "L1",
+):
+    curvature = script.CurvatureQc(
+        script.QcVerdict.IN,
+        "",
+        n_left=n_left,
+        n_right=n_right,
+        stop_left=stop_left,
+        stop_right=stop_right,
+    )
+    qc = dataclasses.replace(_qc(script), curvature=curvature)
+    return dataclasses.replace(_candidate(script, "01.1", path, 0.5), qc=qc)
+
+
+def _ts1_candidates(script) -> list:
+    return [
+        _wing_candidate(script, n_left, n_right)
+        for n_left, n_right in ((3, 10), (4, 10), (0, 0), (10, 10))
+    ]
+
+
+def test_ts1_wings_stopped_within_four_traces(script) -> None:
+    stops = script.near_apex_stop_counts(_ts1_candidates(script))
+    counts = (
+        stops.n_candidates,
+        stops.n_any,
+        stops.n_both,
+        stops.n_wings,
+        stops.n_wings_near,
+    )
+    assert counts == (4, 2, 1, 8, 3)  # (4, 10): stopped at step 5, not counted
+    assert stops.reasons == {"amplitude": 1, "reverse_top": 2}
+    assert script.PREREG_NEAR_APEX_STEPS == 4
+
+
+def test_ts2_denominator_is_the_section_8_count(script, tmp_path) -> None:
+    near = _ts1_candidates(script)
+    failed = dataclasses.replace(
+        near[0], result=DepthResult(status=DepthStatus.ZERO_FAILED)
+    )
+    without_qc = dataclasses.replace(near[0], qc=None)
+    copy = _wing_candidate(script, 0, 0, path="L9")
+    table = script.load_duplicate_table(
+        _write_duplicate_csv(
+            tmp_path / "dups.csv", [("01.1", "L1", "01.1", "L9", "within_activity")]
+        )
+    )
+    evaluated = script.drop_within_copies([*near, failed, without_qc, copy], table)
+    stops = script.near_apex_stop_counts(evaluated)
+    assert (stops.n_candidates, stops.n_any, stops.n_wings_near) == (4, 2, 3)
+    groundtruth, metadata = _tables()
+    gt_sets = script.build_ground_truth_sets(groundtruth, metadata)
+    evaluation = script.evaluate_combinations(evaluated, gt_sets, {"01.1": 1}, _args())
+    lines = script._qc_diagnostic_lines(evaluated, evaluation, _args())
+    assert lines[_index_starting_with(lines, "- `ok` 후보")].startswith(
+        f"- `ok` 후보 {stops.n_candidates}개"
+    )
+
+
+def test_ts3_untracked_wing_counts_only_in_the_denominator(script) -> None:
+    stops = script.near_apex_stop_counts(
+        [_wing_candidate(script, 0, 10, stop_left=None)]
+    )
+    assert (stops.n_candidates, stops.n_any, stops.n_wings, stops.n_wings_near) == (
+        1,
+        0,
+        2,
+        0,
+    )
+    assert stops.reasons == {}
+
+
+def test_ts4_md_subsection(script) -> None:
+    lines = script._near_apex_lines(_ts1_candidates(script), _args())
+    assert lines == [
+        "### 꼭짓점 4 트레이스 안 정지 (`ok` 후보, 사전 등록 §4 항목 6 — 판정 미사용)",
+        "",
+        "- 후보 기준(한쪽 이상): 2/4(50.0 %), 양쪽: 1",
+        "- 날개 기준: 3/8(37.5 %)",
+        "- 정지 사유(날개): `amplitude` 1, `reverse_top` 2",
+        "",
+    ]
+    assert script._near_apex_lines(_ts1_candidates(script), _args(apex_qc="off")) == [
+        "- 꼭짓점 4 트레이스 안 정지: `apex_qc=off`(계산 안 함)",
+        "",
+    ]
+
+
+def test_ts4_md_subsection_ends_the_v19_section(script, tmp_path, monkeypatch) -> None:
+    out = _run_main_on_s28(script, tmp_path, monkeypatch)
+    md = (out / "t.md").read_text(encoding="utf-8").splitlines()
+    subsection = _index_starting_with(md, "### 꼭짓점 4 트레이스 안 정지")
+    assert _index_starting_with(md, V19_SECTION_TITLE) < subsection
+    assert subsection < _index_starting_with(md, "## 현장별")
+    # The S28 candidates carry the default QC: no tracked wing, 9 evaluated.
+    assert md[subsection + 2] == "- 후보 기준(한쪽 이상): 0/9(0.0 %), 양쪽: 0"
+
+
+TS5_APEX_TRACE = 199
+"""Apex the depth path picks on the TS5 wing (one trace left of the centre)."""
+
+
+@pytest.mark.parametrize(
+    ("stop_step", "n_left", "is_near"), [(5, 4, False), (3, 2, True)]
+)
+def test_ts5_wing_picks_are_the_stop_step_minus_one(
+    script, stop_step, n_left, is_near
+) -> None:
+    """Real tracking path: the left wing has no amplitude from ``stop_step``
+    traces left of the apex on, so it stops on that step."""
+    spec = _straight_ray_spec(9.0, 3.0, n_samples=QC_RECORD_SAMPLES)  # off record
+    x_m = spec.x_m
+    wing_ns = cylinder_times(x_m, spec.x0_m, 0.5, spec.velocity, 0.0)
+    first_silent_x_m = x_m[TS5_APEX_TRACE - stop_step]
+    spec.extra_events.append((wing_ns, (x_m > first_silent_x_m + 1e-9).astype(float)))
+    sample = (T_SRC_NS + float(wing_ns[CENTRE_TRACE])) / QC_DT_NS
+    candidate = _run_one(script, _radargram(spec), CENTRE_TRACE, sample)
+    curvature = candidate.qc.curvature
+    assert candidate.result.apex_trace == TS5_APEX_TRACE
+    assert (curvature.n_left, curvature.stop_left) == (n_left, TrackStop.AMPLITUDE)
+    assert script.near_apex_stop_counts([candidate]).n_any == int(is_near)
+
+
+# ----------------------------------------------------------------- S1 (12-4-1)
+
+
+def _s1_cases() -> list[tuple[str, list[tuple], set[str], np.ndarray]]:
+    """The S1 cases of m210k_spec_checks.py: same seed, draws and permutations."""
+    rng = np.random.default_rng(S1_SEED)
+    cases = []
+
+    def add(name: str, rows: list[tuple], long_lines: tuple[str, ...] = ()) -> None:
+        cases.append((name, rows, set(long_lines), rng.permutation(len(rows))))
+
+    for n_pipes in (2, 3):
+        rows = []
+        for line in range(6):
+            x0_m = 2.0
+            for pipe in range(n_pipes):
+                x0_m += S1_LATERAL_STEPS_M[pipe]
+                depth_m = 0.60 + rng.normal(0, 0.02)
+                rows.append((depth_m, f"L{line}", x0_m + rng.normal(0, 0.02)))
+        add(f"S1-1_k{n_pipes}", rows)
+    rows = [(0.60 + rng.normal(0, 0.02), f"L{line}", 3.0) for line in range(6)]
+    rows += [(1.10 + rng.normal(0, 0.02), f"L{line}", 5.0) for line in range(6)]
+    add("S1-2_null_two_depths", rows)
+    converged = []
+    for line in range(4):
+        converged += [(0.60, f"L{line}", 3.00), (0.61, f"L{line}", 3.30)]
+    add("S1-3_converged_0.30", converged)
+    beyond = []
+    for line in range(4):
+        beyond += [(0.60, f"L{line}", 3.00), (0.61, f"L{line}", 3.30 + 2e-9)]
+    add("S1-3b_just_beyond_0.30", beyond)
+    zigzag = [(0.60, "Z", 5.0), (0.61, "Z", 15.0), (0.60, "Z", 25.0)]
+    add("S1-4_long_line_only", zigzag, long_lines=("Z",))
+    add("S1-4b_same_not_long", zigzag)
+    add("S1-5_mu_2_1", [(0.6, "A", 1.0), (0.6, "A", 2.0), (0.6, "B", 1.0)])
+    add(
+        "S1-5_mu_2_2_1",
+        [
+            (0.6, "A", 1.0),
+            (0.6, "A", 2.0),
+            (0.6, "B", 1.0),
+            (0.6, "B", 2.0),
+            (0.6, "C", 1.0),
+        ],
+    )
+    lateral = (("A", (1, 2, 3)), ("B", (1, 2, 3)), ("C", (1, 2)), ("D", (1, 2)))
+    add("S1-5_mu_3_3_2_2", [(0.6, line, x) for line, xs in lateral for x in xs])
+    minority = [(0.60, f"L{line}", 3.0) for line in range(6)]
+    minority += [(0.61, f"L{line}", 4.0) for line in range(2)]
+    add("S1-6_minority", minority)
+    return cases
+
+
+S1_SPEC_COUNTS = {
+    "S1-1_k2": [2],
+    "S1-1_k3": [3],
+    "S1-2_null_two_depths": [1, 1],
+    "S1-3_converged_0.30": [1],
+    "S1-3b_just_beyond_0.30": [2],
+    "S1-4_long_line_only": [1],
+    "S1-4b_same_not_long": [3],
+    "S1-5_mu_2_1": [1],
+    "S1-5_mu_2_2_1": [2],
+    "S1-5_mu_3_3_2_2": [2],
+    "S1-6_minority": [1],
+}
+"""``n_c`` per kept cluster from the spec 12-4-1 table."""
+
+
+def _k1_members(script, rows, long_lines: set[str]) -> list:
+    return [
+        script.K1Member(depth_m, line, x_m, line in long_lines)
+        for depth_m, line, x_m in rows
+    ]
+
+
+def test_s1_1_to_s1_7_match_the_prototype(script) -> None:
+    expected = _spec_checks()["s1_cases"]
+    cases = _s1_cases()
+    assert [name for name, *_ in cases] == list(expected) == list(S1_SPEC_COUNTS)
+    for name, rows, long_lines, permutation in cases:
+        members = _k1_members(script, rows, long_lines)
+        n_lines = len({line for _, line, _ in rows})
+        estimates, counts = script.k1_estimates(members, n_lines)
+        current = script.supported(
+            script.cluster_depths(
+                [m.depth_m for m in members], [m.line for m in members]
+            ),
+            n_lines,
+            script.MIN_SUPPORT_LINES,
+        )
+        case = expected[name]
+        assert counts == case["counts"] == S1_SPEC_COUNTS[name], name
+        assert (len(current), len(estimates)) == (case["n_current"], case["n_k1"]), name
+        assert [round(v, 6) for v in estimates] == case["k1_depths"], name
+        # K1-P1, K1-P2: never fewer estimates, same depth set, bit-identical at n_c 1.
+        assert len(estimates) >= len(current)
+        assert set(estimates) == {c.depth_m for c in current}
+        if all(count == 1 for count in counts):
+            assert estimates == [c.depth_m for c in current]
+        # S1-7 / K1-P3: input order does not matter.
+        permuted = [members[i] for i in permutation]
+        assert script.k1_estimates(permuted, n_lines) == (estimates, counts), name
+
+
+def test_s1_8_support_filter_comes_first(script) -> None:
+    rows = [(0.60, f"L{line}", 3.0) for line in range(4)]
+    rows += [(1.50, "L0", 1.0), (1.50, "L0", 3.0)]  # mu 2 on a single line
+    members = _k1_members(script, rows, set())
+    assert script.k1_estimates(members, 4) == ([0.60], [1])
+
+
+def test_s1_9_k1_constants_match_the_generator(script) -> None:
+    tree = ast.parse(GENERATOR_PATH.read_text(encoding="utf-8"))
+    constants = {}
+    for node in tree.body:
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Tuple):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Tuple):
+                names = [element.id for element in target.elts]
+                values = [ast.literal_eval(element) for element in node.value.elts]
+                constants.update(zip(names, values, strict=True))
+    assert script.K1_LATERAL_M == constants["NMS_M"] == 0.3
+    assert script.LONG_LINE_M == 30.0
+
+
+def test_k1_lateral_multiplicity_edges(script) -> None:
+    assert script.lateral_multiplicity([]) == 0
+    assert script.lateral_multiplicity([1.0]) == 1
+    assert script.lateral_multiplicity([1.0, 1.3, 1.6]) == 1  # chained
+    assert script.lateral_multiplicity([1.6, 1.0]) == 2
+    with pytest.raises(ValueError, match="finite"):
+        script.lateral_multiplicity([1.0, math.nan])
+
+
+K1_NAMES = {"K1Member", "lateral_multiplicity", "cluster_multiplicity", "k1_estimates"}
+
+
+def test_k1_is_not_wired(script) -> None:
+    """9-9-1 (a): only the K1 functions themselves use the K1 names."""
+    tree = ast.parse(SCRIPT_PATH.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef) or node.name in K1_NAMES:
+            continue
+        used = {n.id for n in ast.walk(node) if isinstance(n, ast.Name)}
+        assert not used & K1_NAMES, node.name
