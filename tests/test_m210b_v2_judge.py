@@ -179,7 +179,12 @@ def fake_info(runs: pd.DataFrame, s6p_late_lambda: float = 5.0) -> dict:
             "Lambda": lams if apex else {k: None for k in levels},
             "argmax_level_periods_noise_free": {k: 0.0 for k in levels},
             "A0_self": 0.04 if apex else None,
-            "calibration": {"control_id": f"S4S6/{S4N}", "a0": 0.04},
+            "calibration": {
+                "control_id": f"S4S6/{S4N}",
+                "a0": 0.04,
+                "sigma_u": 0.5,
+                "sigma_raw_by_rho": {"10": 0.008, "20": 0.004},
+            },
         }  # fmt: skip
 
     sealed = {
@@ -194,7 +199,8 @@ def fake_info(runs: pd.DataFrame, s6p_late_lambda: float = 5.0) -> dict:
     }
     seal = {
         "seal_commit_full": "v2seal", "seal_commit_time": "2026-11-12T10:00:00+09:00",
-        "sealed_files": sealed, "dirty_files": [], "head_commit": "head",
+        "sealed_files": sealed, "dirty_files": [], "head_commit": "v2seal",
+        "git_failures": [],
     }  # fmt: skip
     return {
         "models_run": list(MODELS),
@@ -204,7 +210,11 @@ def fake_info(runs: pd.DataFrame, s6p_late_lambda: float = 5.0) -> dict:
                 "harness": harness(APEX_TRACE, 30.0, late=s6p_late_lambda),
                 "pipe_top_depth_m": 1.4,
             },
-            NP: {"harness": harness(None, 0.0), "pipe_top_depth_m": None},
+            NP: {
+                "harness": harness(None, 0.0),
+                "pipe_top_depth_m": None,
+                "calibration_pair": "D14_S040",
+            },
         },
         "n_runs": len(runs),
         "n_runs_without_zero": 0,
@@ -221,16 +231,21 @@ def fake_info(runs: pd.DataFrame, s6p_late_lambda: float = 5.0) -> dict:
         "protocol_detail": {
             "seed_formula": "20271120 + 1000 p + 100 q + s",
             "unit_noise_seed": 20271199,
+            "no_pipe_calibration_pair": "D14_S040",
         },
         "started_at": "2026-11-12T11:00:00+09:00",
         "finished_at": "2026-11-12T11:40:00+09:00",
     }
 
 
-def run_judge(judge, runs, info=None, models=MODELS, sha=SHA, blobs=None):
+def run_judge(
+    judge, runs, info=None, models=MODELS, sha=SHA, blobs=None, expected=None
+):
     info = fake_info(runs) if info is None else info
+    expected = judge.ExpectedSeal("v2seal", "v2") if expected is None else expected
+    blobs = REFERENCE_BLOBS if blobs is None else blobs
     return judge.judge(
-        runs, info, list(models), sha, REFERENCE_BLOBS if blobs is None else blobs
+        runs, info, list(models), sha, blobs, expected, frozenset(MODELS)
     )
 
 
@@ -494,3 +509,152 @@ def test_blank_false_deep_count_is_not_read_as_zero(judge, ramp) -> None:
     failed = checks["F4_fail"] if ramp == "0" else checks["F4b_fail"]
     assert failed and failed[0]["judgeable"] is False
     assert out["rank_by_rule"]["B_full"] == 5
+
+
+# ----------------------------------------------------------------- pre-run audit
+
+
+@pytest.mark.parametrize(
+    "expected",
+    [("other", "v2"), ("v2seal", "otherblob"), (None, None)],
+)
+def test_expected_seal_commit_and_v2_blob_are_rank1(judge, expected) -> None:
+    runs = fake_runs(judge)
+    out = run_judge(judge, runs, expected=judge.ExpectedSeal(*expected))
+    assert out["rank1_identity"]["pass"] is False
+    assert out["decision"]["rank"] == 1
+
+
+def test_run_head_must_be_the_expected_seal(judge) -> None:
+    runs = fake_runs(judge)
+    info = fake_info(runs)
+    info["seal"]["head_commit"] = info["seal_at_end"]["head_commit"] = "later"
+    out = run_judge(judge, runs, info=info)
+    checks = out["rank1_identity"]["checks"]
+    assert checks["run_head_is_expected_seal"] is False
+    assert checks["head_same_start_end"] is True
+    assert out["decision"]["rank"] == 1
+
+
+def test_harness_git_failure_is_rank1(judge) -> None:
+    runs = fake_runs(judge)
+    info = fake_info(runs)
+    info["seal_at_end"]["git_failures"] = ["status"]
+    out = run_judge(judge, runs, info=info)
+    assert out["rank1_identity"]["checks"]["harness_git_queries_ok"] is False
+    assert out["decision"]["rank"] == 1
+
+
+@pytest.mark.parametrize("column", ["accepted_apex", "floor_held_at_apex"])
+def test_blank_judgment_flags_of_pipe_models_are_rank1(judge, column) -> None:
+    runs = fake_runs(judge)
+    first = runs[(runs["model_id"] == S4N) & (runs["dt_ns"] == "0.098")].index[0]
+    runs.loc[first, column] = ""
+    out = run_judge(judge, runs)
+    assert out["P_F1"]["pipe_judgment_blanks"][column] == 1
+    assert out["decision"]["rank"] == 1
+
+
+def test_empty_expected_model_set_is_rank1(judge) -> None:
+    runs = fake_runs(judge)
+    out = run_judge(judge, runs.iloc[0:0], models=())
+    assert out["P_F1"]["models_json_v2_nonempty"] is False
+    assert out["decision"]["rank"] == 1
+
+
+def test_w10_no_pipe_calibration_pair_is_rank1(judge) -> None:
+    runs = fake_runs(judge)
+    info = fake_info(runs)
+    info["protocol_detail"]["no_pipe_calibration_pair"] = "D16_S040"
+    out = run_judge(judge, runs, info=info)
+    assert out["P_F1"]["pass"] is False and out["decision"]["rank"] == 1
+
+
+def test_v2_expected_models_are_the_nine_ids(judge) -> None:
+    nine = {
+        "S6P_D14_S040_J2", "S4N_D14_S040", "S6P_D16_S040_J3", "S4N_D16_S040",
+        "S6P_D15_S045_J4", "S4N_D15_S045", "S6P_D13_S010_J5", "S4N_D13_S010",
+        "S6P_NP_S040_J2",
+    }  # fmt: skip
+    expected = set(judge.V2_EXPECTED_MODELS)
+    assert expected == nine
+
+
+@pytest.mark.parametrize("dropped", [NP, S6P])
+def test_dropping_a_model_from_the_json_is_rank1(judge, dropped) -> None:
+    runs = fake_runs(judge)
+    models = tuple(m for m in MODELS if m != dropped)
+    out = run_judge(judge, runs, models=models)
+    assert out["P_F1"]["models_match"] is False
+    assert out["decision"]["rank"] == 1
+
+
+def test_dropping_a_model_from_runs_and_run_info_is_rank1(judge) -> None:
+    runs = fake_runs(judge)
+    runs = runs[runs["model_id"] != NP]
+    info = fake_info(runs)
+    info["models_run"] = [S4N, S6P]
+    out = run_judge(judge, runs, info=info)
+    assert out["P_F1"]["models_match"] is False and out["decision"]["rank"] == 1
+
+
+def test_the_real_model_set_rejects_a_smaller_run(judge) -> None:
+    runs = fake_runs(judge)
+    expected = judge.ExpectedSeal("v2seal", "v2")
+    out = judge.judge(
+        runs, fake_info(runs), list(MODELS), SHA, REFERENCE_BLOBS, expected
+    )
+    assert out["P_F1"]["models_match"] is False and out["decision"]["rank"] == 1
+
+
+@pytest.mark.parametrize("change", ["pair", "sigma_raw", "control"])
+def test_w10_no_pipe_line_uses_the_p0_calibration(judge, change) -> None:
+    runs = fake_runs(judge)
+    info = fake_info(runs)
+    assert run_judge(judge, runs, info=info)["P_F1"]["W10_calibration"]["pass"]
+    no_pipe = info["models"][NP]
+    if change == "pair":
+        no_pipe["calibration_pair"] = "D16_S040"
+    elif change == "sigma_raw":
+        no_pipe["harness"]["calibration"] = {
+            **no_pipe["harness"]["calibration"],
+            "sigma_raw_by_rho": {"10": 0.009, "20": 0.004},
+        }
+    else:
+        no_pipe["harness"]["calibration"] = {
+            **no_pipe["harness"]["calibration"],
+            "control_id": "S4S6/S4N_D16_S040",
+        }
+    out = run_judge(judge, runs, info=info)
+    assert out["P_F1"]["W10_calibration"]["pass"] is False
+    assert out["decision"]["rank"] == 1
+
+
+def test_judge_cli_requires_the_expected_seal_commit(judge) -> None:
+    with pytest.raises(SystemExit):
+        judge.parse_args([])
+    assert (
+        judge.parse_args(["--expected-seal-commit", "abc"]).expected_seal_commit
+        == "abc"
+    )
+
+
+def test_lambda_rounding_check_reports_a_boundary_difference(judge) -> None:
+    # Column 10.0 (4 digits) is in G; the unrounded run_info value 10.00004 is not.
+    runs = fake_runs(judge, s6p_late_lambda=10.0)
+    info = fake_info(runs, s6p_late_lambda=10.00004)
+    out = run_judge(judge, runs, info=info)
+    assert all(row["G"] for row in out["R_table"])
+    assert out["decision"]["rank"] == "4/5"
+    report = out["lambda_rounding_check"]
+    assert len(report) == 4
+    for entry in report:
+        assert entry["Lambda_column"][1] == 10.0
+        assert entry["Lambda_unrounded"][1] == pytest.approx(10.00004)
+        assert (entry["G_column"], entry["G_unrounded"], entry["differs"]) == (
+            True,
+            False,
+            True,
+        )
+    far = run_judge(judge, fake_runs(judge))
+    assert far["lambda_rounding_check"] == []

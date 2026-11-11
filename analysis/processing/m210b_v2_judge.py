@@ -9,8 +9,14 @@ changes no criterion. No 4TU data is read. Once a result exists it is not edited
 
 * Rank 1 (asserted in code, any false -> rank 1, the rest "reference only"):
   P-F1 (v2) row and cell counts (20 seeds), the json ``batch == "v2"`` model
-  list, F4b rows, zero failures, noise-free L keys, ``seed_overlap`` 0; and the
-  identity: seal blobs, the v1.4 spec and floor rules at bc9a474 and the
+  list = runs = run_info = ``V2_EXPECTED_MODELS`` (the 9 models), F4b rows, zero
+  failures, noise-free L keys, ``seed_overlap`` 0, no blank ``accepted_apex`` /
+  ``floor_held_at_apex`` in pipe judgment rows, W10 (the no-pipe line uses the
+  D14_S040 pair and the P0 calibration, sigma_raw included); and the identity:
+  the expected v2
+  seal (``--expected-seal-commit``) = run_info seal commit = run HEAD, with its
+  v2 spec blob; no failed harness git query; seal blobs, the v1.4 spec and floor
+  rules at bc9a474 and the
   interpretation document and generator wrapper at 7e843d6, HEAD and dirty
   before and after, seal time < harness start, ``runs_v2.csv`` SHA-256, harness
   guards, 4TU wrapper regression; and every ``seed`` on 20271120 + 1000 p +
@@ -22,6 +28,9 @@ changes no criterion. No 4TU data is read. Once a result exists it is not edited
 * Per rule (rank 4/5): F1-F4, F4b as v1.4 and F5-B (sections 1-3, 1-4 S1) for
   B_full and B_min; B_noise and C_none get the same numbers as a report. Blank
   cells are never filled: they fail or make a check "not judgeable" (= fail).
+* G reads the 4-digit ``Lambda`` column of ``runs_v2.csv`` (v2.1 section 4);
+  ``lambda_rounding_check`` re-checks pairs within 1e-3 of 10 with the
+  unrounded run_info value (report only).
 * Reports: ``F5B_by_scope`` (S2, S3 and more), the F5-B symmetry check, F5-C
   depth error, W5 deep-side loss, F6, original-dt runs, M0, P-F3 sensitivity.
 
@@ -29,7 +38,8 @@ Inputs (read only): data/processing/m210b_s4s6_v2/runs_v2.csv, run_info.json,
 pre_run.txt, post_run.txt, analysis/synthetic/s4s6/models_s4s6_v2.json.
 Output: docs/processing/m210b_v2_judgment.json (counts, decision, identity).
 
-Run: conda run -n gpr-dev python -I analysis/processing/m210b_v2_judge.py
+Run: conda run -n gpr-dev python -I analysis/processing/m210b_v2_judge.py \
+         --expected-seal-commit <v2 seal commit>
 """
 
 import argparse
@@ -71,6 +81,26 @@ UNIT_NOISE_SEED = 20271199
 PAIR_INDEX = {"D14_S040": 0, "D16_S040": 1, "D15_S045": 2, "D13_S010": 3, "NP_S040": 4}
 """v2 H2: p of each depth/sigma pair (P0-P3, NP)."""
 JOINT_SUFFIX = re.compile(r"_J\d+$")
+NO_PIPE_CALIBRATION_PAIR = "D14_S040"
+"""W10 / V10: sigma_raw pair of S6P_NP_S040_J2 (run_info protocol_detail)."""
+NO_PIPE_MODEL = "S6P_NP_S040_J2"
+V2_EXPECTED_MODELS = frozenset(
+    {
+        "S6P_D14_S040_J2",
+        "S4N_D14_S040",
+        "S6P_D16_S040_J3",
+        "S4N_D16_S040",
+        "S6P_D15_S045_J4",
+        "S4N_D15_S045",
+        "S6P_D13_S010_J5",
+        "S4N_D13_S010",
+        NO_PIPE_MODEL,
+    }
+)
+"""The 9 v2 models (all passed the pilot; fixed before the results, rank 1)."""
+V2_DOC = "docs/processing/m210b_selector_floor_v2.md"
+LAMBDA_ROUNDING_WINDOW = 1e-3
+"""``lambda_rounding_check`` (report): |Lambda - 10| below this is re-checked."""
 LINE_PREFIX = "S4S6/"
 
 JUDGED = ("B_full", "B_min")
@@ -188,17 +218,55 @@ def expected_run_count(roles: ModelRoles) -> int:
     return models * (per_model + original_dt) + len(roles.no_pipe) * ramp
 
 
+def w10_calibration_check(info: Mapping) -> dict:
+    """W10: the no-pipe line uses the P0 (D14_S040) calibration (rank 1).
+
+    run_info ``models.<NP>.calibration_pair`` must be D14_S040 and its
+    ``harness.calibration`` (control id, A0, sigma_u, sigma_raw per rho) must be
+    the calibration recorded for the P0 control S4N_D14_S040.
+    """
+    models = info.get("models") or {}
+    no_pipe = models.get(NO_PIPE_MODEL) or {}
+    control = models.get(f"S4N_{NO_PIPE_CALIBRATION_PAIR}") or {}
+    no_pipe_calibration = (no_pipe.get("harness") or {}).get("calibration")
+    control_calibration = (control.get("harness") or {}).get("calibration")
+    record = {
+        "calibration_pair": no_pipe.get("calibration_pair"),
+        "no_pipe_sigma_raw_by_rho": (no_pipe_calibration or {}).get("sigma_raw_by_rho"),
+        "p0_sigma_raw_by_rho": (control_calibration or {}).get("sigma_raw_by_rho"),
+    }
+    record["pass"] = bool(
+        record["calibration_pair"] == NO_PIPE_CALIBRATION_PAIR
+        and no_pipe_calibration is not None
+        and no_pipe_calibration == control_calibration
+        and record["no_pipe_sigma_raw_by_rho"]
+    )
+    return record
+
+
 def pf1_checks(
-    runs: pd.DataFrame, info: Mapping, v2_models: Sequence[str]
+    runs: pd.DataFrame,
+    info: Mapping,
+    v2_models: Sequence[str],
+    expected_models: frozenset[str] = V2_EXPECTED_MODELS,
 ) -> tuple[dict, pd.DataFrame, pd.DataFrame, ModelRoles]:
-    """P-F1 (v2) assertions; returns the record, judgment rows, F4b rows, roles."""
+    """P-F1 (v2) assertions; returns the record, judgment rows, F4b rows, roles.
+
+    ``expected_models`` is the fixed v2 model set; the json ``batch == "v2"``
+    list, the models in ``runs_v2.csv`` and run_info ``models_run`` must all be it.
+    """
     out: dict[str, object] = {}
     run_models = sorted(set(runs["model_id"]))
     out["models_json_v2"] = list(v2_models)
     out["models_in_runs"] = run_models
-    out["models_match"] = sorted(v2_models) == run_models and sorted(
-        v2_models
-    ) == sorted(info.get("models_run", []))
+    out["models_expected"] = sorted(expected_models)
+    out["models_match"] = (
+        set(v2_models) == expected_models
+        and set(run_models) == expected_models
+        and set(info.get("models_run", [])) == expected_models
+        and len(v2_models) == len(expected_models)
+    )
+    out["W10_calibration"] = w10_calibration_check(info)
     roles = model_roles([m for m in v2_models if m in info["models"]], info)
     is_harness_dt = runs["dt"].sub(DT_HARNESS_NS).abs() < 1e-12
     judgment = runs[is_harness_dt & ~runs["ramp"]]
@@ -229,8 +297,20 @@ def pf1_checks(
         if len(info["models"][m]["harness"].get("L_noise_free_current") or {}) != 4
     ]
     out["seed_overlap"] = info.get("seed_overlap")
+    out["models_json_v2_nonempty"] = bool(v2_models)
+    pipe_judgment = judgment[judgment["model_id"].isin(roles.pipe)]
+    out["pipe_judgment_blanks"] = {
+        column: int((pipe_judgment[column].astype(str).str.strip() == "").sum())
+        for column in ("accepted_apex", "floor_held_at_apex")
+    }
+    detail = info.get("protocol_detail") or {}
+    out["no_pipe_calibration_pair"] = detail.get("no_pipe_calibration_pair")
     out["pass"] = bool(
-        out["models_match"]
+        out["models_json_v2_nonempty"]
+        and not any(out["pipe_judgment_blanks"].values())
+        and out["no_pipe_calibration_pair"] == NO_PIPE_CALIBRATION_PAIR
+        and out["W10_calibration"]["pass"]
+        and out["models_match"]
         and not out["cells_missing"]
         and not out["cells_extra"]
         and not out["cells_not_20_seeds"]
@@ -255,8 +335,13 @@ def seed_checks(runs: pd.DataFrame, info: Mapping) -> dict:
     p comes from the model's pair (v2 H2), q from rho (10 -> 0, 20 -> 1). The
     run_info seed formula and unit-noise seed must be the v2 values as well.
     """
-    pair_index = runs["model_id"].map(lambda m: PAIR_INDEX.get(model_pair(m)))
-    rho_index = runs["rho_i"].map({rho: q for q, rho in enumerate(RHOS)})
+    # to_numeric keeps an empty table numeric (pandas maps it to a string dtype).
+    pair_index = pd.to_numeric(
+        runs["model_id"].map(lambda m: PAIR_INDEX.get(model_pair(m))), errors="coerce"
+    )
+    rho_index = pd.to_numeric(
+        runs["rho_i"].map({rho: q for q, rho in enumerate(RHOS)}), errors="coerce"
+    )
     seed = pd.to_numeric(runs["seed"], errors="coerce")
     s = seed - SEED_BASE - 1000 * pair_index - 100 * rho_index
     is_valid = s.notna() & s.between(0, N_SEEDS - 1) & (s % 1 == 0)
@@ -283,13 +368,26 @@ def _parse_time(text: object) -> datetime.datetime | None:
         return None
 
 
+@dataclass(frozen=True)
+class ExpectedSeal:
+    """The v2 seal the judgment expects (``--expected-seal-commit``, git-resolved)."""
+
+    commit_full: str | None
+    v2_doc_blob: str | None
+
+
 def rank1_identity(
-    info: Mapping, runs_sha_now: str, reference_blobs: Mapping[str, str | None]
+    info: Mapping,
+    runs_sha_now: str,
+    reference_blobs: Mapping[str, str | None],
+    expected: ExpectedSeal,
 ) -> dict:
     """Every rank-1 identity condition of v2 8-2, asserted in code.
 
-    ``reference_blobs`` maps the v1.4 spec and the interpretation document to
-    their blobs at ``bc9a474`` and ``7e843d6`` (``git rev-parse``).
+    ``reference_blobs`` maps the v1.4 spec, floor rules, interpretation document
+    and generator wrapper to their blobs at ``bc9a474`` / ``7e843d6``.
+    ``expected`` is the v2 seal: run_info seal commit, the run HEAD and the v2
+    spec blob must all be that seal.
     """
     seal, seal_end = info["seal"], info.get("seal_at_end") or {}
     sealed = seal.get("sealed_files") or {}
@@ -297,6 +395,14 @@ def rank1_identity(
         "sealed_files_listed": bool(sealed),
         "sealed_blobs_match_run": bool(sealed)
         and all(record.get("matches") for record in sealed.values()),
+        "seal_commit_is_expected": expected.commit_full is not None
+        and seal.get("seal_commit_full") == expected.commit_full,
+        "run_head_is_expected_seal": expected.commit_full is not None
+        and seal.get("head_commit") == expected.commit_full,
+        "v2_doc_blob_is_expected": expected.v2_doc_blob is not None
+        and (sealed.get(V2_DOC) or {}).get("blob_at_seal") == expected.v2_doc_blob,
+        "harness_git_queries_ok": not seal.get("git_failures")
+        and not seal_end.get("git_failures"),
     }
     for path, reference in reference_blobs.items():
         recorded = (sealed.get(path) or {}).get("blob_at_seal")
@@ -427,7 +533,8 @@ def r_table(
                         "delta_e": delta_e, "delta_l": delta_l,
                         "rate_e": rate_e, "rate_l": rate_l, "e": round(e, 6),
                         "Q": q, "rho_min": float(both[rho_column].min()),
-                        # Unrounded: the G boundary 10 must stay visible.
+                        # As read from the column (4 digits), not rounded again;
+                        # lambda_rounding_check reports the unrounded run_info value.
                         "Lambda": None if math.isnan(lam) else lam,
                         "floor_share_e": floor_share,
                         "Lambda_l": None if math.isnan(lam_late) else lam_late,
@@ -478,6 +585,41 @@ def decide(pf1_pass: bool, rows: pd.DataFrame, roles: ModelRoles, table) -> dict
         "verdict": "reproduction condition not met (not a refutation)",
         "G_fail_by_pair": per_pair,
     }
+
+
+def lambda_rounding_check(rows, info, table: Sequence[Mapping]) -> list[dict]:
+    """REPORT ONLY (v2.1 section 4): G re-checked with the unrounded Lambda.
+
+    The judgment reads the 4-digit ``Lambda`` column. For each pair whose column
+    value at Delta_e or Delta_l lies within 1e-3 of 10, G is recomputed with
+    run_info ``models.<id>.harness.Lambda`` (unrounded) and both results shown.
+    """
+    report = []
+    for row in table:
+        column_values = (row["Lambda"], row["Lambda_l"])
+        is_near = any(
+            value is not None and abs(value - LAMBDA_MIN) < LAMBDA_ROUNDING_WINDOW
+            for value in column_values
+        )
+        if not is_near:
+            continue
+        exact = _lambda(info, row["model"], row["delta_e"], use_cal=False)
+        exact_late = _lambda(info, row["model"], row["delta_l"], use_cal=False)
+        reasons = g_fail_reasons(exact, row["floor_share_e"], exact_late)
+        report.append(
+            {
+                "model": row["model"],
+                "rho": row["rho"],
+                "delta_e": row["delta_e"],
+                "delta_l": row["delta_l"],
+                "Lambda_column": list(column_values),
+                "Lambda_unrounded": [exact, exact_late],
+                "G_column": row["G"],
+                "G_unrounded": not reasons,
+                "differs": row["G"] != (not reasons),
+            }
+        )
+    return report
 
 
 def g_excluded_no_escape(table: Sequence[Mapping]) -> list[dict]:
@@ -833,15 +975,18 @@ def judge(
     v2_models: Sequence[str],
     runs_sha_now: str,
     reference_blobs: Mapping[str, str | None],
+    expected: ExpectedSeal,
+    expected_models: frozenset[str] = V2_EXPECTED_MODELS,
 ) -> dict:
     """All counts, the decision and the per-rule ranks (no I/O).
 
-    A failed rank-1 condition (P-F1 or identity) gives rank 1; the rest of the
-    decision is then written under ``reference_only`` (not a verdict).
+    A failed rank-1 condition (P-F1, identity or seeds) gives rank 1; the rest
+    of the decision is then written under ``reference_only`` (not a verdict).
+    ``expected_models`` is replaced by tests only (fake tables are smaller).
     """
     runs = prepare_runs(runs)
-    pf1, rows, ramp, roles = pf1_checks(runs, info, v2_models)
-    ident = rank1_identity(info, runs_sha_now, reference_blobs)
+    pf1, rows, ramp, roles = pf1_checks(runs, info, v2_models, expected_models)
+    ident = rank1_identity(info, runs_sha_now, reference_blobs, expected)
     seeds = seed_checks(runs, info)
     is_rank1_clear = pf1["pass"] and ident["pass"] and seeds["pass"]
     out: dict[str, object] = {
@@ -852,6 +997,7 @@ def judge(
     table = r_table(rows, info, roles)
     out["R_table"] = table
     out["G_excluded_no_escape"] = g_excluded_no_escape(table)
+    out["lambda_rounding_check"] = lambda_rounding_check(rows, info, table)
     out["R"] = any(r["R_pair"] for r in table)
     out["decision"] = decide(is_rank1_clear, rows, roles, table)
     unchecked = decide(True, rows, roles, table)
@@ -933,10 +1079,22 @@ def identity(info: Mapping, run_dir: Path, runs_sha_now: str) -> dict:
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument(
+        "--expected-seal-commit",
+        required=True,
+        help="the v2 seal commit this judgment belongs to (rank-1 identity)",
+    )
     parser.add_argument("--run-dir", type=Path, default=DEFAULT_RUN_DIR)
     parser.add_argument("--models-json", type=Path, default=DEFAULT_MODELS_JSON)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     return parser.parse_args(argv)
+
+
+def resolve_expected_seal(commit: str) -> ExpectedSeal:
+    """Full commit and v2 spec blob of ``commit`` (None when git cannot tell)."""
+    full = _git("rev-parse", "--verify", f"{commit}^{{commit}}")
+    blob = None if full is None else _git("rev-parse", f"{full}:{V2_DOC}")
+    return ExpectedSeal(commit_full=full, v2_doc_blob=blob)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -955,6 +1113,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         v2_models_from_json(args.models_json),
         runs_sha_now,
         reference_blobs,
+        resolve_expected_seal(args.expected_seal_commit),
     )
     out = {
         "note": "v2 judgment counts; criteria m210b_selector_floor_v2 section 8-2",

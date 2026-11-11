@@ -315,9 +315,10 @@ def _clean_seal(harness, seal=None, dirty=()):
         "seal_commit_full": commit,
         "seal_commit_time": "2026-11-11T19:29:19+09:00",
         "sealed_files": {"docs/x.md": {"blob_at_seal": "a", "matches": True}},
-        "head_commit": "head",
+        "head_commit": commit,
         "harness_blob_working_tree": "h",
         "dirty_files": list(dirty),
+        "git_failures": [],
         "taken_at": "2026-11-11T21:00:00+09:00",
     }
 
@@ -450,7 +451,7 @@ def test_guards_name_every_failure(harness, change, needle) -> None:
     failures = harness.guard_failures(
         start, end, change.get("inputs_changed", []), regression
     )
-    assert len(failures) == 1 and needle in failures[0]
+    assert any(needle in failure for failure in failures), failures
 
 
 def test_guards_pass_on_a_clean_run(harness) -> None:
@@ -471,10 +472,112 @@ def test_main_returns_1_when_a_guard_fails(harness, tmp_path, monkeypatch) -> No
         "--out-dir", str(tmp_path / "out"), "--models", "S4N_D12_S010",
         "--regression-activities", "none",
     ]  # fmt: skip
+    calls = []
+
+    def loader(model_id, root):
+        calls.append(model_id)
+        return _fake_model(model_id, *FAKE_MODELS[model_id])
+
+    assert harness.main(argv, plan, loader) == 1
+    info = json.loads((tmp_path / "out" / "run_info.json").read_text(encoding="utf-8"))
+    assert info["guards"]["pass"] is False and info["guards"]["stage"] == "start"
+    # A start guard stops before any model is loaded or run.
+    assert calls == [] and not (tmp_path / "out" / "runs.csv").exists()
+    assert (tmp_path / "out" / "pre_run.txt").exists()
+
+
+def _small_v1_argv(tmp_path, data_root, models_json):
+    return [
+        "--data-root", str(data_root), "--models-json", str(models_json),
+        "--out-dir", str(tmp_path / "out"), "--models", "S4N_D12_S010",
+        "--regression-activities", "none",
+    ]  # fmt: skip
+
+
+def test_end_guard_failure_keeps_the_outputs(harness, tmp_path, monkeypatch) -> None:
+    records = iter([_clean_seal(harness), {**_clean_seal(harness), "head_commit": "x"}])
+    monkeypatch.setattr(harness, "seal_record", lambda seal=None: next(records))
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, ["S4N_D12_S010"])
+    models_json = tmp_path / "models.json"
+    models_json.write_text("{}", encoding="utf-8")
+    plan = harness.HarnessPlan(**{**SMALL_PLAN, "rhos": (10,), "deltas_ns": (0.0,)})
+    argv = _small_v1_argv(tmp_path, data_root, models_json)
     assert harness.main(argv, plan, _caching_loader(FAKE_MODELS)) == 1
     info = json.loads((tmp_path / "out" / "run_info.json").read_text(encoding="utf-8"))
-    assert info["guards"]["pass"] is False
+    assert any("HEAD changed" in f for f in info["guards"]["failures"])
     assert (tmp_path / "out" / "runs.csv").exists()
+
+
+def test_inputs_are_hashed_before_the_runs(harness, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(harness, "seal_record", lambda seal=None: _clean_seal(harness))
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, ["S4N_D12_S010"])
+    (data_root / "manifest.csv").write_text("model_id\n", encoding="utf-8")
+    models_json = tmp_path / "models.json"
+    models_json.write_text("{}", encoding="utf-8")
+
+    def loader(model_id, root):
+        # A file changed while the models run must be caught by the end guard.
+        (data_root / "manifest.csv").write_text("changed\n", encoding="utf-8")
+        return _fake_model(model_id, *FAKE_MODELS[model_id])
+
+    plan = harness.HarnessPlan(**{**SMALL_PLAN, "rhos": (10,), "deltas_ns": (0.0,)})
+    argv = _small_v1_argv(tmp_path, data_root, models_json)
+    assert harness.main(argv, plan, loader) == 1
+    info = json.loads((tmp_path / "out" / "run_info.json").read_text(encoding="utf-8"))
+    assert set(info["inputs"]) == {
+        "models_json", "S4N_D12_S010.npy", "S4N_D12_S010.json", "manifest.csv",
+    }  # fmt: skip
+    assert info["inputs_changed_during_run"] == ["manifest.csv"]
+
+
+def test_failed_git_query_is_not_a_clean_tree(harness, monkeypatch) -> None:
+    def git(*args):
+        return None if args[0] == "status" else "abc"
+
+    monkeypatch.setattr(harness, "_git", git)
+    monkeypatch.setattr(harness, "sealed_blobs", lambda seal: {"a": {"matches": True}})
+    record = harness.seal_record()
+    assert record["dirty_files"] == [] and record["git_failures"] == ["status"]
+    failures = harness.start_guard_failures(record, head_must_be_seal=False)
+    assert any("git queries failed" in f for f in failures)
+
+
+def test_end_sealed_records_are_compared_with_the_start(harness) -> None:
+    start = _clean_seal(harness)
+    end = _clean_seal(harness)
+    end["sealed_files"] = {"docs/x.md": {"blob_at_seal": "b", "matches": True}}
+    failures = harness.end_guard_failures(start, end, [], {"run": False})
+    assert failures == ["sealed file records changed during the run"]
+
+
+def test_v2_start_guard_needs_head_at_the_seal(harness) -> None:
+    record = _clean_seal(harness, harness.v2_seal("v2seal"))
+    assert harness.start_guard_failures(record, head_must_be_seal=True) == []
+    record["head_commit"] = "later"
+    failures = harness.start_guard_failures(record, head_must_be_seal=True)
+    assert len(failures) == 1 and "is not the seal commit" in failures[0]
+    assert harness.start_guard_failures(record, head_must_be_seal=False) == []
+
+
+def test_lambda_column_keeps_4_digits_and_run_info_the_exact_value(
+    harness, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(harness, "seal_record", lambda seal=None: _clean_seal(harness))
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, ["S6P_D12_S010", "S4N_D12_S010"])
+    models_json = tmp_path / "models.json"
+    models_json.write_text("{}", encoding="utf-8")
+    plan = harness.HarnessPlan(**{**SMALL_PLAN, "rhos": (10,), "deltas_ns": (0.0,)})
+    argv = _small_v1_argv(tmp_path, data_root, models_json)
+    argv[argv.index("S4N_D12_S010")] = "S6P_D12_S010"
+    assert harness.main(argv, plan, _caching_loader(FAKE_MODELS)) == 0
+    _, rows = _read_rows(tmp_path / "out" / "runs.csv")
+    info = json.loads((tmp_path / "out" / "run_info.json").read_text(encoding="utf-8"))
+    exact = info["models"]["S6P_D12_S010"]["harness"]["Lambda"]["+0.00"]
+    column = {r["Lambda"] for r in rows if r["dt_ns"] == "0.098"}
+    assert column == {str(round(exact, 4))}
 
 
 # ----------------------------------------------------------------- v2 (H2, H4, H8)
@@ -637,6 +740,15 @@ def test_v2_main_writes_runs_v2_with_nearest_columns(
     assert info["models_excluded_in_json"] == ["S6P_D16_S040_J3"]
     assert info["runs_csv"] == "runs_v2.csv"
     assert info["models"]["S6P_NP_S040_J2"]["calibration_pair"] == "D14_S040"
+    # The judge's W10 check reads these harness keys (same names, same values).
+    judge_path = PROJECT_ROOT / "analysis" / "processing" / "m210b_v2_judge.py"
+    judge_spec = importlib.util.spec_from_file_location(
+        "m210b_v2_judge_w10", judge_path
+    )
+    judge = importlib.util.module_from_spec(judge_spec)
+    sys.modules[judge_spec.name] = judge
+    judge_spec.loader.exec_module(judge)
+    assert judge.w10_calibration_check(info)["pass"] is True
     record = info["models"]["S6P_D14_S040_J2"]["harness"]
     assert set(record["argmax_level_periods_noise_free"]) == {"+0.00", "+1.00"}
     assert info["environment"]["qc_constants"]["sha256"]

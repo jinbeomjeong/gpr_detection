@@ -878,6 +878,8 @@ def run_row(
         row["sigma_n"] = _blank_or_rounded(floor_rules.noise_sigma(searched), 8)
     level_max = clean.level_max_by_delta.get(delta_ns)
     if clean.a0_self and level_max is not None:
+        # 4 digits in runs.csv (the judged column, v2.1 section 4); run_info
+        # keeps the unrounded value (models.<id>.harness.Lambda).
         row["Lambda"] = round(level_max / clean.a0_self, 4)
     row.update(_outcome_fields(line, kept, dt, target))
     if "kept_nearest_trace" in columns:
@@ -1245,32 +1247,43 @@ def sealed_blobs(seal: SealSpec = V1_SEAL) -> dict[str, dict[str, object]]:
 
 
 def seal_record(seal: SealSpec = V1_SEAL) -> dict[str, object]:
+    """Seal and working-tree state; failed git queries are listed, not hidden.
+
+    ``git_failures`` names every query that returned nothing (a failed
+    ``git status`` must not read as "no dirty files").
+    """
+    queries = {
+        "seal_commit_full": ("rev-parse", seal.commit),
+        "seal_commit_time": ("show", "-s", "--format=%cI", seal.commit),
+        "head_commit": ("rev-parse", "HEAD"),
+        "harness_blob_working_tree": (
+            "hash-object", "--", "analysis/processing/m210b_s4s6_pipeline.py",
+        ),
+        "status": ("status", "--porcelain"),
+    }  # fmt: skip
+    answers = {name: _git(*args) for name, args in queries.items()}
+    # A clean tree prints "" for ``git status --porcelain``: only None is a failure.
+    git_failures = [name for name, answer in answers.items() if answer is None]
+    status = answers.pop("status")
     return {
         "seal_commit": seal.commit,
-        "seal_commit_full": _git("rev-parse", seal.commit),
-        "seal_commit_time": _git("show", "-s", "--format=%cI", seal.commit),
+        **answers,
         "sealed_files": sealed_blobs(seal),
-        "head_commit": _git("rev-parse", "HEAD"),
-        "harness_blob_working_tree": _git(
-            "hash-object", "--", "analysis/processing/m210b_s4s6_pipeline.py"
-        ),
-        "dirty_files": (_git("status", "--porcelain") or "").splitlines(),
+        "dirty_files": [] if status is None else status.splitlines(),
+        "git_failures": git_failures,
         "taken_at": _now(),
     }
 
 
-def input_files(
-    data_root: Path, models_json: Path, model_ids: Sequence[str]
-) -> dict[str, Path]:
+def input_record(data_root: Path, models_json: Path) -> dict:
+    """SHA-256 of the models json and of every file directly in the data folder.
+
+    The exports (npy, json, manifest) and anything else written there are
+    covered, so a file added or changed during the run is seen (pre-run audit).
+    """
     files = {"models_json": models_json}
-    for model_id in model_ids:
-        for suffix in (".npy", ".json"):
-            files[f"{model_id}{suffix}"] = data_root / f"{model_id}{suffix}"
-    return files
-
-
-def input_record(data_root: Path, models_json: Path, model_ids: Sequence[str]) -> dict:
-    files = input_files(data_root, models_json, model_ids)
+    for path in sorted(p for p in data_root.iterdir() if p.is_file()):
+        files[path.name] = path
     return {
         name: {"path": str(path), "sha256": _sha256(path)}
         for name, path in files.items()
@@ -1351,21 +1364,47 @@ def environment_record() -> dict[str, object]:
 # ----------------------------------------------------------------- guards
 
 
-def guard_failures(
+def _record_failures(record: Mapping, when: str) -> list[str]:
+    """Git failures, sealed-file mismatches and dirt in one seal record."""
+    failures = []
+    if record.get("git_failures"):
+        failures.append(f"git queries failed at {when}: {record['git_failures']}")
+    if not record["sealed_files"]:
+        failures.append(f"no sealed files listed at the seal commit ({when})")
+    mismatched = [p for p, r in record["sealed_files"].items() if not r["matches"]]
+    if mismatched:
+        failures.append(f"sealed files differ from the seal at {when}: {mismatched}")
+    if record["dirty_files"]:
+        failures.append(f"dirty working tree at {when}: {record['dirty_files']}")
+    return failures
+
+
+def start_guard_failures(start: Mapping, head_must_be_seal: bool) -> list[str]:
+    """Checked before any model runs; a failure ends the run at once (exit 1).
+
+    ``head_must_be_seal`` (v2): the run commit is the seal commit itself.
+    """
+    failures = _record_failures(start, "start")
+    if head_must_be_seal and (
+        start.get("seal_commit_full") is None
+        or start.get("seal_commit_full") != start.get("head_commit")
+    ):
+        failures.append(
+            f"HEAD {start.get('head_commit')} is not the seal commit "
+            f"{start.get('seal_commit_full')}"
+        )
+    return failures
+
+
+def end_guard_failures(
     start: Mapping, end: Mapping, inputs_changed: Sequence[str], regression: Mapping
 ) -> list[str]:
-    """Reasons to end with a non-zero code (pre-run audit; empty = all clear)."""
-    failures = []
-    mismatched = [p for p, r in start["sealed_files"].items() if not r["matches"]]
-    if mismatched:
-        failures.append(f"sealed files differ from the seal: {mismatched}")
-    if not start["sealed_files"]:
-        failures.append("no sealed files listed at the seal commit")
-    for when, record in (("start", start), ("end", end)):
-        if record["dirty_files"]:
-            failures.append(f"dirty working tree at {when}: {record['dirty_files']}")
+    """Checked after the runs (exit 1 with the outputs written)."""
+    failures = _record_failures(end, "end")
     if start["head_commit"] is None or start["head_commit"] != end["head_commit"]:
         failures.append(f"HEAD changed: {start['head_commit']} -> {end['head_commit']}")
+    if end["sealed_files"] != start["sealed_files"]:
+        failures.append("sealed file records changed during the run")
     if inputs_changed:
         failures.append(f"inputs changed during the run: {list(inputs_changed)}")
     if regression.get("run"):
@@ -1377,6 +1416,14 @@ def guard_failures(
         if differing:
             failures.append(f"wrapper regression differs: {differing}")
     return failures
+
+
+def guard_failures(
+    start: Mapping, end: Mapping, inputs_changed: Sequence[str], regression: Mapping
+) -> list[str]:
+    """Start and end guards together (start without the v2 HEAD rule)."""
+    start_failures = start_guard_failures(start, head_must_be_seal=False)
+    return start_failures + end_guard_failures(start, end, inputs_changed, regression)
 
 
 def write_identity_file(path: Path, record: Mapping) -> None:
@@ -1565,6 +1612,27 @@ def _now() -> str:
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+def write_start_failure(
+    setup: RunSetup, start: Mapping, inputs: Mapping, failures: Sequence[str]
+) -> None:
+    """run_info of a run stopped by the start guards (no model was run)."""
+    run_info = {
+        "protocol": setup.protocol,
+        "started_at": start["taken_at"],
+        "seal": start,
+        "inputs": dict(inputs),
+        "environment": environment_record(),
+        "guards": {"pass": False, "stage": "start", "failures": list(failures)},
+        "n_runs": 0,
+    }
+    (setup.out_dir / "run_info.json").write_text(
+        json.dumps(run_info, indent=1, ensure_ascii=False, default=str),
+        encoding="utf-8",
+    )
+    for failure in failures:
+        print(f"START GUARD FAILED: {failure}", file=sys.stderr, flush=True)
+
+
 def main(
     argv: Sequence[str] | None = None,
     plan: HarnessPlan | None = None,
@@ -1587,6 +1655,13 @@ def main(
     )
     setup.out_dir.mkdir(parents=True, exist_ok=True)
     write_identity_file(setup.out_dir / "pre_run.txt", start)
+    inputs = input_record(setup.data_root, setup.models_json)
+    start_failures = start_guard_failures(
+        start, head_must_be_seal=setup.protocol == PROTOCOL_V2
+    )
+    if start_failures:
+        write_start_failure(setup, start, inputs, start_failures)
+        return 1
     models = ModelSet(setup.data_root, setup.plan, loader)
     rows: list[dict[str, object]] = []
     records: dict[str, object] = {}
@@ -1599,17 +1674,20 @@ def main(
         print(
             f"{model_id}: {len(model_rows)} runs, elapsed {elapsed:.0f} s", flush=True
         )
-    inputs = input_record(setup.data_root, setup.models_json, models.loaded_ids())
     runs_csv = setup.out_dir / setup.runs_csv_name
     write_runs(runs_csv, rows, setup.plan.columns)
     regression = wrapper_regression(
         setup.out_dir / "wrapper_regression", args.regression_activities
     )
-    inputs_after = input_record(setup.data_root, setup.models_json, models.loaded_ids())
-    changed = [name for name in inputs if inputs[name] != inputs_after.get(name)]
+    inputs_after = input_record(setup.data_root, setup.models_json)
+    changed = sorted(
+        name
+        for name in set(inputs) | set(inputs_after)
+        if inputs.get(name) != inputs_after.get(name)
+    )
     end = seal_record(setup.seal)
     write_identity_file(setup.out_dir / "post_run.txt", end)
-    failures = guard_failures(start, end, changed, regression)
+    failures = end_guard_failures(start, end, changed, regression)
     run_info = {
         "spec": (
             "m210b_selector_floor v1.4 sections 4-2 and 8-3"
