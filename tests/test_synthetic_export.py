@@ -523,6 +523,42 @@ def test_s4s6_backgrounds_follow_the_clutter(exporter, tmp_path):
         )
 
 
+def test_s4s6_v2_ids_and_per_model_joints(exporter):
+    model = {
+        "id": "S6P_D14_S040_J2",
+        "clutter": "paving",
+        "soil_sigma_S_per_m": 0.04,
+        "family": "S6",
+        "batch": "v2",
+        "role": "test",
+        "pair": "P0",
+        "joint_rng_seed": 20261112,
+        "joint_x_m": [0.21, 0.4],
+    }
+    assert exporter.s4s6_background_id(model) == "BG_PF_S040"
+    extra = exporter._s4s6_extra_meta({"paving": S4S6_PAVING}, model, "BG_PF_S040")
+    s4s6 = extra["s4s6"]
+    assert (s4s6["pair"], s4s6["joint_rng_seed"]) == ("P0", 20261112)
+    assert s4s6["joint_x_m"] == [0.21, 0.4]
+    per_model_keys = ("pair", "joint_rng_seed", "joint_x_m")
+    batch1 = {key: value for key, value in model.items() if key not in per_model_keys}
+    batch1["id"] = "S6P_D15_S040"
+    assert "pair" not in exporter._s4s6_extra_meta({"paving": {}}, batch1, "x")["s4s6"]
+
+
+def test_s4s6_reference_output_paths_are_used(exporter, tmp_path):
+    meta_path = _s4s6_models_json(tmp_path)
+    meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    meta["references"][2]["output"] = "elsewhere/FS.h5"
+    meta_path.write_text(json.dumps(meta), encoding="utf-8")
+    jobs = exporter.load_s4s6_specs(meta_path)
+    assert jobs[0][1].background_h5.name == "BG_N_S010_merged.h5"
+    assert jobs[0][1].free_space_h5 is None  # elsewhere/FS.h5 does not exist
+    _write_fake_s4s6_runs(exporter, tmp_path)
+    with_dir = exporter.load_s4s6_specs(meta_path, tmp_path / "h5")
+    assert with_dir[0][1].free_space_h5 == tmp_path / "h5" / "FS.h5"
+
+
 def test_s4s6_pipe_line_json_has_the_harness_keys(s4s6_export):
     _, out_dir = s4s6_export
     meta = _read_json(out_dir / "S6P_D03_S010.json")

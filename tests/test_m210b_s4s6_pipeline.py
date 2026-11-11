@@ -31,6 +31,15 @@ EXPECTED_RUN_COLUMNS = [
     "n_false_record_end", "rho_real_cal",
 ]  # fmt: skip
 """8-3 columns; ``rho_real_cal`` appended at the end (user decision D1)."""
+V2_EXTRA_COLUMNS = [
+    "kept_nearest_trace",
+    "kept_nearest_sample",
+    "kept_nearest_t_ns",
+    "n_kept_in_window",
+    "depth_nearest_m",
+    "depth_nearest_status",
+]
+"""v2 H4 and H6 columns after the batch-1 columns (``runs_v2.csv``)."""
 
 
 @pytest.fixture(scope="module")
@@ -285,29 +294,66 @@ FAKE_MODELS = {
     "S6P_D12_S010": (True, True),
     "S6P_NP_S010": (False, True),
 }
+FAKE_V2_MODELS = {
+    "S4N_D14_S040": (True, False),
+    "S6P_D14_S040_J2": (True, True),
+    "S6P_NP_S040_J2": (False, True),
+}
+SMALL_PLAN = {
+    "n_seeds": 1,
+    "rules": ("current", "B_full"),
+    "deltas_ns": (0.0, 1.0),
+    "original_dt_rules": ("current",),
+}
 
 
-def test_main_writes_runs_and_run_info(harness, tmp_path) -> None:
-    data_root = tmp_path / "data"
-    data_root.mkdir()
-    for model_id in FAKE_MODELS:
+def _clean_seal(harness, seal=None, dirty=()):
+    """A seal record with every sealed file matching (git is not consulted)."""
+    commit = "bc9a474" if seal is None else seal.commit
+    return {
+        "seal_commit": commit,
+        "seal_commit_full": commit,
+        "seal_commit_time": "2026-11-11T19:29:19+09:00",
+        "sealed_files": {"docs/x.md": {"blob_at_seal": "a", "matches": True}},
+        "head_commit": "head",
+        "harness_blob_working_tree": "h",
+        "dirty_files": list(dirty),
+        "taken_at": "2026-11-11T21:00:00+09:00",
+    }
+
+
+def _placeholder_inputs(root: Path, model_ids) -> None:
+    root.mkdir()
+    for model_id in model_ids:
         for suffix in (".npy", ".json"):
-            (data_root / f"{model_id}{suffix}").write_bytes(b"placeholder")
-    models_json = tmp_path / "models.json"
-    models_json.write_text("{}", encoding="utf-8")
+            (root / f"{model_id}{suffix}").write_bytes(b"placeholder")
+
+
+def _caching_loader(models):
     cache = {}
 
     def loader(model_id, root):
         if model_id not in cache:
-            cache[model_id] = _fake_model(model_id, *FAKE_MODELS[model_id])
+            cache[model_id] = _fake_model(model_id, *models[model_id])
         return cache[model_id]
 
-    plan = harness.HarnessPlan(
-        n_seeds=1,
-        rules=("current", "B_full"),
-        deltas_ns=(0.0, 1.0),
-        original_dt_rules=("current",),
-    )
+    return loader
+
+
+def _read_rows(path: Path) -> tuple[list[str], list[dict]]:
+    with path.open(encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+        rows = list(reader)
+    return reader.fieldnames, rows
+
+
+def test_main_writes_runs_and_run_info(harness, tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(harness, "seal_record", lambda seal=None: _clean_seal(harness))
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, FAKE_MODELS)
+    models_json = tmp_path / "models.json"
+    models_json.write_text("{}", encoding="utf-8")
+    plan = harness.HarnessPlan(**SMALL_PLAN)
     out = tmp_path / "out"
     argv = [
         "--data-root", str(data_root),
@@ -316,15 +362,13 @@ def test_main_writes_runs_and_run_info(harness, tmp_path) -> None:
         "--models", "S6P_D12_S010,S6P_NP_S010",
         "--regression-activities", "none",
     ]  # fmt: skip
-    assert harness.main(argv, plan, loader) == 0
+    assert harness.main(argv, plan, _caching_loader(FAKE_MODELS)) == 0
 
-    with (out / "runs.csv").open(encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        rows = list(reader)
-    assert reader.fieldnames == EXPECTED_RUN_COLUMNS
+    fieldnames, rows = _read_rows(out / "runs.csv")
+    assert fieldnames == EXPECTED_RUN_COLUMNS
     assert list(harness.RUN_COLUMNS) == EXPECTED_RUN_COLUMNS
-    assert set(json.loads((out / "run_info.json").read_text(encoding="utf-8"))[
-        "protocol"]["columns"]) >= {"rho_real", "rho_real_cal"}  # fmt: skip
+    info = json.loads((out / "run_info.json").read_text(encoding="utf-8"))
+    assert set(info["protocol_detail"]["columns"]) >= {"rho_real", "rho_real_cal"}
     noisy_runs = 2 * 1 * 2 * 2  # rho x seed x rule x delta
     ramp_runs = 1 * 2 * 2
     original_runs = 1
@@ -349,12 +393,13 @@ def test_main_writes_runs_and_run_info(harness, tmp_path) -> None:
     np_seeds = {int(r["seed"]) for r in no_pipe}
     assert np_seeds == {harness.noise_seed(3, 0, 0), harness.noise_seed(3, 1, 0)}
 
-    info = json.loads((out / "run_info.json").read_text(encoding="utf-8"))
     assert info["seal"]["seal_commit"] == "bc9a474"
-    sealed = info["seal"]["sealed_files"]
-    assert "docs/processing/m210b_selector_floor.md" in sealed
-    assert any(path.startswith("analysis/synthetic/s4s6/") for path in sealed)
+    assert info["guards"] == {"pass": True, "failures": []}
+    assert info["seed_overlap"] is None  # batch-1 protocol
     assert info["mkl_cbwr"]
+    environment = info["environment"]
+    assert {"scipy", "skimage", "executable", "thread_variables"} <= set(environment)
+    assert environment["interpretation_doc"]["blob_working_tree"]
     assert info["wrapper_regression"] == {"run": False}
     assert set(info["inputs"]) == {
         "models_json",
@@ -364,4 +409,259 @@ def test_main_writes_runs_and_run_info(harness, tmp_path) -> None:
     assert record["calibration"]["control_id"] == "S4S6/S4N_D12_S010"
     assert record["t_a0_ns"] is not None and record["A0_self"] > 0
     assert set(record["Lambda"]) == {"+0.00", "+1.00"}
+    assert set(record["argmax_level_periods_noise_free"]) == {"+0.00", "+1.00"}
     assert info["models"]["S6P_NP_S010"]["calibration_pair"] == "D12_S010"
+    assert (out / "pre_run.txt").read_text(encoding="utf-8").startswith("time ")
+    assert "dirty 0" in (out / "post_run.txt").read_text(encoding="utf-8")
+
+
+def test_sealed_blobs_list_the_v1_seal(harness) -> None:
+    sealed = harness.sealed_blobs()
+    assert "docs/processing/m210b_selector_floor.md" in sealed
+    assert any(path.startswith("analysis/synthetic/s4s6/") for path in sealed)
+    assert all(record["blob_at_seal"] for record in sealed.values())
+
+
+# ----------------------------------------------------------------- guards
+
+
+@pytest.mark.parametrize(
+    ("change", "needle"),
+    [
+        ({"sealed": False}, "sealed files differ"),
+        ({"dirty_start": ["?? x.py"]}, "dirty working tree at start"),
+        ({"dirty_end": [" M y.py"]}, "dirty working tree at end"),
+        ({"end_head": "other"}, "HEAD changed"),
+        ({"regression": False}, "wrapper regression differs"),
+        ({"inputs_changed": ["S4N_D14_S040.npy"]}, "inputs changed"),
+    ],
+)
+def test_guards_name_every_failure(harness, change, needle) -> None:
+    start = _clean_seal(harness, dirty=change.get("dirty_start", ()))
+    end = _clean_seal(harness, dirty=change.get("dirty_end", ()))
+    if change.get("sealed") is False:
+        start["sealed_files"]["docs/x.md"]["matches"] = False
+    if "end_head" in change:
+        end["head_commit"] = change["end_head"]
+    regression = {
+        "run": True,
+        "a.csv": {"byte_identical": change.get("regression", True)},
+    }
+    failures = harness.guard_failures(
+        start, end, change.get("inputs_changed", []), regression
+    )
+    assert len(failures) == 1 and needle in failures[0]
+
+
+def test_guards_pass_on_a_clean_run(harness) -> None:
+    clean = _clean_seal(harness)
+    assert harness.guard_failures(clean, clean, [], {"run": False}) == []
+
+
+def test_main_returns_1_when_a_guard_fails(harness, tmp_path, monkeypatch) -> None:
+    dirty = _clean_seal(harness, dirty=["?? stray.py"])
+    monkeypatch.setattr(harness, "seal_record", lambda seal=None: dirty)
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, ["S4N_D12_S010"])
+    models_json = tmp_path / "models.json"
+    models_json.write_text("{}", encoding="utf-8")
+    plan = harness.HarnessPlan(**{**SMALL_PLAN, "rhos": (10,), "deltas_ns": (0.0,)})
+    argv = [
+        "--data-root", str(data_root), "--models-json", str(models_json),
+        "--out-dir", str(tmp_path / "out"), "--models", "S4N_D12_S010",
+        "--regression-activities", "none",
+    ]  # fmt: skip
+    assert harness.main(argv, plan, _caching_loader(FAKE_MODELS)) == 1
+    info = json.loads((tmp_path / "out" / "run_info.json").read_text(encoding="utf-8"))
+    assert info["guards"]["pass"] is False
+    assert (tmp_path / "out" / "runs.csv").exists()
+
+
+# ----------------------------------------------------------------- v2 (H2, H4, H8)
+
+
+def test_v2_seed_formula_and_batch1_disjointness(harness) -> None:
+    plan = harness.V2_PLAN
+    assert harness.noise_seed(0, 0, 0, plan.seed_base) == 20271120
+    assert harness.noise_seed(4, 1, 19, plan.seed_base) == 20271120 + 4000 + 100 + 19
+    assert plan.n_seeds == 20 and plan.unit_noise_seed == 20271199
+    assert plan.pair_index == {
+        "D14_S040": 0, "D16_S040": 1, "D15_S045": 2, "D13_S010": 3, "NP_S040": 4,
+    }  # fmt: skip
+    assert plan.rules == ("current", "B_full", "B_min", "B_noise", "C_none")
+    batch1 = harness.plan_seeds(harness.DEFAULT_PLAN)
+    assert len(batch1) == 5 * 2 * 10 + 1 and 20261199 in batch1
+    v2_seeds = harness.plan_seeds(plan)
+    assert len(v2_seeds) == 5 * 2 * 20 + 1
+    assert harness.assert_no_seed_overlap(v2_seeds, batch1) == 0
+    with pytest.raises(harness.SeedOverlapError):
+        harness.assert_no_seed_overlap(v2_seeds | {20261120}, batch1)
+
+
+def test_v2_seal_lists_the_three_test_files(harness) -> None:
+    sealed = set(harness.V2_SEALED_FILES)
+    assert {
+        "tests/test_m210b_s4s6_pipeline.py",
+        "tests/test_m210b_v2_judge.py",
+        "tests/test_synthetic_export.py",
+        "analysis/processing/m210b_v2_judge.py",
+        "analysis/synthetic/s4s6/models_s4s6_v2.json",
+    } <= sealed
+
+
+def test_module_docstring_names_the_v2_json_and_decisions(harness) -> None:
+    doc = harness.__doc__
+    assert "analysis/synthetic/s4s6/models_s4s6_v2.json" in doc
+    assert "W1-W10" in doc and "s4s6_v2/models" not in doc
+
+
+def test_v2_model_pairs_strip_the_joint_tag(harness) -> None:
+    assert harness.model_pair("S6P_D14_S040_J2") == "D14_S040"
+    assert harness.model_pair("S4N_D14_S040") == "D14_S040"
+    assert harness.model_pair("S6P_NP_S040_J2") == "NP_S040"
+    plan = dataclasses.replace(harness.V2_PLAN, no_pipe_calibration_pair="D14_S040")
+    assert harness.calibration_pair("S6P_NP_S040_J2", plan) == "D14_S040"
+    assert harness.calibration_pair("S6P_NP_S010") == "D12_S010"  # v1.4 unchanged
+
+
+def _kept(trace: int, t_ns: float) -> dict:
+    return {"trace": trace, "t_ns": t_ns, "sample": round(t_ns / 0.098, 2)}
+
+
+def test_nearest_kept_tie_rules(harness, target) -> None:
+    # 1: smallest |t - t_a0| wins over a rank-first candidate.
+    kept = [_kept(APEX_TRACE, T_A0_NS + 0.5), _kept(APEX_TRACE + 2, T_A0_NS + 0.1)]
+    nearest, count = harness.nearest_kept(kept, target)
+    assert (nearest["trace"], count) == (APEX_TRACE + 2, 2)
+    # 2: equal time -> smallest |trace - apex|.
+    kept = [_kept(APEX_TRACE + 2, T_A0_NS + 0.2), _kept(APEX_TRACE - 1, T_A0_NS - 0.2)]
+    assert harness.nearest_kept(kept, target)[0]["trace"] == APEX_TRACE - 1
+    # 3: equal time and equal |trace - apex| -> smallest trace index.
+    kept = [
+        _kept(APEX_TRACE + 1, T_A0_NS + 0.25),
+        _kept(APEX_TRACE - 1, T_A0_NS - 0.25),
+    ]
+    assert harness.nearest_kept(kept, target)[0]["trace"] == APEX_TRACE - 1
+    kept.reverse()
+    assert harness.nearest_kept(kept, target)[0]["trace"] == APEX_TRACE - 1
+
+
+def test_nearest_kept_window_is_closed(harness, target) -> None:
+    edge = [_kept(APEX_TRACE + 3, T_A0_NS + 1.0)]  # +3 traces, +0.5/f_c
+    assert harness.nearest_kept(edge, target) == (edge[0], 1)
+    outside = [_kept(APEX_TRACE + 4, T_A0_NS), _kept(APEX_TRACE, T_A0_NS + 1.01)]
+    assert harness.nearest_kept(outside, target) == (None, 0)
+
+
+def _v2_models_json(path: Path, with_no_pipe_pair: bool = True) -> Path:
+    models = [
+        {"id": "S4N_D14_S040", "batch": "v2"},
+        {"id": "S6P_D14_S040_J2", "batch": "v2"},
+        {"id": "S6P_NP_S040_J2", "batch": "v2"},
+        {"id": "S6P_D16_S040_J3", "batch": "v2_excluded", "reason": "Lambda_est < 15"},
+    ]
+    meta = {"models": models}
+    if with_no_pipe_pair:
+        meta["no_pipe_calibration_pair"] = "D14_S040"
+    path.write_text(json.dumps(meta), encoding="utf-8")
+    return path
+
+
+def test_v2_models_come_from_json_batch(harness, tmp_path) -> None:
+    included, excluded, pair = harness.load_v2_models(
+        _v2_models_json(tmp_path / "m.json")
+    )
+    assert included == ["S4N_D14_S040", "S6P_D14_S040_J2", "S6P_NP_S040_J2"]
+    assert excluded == ["S6P_D16_S040_J3"] and pair == "D14_S040"
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps({"models": [{"id": "S6P_D16_S040_J3", "batch": "v2"}]}),
+                   encoding="utf-8")  # fmt: skip
+    with pytest.raises(ValueError, match="control"):
+        harness.load_v2_models(bad)
+    wrong_label = tmp_path / "label.json"
+    entry = {"id": "S4N_D14_S040", "batch": "v2", "pair": "P1"}
+    wrong_label.write_text(json.dumps({"models": [entry]}), encoding="utf-8")
+    with pytest.raises(ValueError, match="json pair"):
+        harness.load_v2_models(wrong_label)
+
+
+def test_v2_needs_a_seal_commit_and_a_no_pipe_pair(harness, tmp_path) -> None:
+    models_json = _v2_models_json(tmp_path / "m.json", with_no_pipe_pair=False)
+    with pytest.raises(SystemExit, match="seal-commit"):
+        harness.main(["--protocol", "v2", "--models-json", str(models_json)])
+    with pytest.raises(SystemExit, match="calibration pair"):
+        harness.main(["--protocol", "v2", "--models-json", str(models_json),
+                      "--seal-commit", "abc"])  # fmt: skip
+
+
+def test_v2_main_writes_runs_v2_with_nearest_columns(
+    harness, tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        harness, "seal_record", lambda seal=None: _clean_seal(harness, seal)
+    )
+    data_root = tmp_path / "data"
+    _placeholder_inputs(data_root, FAKE_V2_MODELS)
+    models_json = _v2_models_json(tmp_path / "m.json")
+    plan = dataclasses.replace(harness.V2_PLAN, **SMALL_PLAN)
+    out = tmp_path / "out"
+    argv = [
+        "--protocol", "v2", "--models-json", str(models_json),
+        "--input-dir", str(data_root), "--out-dir", str(out),
+        "--seal-commit", "v2seal", "--regression-activities", "none",
+    ]  # fmt: skip
+    assert harness.main(argv, plan, _caching_loader(FAKE_V2_MODELS)) == 0
+    assert not (out / "runs.csv").exists()
+    fieldnames, rows = _read_rows(out / "runs_v2.csv")
+    assert fieldnames == [*EXPECTED_RUN_COLUMNS, *V2_EXTRA_COLUMNS]
+    pipe = [
+        r for r in rows if r["model_id"] == "S6P_D14_S040_J2" and r["dt_ns"] == "0.098"
+    ]
+    assert {int(r["seed"]) for r in pipe} == {20271120, 20271220}
+    with_nearest = [r for r in pipe if r["kept_nearest_trace"] != ""]
+    assert with_nearest, "the fake pipe must give a nearest kept"
+    for r in with_nearest:
+        assert int(r["n_kept_in_window"]) >= 1
+        assert abs(int(r["kept_nearest_trace"]) - APEX_TRACE) <= 3
+        assert r["depth_nearest_status"]
+    assert all(
+        r["kept_nearest_trace"] == "" for r in pipe if r["n_kept_in_window"] == "0"
+    )
+    no_pipe = [r for r in rows if r["model_id"] == "S6P_NP_S040_J2"]
+    assert {int(r["seed"]) for r in no_pipe} == {20275120, 20275220}
+    assert all(r["n_kept_in_window"] == "" for r in no_pipe)
+    info = json.loads((out / "run_info.json").read_text(encoding="utf-8"))
+    assert info["protocol"] == "v2" and info["seed_overlap"] == 0
+    assert info["seal"]["seal_commit"] == "v2seal"
+    assert info["models_run"] == list(FAKE_V2_MODELS)
+    assert info["models_excluded_in_json"] == ["S6P_D16_S040_J3"]
+    assert info["runs_csv"] == "runs_v2.csv"
+    assert info["models"]["S6P_NP_S040_J2"]["calibration_pair"] == "D14_S040"
+    record = info["models"]["S6P_D14_S040_J2"]["harness"]
+    assert set(record["argmax_level_periods_noise_free"]) == {"+0.00", "+1.00"}
+    assert info["environment"]["qc_constants"]["sha256"]
+
+
+# ----------------------------------------------------------------- batch 1 replay
+
+BATCH1_RUNS = PROJECT_ROOT / "data" / "processing" / "m210b_s4s6" / "runs.csv"
+BATCH1_DATA = PROJECT_ROOT / "data" / "synthetic_gprmax_s4s6"
+
+
+@pytest.mark.data
+def test_v1_defaults_reproduce_batch1_rows(harness, tmp_path) -> None:
+    """Default protocol: a subset of the stored batch-1 rows comes back unchanged."""
+    if not (BATCH1_RUNS.exists() and (BATCH1_DATA / "S4N_D12_S010.npy").exists()):
+        pytest.skip("batch-1 runs.csv or exports are not available")
+    plan = harness.HarnessPlan(**{**SMALL_PLAN, "deltas_ns": (0.0, 2.35)})
+    models = harness.ModelSet(BATCH1_DATA, plan)
+    new_rows = harness.model_runs("S4N_D12_S010", models)
+    written = tmp_path / "subset.csv"
+    harness.write_runs(written, new_rows, plan.columns)
+    _, regenerated = _read_rows(written)
+    _, stored = _read_rows(BATCH1_RUNS)
+    key_columns = ("model_id", "rho", "seed", "rule", "delta_ns", "ramp_noise", "dt_ns")
+    stored_by_key = {tuple(r[c] for c in key_columns): r for r in stored}
+    assert len(regenerated) == 2 * 2 * 2 + 1
+    for row in regenerated:
+        assert row == stored_by_key[tuple(row[c] for c in key_columns)]

@@ -38,9 +38,24 @@ Outputs (``--out-dir``, default ``data/processing/m210b_s4s6``):
   definitions and the generator wrapper regression (4TU 759 lines regenerated
   into ``<out-dir>/wrapper_regression`` and compared byte for byte).
 
+Protocol v2 (``--protocol v2``, m210b_selector_floor_v2.md W1-W10): models (json
+``batch == "v2"``) come from ``analysis/synthetic/s4s6/models_s4s6_v2.json`` and
+the exports from ``--input-dir`` (default ``data/synthetic_gprmax_s4s6_v2``);
+20 seeds, seed ``20271120 + 1000 p + 100 q + s``, unit-noise seed 20271199
+(disjointness from batch 1 is asserted at start), rules current, B_full, B_min,
+B_noise, C_none, and six more columns at the row end (``NEAREST_COLUMNS``: the
+nearest kept for F5-B and its depth for F5-C); output ``runs_v2.csv``.
+The default protocol v1.4 writes the batch-1 ``runs.csv`` unchanged.
+
+Run guards (pre-run audit): the seal record is taken at start and end. A sealed
+file that differs from its seal blob, a dirty working tree, an end HEAD other
+than the start HEAD, or a wrapper regression that is not byte identical ends the
+run with exit code 1 (outputs are still written, ``run_info.guards`` lists why).
+
 Run (one core, BelowNormal):
     conda run -n gpr-dev python -I analysis/processing/m210b_s4s6_pipeline.py
     ... --regression-activities none   (skip the 4TU regeneration, ~3-4 min)
+    ... --protocol v2 --seal-commit <v2 seal commit>
 """
 
 import argparse
@@ -51,6 +66,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 import time
@@ -63,15 +79,24 @@ from pathlib import Path
 os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import numpy as np
+import scipy
+import skimage
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 sys.path.insert(0, str(PROJECT_ROOT / "analysis" / "processing"))
 
+import eval_depth_4tu as depth_evaluation  # noqa: E402
 import fourtu_apex_candidate_select as generator  # noqa: E402
 import m210b_floor_rules as floor_rules  # noqa: E402
 
 from gpr_detection.depth.config import DepthConfig  # noqa: E402
-from gpr_detection.depth.estimate import prepare_depth_inputs  # noqa: E402
+from gpr_detection.depth.estimate import (  # noqa: E402
+    estimate_depth,
+    prepare_depth_inputs,
+)
+from gpr_detection.depth.picks import ApexHint  # noqa: E402
+from gpr_detection.depth.result import DepthStatus  # noqa: E402
 from gpr_detection.io.radargram import Radargram, velocity_from_eps  # noqa: E402
 from gpr_detection.io.synthetic import load_synthetic  # noqa: E402
 from gpr_detection.preprocess.filters import prepare_fitting_branch  # noqa: E402
@@ -114,11 +139,73 @@ PAIR_INDEX = {"D12_S010": 0, "D15_S010": 1, "D15_S030": 2, "NP_S010": 3, "D15_S0
 NO_PIPE_CALIBRATION_PAIR = "D12_S010"
 """S6P_NP_S010 takes the sigma_raw of this pair (no apex of its own)."""
 CONTROL_FAMILY = "S4N"
+NO_PIPE_PAIR_PREFIX = "NP_"
+JOINT_SUFFIX = re.compile(r"_J\d+$")
+"""v2 S6P ids end with the joint-layout tag (``S6P_D14_S040_J2``)."""
 
 DT_HARNESS_NS = 0.098
 RHOS = (10, 20)
+N_SEEDS = 10
 SEED_BASE = 20261120
 UNIT_NOISE_SEED = 20261199
+
+PROTOCOL_V1 = "v1.4"
+PROTOCOL_V2 = "v2"
+V2_MODELS_JSON = (
+    PROJECT_ROOT / "analysis" / "synthetic" / "s4s6" / "models_s4s6_v2.json"
+)
+"""v2 section 7 item 1 (EM); ``--models-json`` overrides it."""
+V2_DEFAULT_DATA_ROOT = PROJECT_ROOT / "data" / "synthetic_gprmax_s4s6_v2"
+V2_DEFAULT_OUT_DIR = PROJECT_ROOT / "data" / "processing" / "m210b_s4s6_v2"
+V1_RUNS_CSV = "runs.csv"
+V2_RUNS_CSV = "runs_v2.csv"
+V2_BATCH = "v2"
+"""json ``batch`` of the models that passed the pilot (v2 section 7 item 1)."""
+V2_N_SEEDS = 20
+V2_SEED_BASE = 20271120
+V2_UNIT_NOISE_SEED = 20271199
+V2_RULES = ("current", "B_full", "B_min", "B_noise", "C_none")
+"""v2 V3 / H3: B_full, B_min judged; B_noise, C_none reported; A_skip1 dropped."""
+V2_PAIR_INDEX = {
+    "D14_S040": 0,
+    "D16_S040": 1,
+    "D15_S045": 2,
+    "D13_S010": 3,
+    "NP_S040": 4,
+}
+"""v2 H2: pairs P0-P3 -> p 0-3, the no-pipe line -> p 4."""
+V2_PAIR_LABELS = {0: "P0", 1: "P1", 2: "P2", 3: "P3", 4: "NP"}
+"""json ``pair`` label of each p (v2 section 3), cross-checked on load."""
+V2_SEALED_FILES = (
+    *SEALED_FILES,
+    "docs/processing/m210b_selector_floor_v2.md",
+    "docs/processing/m210b_harness_interpretation.md",
+    "analysis/synthetic/s4s6/models_s4s6_v2.json",
+    "analysis/processing/m210b_s4s6_pipeline.py",
+    "tests/test_m210b_s4s6_pipeline.py",
+    "analysis/processing/fourtu_apex_candidate_select.py",
+    "analysis/processing/m210b_v2_judge.py",
+    "tests/test_m210b_v2_judge.py",
+    "scripts/synthetic/export_dataset.py",
+    "tests/test_synthetic_export.py",
+)
+"""v2 section 4 sealed files (checked at the v2 seal commit, ``--seal-commit``)."""
+V2_SEALED_FOLDERS = (SEALED_FOLDER,)
+"""At the v2 seal commit this folder also holds models_s4s6_v2.json, inputs_v2/
+and pilot_v2/ (v2 section 4); the v1.4 files in it must be unchanged."""
+INTERPRETATION_DOC = "docs/processing/m210b_harness_interpretation.md"
+QC_CONSTANTS_JSON = PROJECT_ROOT / "docs" / "processing" / "m29c_qc_constants.json"
+PROTOTYPE_SEEDS = range(20261111, 20262821)
+"""m210b_floor_proto.py seeds: 20261111 + i up to + 1000 + 100 * 7 + 9 (reported)."""
+THREAD_VARIABLES = (
+    "MKL_CBWR",
+    "MKL_NUM_THREADS",
+    "MKL_THREADING_LAYER",
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+)
 RAMP_START, RAMP_SLOPE = 0.3, 1.2
 """F4b noise ramp: sigma(t) = sigma_raw (0.3 + 1.2 t / t_end) (ASSUMPTION, 4-2)."""
 RAMP_RHO = 10
@@ -211,22 +298,71 @@ COLUMN_DEFINITIONS = {
     ),
 }
 
+NEAREST_COLUMNS = (
+    "kept_nearest_trace",
+    "kept_nearest_sample",
+    "kept_nearest_t_ns",
+    "n_kept_in_window",
+    "depth_nearest_m",
+    "depth_nearest_status",
+)
+"""v2 H4 and H6 columns, appended after ``RUN_COLUMNS`` (protocol v2 only)."""
+V2_RUN_COLUMNS = (*RUN_COLUMNS, *NEAREST_COLUMNS)
+V2_COLUMN_DEFINITIONS = {
+    **COLUMN_DEFINITIONS,
+    "seed": "full seed 20271120 + 1000 p + 100 q + s (v2 H2; run_info protocol)",
+    "kept_nearest_trace, kept_nearest_sample, kept_nearest_t_ns": (
+        "kept candidate in the apex window (trace +-3, t_a0 +-0.5/f_c, closed) "
+        "with the smallest |t_ns - t_a0|, then the smallest |trace - apex|, then "
+        "the smallest trace (v2 1-3, H4); blank when the window has no kept"
+    ),
+    "n_kept_in_window": "number of kept candidates in that window",
+    "depth_nearest_m, depth_nearest_status": (
+        "F5-C (report): eval_depth_4tu.candidate_box -> estimate_depth with "
+        "apex_hint = the nearest kept, DepthConfig() defaults, metadata eps_r; "
+        "depth blank unless the status is ok (H6)"
+    ),
+}
+
 
 # ----------------------------------------------------------------- plan
 
 
 @dataclass(frozen=True)
 class HarnessPlan:
-    """Conditions of one harness run (``DEFAULT_PLAN`` is the 4-2 protocol)."""
+    """Conditions of one harness run (``DEFAULT_PLAN`` is the v1.4 4-2 protocol)."""
 
     rhos: tuple[int, ...] = RHOS
-    n_seeds: int = 10
+    n_seeds: int = N_SEEDS
     rules: tuple[str, ...] = floor_rules.RULES
     deltas_ns: tuple[float, ...] = (-1.0, 0.0, 1.0, 2.35)
     original_dt_rules: tuple[str, ...] = ORIGINAL_DT_RULES
+    seed_base: int = SEED_BASE
+    unit_noise_seed: int = UNIT_NOISE_SEED
+    pair_index: Mapping[str, int] = dataclasses.field(
+        default_factory=lambda: dict(PAIR_INDEX)
+    )
+    no_pipe_calibration_pair: str = NO_PIPE_CALIBRATION_PAIR
+    columns: tuple[str, ...] = RUN_COLUMNS
+    """``V2_RUN_COLUMNS`` also computes the nearest kept and its depth (v2)."""
+
+    @property
+    def has_nearest_columns(self) -> bool:
+        return "kept_nearest_trace" in self.columns
 
 
 DEFAULT_PLAN = HarnessPlan()
+V2_PLAN = HarnessPlan(
+    n_seeds=V2_N_SEEDS,
+    rules=V2_RULES,
+    seed_base=V2_SEED_BASE,
+    unit_noise_seed=V2_UNIT_NOISE_SEED,
+    pair_index=dict(V2_PAIR_INDEX),
+    no_pipe_calibration_pair="",
+    columns=V2_RUN_COLUMNS,
+)
+"""v2 plan; ``no_pipe_calibration_pair`` comes from the v2 json (see
+``load_v2_models``)."""
 
 
 # ----------------------------------------------------------------- small helpers
@@ -253,9 +389,36 @@ def resample_to(radargram: Radargram, dt_ns: float) -> Radargram:
     )
 
 
-def noise_seed(pair_index: int, rho_index: int, seed_index: int) -> int:
-    """``20261120 + 1000 p + 100 q + s`` (4-2 rule 3)."""
-    return SEED_BASE + 1000 * pair_index + 100 * rho_index + seed_index
+def noise_seed(
+    pair_index: int, rho_index: int, seed_index: int, base: int = SEED_BASE
+) -> int:
+    """``base + 1000 p + 100 q + s`` (v1.4 rule 3: 20261120; v2 H2: 20271120)."""
+    return base + 1000 * pair_index + 100 * rho_index + seed_index
+
+
+def plan_seeds(plan: HarnessPlan) -> set[int]:
+    """Every noise seed a plan can draw, plus its unit-noise seed."""
+    seeds = {
+        noise_seed(p, q, s, plan.seed_base)
+        for p in plan.pair_index.values()
+        for q in range(len(plan.rhos))
+        for s in range(plan.n_seeds)
+    }
+    return seeds | {plan.unit_noise_seed}
+
+
+class SeedOverlapError(ValueError):
+    """A v2 seed is also a batch-1 seed (v2 H2)."""
+
+
+def assert_no_seed_overlap(seeds: set[int], batch1_seeds: set[int]) -> int:
+    """Return 0 (the ``seed_overlap`` record) or raise when the sets intersect."""
+    overlap = seeds & batch1_seeds
+    if overlap:
+        raise SeedOverlapError(
+            f"{len(overlap)} seeds shared with batch 1: {sorted(overlap)[:5]}"
+        )
+    return 0
 
 
 def white_noise(shape: tuple[int, int], seed: int) -> np.ndarray:
@@ -476,13 +639,15 @@ def apex_time_and_early_lobe(
     return t_a0, None if best_k is None else best_k * dt_ns
 
 
-def unit_noise_sigma(radargram: Radargram, k_lo: int, k_hi: int) -> float:
-    """``sigma_u``: processed unit white noise (seed 20261199), search-row MAD.
+def unit_noise_sigma(
+    radargram: Radargram, k_lo: int, k_hi: int, seed: int = UNIT_NOISE_SEED
+) -> float:
+    """``sigma_u``: processed unit white noise (``seed``), search-row MAD.
 
     Only the processing branch is used (the zero of a pure-noise section is
     meaningless); the search rows come from the control's noise-free zero.
     """
-    noise = white_noise(radargram.data.shape, UNIT_NOISE_SEED)
+    noise = white_noise(radargram.data.shape, seed)
     unit = dataclasses.replace(radargram, data=noise.astype(np.float32))
     processed = prepare_fitting_branch(unit, DepthConfig().bg_window)
     return floor_rules.noise_sigma(processed.background_removed[k_lo:k_hi])
@@ -500,6 +665,11 @@ class CleanLine:
     a0_self: float | None
     t_early_ns: float | None
     level_max_by_delta: dict[float, float]
+    argmax_periods_by_delta: dict[float, float] = dataclasses.field(
+        default_factory=dict
+    )
+    """Noise-free argmax of the unfloored current level, periods below the mute
+    (v2 H5 / V5)."""
 
 
 def clean_line(
@@ -519,7 +689,7 @@ def clean_line(
         )
         target = ApexTarget(int(apex_trace), t_a0, f_c)
         a0_self = apex_amplitude(envelope, apex_trace, t_expected, dt, f_c)
-    levels = {}
+    levels, argmax_periods = {}, {}
     if t_zero is not None:
         for delta in plan.deltas_ns:
             line, _, _ = generator.apex_candidates_for_radargram(
@@ -528,6 +698,8 @@ def clean_line(
             )  # fmt: skip
             if "_floor" in line:
                 levels[delta] = line["_floor"]["L"]
+                k_argmax = int(np.argmax(line["_floor"]["level"]))
+                argmax_periods[delta] = k_argmax * dt / period_ns(f_c)
     return CleanLine(
         radargram,
         inputs.branch.background_removed,
@@ -537,6 +709,7 @@ def clean_line(
         a0_self,
         t_early,
         levels,
+        argmax_periods,
     )
 
 
@@ -550,7 +723,9 @@ class Calibration:
     sigma_raw_by_rho: dict[int, float]
 
 
-def calibrate(control: CleanLine, rhos: Sequence[int]) -> Calibration:
+def calibrate(
+    control: CleanLine, rhos: Sequence[int], unit_seed: int = UNIT_NOISE_SEED
+) -> Calibration:
     if control.a0_self is None or control.t_zero_ns is None:
         raise ValueError(f"{control.radargram.line_id}: no apex or zero to calibrate")
     k_lo, k_hi = floor_rules.search_rows(
@@ -559,7 +734,7 @@ def calibrate(control: CleanLine, rhos: Sequence[int]) -> Calibration:
         control.radargram.dt_ns,
         control.radargram.n_samples,
     )
-    sigma_u = unit_noise_sigma(control.radargram, k_lo, k_hi)
+    sigma_u = unit_noise_sigma(control.radargram, k_lo, k_hi, unit_seed)
     return Calibration(
         control_id=control.radargram.line_id,
         a0=control.a0_self,
@@ -653,11 +828,13 @@ def run_row(
     rule: str,
     delta_ns: float,
     rho_real: RealisedRho,
+    columns: Sequence[str] = RUN_COLUMNS,
 ) -> dict[str, object]:
     """One ``runs.csv`` row: the wrapper with ``rule`` and mute shift ``delta_ns``.
 
     ``inputs`` is ``prepare_depth_inputs(noisy)``; ``clean`` gives the apex
-    target and the noise-free ``Lambda``.
+    target and the noise-free ``Lambda``. ``columns`` with the nearest-kept
+    columns (v2) also runs the F5-C depth path.
     """
     dt, f_c = noisy.dt_ns, noisy.f_c_hz
     line, kept, _ = generator.apex_candidates_for_radargram(
@@ -703,7 +880,67 @@ def run_row(
     if clean.a0_self and level_max is not None:
         row["Lambda"] = round(level_max / clean.a0_self, 4)
     row.update(_outcome_fields(line, kept, dt, target))
-    return {column: row[column] for column in RUN_COLUMNS}
+    if "kept_nearest_trace" in columns:
+        row.update(_nearest_fields(noisy, inputs, kept, target))
+    return {column: row[column] for column in columns}
+
+
+def nearest_kept(
+    kept: Sequence[Mapping], target: ApexTarget
+) -> tuple[Mapping | None, int]:
+    """Nearest kept in the apex window and the number of kept there (v2 1-3, H4).
+
+    Order: smallest ``|t_ns - t_a0|``, then smallest ``|trace - apex|``, then the
+    smallest trace index. Independent of the rank order of ``kept``.
+    """
+    in_window = [kept[index] for index in _window_members(kept, target)]
+    if not in_window:
+        return None, 0
+
+    def distance(row: Mapping) -> tuple[float, int, int]:
+        return (
+            abs(row["t_ns"] - target.t_a0_ns),
+            abs(row["trace"] - target.trace),
+            row["trace"],
+        )
+
+    return min(in_window, key=distance), len(in_window)
+
+
+def nearest_depth(noisy: Radargram, inputs, nearest: Mapping) -> tuple[object, str]:
+    """F5-C: depth of the evaluation path with the nearest kept as apex hint (H6)."""
+    trace, sample = int(nearest["trace"]), float(nearest["sample"])
+    box = depth_evaluation.candidate_box(noisy, trace, sample, float(nearest["tau_ns"]))
+    result = estimate_depth(
+        noisy,
+        box,
+        DepthConfig(),
+        inputs=inputs,
+        apex_hint=ApexHint(trace=trace, sample=sample),
+    )
+    status = result.status.value
+    if status != DepthStatus.OK.value or result.depth_top_m is None:
+        return "", status
+    return round(float(result.depth_top_m), 5), status
+
+
+def _nearest_fields(noisy, inputs, kept, target) -> dict[str, object]:
+    blank = dict.fromkeys(NEAREST_COLUMNS, "")
+    if target is None:
+        return blank
+    nearest, n_in_window = nearest_kept(kept, target)
+    blank["n_kept_in_window"] = n_in_window
+    if nearest is None:
+        return blank
+    depth_m, status = nearest_depth(noisy, inputs, nearest)
+    return {
+        "kept_nearest_trace": nearest["trace"],
+        "kept_nearest_sample": nearest["sample"],
+        "kept_nearest_t_ns": nearest["t_ns"],
+        "n_kept_in_window": n_in_window,
+        "depth_nearest_m": depth_m,
+        "depth_nearest_status": status,
+    }
 
 
 def _outcome_fields(line, kept, dt_ns, target) -> dict[str, object]:
@@ -728,13 +965,14 @@ def run_realisation(
     a0_cal: float,
     rules: Sequence[str],
     deltas_ns: Sequence[float],
+    columns: Sequence[str] = RUN_COLUMNS,
 ) -> list[dict[str, object]]:
     """Process one noisy line once and run every rule and mute shift on it."""
     noisy = with_noise(clean.radargram, realisation.noise)
     inputs = prepare_depth_inputs(noisy, DepthConfig())
     rho_real = realised_rho(clean, inputs.branch.background_removed, a0_cal)
     return [
-        run_row(realisation, noisy, inputs, clean, rule, delta, rho_real)
+        run_row(realisation, noisy, inputs, clean, rule, delta, rho_real, columns)
         for rule in rules
         for delta in deltas_ns
     ]
@@ -744,13 +982,15 @@ def run_realisation(
 
 
 def model_pair(model_id: str) -> str:
-    """``S6P_D15_S030`` -> ``D15_S030``."""
-    return model_id.split("_", 1)[1]
+    """``S6P_D15_S030`` -> ``D15_S030``; ``S6P_D14_S040_J2`` -> ``D14_S040``."""
+    return JOINT_SUFFIX.sub("", model_id.split("_", 1)[1])
 
 
-def calibration_pair(model_id: str) -> str:
+def calibration_pair(model_id: str, plan: HarnessPlan = DEFAULT_PLAN) -> str:
+    """The S4N pair whose calibration a model uses (no-pipe lines: the plan's)."""
     pair = model_pair(model_id)
-    return NO_PIPE_CALIBRATION_PAIR if pair == "NP_S010" else pair
+    is_no_pipe = pair.startswith(NO_PIPE_PAIR_PREFIX)
+    return plan.no_pipe_calibration_pair if is_no_pipe else pair
 
 
 def load_line(model_id: str, data_root: Path) -> Radargram:
@@ -812,8 +1052,14 @@ class ModelSet:
         key = (pair, grid)
         if key not in self._calibrations:
             control = self.clean(control_id(pair), grid)
-            self._calibrations[key] = calibrate(control, self.plan.rhos)
+            self._calibrations[key] = calibrate(
+                control, self.plan.rhos, self.plan.unit_noise_seed
+            )
         return self._calibrations[key]
+
+    def meta(self, model_id: str) -> dict:
+        """The export json of a loaded model."""
+        return self._lines[model_id][1]
 
     def loaded_ids(self) -> list[str]:
         """Every model read so far (including calibration controls)."""
@@ -828,18 +1074,23 @@ def model_runs(model_id: str, models: ModelSet) -> list[dict[str, object]]:
     """Steps 4-6 for one model."""
     plan = models.plan
     clean = models.clean(model_id, GRID_HARNESS)
-    calibration = models.calibration(calibration_pair(model_id), GRID_HARNESS)
-    pair_index = PAIR_INDEX[model_pair(model_id)]
+    calibration = models.calibration(calibration_pair(model_id, plan), GRID_HARNESS)
+    pair_index = plan.pair_index[model_pair(model_id)]
     shape = clean.radargram.data.shape
     rows = []
     for rho_index, rho in enumerate(plan.rhos):
         sigma_raw = calibration.sigma_raw_by_rho[rho]
         for s in range(plan.n_seeds):
-            seed = noise_seed(pair_index, rho_index, s)
+            seed = noise_seed(pair_index, rho_index, s, plan.seed_base)
             noise = sigma_raw * white_noise(shape, seed)
             realisation = Realisation(model_id, rho, seed, False, noise)
             rows += run_realisation(
-                realisation, clean, calibration.a0, plan.rules, plan.deltas_ns
+                realisation,
+                clean,
+                calibration.a0,
+                plan.rules,
+                plan.deltas_ns,
+                plan.columns,
             )
     if clean.target is None:
         rows += ramp_runs(model_id, clean, calibration, pair_index, plan)
@@ -854,11 +1105,16 @@ def ramp_runs(model_id, clean, calibration, pair_index, plan) -> list[dict]:
     ramp = ramp_profile(shape[0], clean.radargram.dt_ns)
     rows = []
     for s in range(plan.n_seeds):
-        seed = noise_seed(pair_index, rho_index, s)
+        seed = noise_seed(pair_index, rho_index, s, plan.seed_base)
         noise = calibration.sigma_raw_by_rho[RAMP_RHO] * ramp * white_noise(shape, seed)
         realisation = Realisation(model_id, RAMP_RHO, seed, True, noise)
         rows += run_realisation(
-            realisation, clean, calibration.a0, plan.rules, plan.deltas_ns
+            realisation,
+            clean,
+            calibration.a0,
+            plan.rules,
+            plan.deltas_ns,
+            plan.columns,
         )
     return rows
 
@@ -867,30 +1123,38 @@ def original_dt_runs(model_id: str, models: ModelSet, pair_index: int) -> list[d
     """Step 6: the gprMax dt, calibrated on that grid (report only)."""
     plan = models.plan
     clean = models.clean(model_id, GRID_ORIGINAL)
-    calibration = models.calibration(calibration_pair(model_id), GRID_ORIGINAL)
+    calibration = models.calibration(calibration_pair(model_id, plan), GRID_ORIGINAL)
     rho_index = plan.rhos.index(ORIGINAL_DT_RHO)
     shape = clean.radargram.data.shape
     rows = []
     for s in range(plan.n_seeds):
-        seed = noise_seed(pair_index, rho_index, s)
+        seed = noise_seed(pair_index, rho_index, s, plan.seed_base)
         noise = calibration.sigma_raw_by_rho[ORIGINAL_DT_RHO] * white_noise(shape, seed)
         realisation = Realisation(model_id, ORIGINAL_DT_RHO, seed, False, noise)
         rows += run_realisation(
-            realisation, clean, calibration.a0, plan.original_dt_rules, (0.0,)
+            realisation,
+            clean,
+            calibration.a0,
+            plan.original_dt_rules,
+            (0.0,),
+            plan.columns,
         )
     return rows
 
 
 def model_record(model_id: str, models: ModelSet) -> dict[str, object]:
     """Noise-free values and the calibration used, per grid (run_info)."""
+    plan = models.plan
+    meta = models.meta(model_id)
     record: dict[str, object] = {
         "pair": model_pair(model_id),
-        "pair_index_p": PAIR_INDEX[model_pair(model_id)],
-        "calibration_pair": calibration_pair(model_id),
+        "pair_index_p": plan.pair_index[model_pair(model_id)],
+        "calibration_pair": calibration_pair(model_id, plan),
+        "pipe_top_depth_m": meta.get("pipe_top_depth_m"),
     }
     for grid in (GRID_HARNESS, GRID_ORIGINAL):
         clean = models.clean(model_id, grid)
-        calibration = models.calibration(calibration_pair(model_id), grid)
+        calibration = models.calibration(calibration_pair(model_id, plan), grid)
         target = clean.target
         record[grid] = {
             "dt_ns": clean.radargram.dt_ns,
@@ -908,6 +1172,10 @@ def model_record(model_id: str, models: ModelSet) -> dict[str, object]:
             "Lambda": {
                 f"{d:+.2f}": (v / clean.a0_self if clean.a0_self else None)
                 for d, v in clean.level_max_by_delta.items()
+            },
+            "argmax_level_periods_noise_free": {
+                f"{d:+.2f}": round(v, 4)
+                for d, v in clean.argmax_periods_by_delta.items()
             },
             "calibration": dataclasses.asdict(calibration),
         }
@@ -942,14 +1210,31 @@ def _git(*args: str) -> str | None:
     return completed.stdout.strip()
 
 
-def sealed_blobs() -> dict[str, dict[str, object]]:
+@dataclass(frozen=True)
+class SealSpec:
+    """Seal commit and the sealed files and folders checked against it."""
+
+    commit: str
+    files: tuple[str, ...]
+    folders: tuple[str, ...]
+
+
+V1_SEAL = SealSpec(SEAL_COMMIT, SEALED_FILES, (SEALED_FOLDER,))
+
+
+def v2_seal(commit: str) -> SealSpec:
+    """The v2 seal (v2 section 4, H7); the commit is a run argument."""
+    return SealSpec(commit, V2_SEALED_FILES, V2_SEALED_FOLDERS)
+
+
+def sealed_blobs(seal: SealSpec = V1_SEAL) -> dict[str, dict[str, object]]:
     """Seal-commit blob and working-tree blob of every sealed file (4-2-0)."""
-    listing = _git("ls-tree", "-r", SEAL_COMMIT, "--", *SEALED_FILES, SEALED_FOLDER)
+    listing = _git("ls-tree", "-r", seal.commit, "--", *seal.files, *seal.folders)
     blobs: dict[str, dict[str, object]] = {}
     for entry in (listing or "").splitlines():
         info, path = entry.split("\t", 1)
         blobs[path] = {"blob_at_seal": info.split()[2]}
-    for path in SEALED_FILES:
+    for path in seal.files:
         blobs.setdefault(path, {"blob_at_seal": None})
     for path, record in blobs.items():
         exists = (PROJECT_ROOT / path).exists()
@@ -959,27 +1244,37 @@ def sealed_blobs() -> dict[str, dict[str, object]]:
     return blobs
 
 
-def seal_record() -> dict[str, object]:
+def seal_record(seal: SealSpec = V1_SEAL) -> dict[str, object]:
     return {
-        "seal_commit": SEAL_COMMIT,
-        "seal_commit_full": _git("rev-parse", SEAL_COMMIT),
-        "seal_commit_time": _git("show", "-s", "--format=%cI", SEAL_COMMIT),
-        "sealed_files": sealed_blobs(),
+        "seal_commit": seal.commit,
+        "seal_commit_full": _git("rev-parse", seal.commit),
+        "seal_commit_time": _git("show", "-s", "--format=%cI", seal.commit),
+        "sealed_files": sealed_blobs(seal),
         "head_commit": _git("rev-parse", "HEAD"),
         "harness_blob_working_tree": _git(
             "hash-object", "--", "analysis/processing/m210b_s4s6_pipeline.py"
         ),
         "dirty_files": (_git("status", "--porcelain") or "").splitlines(),
+        "taken_at": _now(),
     }
 
 
-def input_record(data_root: Path, models_json: Path, model_ids: Sequence[str]) -> dict:
-    files = {"models_json": {"path": str(models_json), "sha256": _sha256(models_json)}}
+def input_files(
+    data_root: Path, models_json: Path, model_ids: Sequence[str]
+) -> dict[str, Path]:
+    files = {"models_json": models_json}
     for model_id in model_ids:
         for suffix in (".npy", ".json"):
-            path = data_root / f"{model_id}{suffix}"
-            files[f"{model_id}{suffix}"] = {"path": str(path), "sha256": _sha256(path)}
+            files[f"{model_id}{suffix}"] = data_root / f"{model_id}{suffix}"
     return files
+
+
+def input_record(data_root: Path, models_json: Path, model_ids: Sequence[str]) -> dict:
+    files = input_files(data_root, models_json, model_ids)
+    return {
+        name: {"path": str(path), "sha256": _sha256(path)}
+        for name, path in files.items()
+    }
 
 
 def wrapper_regression(out_dir: Path, activities: str) -> dict[str, object]:
@@ -1011,41 +1306,253 @@ def wrapper_regression(out_dir: Path, activities: str) -> dict[str, object]:
     return record
 
 
-def protocol_record(plan: HarnessPlan) -> dict[str, object]:
+def protocol_record(
+    plan: HarnessPlan, column_definitions: Mapping[str, str]
+) -> dict[str, object]:
     return {
         "dt_harness_ns": DT_HARNESS_NS,
         "plan": dataclasses.asdict(plan),
-        "seed_formula": "20261120 + 1000 p + 100 q + s",
-        "pair_index_p": PAIR_INDEX,
+        "seed_formula": f"{plan.seed_base} + 1000 p + 100 q + s",
+        "pair_index_p": dict(plan.pair_index),
         "rho_index_q": {str(rho): q for q, rho in enumerate(plan.rhos)},
-        "unit_noise_seed": UNIT_NOISE_SEED,
-        "no_pipe_calibration_pair": NO_PIPE_CALIBRATION_PAIR,
+        "unit_noise_seed": plan.unit_noise_seed,
+        "no_pipe_calibration_pair": plan.no_pipe_calibration_pair,
         "ramp": f"sigma_raw ({RAMP_START} + {RAMP_SLOPE} t / t_end), rho {RAMP_RHO}",
         "original_dt": {"rules": list(plan.original_dt_rules), "rho": ORIGINAL_DT_RHO},
         "apex_window": f"trace +-{APEX_TRACES}, t_a0 +-{APEX_PERIODS}/f_c",
         "early_lobe_window": "[t_a0 - 1.5/f_c, t_a0 - 0.5/f_c), trace +-3",
         "false_deep_min_m": FALSE_DEEP_MIN_M,
         "record_end_ns": RECORD_END_NS,
-        "columns": COLUMN_DEFINITIONS,
+        "columns": dict(column_definitions),
+    }
+
+
+def environment_record() -> dict[str, object]:
+    """Interpreter, library versions and thread variables (pre-run audit)."""
+    return {
+        "python": sys.version,
+        "executable": sys.executable,
+        "numpy": np.__version__,
+        "scipy": scipy.__version__,
+        "skimage": skimage.__version__,
+        "thread_variables": {name: os.environ.get(name) for name in THREAD_VARIABLES},
+        "interpretation_doc": {
+            "path": INTERPRETATION_DOC,
+            "blob_at_head": _git("rev-parse", f"HEAD:{INTERPRETATION_DOC}"),
+            "blob_working_tree": _git("hash-object", "--", INTERPRETATION_DOC),
+        },
+        "qc_constants": {
+            "path": QC_CONSTANTS_JSON.relative_to(PROJECT_ROOT).as_posix(),
+            "sha256": _sha256(QC_CONSTANTS_JSON),
+        },
+    }
+
+
+# ----------------------------------------------------------------- guards
+
+
+def guard_failures(
+    start: Mapping, end: Mapping, inputs_changed: Sequence[str], regression: Mapping
+) -> list[str]:
+    """Reasons to end with a non-zero code (pre-run audit; empty = all clear)."""
+    failures = []
+    mismatched = [p for p, r in start["sealed_files"].items() if not r["matches"]]
+    if mismatched:
+        failures.append(f"sealed files differ from the seal: {mismatched}")
+    if not start["sealed_files"]:
+        failures.append("no sealed files listed at the seal commit")
+    for when, record in (("start", start), ("end", end)):
+        if record["dirty_files"]:
+            failures.append(f"dirty working tree at {when}: {record['dirty_files']}")
+    if start["head_commit"] is None or start["head_commit"] != end["head_commit"]:
+        failures.append(f"HEAD changed: {start['head_commit']} -> {end['head_commit']}")
+    if inputs_changed:
+        failures.append(f"inputs changed during the run: {list(inputs_changed)}")
+    if regression.get("run"):
+        differing = [
+            name
+            for name, record in regression.items()
+            if isinstance(record, dict) and not record.get("byte_identical", True)
+        ]
+        if differing:
+            failures.append(f"wrapper regression differs: {differing}")
+    return failures
+
+
+def write_identity_file(path: Path, record: Mapping) -> None:
+    """``pre_run.txt`` / ``post_run.txt``: time, HEAD and dirty files (H7)."""
+    lines = [
+        f"time {record['taken_at']}",
+        f"HEAD {record['head_commit']}",
+        f"dirty {len(record['dirty_files'])}",
+        *record["dirty_files"],
+    ]
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+# ----------------------------------------------------------------- run setup
+
+
+@dataclass(frozen=True)
+class RunSetup:
+    """Everything a protocol fixes before the first run."""
+
+    protocol: str
+    plan: HarnessPlan
+    model_ids: tuple[str, ...]
+    data_root: Path
+    models_json: Path
+    out_dir: Path
+    runs_csv_name: str
+    seal: SealSpec
+    column_definitions: Mapping[str, str]
+    excluded_models: tuple[str, ...] = ()
+
+
+def load_v2_models(models_json: Path) -> tuple[list[str], list[str], str | None]:
+    """Models with ``batch == "v2"`` (json order), the excluded ones, and the
+    optional json ``no_pipe_calibration_pair``.
+
+    Raises:
+        ValueError: A v2 model whose pair is not one of v2 H2, or an S6P whose
+            S4N control is not a v2 model.
+    """
+    meta = json.loads(models_json.read_text(encoding="utf-8"))
+    included = [m["id"] for m in meta["models"] if m.get("batch") == V2_BATCH]
+    excluded = [m["id"] for m in meta["models"] if m.get("batch") != V2_BATCH]
+    labels = {m["id"]: m.get("pair") for m in meta["models"]}
+    for model_id in included:
+        if model_pair(model_id) not in V2_PAIR_INDEX:
+            raise ValueError(f"{model_id}: pair {model_pair(model_id)} not in v2 H2")
+        expected_label = V2_PAIR_LABELS[V2_PAIR_INDEX[model_pair(model_id)]]
+        if labels[model_id] not in (None, expected_label):
+            raise ValueError(
+                f"{model_id}: json pair {labels[model_id]} is not {expected_label}"
+            )
+        pair = model_pair(model_id)
+        needs_control = model_id.startswith("S6P_") and not pair.startswith(
+            NO_PIPE_PAIR_PREFIX
+        )
+        if needs_control and control_id(pair) not in included:
+            raise ValueError(
+                f"{model_id}: control {control_id(pair)} is not a v2 model"
+            )
+    return included, excluded, meta.get("no_pipe_calibration_pair")
+
+
+def v2_setup(args: argparse.Namespace, plan: HarnessPlan | None) -> RunSetup:
+    if args.models is not None:
+        raise SystemExit("--models is not used with --protocol v2 (json batch v2)")
+    if not args.seal_commit:
+        raise SystemExit("--protocol v2 needs --seal-commit (the v2 seal commit)")
+    models_json = args.models_json or V2_MODELS_JSON
+    model_ids, excluded, json_pair = load_v2_models(models_json)
+    no_pipe_pair = json_pair or args.no_pipe_calibration_pair
+    if json_pair and args.no_pipe_calibration_pair not in (None, json_pair):
+        raise SystemExit("--no-pipe-calibration-pair differs from the json")
+    has_no_pipe = any(model_pair(m).startswith(NO_PIPE_PAIR_PREFIX) for m in model_ids)
+    if has_no_pipe and not no_pipe_pair:
+        raise SystemExit(
+            "v2 no-pipe line needs a calibration pair: json "
+            "no_pipe_calibration_pair or --no-pipe-calibration-pair "
+            "(not fixed by the v2 spec)"
+        )
+    base_plan = V2_PLAN if plan is None else plan
+    if no_pipe_pair:
+        base_plan = dataclasses.replace(
+            base_plan, no_pipe_calibration_pair=no_pipe_pair
+        )
+    return RunSetup(
+        protocol=PROTOCOL_V2,
+        plan=base_plan,
+        model_ids=tuple(model_ids),
+        data_root=args.data_root or V2_DEFAULT_DATA_ROOT,
+        models_json=models_json,
+        out_dir=args.out_dir or V2_DEFAULT_OUT_DIR,
+        runs_csv_name=V2_RUNS_CSV,
+        seal=v2_seal(args.seal_commit),
+        column_definitions=V2_COLUMN_DEFINITIONS,
+        excluded_models=tuple(excluded),
+    )
+
+
+def v1_setup(args: argparse.Namespace, plan: HarnessPlan | None) -> RunSetup:
+    if args.seal_commit not in (None, SEAL_COMMIT):
+        raise SystemExit(f"protocol v1.4 is sealed at {SEAL_COMMIT}")
+    return RunSetup(
+        protocol=PROTOCOL_V1,
+        plan=DEFAULT_PLAN if plan is None else plan,
+        model_ids=tuple((args.models or ",".join(BATCH1_MODELS)).split(",")),
+        data_root=args.data_root or DEFAULT_DATA_ROOT,
+        models_json=args.models_json or DEFAULT_MODELS_JSON,
+        out_dir=args.out_dir or DEFAULT_OUT_DIR,
+        runs_csv_name=V1_RUNS_CSV,
+        seal=V1_SEAL,
+        column_definitions=COLUMN_DEFINITIONS,
+    )
+
+
+def seed_record(plan: HarnessPlan, protocol: str) -> dict[str, object]:
+    """v2 H2: assert no shared seed with batch 1; ``seed_overlap`` = 0."""
+    if protocol != PROTOCOL_V2:
+        return {"seed_overlap": None, "note": "batch-1 protocol, nothing to compare"}
+    seeds = plan_seeds(plan)
+    overlap = assert_no_seed_overlap(seeds, plan_seeds(DEFAULT_PLAN))
+    return {
+        "seed_overlap": overlap,
+        "batch1_seed_set": (
+            "20261120 + 1000 p + 100 q + s, p 0-4, q 0-1, s 0-9; 20261199"
+        ),
+        "n_v2_seeds": len(seeds),
+        "v2_seed_range": [min(seeds), max(seeds)],
+        "prototype_seed_overlap": len(seeds & set(PROTOTYPE_SEEDS)),
     }
 
 
 # ----------------------------------------------------------------- entry point
 
 
-def write_runs(path: Path, rows: Sequence[Mapping[str, object]]) -> None:
+def write_runs(
+    path: Path, rows: Sequence[Mapping[str, object]], columns: Sequence[str]
+) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(RUN_COLUMNS))
+        writer = csv.DictWriter(handle, fieldnames=list(columns))
         writer.writeheader()
         writer.writerows(rows)
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--data-root", type=Path, default=DEFAULT_DATA_ROOT)
-    parser.add_argument("--models-json", type=Path, default=DEFAULT_MODELS_JSON)
-    parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT_DIR)
-    parser.add_argument("--models", default=",".join(BATCH1_MODELS))
+    parser.add_argument(
+        "--protocol", choices=(PROTOCOL_V1, PROTOCOL_V2), default=PROTOCOL_V1
+    )
+    parser.add_argument(
+        "--data-root",
+        "--input-dir",
+        dest="data_root",
+        type=Path,
+        help=f"exported lines (default {DEFAULT_DATA_ROOT}; v2 {V2_DEFAULT_DATA_ROOT})",
+    )
+    parser.add_argument(
+        "--models-json",
+        type=Path,
+        help=f"default {DEFAULT_MODELS_JSON}; v2 {V2_MODELS_JSON}",
+    )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        help=f"default {DEFAULT_OUT_DIR}; v2 {V2_DEFAULT_OUT_DIR}",
+    )
+    parser.add_argument(
+        "--models", help="v1.4 only: comma list (default batch 1); v2 uses the json"
+    )
+    parser.add_argument(
+        "--seal-commit", help=f"seal commit (v1.4: {SEAL_COMMIT}; v2: required)"
+    )
+    parser.add_argument(
+        "--no-pipe-calibration-pair",
+        help="v2 only, when the json has no no_pipe_calibration_pair",
+    )
     parser.add_argument(
         "--regression-activities",
         default="all",
@@ -1060,19 +1567,31 @@ def _now() -> str:
 
 def main(
     argv: Sequence[str] | None = None,
-    plan: HarnessPlan = DEFAULT_PLAN,
+    plan: HarnessPlan | None = None,
     loader: Callable[[str, Path], tuple[Radargram, dict]] = load_model,
 ) -> int:
-    """Run the harness; ``plan`` and ``loader`` are replaced by tests only."""
+    """Run the harness; ``plan`` and ``loader`` are replaced by tests only.
+
+    Returns:
+        0, or 1 when a run guard failed (outputs are written in both cases).
+    """
     args = parse_args(argv)
-    started_at = _now()
-    print(f"m210b_s4s6_pipeline start {started_at}", flush=True)
-    model_ids = args.models.split(",")
-    models = ModelSet(args.data_root, plan, loader)
+    setup = (
+        v2_setup(args, plan) if args.protocol == PROTOCOL_V2 else v1_setup(args, plan)
+    )
+    seeds = seed_record(setup.plan, setup.protocol)
+    start = seal_record(setup.seal)
+    started_at = start["taken_at"]
+    print(
+        f"m210b_s4s6_pipeline start {started_at} protocol {setup.protocol}", flush=True
+    )
+    setup.out_dir.mkdir(parents=True, exist_ok=True)
+    write_identity_file(setup.out_dir / "pre_run.txt", start)
+    models = ModelSet(setup.data_root, setup.plan, loader)
     rows: list[dict[str, object]] = []
     records: dict[str, object] = {}
     started = time.perf_counter()
-    for model_id in model_ids:
+    for model_id in setup.model_ids:
         model_rows = model_runs(model_id, models)
         rows += model_rows
         records[model_id] = model_record(model_id, models)
@@ -1080,33 +1599,56 @@ def main(
         print(
             f"{model_id}: {len(model_rows)} runs, elapsed {elapsed:.0f} s", flush=True
         )
-    args.out_dir.mkdir(parents=True, exist_ok=True)
-    runs_csv = args.out_dir / "runs.csv"
-    write_runs(runs_csv, rows)
+    inputs = input_record(setup.data_root, setup.models_json, models.loaded_ids())
+    runs_csv = setup.out_dir / setup.runs_csv_name
+    write_runs(runs_csv, rows, setup.plan.columns)
+    regression = wrapper_regression(
+        setup.out_dir / "wrapper_regression", args.regression_activities
+    )
+    inputs_after = input_record(setup.data_root, setup.models_json, models.loaded_ids())
+    changed = [name for name in inputs if inputs[name] != inputs_after.get(name)]
+    end = seal_record(setup.seal)
+    write_identity_file(setup.out_dir / "post_run.txt", end)
+    failures = guard_failures(start, end, changed, regression)
     run_info = {
-        "spec": "m210b_selector_floor v1.4 sections 4-2 and 8-3; no verdict here",
+        "spec": (
+            "m210b_selector_floor v1.4 sections 4-2 and 8-3"
+            if setup.protocol == PROTOCOL_V1
+            else "m210b_selector_floor_v2 section 8-1 (H1-H8) on v1.4"
+        )
+        + "; no verdict here",
+        "protocol": setup.protocol,
         "started_at": started_at,
-        "seal": seal_record(),
-        "inputs": input_record(args.data_root, args.models_json, models.loaded_ids()),
+        "seal": start,
+        "seal_at_end": end,
+        "seeds": seeds,
+        "seed_overlap": seeds["seed_overlap"],
+        "models_run": list(setup.model_ids),
+        "models_excluded_in_json": list(setup.excluded_models),
+        "inputs": inputs,
+        "inputs_changed_during_run": changed,
         "mkl_cbwr": os.environ.get("MKL_CBWR"),
+        "environment": environment_record(),
         "python": sys.version,
         "numpy": np.__version__,
-        "protocol": protocol_record(plan),
+        "protocol_detail": protocol_record(setup.plan, setup.column_definitions),
         "models": records,
         "n_runs": len(rows),
         "n_runs_without_zero": sum(1 for row in rows if row["t_zero_ns"] == ""),
+        "runs_csv": setup.runs_csv_name,
         "runs_csv_sha256": _sha256(runs_csv),
-        "wrapper_regression": wrapper_regression(
-            args.out_dir / "wrapper_regression", args.regression_activities
-        ),
+        "wrapper_regression": regression,
+        "guards": {"pass": not failures, "failures": failures},
         "finished_at": _now(),
     }
-    (args.out_dir / "run_info.json").write_text(
+    (setup.out_dir / "run_info.json").write_text(
         json.dumps(run_info, indent=1, ensure_ascii=False, default=str),
         encoding="utf-8",
     )
     print(f"wrote {runs_csv} and run_info.json", flush=True)
-    return 0
+    for failure in failures:
+        print(f"GUARD FAILED: {failure}", file=sys.stderr, flush=True)
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

@@ -49,6 +49,7 @@ import argparse
 import csv
 import json
 import math
+import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -97,6 +98,8 @@ S4S6_FREE_SPACE_ID = "FS"
 S4S6_BACKGROUND_PREFIX = {"none": "BG_N", "stones": "BG_N", "paving": "BG_PF"}
 """Background reference family per clutter (flat paving without joints for S6P)."""
 S4S6_CLUTTER_BLOCKS = ("paving", "stones")
+S4S6_JOINT_TAG = re.compile(r"_J\d+$")
+S4S6_PER_MODEL_KEYS = ("pair", "joint_rng_seed", "joint_x_m")
 
 MANIFEST_FIELDS = [
     "model_id",
@@ -345,7 +348,9 @@ def s4s6_background_id(model: dict) -> str:
     if clutter not in S4S6_BACKGROUND_PREFIX:
         raise ValueError(f"{model['id']}: unknown clutter {clutter!r}")
     tag = _sigma_tag(model["soil_sigma_S_per_m"])
-    if not model["id"].endswith(f"_{tag}"):
+    # v2 S6P ids end with the joint-layout tag after the soil tag (S6P_D14_S040_J2).
+    id_without_joints = S4S6_JOINT_TAG.sub("", model["id"])
+    if not id_without_joints.endswith(f"_{tag}"):
         raise ValueError(f"{model['id']}: soil tag differs from sigma tag {tag}")
     return f"{S4S6_BACKGROUND_PREFIX[clutter]}_{tag}"
 
@@ -354,25 +359,31 @@ def _s4s6_extra_meta(meta: dict, model: dict, background_id: str) -> dict:
     """Json keys added after the S1g schema (harness inputs and the clutter)."""
     has_pipe = model.get("pipe_material") is not None
     clutter = model["clutter"]
+    extra = {
+        "family": model["family"],
+        "batch": model["batch"],
+        "role": model["role"],
+        "clutter": clutter,
+        "clutter_meta": meta[clutter] if clutter in S4S6_CLUTTER_BLOCKS else None,
+        "background_reference": background_id,
+        "two_way_vertical_ns_surface_to_top": model.get(
+            "two_way_vertical_ns_surface_to_top"
+        ),
+        "soil_two_way_attenuation_db_approx": model.get(
+            "soil_two_way_attenuation_db_approx"
+        ),
+    }
+    # v2 models carry their own joint layout (v2 section 7 item 1); batch-1
+    # models do not, so their json stays as before.
+    for key in S4S6_PER_MODEL_KEYS:
+        if key in model:
+            extra[key] = model[key]
     return {
         "expected_apex_envelope_peak_ns_approx": (
             model["expected_apex_envelope_peak_ns_approx"] if has_pipe else None
         ),
         "apex_trace_index": model["apex_trace_index"] if has_pipe else None,
-        "s4s6": {
-            "family": model["family"],
-            "batch": model["batch"],
-            "role": model["role"],
-            "clutter": clutter,
-            "clutter_meta": meta[clutter] if clutter in S4S6_CLUTTER_BLOCKS else None,
-            "background_reference": background_id,
-            "two_way_vertical_ns_surface_to_top": model.get(
-                "two_way_vertical_ns_surface_to_top"
-            ),
-            "soil_two_way_attenuation_db_approx": model.get(
-                "soil_two_way_attenuation_db_approx"
-            ),
-        },
+        "s4s6": extra,
     }
 
 
@@ -436,8 +447,15 @@ def load_s4s6_specs(
     """
     meta = json.loads(models_json.read_text(encoding="utf-8"))
     reference_traces = {ref["id"]: ref["n_traces"] for ref in meta["references"]}
+    reference_outputs = {
+        ref["id"]: ref["output"] for ref in meta["references"] if "output" in ref
+    }
 
     def reference_h5(folder: Path, reference_id: str) -> Path:
+        # A reference with its own "output" (v2 json: references reused from
+        # batch 1 live in the batch-1 folder) is read there unless --h5-dir is set.
+        if reference_id in reference_outputs and h5_dir is None:
+            return PROJECT / reference_outputs[reference_id]
         # run_s4s6.cmd: <name>_merged.h5 for n > 1 traces, <name>.h5 for one.
         is_merged = reference_traces[reference_id] > 1
         name = f"{reference_id}_merged.h5" if is_merged else f"{reference_id}.h5"

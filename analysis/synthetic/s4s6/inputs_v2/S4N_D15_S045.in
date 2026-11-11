@@ -1,0 +1,17 @@
+#title: S4N_D15_S045 soil eps=9.0 sigma=0.045 clutter=none pipe=pec R=0.1 d_top=1.5 x=2.0 f=500MHz h=0.1
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.045 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.35 2.2 inf src_wave
+#rx: 0.45 2.2 inf rx1 Ez
+#src_steps: 0.02 0 0
+#rx_steps: 0.02 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#cylinder: 2.0 0.5 0 2.0 0.5 inf 0.1 pec
