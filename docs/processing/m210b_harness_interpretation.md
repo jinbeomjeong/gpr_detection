@@ -82,5 +82,17 @@
 ## 4. 다음
 
 1. 사용자 결정 D1·D2 확정됨(§2, 둘 다 $A_{0,\text{self}}$).
-2. python-expert가 `rho_real`을 self 정의로 바꾸고 보조 열 `rho_real_cal`을 더한다. 단위 시험 하나를 더한다: 같은 잡음에서 $A_{0,\text{self}}=2A_{0,\text{cal}}$이면 `rho_real` = 2 × `rho_real_cal`. `runs.csv` 열 설명(`COLUMN_DEFINITIONS`, 하네스 178행)도 맞춘다.
+2. python-expert가 `rho_real`을 self 정의로 바꾸고(완료, 커밋 3500121) 보조 열 `rho_real_cal`을 더한다. 단위 시험 하나를 더한다: 같은 잡음에서 $A_{0,\text{self}}=2A_{0,\text{cal}}$이면 `rho_real` = 2 × `rho_real_cal`. `runs.csv` 열 설명(`COLUMN_DEFINITIONS`, 하네스 178행)도 맞춘다.
 3. 이 문서와 결정을 커밋한다(봉인 커밋 `bc9a474` 뒤, 실행 전). 판정서는 이 문서의 blob도 적는다.
+
+## 5. 실행 전 감사 뒤 판정 절차 결정 (사용자 확정 2026-11-11, 하네스 실행 전)
+
+verif-protocol-auditor 실행 전 감사(차단 0, 실행 전 수정 3, 기록 6)의 "확인 필요" 3건을 사용자가 결과 전에 정했다. 판정자는 이 절대로 판정한다.
+
+| ID | 결정 |
+|---|---|
+| P-F1 판정 행 | 판정 행은 `dt_ns == 0.098` ∧ `ramp_noise == 0`(F4b만 `ramp_noise == 1`). 칸(model, rho, rule, Δ)마다 시드 정확히 10개, 전체 `n_runs` = 4,740(관 있는 8모델 × 500 + NP 740), `n_runs_without_zero` = 0, 관 있는 모델마다 `L_noise_free_current` 키 4개·`apex_trace` ≠ null을 단언한다. 하나라도 어긋나면 순위 1(보류). 빈칸(`rho_real`, `Lambda`, `floor_held_at_apex`, `accepted_apex`)은 해당 조건 **불충족**으로 센다(건너뛰지 않음) |
+| P-F2 G와 M0 | 영역 G의 "Δe에서 꼭짓점 행이 바닥에 걸린 시드"는 `rule == current` 행으로 센다. M0의 argmax는 잡음 없는 값을 기준으로 보고하고 잡음 실행의 시드별 값은 분포로 함께 적는다(보고 항목, 판정 무관) |
+| P-F3 민감도 | 판정은 D1·D2(`rho_real`·`Lambda`, A0_self)로 한다. 봉인 글자대로 읽은 값(ρ_real,cal = `rho_real_cal`, Λ_cal = run_info `models.<id>.harness.L_noise_free_current` / `calibration.a0`)으로 다시 셌을 때의 순위를 민감도로 함께 보고한다. 판정서에는 이 문서의 blob과 "D1·D2·P-F1–P-F3는 봉인 뒤·결과 전 결정"을 적는다 |
+
+실행 운영(감사 실행 전 수정 1–3): 하네스 실행 중에는 커밋·merge·내보내기를 하지 않고, 시작 전·종료 후 `git rev-parse HEAD`·`git status --porcelain`을 기록하며, 입력 npy·json에 source_guard snapshot/verify를 건다. 로그는 미리 만든 폴더에 둔다.
