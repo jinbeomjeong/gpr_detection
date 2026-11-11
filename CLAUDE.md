@@ -36,7 +36,7 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 - 30분 넘게 CPU 묶음·GPU를 점유하는 학습·변환은 전역 규칙의 세션 간 예약(`~/.claude/tools/cpu-scheduler/reserve.py`, make_runner `--reserve-owner gpr_detection:<작업> --mask <마스크> --reserve-ttl-min <가장 긴 단계보다 길게>`; `reserve.py add`를 직접 쓸 때도 `--ttl-min`을 같게, 기본 120분)을 따른다. 자원 대기 자동 시작은 `make_runner.py`(affinity·우선순위, 필요하면 `--job-*`로 Job 객체가 붙은 러너 .ps1 생성)에 대기 조건을 `--wait-args`(`wait_until.py` 조건)로 넣어 하고, 실행 중 현황은 `status.py`로 본다.
 
 ## 전역 보조 도구 (2026-10-30)
-전역 에이전트마다 Python CLI 도구 폴더(`~/.claude/tools/<폴더>/`, 사용법은 각 README)가 생겼다. 공통 계약: 종료 코드 0/1/2/3, `--out` 보고서, stdout 마지막 줄 JSON, 입력 파일 불변, 인터프리터 `python-dev`(`-I`). 예외: `cpu-scheduler`는 stdout 전체가 JSON(`--out`은 JSON 사본, md 없음)이고 오류는 종료 1, `wait_until.py`는 0 충족 / 3 타임아웃 / 1 오류, `status.py`는 기본 텍스트 보드(`--json` 선택), `make_runner.py --out`은 러너 .ps1 경로다. 해당 에이전트에 일을 맡길 때 도구를 먼저 쓰게 하고, 메인 세션도 같은 점검을 할 때 이 도구를 쓴다. 도구 결함은 소유 에이전트(없으면 python-expert)에 넘긴다. 이 프로젝트에서 쓰는 것:
+전역 에이전트마다 Python CLI 도구 폴더(`~/.claude/tools/<폴더>/`, 사용법은 각 README)가 생겼다. 공통 계약: 종료 코드 0/1/2/3, `--out` 보고서, stdout 마지막 줄 JSON, 입력 파일 불변, 인터프리터 `python-dev`(`-I -B`, `-B`가 없으면 도구 폴더에 `__pycache__`가 생긴다). 예외: `cpu-scheduler`는 stdout 전체가 JSON(`--out`은 JSON 사본, md 없음)이고 오류는 종료 1, `wait_until.py`는 0 충족 / 3 타임아웃 / 1 오류, `status.py`는 기본 텍스트 보드(`--json` 선택), `make_runner.py --out`은 러너 .ps1 경로다. 해당 에이전트에 일을 맡길 때 도구를 먼저 쓰게 하고, 메인 세션도 같은 점검을 할 때 이 도구를 쓴다. 도구 결함은 소유 에이전트(없으면 python-expert)에 넘긴다. 이 프로젝트에서 쓰는 것:
 
 | 폴더 | 소유(사용) | 이 프로젝트에서 |
 |---|---|---|
