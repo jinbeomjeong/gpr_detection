@@ -26,10 +26,23 @@ line), described by ``analysis/synthetic/s1g/models_s1g.json``:
 Specs without a ``pipes`` list are exported exactly as before (same bytes, no
 ``pipes`` key).
 
+S4/S6 (M2-10 (b), scan lines with 1 pipe or none, shallow clutter ``none``,
+``paving`` or ``stones``), described by ``analysis/synthetic/s4s6/models_s4s6.json``:
+
+* inputs: ``data/synthetic_gprmax_s4s6/h5/<id>_merged.h5``; the 3-trace
+  background of the same soil sigma (``BG_PF_S<sigma>`` under paving,
+  ``BG_N_S<sigma>`` otherwise, ``<ref>_merged.h5``) and the shared ``FS.h5``
+* outputs in ``data/synthetic_gprmax_s4s6``: the same file set and json schema
+  as S1g (``n_pipes`` 1 or 0), plus ``expected_apex_envelope_peak_ns_approx``,
+  ``apex_trace_index`` (both null without a pipe) and ``s4s6`` (family, batch,
+  role, clutter and its ``paving`` / ``stones`` block, background reference)
+
 Run:
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
         --s1g analysis/synthetic/s1g/models_s1g.json [--models S1G_D060 ...]
+    conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
+        --s4s6 analysis/synthetic/s4s6/models_s4s6.json [--models S4N_D15_S010 ...]
 """
 
 import argparse
@@ -57,6 +70,7 @@ PROJECT = HERE.parent.parent
 OUT = PROJECT / "data" / "synthetic_gprmax"
 RAW = OUT / "_raw"
 S1G_OUT = PROJECT / "data" / "synthetic_gprmax_s1g"
+S4S6_OUT = PROJECT / "data" / "synthetic_gprmax_s4s6"
 
 # Search windows, in periods of the centre frequency (1/f).
 APEX_WINDOW_PERIODS = 0.6
@@ -77,6 +91,12 @@ ONSET_FRACTION = 0.05
 
 # S1G_bg.in: Tx at 0.35 m, step 1.6 m, offset 0.10 m -> midpoints 0.4 / 2.0 / 3.6 m.
 S1G_BG_TRACE_X_M = [0.4, 2.0, 3.6]
+# models_s4s6.json references BG_*: "3 traces x 0.4/2.0/3.6".
+S4S6_BG_TRACE_X_M = [0.4, 2.0, 3.6]
+S4S6_FREE_SPACE_ID = "FS"
+S4S6_BACKGROUND_PREFIX = {"none": "BG_N", "stones": "BG_N", "paving": "BG_PF"}
+"""Background reference family per clutter (flat paving without joints for S6P)."""
+S4S6_CLUTTER_BLOCKS = ("paving", "stones")
 
 MANIFEST_FIELDS = [
     "model_id",
@@ -306,6 +326,137 @@ def load_s1g_specs(
             free_space_h5=fs_path if fs_path.exists() else None,
         )
         specs.append((_s1g_spec(meta["common"], model), sources))
+    return specs
+
+
+def _sigma_tag(sigma_s_per_m: float) -> str:
+    """``S010`` for 0.01 S/m: the soil tag of the S4/S6 model and reference ids."""
+    return f"S{round(sigma_s_per_m * 1000):03d}"
+
+
+def s4s6_background_id(model: dict) -> str:
+    """3-trace background reference of an S4/S6 model, e.g. ``BG_PF_S010``.
+
+    Raises:
+        ValueError: An unknown clutter, or a model id whose soil tag does not
+            match its ``soil_sigma_S_per_m``.
+    """
+    clutter = model["clutter"]
+    if clutter not in S4S6_BACKGROUND_PREFIX:
+        raise ValueError(f"{model['id']}: unknown clutter {clutter!r}")
+    tag = _sigma_tag(model["soil_sigma_S_per_m"])
+    if not model["id"].endswith(f"_{tag}"):
+        raise ValueError(f"{model['id']}: soil tag differs from sigma tag {tag}")
+    return f"{S4S6_BACKGROUND_PREFIX[clutter]}_{tag}"
+
+
+def _s4s6_extra_meta(meta: dict, model: dict, background_id: str) -> dict:
+    """Json keys added after the S1g schema (harness inputs and the clutter)."""
+    has_pipe = model.get("pipe_material") is not None
+    clutter = model["clutter"]
+    return {
+        "expected_apex_envelope_peak_ns_approx": (
+            model["expected_apex_envelope_peak_ns_approx"] if has_pipe else None
+        ),
+        "apex_trace_index": model["apex_trace_index"] if has_pipe else None,
+        "s4s6": {
+            "family": model["family"],
+            "batch": model["batch"],
+            "role": model["role"],
+            "clutter": clutter,
+            "clutter_meta": meta[clutter] if clutter in S4S6_CLUTTER_BLOCKS else None,
+            "background_reference": background_id,
+            "two_way_vertical_ns_surface_to_top": model.get(
+                "two_way_vertical_ns_surface_to_top"
+            ),
+            "soil_two_way_attenuation_db_approx": model.get(
+                "soil_two_way_attenuation_db_approx"
+            ),
+        },
+    }
+
+
+def _s4s6_spec(meta: dict, model: dict, background_id: str) -> dict:
+    common = meta["common"]
+    has_pipe = model.get("pipe_material") is not None
+    eps_r = common["eps_r_soil"]
+    pipes = []
+    if has_pipe:
+        pipes = [
+            {
+                "center_x_m": model["pipe_center_x_m"],
+                "top_depth_m": model["pipe_top_depth_m"],
+                "radius_m": model["pipe_radius_m"],
+            }
+        ]
+    return {
+        "model_id": model["id"],
+        "pipe_kind": model["pipe_material"] if has_pipe else None,
+        "pipe_wall_m": None,
+        "pipe_radius_m": model["pipe_radius_m"] if has_pipe else None,
+        "pipe_top_depth_m": model["pipe_top_depth_m"] if has_pipe else None,
+        "pipe_center_x_m": model["pipe_center_x_m"] if has_pipe else None,
+        "pipes": pipes,
+        "expected_apex_trace_index": [model["apex_trace_index"]] if has_pipe else [],
+        "eps_r": eps_r,
+        "soil_sigma_S_per_m": model["soil_sigma_S_per_m"],
+        # Soil velocity; the paving layer of S6 is not in the ray times (it shifts
+        # the S6P apex about 0.7 ns earlier, inside the apex window).
+        "velocity_m_per_ns": C0_M_PER_NS / math.sqrt(eps_r),
+        "center_freq_hz": common["center_freq_hz"],
+        "antenna_offset_m": common["antenna_offset_m"],
+        "dx_cell_m": common["fdtd_cell_m"],
+        "pml_cells": common["pml_cells"],
+        "y_surface_m": common["y_surface_m"],
+        "y_antenna_m": common["y_antenna_m"],
+        "time_window_ns": common["time_window_ns"],
+        "scan_start_m": model["scan_start_m"],
+        "trace_step_m": model["trace_step_m"],
+        "n_traces": model["n_traces"],
+        "bg_trace_positions_m": S4S6_BG_TRACE_X_M,
+        "fs_reference": True,
+        "gprmax_input": model["input"],
+        "extra_meta": _s4s6_extra_meta(meta, model, background_id),
+    }
+
+
+def load_s4s6_specs(
+    models_json: Path, h5_dir: Path | None = None
+) -> list[tuple[dict, SourceFiles]]:
+    """Specs and source files of the S4/S6 scan lines (1 pipe or none).
+
+    Args:
+        models_json: ``analysis/synthetic/s4s6/models_s4s6.json``.
+        h5_dir: Folder of the gprMax outputs (models, ``BG_*`` references and
+            ``FS``); default is the folder of each model's ``output``.
+
+    Raises:
+        ValueError: If a model's background reference is not listed in
+            ``references`` (see ``s4s6_background_id``).
+    """
+    meta = json.loads(models_json.read_text(encoding="utf-8"))
+    reference_traces = {ref["id"]: ref["n_traces"] for ref in meta["references"]}
+
+    def reference_h5(folder: Path, reference_id: str) -> Path:
+        # run_s4s6.cmd: <name>_merged.h5 for n > 1 traces, <name>.h5 for one.
+        is_merged = reference_traces[reference_id] > 1
+        name = f"{reference_id}_merged.h5" if is_merged else f"{reference_id}.h5"
+        return folder / name
+
+    specs = []
+    for model in meta["models"]:
+        background_id = s4s6_background_id(model)
+        if background_id not in reference_traces:
+            raise ValueError(f"{model['id']}: reference {background_id} not listed")
+        bscan_h5 = PROJECT / model["output"]
+        folder = bscan_h5.parent if h5_dir is None else h5_dir
+        fs_path = reference_h5(folder, S4S6_FREE_SPACE_ID)
+        sources = SourceFiles(
+            bscan_h5=folder / bscan_h5.name,
+            background_h5=reference_h5(folder, background_id),
+            free_space_h5=fs_path if fs_path.exists() else None,
+        )
+        specs.append((_s4s6_spec(meta, model, background_id), sources))
     return specs
 
 
@@ -665,6 +816,7 @@ def export_model(
             for k, analysed_pipe in enumerate(analysed)
         ]
         meta["pipe_keys_note"] = PIPE_KEYS_NOTE if pipes else BACKGROUND_LINE_NOTE
+    meta.update(spec.get("extra_meta", {}))
     (out_dir / f"{mid}.json").write_text(
         json.dumps(meta, indent=1), encoding="utf-8", newline="\n"
     )
@@ -910,7 +1062,12 @@ def _parse_args(argv):
         help="S1g models json; default exports scripts/synthetic/model_specs.json",
     )
     parser.add_argument(
-        "--h5-dir", type=Path, help="S1g only: folder of the gprMax h5 outputs"
+        "--s4s6",
+        type=Path,
+        help="S4/S6 models json (analysis/synthetic/s4s6/models_s4s6.json)",
+    )
+    parser.add_argument(
+        "--h5-dir", type=Path, help="S1g, S4/S6 only: folder of the gprMax h5 outputs"
     )
     parser.add_argument(
         "--raw-dir", type=Path, help=f"M01-M20 only: raw h5 folder (default {RAW})"
@@ -918,7 +1075,10 @@ def _parse_args(argv):
     parser.add_argument(
         "--out-dir",
         type=Path,
-        help=f"output folder (default {OUT}, or {S1G_OUT} with --s1g)",
+        help=(
+            f"output folder (default {OUT}, {S1G_OUT} with --s1g, "
+            f"{S4S6_OUT} with --s4s6)"
+        ),
     )
     parser.add_argument(
         "--models",
@@ -930,7 +1090,12 @@ def _parse_args(argv):
 
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
-    if args.s1g is not None:
+    if args.s1g is not None and args.s4s6 is not None:
+        raise SystemExit("--s1g and --s4s6 are exclusive")
+    if args.s4s6 is not None:
+        jobs = load_s4s6_specs(args.s4s6, args.h5_dir)
+        out_dir = S4S6_OUT if args.out_dir is None else args.out_dir
+    elif args.s1g is not None:
         jobs = load_s1g_specs(args.s1g, args.h5_dir)
         out_dir = S1G_OUT if args.out_dir is None else args.out_dir
     else:

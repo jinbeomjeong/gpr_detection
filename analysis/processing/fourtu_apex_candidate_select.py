@@ -54,6 +54,8 @@ from skimage.feature import peak_local_max
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "analysis" / "processing"))
 
+import m210b_floor_rules as floor_rules  # noqa: E402
+
 from gpr_detection.depth.estimate import prepare_depth_inputs  # noqa: E402
 from gpr_detection.io.fourtu import (  # noqa: E402
     FourTUTable,
@@ -101,6 +103,12 @@ MANUAL_APEX_CANDIDATES: dict[tuple[str, str], list[tuple[int, int]]] = {
     ("011.14", "Profile_6164"): [(260, 115), (140, 95)],
 }
 """Copied verbatim from analysis/processing/fourtu_explore.py (trace, sample)."""
+
+FATE_KEPT = "kept"
+FATE_NMS = "nms"
+FATE_CAP6 = "cap6"
+"""Fate of an accepted candidate (m210b 8-2): kept, suppressed by a kept candidate
+(NMS), or never examined because the per-line cap was already full."""
 
 APEX_CANDIDATE_FIELDS = [
     "activity_id",
@@ -237,15 +245,74 @@ def apex_candidates_for_line(act: str, path: str):
     return apex_candidates_for_radargram(rg, inputs, act=act, path=path)
 
 
-def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
+def _rank_and_suppress(
+    accepted: list[dict], dx: float
+) -> tuple[list[dict], list[dict]]:
+    """Kept candidates (NMS, per-line cap) and the fate of every accepted one.
+
+    ``accepted`` must already be in rank order. A fate is ``{"fate": FATE_*,
+    "winner": index into kept or None}``; ``winner`` is the first kept candidate
+    that suppressed an ``FATE_NMS`` entry.
+    """
+    kept: list[dict] = []
+    fates: list[dict] = []
+    for s in accepted:
+        if len(kept) >= MAX_APEX_CANDIDATES_PER_LINE:
+            fates.append({"fate": FATE_CAP6, "winner": None})
+            continue
+        winner = next(
+            (
+                index
+                for index, o in enumerate(kept)
+                if abs(s["trace"] - o["trace"]) * dx <= NMS_M
+                and abs(s["t_ns"] - o["t_ns"]) <= NMS_NS
+            ),
+            None,
+        )
+        if winner is None:
+            kept.append(s)
+            fates.append({"fate": FATE_KEPT, "winner": len(kept) - 1})
+        else:
+            fates.append({"fate": FATE_NMS, "winner": winner})
+    return kept, fates
+
+
+def apex_candidates_for_radargram(
+    rg,
+    inputs,
+    *,
+    act: str,
+    path: str,
+    floor_rule: str = "current",
+    mute_offset_ns: float = 0.0,
+):
     """Apex candidates of a loaded radargram and its depth inputs (spec_eval 9-9-1 (b)).
 
-    The generator body of ``apex_candidates_for_line`` after loading, unchanged, so
-    a synthetic B-scan (S1g) goes through the same rules as a 4TU line.
+    The generator body of ``apex_candidates_for_line`` after loading, so a
+    synthetic B-scan (S1g, S4/S6) goes through the same rules as a 4TU line. The
+    defaults reproduce selector v1 exactly (m210b 8-2).
+
+    Args:
+        rg: The radargram.
+        inputs: ``prepare_depth_inputs(rg)``.
+        act: Activity label of the line rows.
+        path: Path label of the line rows.
+        floor_rule: Detection-normalisation floor rule of
+            ``m210b_floor_rules.RULES`` (``"current"`` = selector v1).
+        mute_offset_ns: Shift of the mute only: the search starts at
+            ``t_z + mute_offset_ns + 1/f_c``. ``tau_ns`` and the acceptance keep
+            the detected zero ``t_z``.
 
     Returns:
         ``(line, kept, E)``: the line row, the kept candidate rows and the envelope
-        (``None`` when the zero failed).
+        (``None`` when the zero failed). When candidates were searched, ``line``
+        also carries ``_accepted_all`` (every accepted candidate, rank order),
+        ``_accepted_fate`` (parallel list, see ``_rank_and_suppress``), ``_peaks``
+        (every detection peak after the edge rule: its ``row`` and ``trace0``,
+        the refined start ``sample0``, the crest-moved ``trace``/``sample`` and
+        ``status`` = ``"accepted"`` or the reject reason) and ``_floor`` (search
+        rows, ``L``, ``F``, the unfloored level profile and the raw peak count
+        before the edge rule).
     """
     dt, dx = rg.dt_ns, rg.dx_m
     zero = inputs.zero
@@ -265,9 +332,11 @@ def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
     if zero.t_zero_ns is None:
         line["reason"] = "zero_failed"
         return line, [], None
-    E = pick_signal(inputs.branch.background_removed, "envelope")
-    k_lo = math.ceil((zero.t_zero_ns + 1e9 / rg.f_c_hz) / dt) + 2
-    k_hi = E.shape[0] - 16
+    background_removed = inputs.branch.background_removed
+    E = pick_signal(background_removed, "envelope")
+    k_lo, k_hi = floor_rules.search_rows(
+        zero.t_zero_ns + mute_offset_ns, rg.f_c_hz, dt, E.shape[0]
+    )
     sub = E[k_lo:k_hi]
     noise = float(np.median(sub))
     if not noise > 0:
@@ -279,7 +348,23 @@ def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
     level = uniform_filter1d(
         np.median(sub, axis=1), size=max(3, int(1e9 / rg.f_c_hz / dt))
     )
-    level = np.maximum(level, 0.05 * float(level.max()))
+    floor = floor_rules.floor_value(
+        floor_rule,
+        level,
+        sub,
+        background_removed[k_lo:k_hi],
+        rg.f_c_hz,
+        dt,
+        background_removed[:k_hi],
+    )
+    line["_floor"] = {
+        "k_lo": k_lo,
+        "k_hi": k_hi,
+        "L": float(level.max()),
+        "F": float(floor),
+        "level": level,
+    }
+    level = np.maximum(level, floor)
     detect = sub / level[:, None]
     peaks = peak_local_max(
         detect,
@@ -288,20 +373,25 @@ def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
         exclude_border=False,
         num_peaks=MAX_CANDIDATES,
     )
+    line["_floor"]["n_raw_peaks"] = len(peaks)
     edge = int(math.ceil(EDGE_M / dx))
     peaks = [
         (int(k) + k_lo, int(j)) for k, j in peaks if edge <= j < rg.n_traces - edge
     ]
     line["n_peaks"] = len(peaks)
-    accepted, reasons = [], {}
+    accepted, reasons, peak_records = [], {}, []
     for k_int, j0 in peaks:
         k0, _ = parabolic_peak(E[:, j0], k_int)
         j, k = crest_apex(E, j0, k0, dt, dx)
+        peak = {"row": k_int, "trace0": j0, "sample0": k0, "trace": j, "sample": k}
+        peak_records.append(peak)
         if not edge <= j < rg.n_traces - edge or k < k_lo:
             reasons["apex_at_edge_or_mute"] = reasons.get("apex_at_edge_or_mute", 0) + 1
+            peak["status"] = "apex_at_edge_or_mute"
             continue
         k_int = min(int(round(k)), k_hi - 1)
         v, nl, nr, why = accept(E, j, k, dt, dx, zero.t_zero_ns)
+        peak["status"] = why or "accepted"
         if v is None:
             reasons[why] = reasons.get(why, 0) + 1
             continue
@@ -325,16 +415,7 @@ def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
     # Rank by two-sided support (both wings tracked far), then by detection SNR:
     # short limb crossings rarely have long wings on both sides.
     accepted.sort(key=lambda s: (-min(s["n_left"], s["n_right"]), -s["snr"]))
-    kept = []
-    for s in accepted:
-        if all(
-            abs(s["trace"] - o["trace"]) * dx > NMS_M
-            or abs(s["t_ns"] - o["t_ns"]) > NMS_NS
-            for o in kept
-        ):
-            kept.append(s)
-        if len(kept) >= MAX_APEX_CANDIDATES_PER_LINE:
-            break
+    kept, fates = _rank_and_suppress(accepted, dx)
     line["n_apex_candidates"] = len(kept)
     if not kept:
         line["reason"] = (
@@ -343,6 +424,8 @@ def apex_candidates_for_radargram(rg, inputs, *, act: str, path: str):
             else "rejected:" + ";".join(f"{k}={v}" for k, v in sorted(reasons.items()))
         )
     line["_accepted_all"] = accepted
+    line["_accepted_fate"] = fates
+    line["_peaks"] = peak_records
     line["_diag"] = (E, dt, dx, zero.t_zero_ns)
     return line, kept, E
 
@@ -441,8 +524,8 @@ def main() -> None:
                         line,
                     )
                 )
-            line.pop("_accepted_all", None)
-            line.pop("_diag", None)
+            for private_key in [key for key in line if key.startswith("_")]:
+                line.pop(private_key)
         write(candidates, APEX_CANDIDATE_FIELDS, "fourtu_apex_candidates_v1.csv")
         write(lines, LINE_FIELDS, "fourtu_apex_candidate_lines_v1.csv")
         n_auto = sum(

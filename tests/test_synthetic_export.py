@@ -396,6 +396,171 @@ def test_spec_without_pipe_list_keeps_the_single_pipe_schema(exporter, tmp_path)
     assert header.split(",") == exporter.MANIFEST_FIELDS
 
 
+# ----------------------------------------------------------------- S4/S6 (M2-10 (b))
+
+S4S6_PAVING = {"brick": {"eps": 5.0}, "joint_x_m": [0.2, 0.42]}
+S4S6_STONES = {"x_and_centre_depth_m": [[0.8, 0.15]]}
+
+
+def _s4s6_model(model_id, clutter, has_pipe):
+    model = {
+        "id": model_id,
+        "family": model_id[:2],
+        "batch": 1,
+        "role": "test",
+        "input": f"in/{model_id}.in",
+        "soil_sigma_S_per_m": 0.01,
+        "clutter": clutter,
+        "n_traces": N_TRACES,
+        "scan_start_m": SCAN_START_M,
+        "trace_step_m": TRACE_STEP_M,
+        "output": f"h5/{model_id}_merged.h5",
+        "pipe_material": "pec" if has_pipe else None,
+    }
+    if has_pipe:
+        model.update(
+            pipe_radius_m=0.05,
+            pipe_top_depth_m=0.3,
+            pipe_center_x_m=1.0,
+            apex_trace_index=15,
+            expected_apex_envelope_peak_ns_approx=9.0,
+            two_way_vertical_ns_surface_to_top=6.0,
+        )
+    return model
+
+
+def _s4s6_models_json(tmp_path: Path) -> Path:
+    common = {
+        "eps_r_soil": 9.0,
+        "center_freq_hz": FREQ_HZ,
+        "air_gap_m": 0.1,
+        "antenna_offset_m": 0.1,
+        "fdtd_cell_m": 0.005,
+        "pml_cells": 20,
+        "y_surface_m": 0.7,
+        "y_antenna_m": 0.8,
+        "time_window_ns": 28.0,
+    }
+    models = [
+        _s4s6_model("S4N_D03_S010", "none", True),
+        _s4s6_model("S6P_D03_S010", "paving", True),
+        _s4s6_model("S6P_NP_S010", "paving", False),
+        _s4s6_model("S4S_D03_S010", "stones", True),
+    ]
+    references = [
+        {"id": "BG_N_S010", "n_traces": 3},
+        {"id": "BG_PF_S010", "n_traces": 3},
+        {"id": "FS", "n_traces": 1},
+    ]
+    meta = {
+        "common": common,
+        "paving": S4S6_PAVING,
+        "stones": S4S6_STONES,
+        "models": models,
+        "references": references,
+    }
+    path = tmp_path / "models_s4s6.json"
+    path.write_text(json.dumps(meta), encoding="utf-8")
+    return path
+
+
+def _write_fake_s4s6_runs(exporter: ModuleType, tmp_path: Path) -> Path:
+    h5_dir = tmp_path / "h5"
+    h5_dir.mkdir()
+    t_ns = np.arange(N_SAMPLES) * DT_NS
+    source_peak_ns = math.sqrt(2.0) / (FREQ_HZ * 1e-9)
+    direct = _ricker(t_ns, source_peak_ns + exporter.direct_air_time(0.1))
+    surface = 0.5 * _ricker(
+        t_ns, source_peak_ns + exporter.surface_reflection_time(0.1, 0.1)
+    )
+    background = direct + surface
+    for reference in ("BG_N_S010", "BG_PF_S010"):
+        _write_h5(
+            h5_dir / f"{reference}_merged.h5", np.tile(background[:, None], (1, 3))
+        )
+    _write_h5(h5_dir / "FS.h5", direct[:, None])
+    x_mid = SCAN_START_M + np.arange(N_TRACES) * TRACE_STEP_M
+    lateral_gain = 1.0 + BACKGROUND_LINE_DRIFT * np.arange(N_TRACES)
+    ray_ns = exporter.trace_reflection_times(
+        x_mid, 0.1, 0.1, 1.0, 0.3, 0.05, VELOCITY_M_PER_NS
+    )
+    for model_id in ("S4N_D03_S010", "S6P_D03_S010", "S6P_NP_S010", "S4S_D03_S010"):
+        bscan = background[:, None] * lateral_gain[None, :]
+        if model_id != "S6P_NP_S010":
+            for i, ray in enumerate(ray_ns):
+                bscan[:, i] += _ricker(t_ns, source_peak_ns + ray)
+        _write_h5(h5_dir / f"{model_id}_merged.h5", bscan)
+    return h5_dir
+
+
+@pytest.fixture
+def s4s6_export(exporter: ModuleType, tmp_path: Path) -> tuple[ModuleType, Path]:
+    h5_dir = _write_fake_s4s6_runs(exporter, tmp_path)
+    out_dir = tmp_path / "out"
+    argv = [
+        "--s4s6", str(_s4s6_models_json(tmp_path)),
+        "--h5-dir", str(h5_dir),
+        "--out-dir", str(out_dir),
+    ]  # fmt: skip
+    exporter.main(argv)
+    return exporter, out_dir
+
+
+def test_s4s6_backgrounds_follow_the_clutter(exporter, tmp_path):
+    h5_dir = _write_fake_s4s6_runs(exporter, tmp_path)
+    jobs = exporter.load_s4s6_specs(_s4s6_models_json(tmp_path), h5_dir)
+    backgrounds = {spec["model_id"]: src.background_h5.name for spec, src in jobs}
+    assert backgrounds == {
+        "S4N_D03_S010": "BG_N_S010_merged.h5",
+        "S6P_D03_S010": "BG_PF_S010_merged.h5",
+        "S6P_NP_S010": "BG_PF_S010_merged.h5",
+        "S4S_D03_S010": "BG_N_S010_merged.h5",
+    }
+    assert all(src.free_space_h5 == h5_dir / "FS.h5" for _, src in jobs)
+    with pytest.raises(ValueError, match="soil tag"):
+        exporter.s4s6_background_id(
+            {"id": "S4N_D15_S030", "clutter": "none", "soil_sigma_S_per_m": 0.01}
+        )
+
+
+def test_s4s6_pipe_line_json_has_the_harness_keys(s4s6_export):
+    _, out_dir = s4s6_export
+    meta = _read_json(out_dir / "S6P_D03_S010.json")
+    assert list(meta)[: len(SINGLE_PIPE_KEYS)] == SINGLE_PIPE_KEYS
+    assert meta["n_pipes"] == 1 and meta["pipes"][0]["apex_trace_index"] == 15
+    assert meta["apex_trace_index"] == 15
+    assert meta["expected_apex_envelope_peak_ns_approx"] == 9.0
+    assert meta["air_gap_m"] == ANTENNA_HEIGHT_M
+    extra = meta["s4s6"]
+    assert extra["clutter"] == "paving" and extra["clutter_meta"] == S4S6_PAVING
+    assert extra["background_reference"] == "BG_PF_S010"
+    assert meta["velocity_m_per_ns"] == pytest.approx(VELOCITY_M_PER_NS, rel=1e-12)
+    stones = _read_json(out_dir / "S4S_D03_S010.json")["s4s6"]
+    assert stones["clutter_meta"] == S4S6_STONES
+    assert _read_json(out_dir / "S4N_D03_S010.json")["s4s6"]["clutter_meta"] is None
+    radargram = load_synthetic(
+        "S6P_D03_S010",
+        root=out_dir,
+        include_eps=True,
+        include_radius=False,
+        include_height=True,
+    )
+    assert radargram.antenna_height_m == ANTENNA_HEIGHT_M
+
+
+def test_s4s6_no_pipe_line_is_a_background_line(s4s6_export):
+    _, out_dir = s4s6_export
+    meta = _read_json(out_dir / "S6P_NP_S010.json")
+    assert meta["n_pipes"] == 0 and meta["pipes"] == []
+    assert meta["apex"] is None and meta["apex_trace_index"] is None
+    assert meta["expected_apex_envelope_peak_ns_approx"] is None
+    assert load_synthetic_pipe_truths("S6P_NP_S010", root=out_dir) == []
+    with (out_dir / "manifest.csv").open(encoding="utf-8", newline="") as handle:
+        rows = {row["model_id"]: row for row in csv.DictReader(handle)}
+    assert rows["S6P_NP_S010"]["n_pipes"] == "0"
+    assert rows["S4N_D03_S010"]["n_pipes"] == "1"
+
+
 def _assert_same_json(actual, expected, path="$"):
     """Same keys in the same order and same values; floats within 1e-9 relative.
 
