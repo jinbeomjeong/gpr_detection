@@ -1,0 +1,8 @@
+{
+ "note": "model-selection estimate (doc 4-2-7), not a batch-1 result",
+ "apex": {
+  "A0": 0.13335845011294697,
+  "t_apex_ns": 33.614000000000004,
+  "subtracted_nopipe": true
+ }
+}

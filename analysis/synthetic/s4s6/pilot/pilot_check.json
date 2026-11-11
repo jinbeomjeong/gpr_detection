@@ -1,0 +1,147 @@
+{
+ "structure": {
+  "BG_N_S030": {
+   "Iterations": 4665,
+   "dt": 1.1793271683748419e-11,
+   "dtype": "float32",
+   "ntraces": 3,
+   "finite": true
+  },
+  "BG_PF_S030": {
+   "Iterations": 4665,
+   "dt": 1.1793271683748419e-11,
+   "dtype": "float32",
+   "ntraces": 3,
+   "finite": true
+  },
+  "FS": {
+   "Iterations": 4665,
+   "dt": 1.1793271683748419e-11,
+   "dtype": "float32",
+   "ntraces": 1,
+   "finite": true
+  },
+  "P_S4N_D15_S030": {
+   "Iterations": 4665,
+   "dt": 1.1793271683748419e-11,
+   "dtype": "float32",
+   "ntraces": 2,
+   "finite": true
+  },
+  "P_S6P_D15_S030": {
+   "Iterations": 4665,
+   "dt": 1.1793271683748419e-11,
+   "dtype": "float32",
+   "ntraces": 2,
+   "finite": true
+  }
+ },
+ "bg_lateral_rel": {
+  "BG_N_S030": [
+   1.963596123109964e-06,
+   2.2197173565590896e-06
+  ],
+  "BG_PF_S030": [
+   2.190514233805218e-06,
+   2.274039376791641e-06
+  ]
+ },
+ "time_zero": {
+  "no_clutter": {
+   "band_peak_ns": 3.2230066865592306,
+   "surface_reflection_peak_ns": 3.6018897550065176,
+   "surface_refl_env": 272.2053551441441
+  },
+  "flat_paving": {
+   "band_peak_ns": 3.200800324151926,
+   "surface_reflection_peak_ns": 3.6458467114935416,
+   "surface_refl_env": 212.76650126390496
+  },
+  "surface_reflection_geom_offset_ns": 3.57429911646247
+ },
+ "paving_clutter": {
+  "mute_ns_assumed(band_peak+2ns)": 5.200800324151926,
+  "x1.0": {
+   "max_env_mute_to_mute+6ns": 1.7519550561326855,
+   "t_of_max_ns": 6.297607079121655,
+   "max_env_before_mute": 1.2087431739352386
+  },
+  "x2.0": {
+   "max_env_mute_to_mute+6ns": 1.7636233445412692,
+   "t_of_max_ns": 6.250433992386662,
+   "max_env_before_mute": 1.337336202377184
+  },
+  "deep_apex_over_max_clutter_below_mute_x2.0": 0.1359844152059893,
+  "S4N_deep_apex_env": 0.14583565188180034,
+  "decay_x1.0": [
+   {
+    "t0_ns": 5.2,
+    "max_env": 1.7519550561326855
+   },
+   {
+    "t0_ns": 7.2,
+    "max_env": 0.6607817745595509
+   },
+   {
+    "t0_ns": 9.2,
+    "max_env": 0.4810621124482562
+   },
+   {
+    "t0_ns": 11.2,
+    "max_env": 0.07507353155017224
+   },
+   {
+    "t0_ns": 13.2,
+    "max_env": 0.029810338677035992
+   },
+   {
+    "t0_ns": 15.2,
+    "max_env": 0.030194663661335715
+   },
+   {
+    "t0_ns": 17.2,
+    "max_env": 0.012661931912562855
+   },
+   {
+    "t0_ns": 19.2,
+    "max_env": 0.007423646505826257
+   },
+   {
+    "t0_ns": 21.2,
+    "max_env": 0.0028695528637822268
+   },
+   {
+    "t0_ns": 23.2,
+    "max_env": 0.001178656488088967
+   },
+   {
+    "t0_ns": 25.2,
+    "max_env": 0.0009674499062696558
+   },
+   {
+    "t0_ns": 27.2,
+    "max_env": 0.0007548037106978236
+   }
+  ]
+ },
+ "pipe": {
+  "S4N_D15_S030": {
+   "apex_x2.0_peak_ns": 33.62776259675932,
+   "expected_approx_ns": 33.56,
+   "dt_ns": 0.06776259675931584,
+   "apex_env": 0.14583565188180034,
+   "depth_from_surface_zero_m": 1.5002550371374195
+  },
+  "S6P_D15_S030": {
+   "apex_x2.0_peak_ns": 32.850486753974025,
+   "expected_approx_ns": 32.82,
+   "dt_ns": 0.03048675397402434,
+   "apex_env": 0.23982528915107548
+  }
+ },
+ "late_last5ns_rel": {
+  "S4N": 6.581322472122527e-05,
+  "S6P": 3.226017008813313e-05,
+  "BG_PF_raw": 4.578732925187551e-08
+ }
+}

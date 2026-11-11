@@ -1,0 +1,20 @@
+#title: BG_PF_S040 soil eps=9.0 sigma=0.04 clutter=paving_flat pipe=none f=500MHz h=0.1
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.04 1 0 soil
+#material: 5.0 0.002 1 0 brick
+#material: 4.0 0.001 1 0 sand
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.35 2.2 inf src_wave
+#rx: 0.45 2.2 inf rx1 Ez
+#src_steps: 1.6 0 0
+#rx_steps: 1.6 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#box: 0 1.97 0 4.0 2.02 inf sand
+#box: 0 2.02 0 4.0 2.1 inf brick

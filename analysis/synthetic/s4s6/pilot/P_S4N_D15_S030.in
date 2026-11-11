@@ -1,0 +1,17 @@
+#title: P_S4N_D15_S030 pilot traces x=1.0,2.0 of soil eps=9.0 sigma=0.03 clutter=none pipe=pec R=0.1 d_top=1.5 x=2.0 f=500MHz h=0.1
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.03 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.95 2.2 inf src_wave
+#rx: 1.05 2.2 inf rx1 Ez
+#src_steps: 1.0 0 0
+#rx_steps: 1.0 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#cylinder: 2.0 0.5 0 2.0 0.5 inf 0.1 pec

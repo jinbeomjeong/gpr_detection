@@ -1,0 +1,15 @@
+#title: P_S4N_D15_S040 pilot single trace x=2.0 (apex check) of soil eps=9.0 sigma=0.04 clutter=none pipe=pec R=0.1 d_top=1.5 x=2.0 f=500MHz h=0.1
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.04 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.95 2.2 inf src_wave
+#rx: 2.05 2.2 inf rx1 Ez
+
+#box: 0 0 0 4.0 2.1 inf soil
+#cylinder: 2.0 0.5 0 2.0 0.5 inf 0.1 pec

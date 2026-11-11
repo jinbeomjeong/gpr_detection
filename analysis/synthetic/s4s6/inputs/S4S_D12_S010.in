@@ -1,0 +1,23 @@
+#title: S4S_D12_S010 soil eps=9.0 sigma=0.01 clutter=stones pipe=pec R=0.1 d_top=1.2 x=2.0 f=500MHz h=0.1
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.01 1 0 soil
+#material: 6.0 0.0 1 0 stone
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 0.35 2.2 inf src_wave
+#rx: 0.45 2.2 inf rx1 Ez
+#src_steps: 0.02 0 0
+#rx_steps: 0.02 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#cylinder: 0.8 1.95 0 0.8 1.95 inf 0.03 stone
+#cylinder: 1.35 1.8 0 1.35 1.8 inf 0.03 stone
+#cylinder: 1.85 1.88 0 1.85 1.88 inf 0.03 stone
+#cylinder: 2.55 1.7 0 2.55 1.7 inf 0.03 stone
+#cylinder: 3.1 1.92 0 3.1 1.92 inf 0.03 stone
+#cylinder: 2.0 0.8 0 2.0 0.8 inf 0.1 pec
