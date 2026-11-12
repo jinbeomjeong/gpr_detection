@@ -1,0 +1,238 @@
+{
+ "note": "already-seen M2-9 candidates (judged run); spec_eval 9-8 G recomputed read-only; diagnostic only",
+ "input": "docs/processing/depth_4tu_v2_candidates.csv",
+ "input_sha256": "f38466b2633f49fb528ee8ea608e7568e7058fc7ad0392c4dadc603e0fb12b7e",
+ "steps": 4,
+ "total": {
+  "n_candidates": 3487,
+  "n_any": 538,
+  "pct_any": 15.4,
+  "n_both": 69,
+  "n_wings": 6974,
+  "n_wings_near": 607,
+  "pct_wings": 8.7,
+  "reasons": {
+   "amplitude": 7,
+   "reverse": 87,
+   "reverse_top": 513
+  }
+ },
+ "by_site": {
+  "1": {
+   "n_candidates": 466,
+   "n_any": 61,
+   "pct_any": 13.1,
+   "n_both": 6,
+   "n_wings": 932,
+   "n_wings_near": 67,
+   "pct_wings": 7.2,
+   "reasons": {
+    "reverse": 9,
+    "reverse_top": 58
+   }
+  },
+  "2": {
+   "n_candidates": 276,
+   "n_any": 25,
+   "pct_any": 9.1,
+   "n_both": 0,
+   "n_wings": 552,
+   "n_wings_near": 25,
+   "pct_wings": 4.5,
+   "reasons": {
+    "reverse": 3,
+    "reverse_top": 22
+   }
+  },
+  "3": {
+   "n_candidates": 453,
+   "n_any": 89,
+   "pct_any": 19.6,
+   "n_both": 15,
+   "n_wings": 906,
+   "n_wings_near": 104,
+   "pct_wings": 11.5,
+   "reasons": {
+    "amplitude": 3,
+    "reverse": 17,
+    "reverse_top": 84
+   }
+  },
+  "4": {
+   "n_candidates": 139,
+   "n_any": 36,
+   "pct_any": 25.9,
+   "n_both": 2,
+   "n_wings": 278,
+   "n_wings_near": 38,
+   "pct_wings": 13.7,
+   "reasons": {
+    "reverse": 11,
+    "reverse_top": 27
+   }
+  },
+  "5": {
+   "n_candidates": 123,
+   "n_any": 30,
+   "pct_any": 24.4,
+   "n_both": 3,
+   "n_wings": 246,
+   "n_wings_near": 33,
+   "pct_wings": 13.4,
+   "reasons": {
+    "reverse": 6,
+    "reverse_top": 27
+   }
+  },
+  "6": {
+   "n_candidates": 224,
+   "n_any": 43,
+   "pct_any": 19.2,
+   "n_both": 10,
+   "n_wings": 448,
+   "n_wings_near": 53,
+   "pct_wings": 11.8,
+   "reasons": {
+    "amplitude": 1,
+    "reverse": 10,
+    "reverse_top": 42
+   }
+  },
+  "7": {
+   "n_candidates": 108,
+   "n_any": 18,
+   "pct_any": 16.7,
+   "n_both": 6,
+   "n_wings": 216,
+   "n_wings_near": 24,
+   "pct_wings": 11.1,
+   "reasons": {
+    "amplitude": 1,
+    "reverse_top": 23
+   }
+  },
+  "8": {
+   "n_candidates": 199,
+   "n_any": 41,
+   "pct_any": 20.6,
+   "n_both": 5,
+   "n_wings": 398,
+   "n_wings_near": 46,
+   "pct_wings": 11.6,
+   "reasons": {
+    "reverse": 7,
+    "reverse_top": 39
+   }
+  },
+  "9": {
+   "n_candidates": 258,
+   "n_any": 31,
+   "pct_any": 12.0,
+   "n_both": 7,
+   "n_wings": 516,
+   "n_wings_near": 38,
+   "pct_wings": 7.4,
+   "reasons": {
+    "reverse": 3,
+    "reverse_top": 35
+   }
+  },
+  "10": {
+   "n_candidates": 604,
+   "n_any": 90,
+   "pct_any": 14.9,
+   "n_both": 14,
+   "n_wings": 1208,
+   "n_wings_near": 104,
+   "pct_wings": 8.6,
+   "reasons": {
+    "amplitude": 1,
+    "reverse": 16,
+    "reverse_top": 87
+   }
+  },
+  "11": {
+   "n_candidates": 448,
+   "n_any": 32,
+   "pct_any": 7.1,
+   "n_both": 0,
+   "n_wings": 896,
+   "n_wings_near": 32,
+   "pct_wings": 3.6,
+   "reasons": {
+    "reverse": 2,
+    "reverse_top": 30
+   }
+  },
+  "12": {
+   "n_candidates": 128,
+   "n_any": 32,
+   "pct_any": 25.0,
+   "n_both": 1,
+   "n_wings": 256,
+   "n_wings_near": 33,
+   "pct_wings": 12.9,
+   "reasons": {
+    "amplitude": 1,
+    "reverse": 2,
+    "reverse_top": 30
+   }
+  },
+  "13": {
+   "n_candidates": 61,
+   "n_any": 10,
+   "pct_any": 16.4,
+   "n_both": 0,
+   "n_wings": 122,
+   "n_wings_near": 10,
+   "pct_wings": 8.2,
+   "reasons": {
+    "reverse": 1,
+    "reverse_top": 9
+   }
+  }
+ },
+ "by_qc_verdict": {
+  "in": {
+   "n_candidates": 1011,
+   "n_any": 10,
+   "pct_any": 1.0,
+   "n_both": 0,
+   "n_wings": 2022,
+   "n_wings_near": 10,
+   "pct_wings": 0.5,
+   "reasons": {
+    "amplitude": 3,
+    "reverse": 3,
+    "reverse_top": 4
+   }
+  },
+  "out": {
+   "n_candidates": 921,
+   "n_any": 22,
+   "pct_any": 2.4,
+   "n_both": 0,
+   "n_wings": 1842,
+   "n_wings_near": 22,
+   "pct_wings": 1.2,
+   "reasons": {
+    "reverse": 5,
+    "reverse_top": 17
+   }
+  },
+  "unknown": {
+   "n_candidates": 1555,
+   "n_any": 506,
+   "pct_any": 32.5,
+   "n_both": 69,
+   "n_wings": 3110,
+   "n_wings_near": 575,
+   "pct_wings": 18.5,
+   "reasons": {
+    "amplitude": 4,
+    "reverse": 79,
+    "reverse_top": 492
+   }
+  }
+ }
+}
