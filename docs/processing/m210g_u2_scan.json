@@ -1,0 +1,85 @@
+{
+ "note": "already-seen 4TU M2-9 matches; exploration only, U-2 is not decided here",
+ "input_sha256": "b601de506825718d04ecd938b6258c1cc3f06e41a020d88ddb674473b3b07fb5",
+ "truth_sha256": "2244dee520ead2abbd5024d1c1008fdc4aae3980265127d23aff4a1d474d2591",
+ "seed": 20261131,
+ "main": {
+  "n_pairs": 184,
+  "n_radius_known": 55,
+  "pairs_identical_between_assumptions": false,
+  "bias_top_all": -0.1596,
+  "bias_center_all": -0.1263,
+  "n_radius_known_unambiguous": 43,
+  "R_m_q10_q50_q90_radius_known": [
+   0.02,
+   0.055,
+   0.315
+  ],
+  "R_m_min_max": [
+   0.008,
+   0.6
+  ],
+  "R_sd_m": 0.16,
+  "sites_radius_known": {
+   "1": 16,
+   "4": 10,
+   "5": 2,
+   "6": 3,
+   "8": 7,
+   "10": 5
+  },
+  "bias_top_radius_known": -0.1201,
+  "bias_center_radius_known": -0.0035,
+  "regress_e_top_on_R_and_d": {
+   "n": 43,
+   "n_activities": 25,
+   "coef_R": -0.395,
+   "coef_R_ci95": [
+    -1.238,
+    -0.019
+   ],
+   "coef_d": -0.149,
+   "expect": "top truth -> coef_R ~ 0; centre truth -> coef_R ~ -1"
+  }
+ },
+ "b": {
+  "n_pairs": 339,
+  "n_radius_known": 92,
+  "pairs_identical_between_assumptions": false,
+  "bias_top_all": -0.1701,
+  "bias_center_all": -0.1478,
+  "n_radius_known_unambiguous": 80,
+  "R_m_q10_q50_q90_radius_known": [
+   0.02,
+   0.055,
+   0.315
+  ],
+  "R_m_min_max": [
+   0.008,
+   0.6
+  ],
+  "R_sd_m": 0.156,
+  "sites_radius_known": {
+   "1": 28,
+   "4": 21,
+   "5": 2,
+   "6": 7,
+   "8": 9,
+   "10": 11,
+   "12": 2
+  },
+  "bias_top_radius_known": -0.2169,
+  "bias_center_radius_known": -0.0947,
+  "regress_e_top_on_R_and_d": {
+   "n": 80,
+   "n_activities": 34,
+   "coef_R": -0.335,
+   "coef_R_ci95": [
+    -0.926,
+    0.046
+   ],
+   "coef_d": -0.734,
+   "expect": "top truth -> coef_R ~ 0; centre truth -> coef_R ~ -1"
+  }
+ }
+}
