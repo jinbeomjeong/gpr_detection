@@ -1,0 +1,400 @@
+{
+ "spec": "docs/processing/m210_c_qc.md v1.2 sections 4-2, 5 (C-7); report only",
+ "note": "report only: no threshold, no verdict, no depth (C-7)",
+ "seeds": {
+  "seed_overlap": 0,
+  "checked_against": {
+   "batch1": 101,
+   "v2": 201,
+   "v3": 481,
+   "prototype": 1710,
+   "k7_monte_carlo": 581,
+   "k7_harness": 641,
+   "a_eps_bias": 3
+  },
+  "seed_formula": "20311112 + 1000 m + 100 q + s, s 0-19",
+  "unit_noise_seed": 20311199,
+  "n_seeds": 161
+ },
+ "mkl_cbwr": "COMPATIBLE",
+ "inputs": {
+  "data/synthetic_gprmax_c_qc/Z_HSTEP.npy": "6702d2b82d8f6c6f0f936c045120fe3c81dc69c86f3909b8adea544000c9068a",
+  "data/synthetic_gprmax_c_qc/Z_HSTEP.json": "dd83206176f526b007a2b72e2a71c65a2d87c42ba07145e4076c93e650232f93",
+  "data/synthetic_gprmax_c_qc/Z_HWAVE.npy": "f9d6d260f45e14518de4e0f9f79d894d53b82f99785209e076a4b46a92986f2f",
+  "data/synthetic_gprmax_c_qc/Z_HWAVE.json": "4d9f1cc66acd58d208155469d980e94c68db9d3f1cfbb0a90ccffc41fa1175bb",
+  "data/synthetic_gprmax_k7/K7_P1_D060.npy": "5a8a9b962f31ee6cc66c23cc935174cfbf2cd03c635d06a36bae201f0c7da8f6",
+  "data/synthetic_gprmax_k7/K7_P1_D060.json": "db19fe75cf569565d1c9010a2e7a08751e771c70b05e03ea133e44409570cf01",
+  "data/synthetic_gprmax_k7/K7_P2_D070_L.npy": "5a6435cdd33a07bd2e9fe63518cb74a3dd8749ef3b20ce8edf57e70b57056265",
+  "data/synthetic_gprmax_k7/K7_P2_D070_L.json": "3fc619c6e98acdbb17b639b5a0fffd323d16d62adfcfb36e3e1abd39989b5197"
+ },
+ "noise_sigma_raw_by_rho": {
+  "Z_HSTEP": {
+   "10": 12.007557865322427,
+   "20": 6.003778932661214
+  },
+  "Z_HWAVE": {
+   "10": 11.69658297554376,
+   "20": 5.84829148777188
+  },
+  "K7_P1_D060": {
+   "10": 13.545056675975347,
+   "20": 6.772528337987674
+  },
+  "K7_P2_D070_L": {
+   "10": 12.016307382222784,
+   "20": 6.008153691111392
+  }
+ },
+ "rows_csv": "docs/processing/m210c_flag_report.csv",
+ "rows_csv_sha256": "66f2dd1c05d2b7af47210b83de24fc0b53f0502be2401827cfd1afb1e99ebb6f",
+ "summary": {
+  "Z_HSTEP|noise_free": {
+   "n_lines": 1,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.032594,
+    0.032594,
+    0.032594
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.011998,
+    0.011998,
+    0.011998
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": [
+    0.1221,
+    0.1221,
+    0.1221
+   ],
+   "follow_slope_band_peak_q10_q50_q90": [
+    0.336,
+    0.336,
+    0.336
+   ]
+  },
+  "Z_HSTEP|10": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.032343,
+    0.032537,
+    0.032808
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.011819,
+    0.012004,
+    0.012226
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": [
+    0.12098,
+    0.12175,
+    0.1227
+   ],
+   "follow_slope_band_peak_q10_q50_q90": [
+    0.33283,
+    0.3349,
+    0.3377
+   ]
+  },
+  "Z_HSTEP|20": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.032487,
+    0.03255,
+    0.03269
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.011939,
+    0.011984,
+    0.012085
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": [
+    0.1217,
+    0.12195,
+    0.12241
+   ],
+   "follow_slope_band_peak_q10_q50_q90": [
+    0.3348,
+    0.33545,
+    0.33683
+   ]
+  },
+  "Z_HWAVE|noise_free": {
+   "n_lines": 1,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.029984,
+    0.029984,
+    0.029984
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.012417,
+    0.012417,
+    0.012417
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": [
+    0.109,
+    0.109,
+    0.109
+   ],
+   "follow_slope_band_peak_q10_q50_q90": [
+    0.2802,
+    0.2802,
+    0.2802
+   ]
+  },
+  "Z_HWAVE|10": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.029925,
+    0.030095,
+    0.030236
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.012362,
+    0.012521,
+    0.012639
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": [
+    0.10818,
+    0.1092,
+    0.10981
+   ],
+   "follow_slope_band_peak_q10_q50_q90": [
+    0.27777,
+    0.2803,
+    0.28226
+   ]
+  },
+  "Z_HWAVE|20": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.029951,
+    0.030002,
+    0.030107
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.012384,
+    0.012443,
+    0.012518
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": [
+    0.1088,
+    0.109,
+    0.10941
+   ],
+   "follow_slope_band_peak_q10_q50_q90": [
+    0.27959,
+    0.28005,
+    0.28123
+   ]
+  },
+  "K7_P1_D060|noise_free": {
+   "n_lines": 1,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": null,
+   "follow_slope_band_peak_q10_q50_q90": null
+  },
+  "K7_P1_D060|10": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.001619,
+    0.001723,
+    0.001842
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    4.1e-05,
+    4.5e-05,
+    5.4e-05
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": null,
+   "follow_slope_band_peak_q10_q50_q90": null
+  },
+  "K7_P1_D060|20": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.000784,
+    0.000834,
+    0.000913
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    1e-05,
+    1.1e-05,
+    1.3e-05
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": null,
+   "follow_slope_band_peak_q10_q50_q90": null
+  },
+  "K7_P2_D070_L|noise_free": {
+   "n_lines": 1,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": null,
+   "follow_slope_band_peak_q10_q50_q90": null
+  },
+  "K7_P2_D070_L|10": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.001433,
+    0.001535,
+    0.001613
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    3.3e-05,
+    3.6e-05,
+    4.1e-05
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": null,
+   "follow_slope_band_peak_q10_q50_q90": null
+  },
+  "K7_P2_D070_L|20": {
+   "n_lines": 20,
+   "band_shift_std_ns_q10_q50_q90": [
+    0.000702,
+    0.000755,
+    0.000828
+   ],
+   "band_c1_minus_c0_q10_q50_q90": [
+    8e-06,
+    9e-06,
+    1.1e-05
+   ],
+   "band_shift_n_valid_q10_q50_q90": [
+    161.0,
+    161.0,
+    161.0
+   ],
+   "flag_rates": {
+    "zero_shift_large": 0.0,
+    "zero_tracks_surface": 0.0,
+    "zero_shift_not_surface": 0.0
+   },
+   "follow_slope_geometry_q10_q50_q90": null,
+   "follow_slope_band_peak_q10_q50_q90": null
+  }
+ }
+}

@@ -872,3 +872,130 @@ def test_k7_em_json_specs_use_the_shared_references(exporter):
         for pipe in spec["extra_meta"]["k7"]["pipes_json"]:
             offset = (pipe["x_m"] - spec["scan_start_m"]) / spec["trace_step_m"]
             assert round(offset) == pipe["apex_trace_index"]
+
+
+# ----------------------------------------------------------------- M2-10 (c)
+
+C_LIBRARY_HEIGHTS_M = (0.06, 0.10, 0.14)
+C_STEP_TRACE = 15
+
+
+def _c_heights() -> list[float]:
+    return [0.06 if i < C_STEP_TRACE else 0.14 for i in range(N_TRACES)]
+
+
+def _c_models_json(tmp_path: Path, heights=None) -> Path:
+    heights = _c_heights() if heights is None else heights
+    mean = sum(heights) / len(heights)
+    pipes = [
+        {"pipe_index": 0, "x_m": 0.8, "top_depth_m": 0.3, "radius_m": 0.05,
+         "material": "pec", "side": "low_gap", "apex_trace_index": 10},
+        {"pipe_index": 1, "x_m": 1.4, "top_depth_m": 0.3, "radius_m": 0.05,
+         "material": "pec", "side": "high_gap", "apex_trace_index": 25},
+    ]  # fmt: skip
+    model = {
+        "id": "Z_T", "role": "effect", "input": "in/Z_T.in", "n_traces": N_TRACES,
+        "scan_start_m": SCAN_START_M, "trace_step_m": TRACE_STEP_M,
+        "soil": {"eps_r": 9.0, "sigma_S_per_m": 0.001}, "height_rule": "step",
+        "antenna_height_m": heights, "antenna_height_mean_m": mean,
+        "expected_band_shift_ns": [2 * (h - mean) / 0.299792458 for h in heights],
+        "pipes": pipes, "output": "h5/Z_T_merged.h5",
+        "bg_ref": "Z_REF_T (per-trace)", "fs_ref": "Z_FS_T (per-trace)",
+    }  # fmt: skip
+    references = [
+        {"id": "Z_REF_T", "n_traces": 3, "antenna_height_m": list(C_LIBRARY_HEIGHTS_M),
+         "output": "h5/Z_REF_T_merged.h5"},
+        {"id": "Z_FS_T", "n_traces": 3, "antenna_height_m": list(C_LIBRARY_HEIGHTS_M),
+         "output": "h5/Z_FS_T_merged.h5"},
+    ]  # fmt: skip
+    common = {
+        "eps_r_soil": 9.0, "sigma_S_per_m": 0.001, "center_freq_hz": FREQ_HZ,
+        "antenna_offset_m": 0.1, "fdtd_cell_m": 0.005, "pml_cells": 20,
+        "y_surface_m": 0.7, "time_window_ns": 28.0,
+    }  # fmt: skip
+    meta = {"common": common, "models": [model], "references": references,
+            "controls": [{"id": "K7_P1_D060"}]}  # fmt: skip
+    path = tmp_path / "models_c_qc.json"
+    path.write_text(json.dumps(meta), encoding="utf-8")
+    return path
+
+
+def _write_fake_c_runs(exporter: ModuleType, tmp_path: Path) -> Path:
+    """Height libraries (bg, fs) and a line whose height steps at trace 15."""
+    h5_dir = tmp_path / "h5"
+    h5_dir.mkdir()
+    t_ns = np.arange(N_SAMPLES) * DT_NS
+    source_peak_ns = math.sqrt(2.0) / (FREQ_HZ * 1e-9)
+    direct = _ricker(t_ns, source_peak_ns + exporter.direct_air_time(0.1))
+
+    def background(h: float) -> np.ndarray:
+        surface = exporter.surface_reflection_time(0.1, h)
+        return direct + 0.5 * _ricker(t_ns, source_peak_ns + surface)
+
+    library = np.column_stack([background(h) for h in C_LIBRARY_HEIGHTS_M])
+    _write_h5(h5_dir / "Z_REF_T_merged.h5", library)
+    _write_h5(h5_dir / "Z_FS_T_merged.h5", np.tile(direct[:, None], (1, 3)))
+    x_mid = SCAN_START_M + np.arange(N_TRACES) * TRACE_STEP_M
+    heights = _c_heights()
+    bscan = np.column_stack([background(h) for h in heights])
+    for x0 in (0.8, 1.4):
+        for i, (x, h) in enumerate(zip(x_mid, heights, strict=True)):
+            ray = exporter.trace_reflection_times(
+                np.array([x]), 0.1, h, x0, 0.3, 0.05, VELOCITY_M_PER_NS
+            )[0]
+            bscan[:, i] += _ricker(t_ns, source_peak_ns + ray)
+    _write_h5(h5_dir / "Z_T_merged.h5", bscan)
+    return h5_dir
+
+
+def test_c_export_uses_the_per_trace_height_libraries(exporter, tmp_path):
+    h5_dir = _write_fake_c_runs(exporter, tmp_path)
+    out_dir = tmp_path / "out"
+    exporter.main(
+        ["--c-qc", str(_c_models_json(tmp_path)), "--h5-dir", str(h5_dir),
+         "--out-dir", str(out_dir)]
+    )  # fmt: skip
+    meta = _read_json(out_dir / "Z_T.json")
+    assert list(meta)[: len(SINGLE_PIPE_KEYS)] == SINGLE_PIPE_KEYS
+    c_qc = meta["c_qc"]
+    assert c_qc["library_trace_index"] == [0] * C_STEP_TRACE + [2] * (
+        N_TRACES - C_STEP_TRACE
+    )
+    assert c_qc["pipe_sides"] == {"0": "low_gap", "1": "high_gap"}
+    peaks = c_qc["surface_reflection_peak_ns_per_trace"]
+    # Slant Tx-surface-Rx paths with the 0.1 m offset.
+    high, low = (exporter.surface_reflection_time(0.1, h) for h in (0.14, 0.06))
+    gap = high - low
+    assert peaks[-1] - peaks[0] == pytest.approx(gap, abs=0.02)
+    assert np.load(out_dir / "Z_T_bg.npy").shape == (N_SAMPLES, N_TRACES)
+    assert [p["apex_trace_index"] for p in meta["pipes"]] == [10, 25]
+    truths = load_synthetic_pipe_truths("Z_T", root=out_dir)
+    assert [t.apex_trace_index for t in truths] == [10, 25]
+    radargram = load_synthetic("Z_T", root=out_dir, include_height=True)
+    # json air_gap_m = the mean height, rounded to 1 um like every export
+    mean_height = sum(_c_heights()) / N_TRACES
+    assert radargram.antenna_height_m == pytest.approx(mean_height, abs=1e-6)
+
+
+def test_c_heights_must_be_in_the_library(exporter, tmp_path):
+    with pytest.raises(ValueError, match="not in the library"):
+        exporter.library_indices([0.06, 0.07], C_LIBRARY_HEIGHTS_M)
+    heights = _c_heights()
+    heights[3] = 0.065
+    with pytest.raises(ValueError, match="not in the library"):
+        exporter.load_c_specs(_c_models_json(tmp_path, heights))
+    with pytest.raises(SystemExit, match="exclusive"):
+        exporter.main(["--c-qc", "a.json", "--k7", "b.json"])
+
+
+def test_c_em_json_specs_resolve(exporter):
+    """Dry run on the committed models_c_qc.json (no h5 is read)."""
+    models_json = PROJECT / "analysis" / "synthetic" / "c_qc" / "models_c_qc.json"
+    if not models_json.exists():
+        pytest.skip("models_c_qc.json not available")
+    jobs = exporter.load_c_specs(models_json)
+    assert [spec["model_id"] for spec, _ in jobs] == ["Z_HSTEP", "Z_HWAVE"]
+    for spec, sources in jobs:
+        assert sources.background_library_h5.name == "Z_REF_H_merged.h5"
+        assert sources.free_space_library_h5.name == "Z_FS_H_merged.h5"
+        assert len(spec["antenna_height_m"]) == spec["n_traces"]

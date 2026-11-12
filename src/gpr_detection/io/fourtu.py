@@ -89,7 +89,8 @@ def load_fourtu_radargram(
             ``t0_candidates_ns`` (keys ``t0_sample_est``, ``t0_sample_act_median``).
 
     Returns:
-        Air-coupled radargram with ``eps_r_meta`` from ``eps_r_used``.
+        Air-coupled radargram with ``eps_r_meta`` from ``eps_r_used`` and
+        ``eps_r_header`` from the json ``eps_r_header`` (header setting).
 
     Raises:
         ValueError: If the array shape disagrees with the json.
@@ -122,4 +123,9 @@ def load_fourtu_radargram(
         antenna_offset_m=None,
         t0_candidates_ns=t0_candidates,
         metadata={**meta, "site": site_of_activity(activity_id)},
+        eps_r_header=_optional_float(meta.get("eps_r_header")),
     )
+
+
+def _optional_float(value: object) -> float | None:
+    return None if value is None else float(value)

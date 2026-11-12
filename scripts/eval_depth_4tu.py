@@ -81,9 +81,11 @@ from scipy.optimize import linear_sum_assignment
 
 from gpr_detection.depth.config import DEFAULT_DEPTH_CONFIG, DepthConfig
 from gpr_detection.depth.estimate import (
+    EPS_META_EQUALS_HEADER_DEFAULT,
     DepthInputs,
     depth_from_time,
     estimate_depth,
+    header_eps_flags,
     prepare_depth_inputs,
 )
 from gpr_detection.depth.hyperbola import (
@@ -116,6 +118,9 @@ from gpr_detection.preprocess.filters import period_ns_or_default
 from gpr_detection.preprocess.timezero import (
     AIR_MULTI_EVENT,
     DEFAULT_PERIOD_NS,
+    ZERO_SHIFT_LARGE,
+    ZERO_SHIFT_NOT_SURFACE,
+    ZERO_TRACKS_SURFACE,
     ZeroResult,
     ZeroRule,
 )
@@ -4426,11 +4431,34 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         help="apex-candidate QC before clustering (v1.4); off = v1.3.1 main result",
     )
     parser.add_argument(
+        "--band-shift-qc",
+        action="store_true",
+        help="M2-10 (c) P3 band-shift QC in the line diagnostics (needs --diag-out)",
+    )
+    parser.add_argument(
+        "--flag-header-eps",
+        action="store_true",
+        help="M2-10 (c) P5 header eps flag in the line diagnostics (needs --diag-out)",
+    )
+    parser.add_argument(
+        "--diag-out",
+        type=Path,
+        default=None,
+        help=(
+            "M2-10 (c): write only the line diagnostics csv into this folder "
+            "(no depth, matching or summary; the default outputs are untouched)"
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="parse candidates, lines and ground truth only; load no radargram",
     )
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    uses_diag_option = args.band_shift_qc or args.flag_header_eps
+    if uses_diag_option and args.diag_out is None:
+        parser.error("--band-shift-qc and --flag-header-eps need --diag-out")
+    return args
 
 
 def _read_inputs(args: argparse.Namespace) -> tuple[Path, pd.DataFrame, pd.DataFrame]:
@@ -4442,6 +4470,85 @@ def _read_inputs(args: argparse.Namespace) -> tuple[Path, pd.DataFrame, pd.DataF
         candidates = candidates[candidates["activity_id"].isin(wanted)]
         lines = lines[lines["activity_id"].isin(wanted)]
     return root, candidates, lines
+
+
+LINE_DIAG_COLUMNS = (
+    "activity_id",
+    "path",
+    "site",
+    "zero_rule",
+    "band_shift_std_ns",
+    "band_c0",
+    "band_c1",
+    "band_shift_n_valid",
+    ZERO_SHIFT_LARGE,
+    ZERO_TRACKS_SURFACE,
+    ZERO_SHIFT_NOT_SURFACE,
+    "zero_window_drift",
+    "eps_r_meta",
+    "eps_r_header",
+    EPS_META_EQUALS_HEADER_DEFAULT,
+    "pipe_time_std_ref_ns",
+)
+"""M2-10 (c) v1.1 section 7 line diagnostics columns."""
+PIPE_TIME_STD_REF_FACTOR = 2.5
+"""``pipe_time_std_ref_ns = 2.5 sigma_s``: the reference factor of the 2-D
+synthetic condition (m210_c_qc section 1-1); report only, never a depth or rule."""
+
+
+def line_diagnostic_row(radargram: Radargram, config: DepthConfig) -> dict:
+    """Zero QC flags of one line (M2-10 (c) section 7); no depth is computed."""
+    zero = prepare_depth_inputs(radargram, config).zero
+    activity_id, path = radargram.line_id.split("/", 1)
+    coherence = zero.band_coherence or (None, None)
+    header_flags = header_eps_flags(radargram, config)
+    sigma_s = zero.band_shift_std_ns
+    return {
+        "activity_id": activity_id,
+        "path": path,
+        "site": site_of_activity(activity_id),
+        "zero_rule": str(zero.zero_rule),
+        "band_shift_std_ns": _rounded(sigma_s, 4),
+        "band_c0": _rounded(coherence[0], 4),
+        "band_c1": _rounded(coherence[1], 4),
+        "band_shift_n_valid": ""
+        if zero.band_shift_n_valid is None
+        else zero.band_shift_n_valid,
+        ZERO_SHIFT_LARGE: ZERO_SHIFT_LARGE in zero.flags,
+        ZERO_TRACKS_SURFACE: ZERO_TRACKS_SURFACE in zero.flags,
+        ZERO_SHIFT_NOT_SURFACE: ZERO_SHIFT_NOT_SURFACE in zero.flags,
+        "zero_window_drift": "zero_window_drift" in zero.flags,
+        "eps_r_meta": _rounded(radargram.eps_r_meta, 4),
+        "eps_r_header": _rounded(radargram.eps_r_header, 4),
+        EPS_META_EQUALS_HEADER_DEFAULT: EPS_META_EQUALS_HEADER_DEFAULT in header_flags,
+        "pipe_time_std_ref_ns": ""
+        if sigma_s is None
+        else round(PIPE_TIME_STD_REF_FACTOR * sigma_s, 4),
+    }
+
+
+def write_line_diagnostics(args: argparse.Namespace) -> int:
+    """``--diag-out``: one row per line of ``--lines`` (M2-10 (c) section 7).
+
+    Only ``<diag-out>/<prefix>_line_diag.csv`` is written; no depth, matching or
+    summary output, so the default outputs are never touched.
+    """
+    root, _, lines = _read_inputs(args)
+    config = DepthConfig(
+        band_shift_qc=args.band_shift_qc, flag_header_eps=args.flag_header_eps
+    )
+    rows = []
+    for activity, path in sorted(
+        zip(lines["activity_id"], lines["path"], strict=True), key=_line_sort_key
+    ):
+        radargram = load_fourtu_radargram(root, activity, path, T0Choice.BOTH)
+        rows.append(line_diagnostic_row(radargram, config))
+        LOGGER.info("%s/%s: zero diagnostics", activity, path)
+    args.diag_out.mkdir(parents=True, exist_ok=True)
+    out_path = args.diag_out / f"{args.prefix}_line_diag.csv"
+    write_csv_with_header(out_path, rows, LINE_DIAG_COLUMNS)
+    LOGGER.info("wrote %s (%d lines)", out_path, len(rows))
+    return 0
 
 
 def dry_run(args: argparse.Namespace) -> int:
@@ -4506,6 +4613,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     if args.dry_run:
         return dry_run(args)
+    if args.diag_out is not None:
+        return write_line_diagnostics(args)
     started = time.perf_counter()
     root, candidates_table, lines_table = _read_inputs(args)
     gt_sets = load_ground_truth_sets(root)

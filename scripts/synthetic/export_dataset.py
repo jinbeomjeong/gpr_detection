@@ -46,6 +46,10 @@ K7 (M2-10 K7, scan lines with 0-3 pipes, optional flat boundary), described by
 * outputs in ``data/synthetic_gprmax_k7`` only: the S1g file set and json schema
   (``n_pipes`` 0-3) plus ``k7`` (batch, role, roles, layer, json pipes, references)
 
+M2-10 (c) (per-trace antenna heights), ``--c-qc models_c_qc.json``: the effect
+models only (the reused K7 controls keep their K7 export); ``_bg``/``_fs`` come
+per trace from the 21-height libraries (``export_c_model``).
+
 Run:
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
@@ -57,6 +61,8 @@ Run:
         (json batch "v3" only, into data/synthetic_gprmax_s4s6_v3; "v2" likewise)
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
         --k7 analysis/synthetic/k7/models_k7.json   (into data/synthetic_gprmax_k7)
+    conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
+        --c-qc analysis/synthetic/c_qc/models_c_qc.json   (into ..._c_qc)
 """
 
 import argparse
@@ -87,6 +93,7 @@ RAW = OUT / "_raw"
 S1G_OUT = PROJECT / "data" / "synthetic_gprmax_s1g"
 S4S6_OUT = PROJECT / "data" / "synthetic_gprmax_s4s6"
 K7_OUT = PROJECT / "data" / "synthetic_gprmax_k7"
+C_QC_OUT = PROJECT / "data" / "synthetic_gprmax_c_qc"
 S4S6_BATCH_OUT = {
     "v2": PROJECT / "data" / "synthetic_gprmax_s4s6_v2",
     "v3": PROJECT / "data" / "synthetic_gprmax_s4s6_v3",
@@ -608,6 +615,261 @@ def load_k7_specs(
         )
         specs.append((_k7_spec(meta, model), sources))
     return specs
+
+
+@dataclass(frozen=True)
+class HeightLibrarySources:
+    """gprMax outputs of one M2-10 (c) model with per-trace antenna heights."""
+
+    bscan_h5: Path
+    background_library_h5: Path
+    free_space_library_h5: Path
+    library_heights_m: tuple[float, ...]
+    """Antenna height of every library trace (``references[].antenna_height_m``)."""
+
+
+C_LIBRARY_HEIGHT_TOL_M = 1e-6
+C_QC_COPIED_KEYS = (
+    "expected_band_peak_ns",
+    "expected_surface_reflection_ns",
+    "height_snapped_to_cell_m",
+)
+"""EM json fields copied as they are into the export json ``c_qc`` (v1.1 C-5)."""
+
+
+def _reference_id(text: str) -> str:
+    """``"Z_REF_H (per-trace: ...)"`` -> ``"Z_REF_H"`` (the json bg_ref/fs_ref note)."""
+    return text.split()[0]
+
+
+def _c_spec(meta: dict, model: dict) -> dict:
+    """Spec of an M2-10 (c) model in the S1g schema plus its per-trace heights."""
+    common = meta["common"]
+    pipes = sorted(model["pipes"], key=lambda pipe: pipe["x_m"])
+    first = pipes[0]
+    eps_r = model["soil"]["eps_r"]
+    return {
+        "model_id": model["id"],
+        "pipe_kind": first["material"],
+        "pipe_wall_m": first.get("wall_m"),
+        "pipe_radius_m": first["radius_m"],
+        "pipe_top_depth_m": first["top_depth_m"],
+        "pipe_center_x_m": first["x_m"],
+        "pipes": [
+            {
+                "center_x_m": p["x_m"],
+                "top_depth_m": p["top_depth_m"],
+                "radius_m": p["radius_m"],
+            }
+            for p in pipes
+        ],
+        "expected_apex_trace_index": [pipe["apex_trace_index"] for pipe in pipes],
+        "eps_r": eps_r,
+        "soil_sigma_S_per_m": model["soil"]["sigma_S_per_m"],
+        "velocity_m_per_ns": C0_M_PER_NS / math.sqrt(eps_r),
+        "center_freq_hz": common["center_freq_hz"],
+        "antenna_offset_m": common["antenna_offset_m"],
+        "dx_cell_m": common["fdtd_cell_m"],
+        "pml_cells": common["pml_cells"],
+        "y_surface_m": common["y_surface_m"],
+        # The mean height stands for the line (json air_gap_m, time-zero
+        # candidates); the per-trace heights are in extra_meta["c_qc"].
+        "y_antenna_m": common["y_surface_m"] + model["antenna_height_mean_m"],
+        "time_window_ns": common["time_window_ns"],
+        "scan_start_m": model["scan_start_m"],
+        "trace_step_m": model["trace_step_m"],
+        "n_traces": model["n_traces"],
+        "bg_trace_positions_m": [0.4, 2.0, 3.6],
+        "fs_reference": True,
+        "gprmax_input": model["input"],
+        "antenna_height_m": [float(h) for h in model["antenna_height_m"]],
+        "extra_meta": {
+            "c_qc": {
+                "role": model["role"],
+                "height_rule": model.get("height_rule"),
+                "antenna_height_m": model["antenna_height_m"],
+                "antenna_height_mean_m": model["antenna_height_mean_m"],
+                "expected_band_shift_ns": model["expected_band_shift_ns"],
+                **{key: model[key] for key in C_QC_COPIED_KEYS if key in model},
+                "pipe_sides": {str(p["pipe_index"]): p["side"] for p in pipes},
+                "pipes_json": model["pipes"],
+                "background_reference": _reference_id(model["bg_ref"]),
+                "free_space_reference": _reference_id(model["fs_ref"]),
+            }
+        },
+    }
+
+
+def load_c_specs(
+    models_json: Path, h5_dir: Path | None = None
+) -> list[tuple[dict, HeightLibrarySources]]:
+    """Specs and sources of the M2-10 (c) effect models (per-trace heights).
+
+    The reused K7 controls of the json (``controls``) are not exported here:
+    their K7 exports are read as they are.
+
+    Raises:
+        ValueError: A reference that is not listed, or a model height that is
+            not in its library.
+    """
+    meta = json.loads(models_json.read_text(encoding="utf-8"))
+    references = {ref["id"]: ref for ref in meta["references"]}
+
+    def locate(relative_output: str) -> Path:
+        path = PROJECT / relative_output
+        return path if h5_dir is None else h5_dir / path.name
+
+    specs = []
+    for model in meta["models"]:
+        bg_id, fs_id = _reference_id(model["bg_ref"]), _reference_id(model["fs_ref"])
+        missing = {bg_id, fs_id} - set(references)
+        if missing:
+            raise ValueError(f"{model['id']}: references {sorted(missing)} not listed")
+        heights = tuple(float(h) for h in references[bg_id]["antenna_height_m"])
+        if tuple(references[fs_id]["antenna_height_m"]) != heights:
+            raise ValueError(f"{model['id']}: {bg_id} and {fs_id} heights differ")
+        sources = HeightLibrarySources(
+            bscan_h5=locate(model["output"]),
+            background_library_h5=locate(references[bg_id]["output"]),
+            free_space_library_h5=locate(references[fs_id]["output"]),
+            library_heights_m=heights,
+        )
+        library_indices(model["antenna_height_m"], heights)  # raises when off-grid
+        specs.append((_c_spec(meta, model), sources))
+    return specs
+
+
+def library_indices(heights_m, library_heights_m) -> np.ndarray:
+    """Library trace of every line trace (equal antenna height, to 1e-6 m).
+
+    Raises:
+        ValueError: A height that is not in the library.
+    """
+    library = np.asarray(library_heights_m, dtype=np.float64)
+    indices = []
+    for h in heights_m:
+        nearest = int(np.argmin(np.abs(library - h)))
+        if abs(library[nearest] - h) > C_LIBRARY_HEIGHT_TOL_M:
+            raise ValueError(f"antenna height {h} m is not in the library")
+        indices.append(nearest)
+    return np.array(indices, dtype=int)
+
+
+def _c_ray_times(pipe: Pipe, geometry: ScanGeometry, heights_m) -> np.ndarray:
+    """Reflection time of every trace at its own antenna height."""
+    return np.array(
+        [
+            trace_reflection_times(
+                np.array([x]), geometry.offset_m, h, pipe.center_x_m,
+                pipe.top_depth_m, pipe.radius_m, geometry.velocity_m_per_ns,
+            )[0]
+            for x, h in zip(geometry.x_mid_m, heights_m, strict=True)
+        ]
+    )  # fmt: skip
+
+
+def _surface_peaks_per_trace(
+    background: np.ndarray, free_space: np.ndarray, geometry: ScanGeometry, heights_m
+) -> list[float | None]:
+    """Measured surface-reflection envelope peak (bg - fs) of every line trace."""
+    peaks = []
+    for j, h in enumerate(heights_m):
+        surface = background[:, j].astype(np.float64) - free_space[:, j]
+        expected = geometry.source_peak_ns + surface_reflection_time(
+            geometry.offset_m, h
+        )
+        t_peak, _, _, _ = envelope_pick(
+            surface, geometry.t_ns, expected - 0.5 / geometry.f_ghz,
+            expected + 1.0 / geometry.f_ghz,
+        )  # fmt: skip
+        peaks.append(None if t_peak is None else round(float(t_peak), 4))
+    return peaks
+
+
+def export_c_model(spec: dict, sources: HeightLibrarySources, out_dir: Path) -> dict:
+    """Export one M2-10 (c) model whose antenna height changes per trace.
+
+    The S1g file set and json schema, with three differences: ``_bg.npy`` and
+    ``_fs.npy`` have one column per line trace (the library trace of the same
+    antenna height), the pipe-only residual and ray times use each trace's own
+    height, and ``c_qc`` lists the heights, the expected band shifts (EM) and
+    the measured per-trace surface-reflection peaks. The line-level time-zero
+    candidates and ``air_gap_m`` use the mean height.
+
+    Raises:
+        ValueError: Time axes or shapes that disagree, or the checks of
+            :func:`export_model`.
+    """
+    mid = spec["model_id"]
+    data, dt_s, iters = read_ez(sources.bscan_h5)
+    library_bg, dt_bg, iters_bg = read_ez(sources.background_library_h5)
+    library_fs, dt_fs, iters_fs = read_ez(sources.free_space_library_h5)
+    if not (dt_s == dt_bg == dt_fs and iters == iters_bg == iters_fs):
+        raise ValueError(f"{mid}: dt/Iterations differ between line and libraries")
+    n_library = len(sources.library_heights_m)
+    if data.shape != (iters, spec["n_traces"]) or library_bg.shape[1] != n_library:
+        raise ValueError(f"{mid}: unexpected shapes {data.shape} {library_bg.shape}")
+    heights = spec["antenna_height_m"]
+    columns = library_indices(heights, sources.library_heights_m)
+    background, free_space = library_bg[:, columns], library_fs[:, columns]
+    geometry = _scan_geometry(spec, dt_s, iters)
+    pipes = pipes_from_spec(spec)
+    ray_times = [_c_ray_times(pipe, geometry, heights) for pipe in pipes]
+    residual = data.astype(np.float64) - background.astype(np.float64)
+    results = []
+    for k, (pipe, t_ray) in enumerate(zip(pipes, ray_times, strict=True)):
+        neighbours = [
+            (p, r)
+            for j, (p, r) in enumerate(zip(pipes, ray_times, strict=True))
+            if j != k
+        ]
+        results.append(
+            _analyse_pipe(
+                residual, geometry, pipe, t_ray, neighbours, f"{mid} pipe {k}"
+            )
+        )
+    _check_apex_traces(spec, results)
+    mean_column = int(np.argmin(np.abs(np.asarray(heights) - np.mean(heights))))
+    line_bg = background[:, [mean_column] * 3]
+    line_fs = free_space[:, [mean_column]]
+    tz, t_surf_geom, env_bg = _time_zero_candidates(line_bg, line_fs, geometry)
+    effective = [
+        _effective_t0_and_depth(
+            tz, r["apex"]["envelope_peak_ns"], geometry.velocity_m_per_ns
+        )
+        for r in results
+    ]
+    checks = _artefact_checks(
+        spec, line_bg, residual, env_bg, geometry,
+        np.min(np.vstack(ray_times), axis=0),
+        min(r["apex"]["envelope_peak_value"] for r in results),
+    )  # fmt: skip
+    _save_arrays(out_dir, mid, data, background, free_space)
+    analysed = list(zip(pipes, results, effective, strict=True))
+    meta = _single_pipe_meta(
+        spec, geometry, iters, analysed[0], tz, t_surf_geom, checks, free_space
+    )
+    meta["n_pipes"] = len(pipes)
+    meta["pipes"] = [_pipe_record(k, item, spec) for k, item in enumerate(analysed)]
+    meta["pipe_keys_note"] = PIPE_KEYS_NOTE
+    meta.update(spec["extra_meta"])
+    meta["c_qc"] = {
+        **meta["c_qc"],
+        "library_trace_index": columns.tolist(),
+        "surface_reflection_peak_ns_per_trace": _surface_peaks_per_trace(
+            background, free_space, geometry, heights
+        ),
+        "line_zero_library_trace": int(columns[mean_column]),
+        "note": (
+            "_bg.npy/_fs.npy: one column per line trace (library trace of the "
+            "same antenna height); time_zero_candidates_ns and air_gap_m use the "
+            "mean height; ray times use each trace's own height"
+        ),
+    }
+    (out_dir / f"{mid}.json").write_text(
+        json.dumps(meta, indent=1), encoding="utf-8", newline="\n"
+    )
+    return meta
 
 
 def _read_model_arrays(spec, sources):
@@ -1288,6 +1550,14 @@ def _parse_args(argv):
         help="K7 models json (analysis/synthetic/k7/models_k7.json)",
     )
     parser.add_argument(
+        "--c-qc",
+        type=Path,
+        help=(
+            "M2-10 (c) models json with per-trace antenna heights "
+            "(analysis/synthetic/c_qc/models_c_qc.json)"
+        ),
+    )
+    parser.add_argument(
         "--batch",
         help=(
             "S4/S6 only: export only the models whose json batch is this value; "
@@ -1320,9 +1590,10 @@ def _parse_args(argv):
 
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
-    chosen_sets = [s for s in (args.s1g, args.s4s6, args.k7) if s is not None]
+    chosen = (args.s1g, args.s4s6, args.k7, args.c_qc)
+    chosen_sets = [s for s in chosen if s is not None]
     if len(chosen_sets) > 1:
-        raise SystemExit("--s1g, --s4s6 and --k7 are exclusive")
+        raise SystemExit("--s1g, --s4s6, --k7 and --c-qc are exclusive")
     if args.batch is not None and args.s4s6 is None:
         raise SystemExit("--batch needs --s4s6")
     if args.s4s6 is not None:
@@ -1333,6 +1604,9 @@ def main(argv: list[str] | None = None) -> None:
     elif args.k7 is not None:
         jobs = load_k7_specs(args.k7, args.h5_dir)
         out_dir = K7_OUT if args.out_dir is None else args.out_dir
+    elif args.c_qc is not None:
+        jobs = load_c_specs(args.c_qc, args.h5_dir)
+        out_dir = C_QC_OUT if args.out_dir is None else args.out_dir
     elif args.s1g is not None:
         jobs = load_s1g_specs(args.s1g, args.h5_dir)
         out_dir = S1G_OUT if args.out_dir is None else args.out_dir
@@ -1347,9 +1621,10 @@ def main(argv: list[str] | None = None) -> None:
         jobs = [
             (spec, sources) for spec, sources in jobs if spec["model_id"] in args.models
         ]
+    export = export_c_model if args.c_qc is not None else export_model
     metas = []
     for spec, sources in jobs:
-        meta = export_model(spec, sources, out_dir)
+        meta = export(spec, sources, out_dir)
         print(_summary_line(meta), flush=True)
         metas.append(meta)
     write_manifest(out_dir, metas)

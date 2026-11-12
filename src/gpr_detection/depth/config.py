@@ -63,6 +63,11 @@ class DepthConfig:
         hint_box_rel_floor: Hint-window peaks must also reach this fraction of
             the widened-box maximum (-26 dB); it matters only on noise-free data
             where ``sigma_n`` is 0.
+        band_shift_qc: Band-shift QC flags and fields of the zero (M2-10 (c)
+            P3, ``ZeroConfig.band_shift_qc``); never changes a depth.
+        flag_header_eps: Flag ``eps_meta_equals_header_default`` when the
+            metadata eps_r equals the instrument header default (M2-10 (c) P5);
+            a provenance flag only, never changes a depth or sigma.
     """
 
     a_max_m: float = 1.0
@@ -100,6 +105,8 @@ class DepthConfig:
     top_guard_px: int = 1
     hint_noise_k: float = 5.0
     hint_box_rel_floor: float = 0.05
+    band_shift_qc: bool = False
+    flag_header_eps: bool = False
 
     def zero_config(self) -> ZeroConfig:
         """The time-zero settings implied by these depth settings."""
@@ -107,6 +114,7 @@ class DepthConfig:
             h_max_m=self.h_max_m,
             window_traces=self.bg_window,
             ground_zero_shift=self.ground_zero_shift,
+            band_shift_qc=self.band_shift_qc,
         )
 
 

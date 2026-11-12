@@ -2059,7 +2059,11 @@ def test_c18_variants_and_cli(script) -> None:
     assert script.baseline_trials_for("bd", args) == script.baseline_trials_for(
         "noqc", args
     )
-    assert set(vars(script.parse_args([]))) == V144_CLI_KEYS
+    # M2-10 (c) adds three opt-in options (m210_c_qc v1.1 section 5 C-4); all off.
+    m210c_keys = {"band_shift_qc", "flag_header_eps", "diag_out"}
+    defaults = vars(script.parse_args([]))
+    assert set(defaults) == V144_CLI_KEYS | m210c_keys
+    assert not any(defaults[key] for key in m210c_keys)
     with pytest.raises(SystemExit) as raised:
         script.parse_args(["--qc-unknown", "keep"])
     assert raised.value.code == 2

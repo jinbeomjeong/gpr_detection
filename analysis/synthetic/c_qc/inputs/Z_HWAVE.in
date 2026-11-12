@@ -1,0 +1,27 @@
+#title: Z_HWAVE per-trace antenna height (h = 0.10 + 0.05 * math.sin(2.0 * math.pi * (x - 1.0) / 2.0)), soil eps 9 sigma 0.001, PEC R 0.05 top 0.60 at x 1.5 / 2.5
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.001 1 0 soil
+
+#waveform: ricker 1 5e+08 src_wave
+#python:
+import math
+i = current_model_run - 1
+x = round(0.4 + 0.02 * i, 6)
+h = 0.10 + 0.05 * math.sin(2.0 * math.pi * (x - 1.0) / 2.0)
+def snap(v):
+    return round(round(v / 0.005) * 0.005, 6)
+y = snap(2.1 + h)
+tx = snap(x - 0.05)
+rx = snap(x + 0.05)
+print('#hertzian_dipole: z %s %s inf src_wave' % (repr(tx), repr(y)))
+print('#rx: %s %s inf rx1 Ez' % (repr(rx), repr(y)))
+#end_python:
+
+#box: 0 0 0 4.0 2.1 inf soil
+#cylinder: 1.5 1.45 0 1.5 1.45 inf 0.05 pec
+#cylinder: 2.5 1.45 0 2.5 1.45 inf 0.05 pec

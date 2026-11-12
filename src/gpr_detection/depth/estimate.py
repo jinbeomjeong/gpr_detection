@@ -54,6 +54,11 @@ INT16_FULL_SCALE = 32767.0
 SATURATION_HALF_WINDOW_SAMPLES = 2
 """``saturated_apex`` when a full-scale sample lies within +-2 samples of the apex."""
 
+HEADER_EPS_TOLERANCE = 1e-6
+"""``|eps_meta - eps_header|`` below this means the metadata eps_r is the
+instrument header default (M2-10 (c) P5)."""
+EPS_META_EQUALS_HEADER_DEFAULT = "eps_meta_equals_header_default"
+
 _ALT_LABELS: frozenset[str] = frozenset(
     {"direct_wave", "surface_reflection", "merged", "unclassified"}
 )
@@ -133,6 +138,20 @@ def depth_uncertainty(
     velocity_term = depth_m * sigma_v / v_m_per_ns
     time_term = v_m_per_ns / 2.0 * float(np.hypot(sigma_zero_ns, sigma_apex_ns))
     return float(np.hypot(velocity_term, time_term))
+
+
+def header_eps_flags(radargram: Radargram, config: DepthConfig) -> list[str]:
+    """P5 (M2-10 (c)): flag a metadata eps_r equal to the header default.
+
+    A provenance flag only (``config.flag_header_eps``); the depth, the
+    velocity and its sigma never change.
+    """
+    eps_meta, eps_header = radargram.eps_r_meta, radargram.eps_r_header
+    if not config.flag_header_eps or eps_meta is None or eps_header is None:
+        return []
+    if abs(eps_meta - eps_header) < HEADER_EPS_TOLERANCE:
+        return [EPS_META_EQUALS_HEADER_DEFAULT]
+    return []
 
 
 def _dataset_flags(radargram: Radargram) -> list[str]:
@@ -345,6 +364,7 @@ def estimate_depth(
         *picks.flags,
         *_dataset_flags(radargram),
         *_saturation_flags(radargram, picks),
+        *header_eps_flags(radargram, config),
     ]
     common = {
         "apex_trace": None if picks.apex is None else picks.apex.trace,

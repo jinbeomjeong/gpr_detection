@@ -69,6 +69,24 @@ AIR_MULTI_EVENT = "air_multi_event"
 AIR_SURFACE_NOT_FOUND = "air_surface_not_found"
 """Flag: the antenna height is known but no event gap matches it."""
 
+BAND_WINDOW_PERIODS = 0.75
+"""Half-width of the zero band window W_b, in periods (the +-1.5 ns band of
+fourtu_explore at 500 MHz; m210_c_qc section 1-3)."""
+BAND_LAG_PERIODS = 0.5
+"""Largest band shift searched, in periods: half a period so a lobe is never
+skipped (the apex-hint window height)."""
+ZERO_SHIFT_LARGE = "zero_shift_large"
+"""Flag: the per-trace band shifts have a std above ``window_drift_ns``."""
+ZERO_TRACKS_SURFACE = "zero_tracks_surface"
+"""Flag: the band stacks better after following the shifts (C1 > C0).
+
+C1 > C0 is almost always true by construction (every lag is chosen at the
+correlation maximum), so in practice this equals sigma_s > 0.2 ns (a shaking
+band); it does not confirm that the band follows the surface (m210_c_qc.md v1.2
+section 1-3)."""
+ZERO_SHIFT_NOT_SURFACE = "zero_shift_not_surface"
+"""Flag: large shifts, but following them does not improve the stack."""
+
 SIGMA_ZERO_NS: dict[str, float] = {
     "air_surface_late": 0.3,
     "air_single_event": 0.25,
@@ -128,6 +146,9 @@ class ZeroConfig:
             event (single air events use ``max(this, 0.5 / f_c)``).
         ground_zero_shift: ``"synthetic_table"`` subtracts the tabulated
             direct-wave delay; off by default (only valid for s = 0.1 m).
+        band_shift_qc: Run the band-shift QC (function ``band_shift_qc``,
+            M2-10 (c) P3): flags and ``band_*`` fields only, the zero and
+            every depth stay as they are. Off by default: nothing is computed.
     """
 
     h_max_m: float = 0.5
@@ -139,6 +160,7 @@ class ZeroConfig:
     window_drift_ns: float = 0.2
     meta_tolerance_ns: float = 0.5
     ground_zero_shift: GroundZeroShift = GroundZeroShift.NONE
+    band_shift_qc: bool = False
 
 
 DEFAULT_ZERO_CONFIG = ZeroConfig()
@@ -201,13 +223,20 @@ class ZeroResult:
         h_est_m: Antenna height from the first-to-surface gap; only for
             ``air_surface_late`` (``ZeroEvents.h_est_m`` keeps the
             first-to-last diagnostic).
-        t_zero_per_trace_ns: Optional per-trace zero (not computed in v1.1).
+        t_zero_per_trace_ns: Optional per-trace zero; not computed (also not
+            by the band-shift QC, M2-10 (c) v1.1), always ``None``.
         meta_t0: ``{name: (ns, label)}`` for metadata zeros (section 4-3).
         excluded_traces: Traces left out of the mean trace.
         flags: e.g. ``zero_failed``, ``zero_band_overlap``, ``zero_window_drift``.
         sigma_zero_ns: Standard uncertainty of the zero (section 9).
         bias_notes: Signed systematic biases of the chosen rule.
         window_std_ns: Std of the chosen event between trace windows (QC).
+        band_shift_std_ns: ``sigma_s`` of the band-shift QC; ``None`` when
+            the QC did not run (``band_shift_qc`` off) or had < 2 traces.
+        band_coherence: ``(C0, C1)`` stack coherence without and with the
+            shifts; ``None`` when the QC did not run.
+        band_shift_n_valid: Traces with a resolved shift; ``None`` when the
+            QC did not run.
     """
 
     t_zero_ns: float | None
@@ -224,6 +253,9 @@ class ZeroResult:
     sigma_zero_ns: float = 0.0
     bias_notes: tuple[str, ...] = ()
     window_std_ns: float | None = None
+    band_shift_std_ns: float | None = None
+    band_coherence: tuple[float, float] | None = None
+    band_shift_n_valid: int | None = None
 
     @property
     def failed(self) -> bool:
@@ -796,6 +828,172 @@ def select_zero(
     )
 
 
+# --------------------------------------------------------------------- band shift
+
+
+@dataclass(frozen=True)
+class BandShift:
+    """Per-trace shift of the zero band (M2-10 (c) P3, m210_c_qc section 1-3).
+
+    Attributes:
+        shifts_ns: ``s~_j = s_j - mean(s)`` per trace (ns); ``nan`` for excluded
+            traces and traces whose best lag sits on the search end.
+        std_ns: ``sigma_s`` over the resolved traces; ``None`` with fewer
+            than two of them.
+        c0: Stack coherence of the band without shifts.
+        c1: Stack coherence after shifting every trace by ``s~_j``.
+        n_valid: Included traces with a resolved shift.
+        flags: ``zero_shift_large`` with ``zero_tracks_surface`` or
+            ``zero_shift_not_surface``; empty when ``sigma_s <= window_drift_ns``.
+    """
+
+    shifts_ns: np.ndarray
+    std_ns: float | None
+    c0: float | None
+    c1: float | None
+    n_valid: int
+    flags: tuple[str, ...]
+
+
+def _band_rows(
+    n_samples: int, dt_ns: float, period_ns: float, t_zero_ns: float, lag: int
+) -> np.ndarray:
+    """Samples of ``W_b`` whose shifted copies (``+-lag``) stay inside the trace."""
+    half_ns = BAND_WINDOW_PERIODS * period_ns
+    k_first = max(int(np.ceil((t_zero_ns - half_ns) / dt_ns)), lag)
+    k_last = min(int(np.floor((t_zero_ns + half_ns) / dt_ns)), n_samples - 1 - lag)
+    return np.arange(k_first, k_last + 1)
+
+
+def _trace_lag_samples(
+    trace: np.ndarray, reference: np.ndarray, rows: np.ndarray, lag: int
+) -> float:
+    """Fractional lag maximising ``sum_t a_j(t + l) r(t)``; ``nan`` at a lag end."""
+    lags = np.arange(-lag, lag + 1)
+    scores = np.array([float(trace[rows + shift] @ reference) for shift in lags])
+    best = int(np.argmax(scores))
+    if best in (0, len(lags) - 1):
+        return float("nan")
+    refined, _ = parabolic_peak(scores, best)
+    return refined - lag
+
+
+def _stack_coherence(
+    section: np.ndarray, rows: np.ndarray, shifts_samples: np.ndarray
+) -> float:
+    """``sum_t (mean_j a_j(t + s_j))^2 / sum_t mean_j a_j(t + s_j)^2`` on ``rows``."""
+    samples = np.arange(section.shape[0], dtype=np.float64)
+    shifted = np.column_stack(
+        [
+            np.interp(rows + shift, samples, section[:, j])
+            for j, shift in enumerate(shifts_samples)
+        ]
+    )
+    energy = float(np.sum(np.mean(shifted**2, axis=1)))
+    if not energy > 0:
+        return float("nan")
+    return float(np.sum(np.mean(shifted, axis=1) ** 2)) / energy
+
+
+def band_shift_qc(
+    filtered: np.ndarray,
+    dt_ns: float,
+    f_c_hz: float | None,
+    t_zero_ns: float,
+    included_mask: np.ndarray,
+    config: ZeroConfig = DEFAULT_ZERO_CONFIG,
+) -> BandShift:
+    """Band-shift QC (M2-10 (c) P3, m210_c_qc v1.1 section 1-3); flags only.
+
+    1. Each included trace ``a_j`` is cross-correlated with the reference
+       ``r`` (per-sample median of the included traces) over the band window
+       ``W_b = [t_z - 0.75 / f_c, t_z + 0.75 / f_c]``, lags ``|l| <= 0.5 / f_c``;
+       the integer maximum is refined with ``parabolic_peak``. A maximum on the
+       search end leaves the trace ``nan``.
+    2. ``s~_j = s_j - mean(s)``; ``sigma_s`` = their std.
+    3. ``C0`` / ``C1``: stack coherence of the unshifted / shifted traces.
+    4. ``sigma_s > window_drift_ns`` flags ``zero_shift_large`` and then
+       ``zero_tracks_surface`` (``C1 > C0``) or ``zero_shift_not_surface``.
+       No per-trace zero and no depth correction come out of it.
+
+    Args:
+        filtered: Signed data after steps (1)-(3), before background removal.
+        dt_ns: Sample interval.
+        f_c_hz: Centre frequency (``None`` = 500 MHz).
+        t_zero_ns: Line zero ``t_z`` of :func:`select_zero`.
+        included_mask: Traces of the zero mean trace (``pipe_band`` boxes out).
+        config: ``window_drift_ns`` is the shift threshold.
+    """
+    section = np.asarray(filtered, dtype=np.float64)
+    n_samples, n_traces = section.shape
+    period_ns = period_ns_or_default(f_c_hz, DEFAULT_PERIOD_NS)
+    lag = int(np.floor(BAND_LAG_PERIODS * period_ns / dt_ns))
+    rows = _band_rows(n_samples, dt_ns, period_ns, t_zero_ns, lag)
+    shifts_ns = np.full(n_traces, np.nan)
+    included = np.flatnonzero(included_mask)
+    if lag < 1 or rows.size == 0 or included.size == 0:
+        return BandShift(shifts_ns, None, None, None, 0, ())
+    reference = np.median(section[np.ix_(rows, included)], axis=1)
+    for j in included:
+        shifts_ns[j] = _trace_lag_samples(section[:, j], reference, rows, lag) * dt_ns
+    resolved = included[np.isfinite(shifts_ns[included])]
+    if resolved.size < 2:
+        return BandShift(shifts_ns, None, None, None, int(resolved.size), ())
+    shifts_ns[resolved] -= float(np.mean(shifts_ns[resolved]))
+    std_ns = float(np.std(shifts_ns[resolved]))
+    block = section[:, resolved]
+    c0 = _stack_coherence(block, rows, np.zeros(resolved.size))
+    c1 = _stack_coherence(block, rows, shifts_ns[resolved] / dt_ns)
+    flags = band_shift_flags(std_ns, c0, c1, config.window_drift_ns)
+    return BandShift(shifts_ns, std_ns, c0, c1, int(resolved.size), flags)
+
+
+def band_shift_flags(
+    std_ns: float, c0: float, c1: float, drift_ns: float
+) -> tuple[str, ...]:
+    """Section 1-3 item 4: no flag, or ``zero_shift_large`` with its reading.
+
+    ``std_ns <= drift_ns``: no flag. Above it, ``zero_tracks_surface`` when the
+    shifted stack is more coherent (``c1 > c0``), else
+    ``zero_shift_not_surface``. A ``nan`` coherence never tracks the surface.
+    """
+    if not std_ns > drift_ns:
+        return ()
+    if c1 > c0:
+        return (ZERO_SHIFT_LARGE, ZERO_TRACKS_SURFACE)
+    return (ZERO_SHIFT_LARGE, ZERO_SHIFT_NOT_SURFACE)
+
+
+def _with_band_shift(
+    zero: ZeroResult,
+    radargram: Radargram,
+    filtered: np.ndarray,
+    exclude_traces: np.ndarray | None,
+    config: ZeroConfig,
+) -> ZeroResult:
+    """``zero`` plus the band-shift QC flags and fields (``band_shift_qc`` on)."""
+    is_checkable = (
+        not radargram.amplitude_processed
+        and radargram.dt_ns is not None
+        and zero.t_zero_ns is not None
+        and not zero.failed
+    )
+    if not is_checkable:
+        return zero
+    keep, _ = _included_trace_mask(np.shape(filtered)[1], exclude_traces)
+    shift = band_shift_qc(
+        filtered, radargram.dt_ns, radargram.f_c_hz, zero.t_zero_ns, keep, config
+    )
+    coherence = None if shift.c0 is None else (shift.c0, shift.c1)
+    return replace(
+        zero,
+        flags=(*zero.flags, *shift.flags),
+        band_shift_std_ns=shift.std_ns,
+        band_coherence=coherence,
+        band_shift_n_valid=shift.n_valid,
+    )
+
+
 def find_time_zero(
     radargram: Radargram,
     filtered: np.ndarray,
@@ -811,7 +1009,8 @@ def find_time_zero(
         filtered: Its data after steps (1)-(3), before background removal.
         pick_mode: Phase reference shared with the apex picks.
         exclude_traces: Traces left out of the mean (``pipe_band`` boxes).
-        config: Detection settings.
+        config: Detection settings; ``band_shift_qc`` adds the band-shift QC
+            (not on processed data, without scale or on a failed zero).
     """
     events = detect_zero_events(
         filtered,
@@ -822,7 +1021,10 @@ def find_time_zero(
         exclude_traces=exclude_traces,
         config=config,
     )
-    return select_zero(radargram, events, config)
+    zero = select_zero(radargram, events, config)
+    if not config.band_shift_qc:
+        return zero
+    return _with_band_shift(zero, radargram, filtered, exclude_traces, config)
 
 
 def given_zero(

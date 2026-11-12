@@ -55,6 +55,8 @@ class Radargram:
             field, e.g. ``"t0_sample_est"``.
         pipe_radius_m: Known pipe radius (outer diameter / 2) in m.
         metadata: Remaining source metadata, unmodified, for traceability.
+        eps_r_header: eps_r set in the instrument header (4TU SEG-Y text header,
+            7/9/11), if the loader knows it; ``None`` otherwise (M2-10 (c) P5).
     """
 
     data: np.ndarray
@@ -72,6 +74,7 @@ class Radargram:
     t0_candidates_ns: Mapping[str, float] = field(default_factory=dict)
     pipe_radius_m: float | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    eps_r_header: float | None = None
 
     def __post_init__(self) -> None:
         if self.data.ndim != 2:

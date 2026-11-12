@@ -1,0 +1,55 @@
+{
+ "note": "pilot h5, raw Ez, no P3 correction computed (cur-side physics only)",
+ "Z_HSTEP": {
+  "dt_ns": 0.011793271683748418,
+  "band_peak_std_ns": 0.1085,
+  "band_peak_slope_ns_per_m": 2.713,
+  "geometric_slope_ns_per_m": 6.671,
+  "band_fraction_of_geometric": 0.407,
+  "pipes": {
+   "low_gap": {
+    "trace": 40,
+    "h_m": 0.06,
+    "t_pipe_ns": 15.2964,
+    "t_band_ns": 3.0792
+   },
+   "high_gap": {
+    "trace": 120,
+    "h_m": 0.14,
+    "t_pipe_ns": 15.8093,
+    "t_band_ns": 3.2963
+   }
+  },
+  "dh_m": 0.08,
+  "geometric_2dh_over_c_ns": 0.5337,
+  "pipe_dt_high_minus_low_ns": 0.5129,
+  "band_dt_high_minus_low_ns": 0.2171,
+  "pair_depth_diff_uncorrected_cm": 2.56
+ },
+ "Z_HWAVE": {
+  "dt_ns": 0.011793271683748418,
+  "band_peak_std_ns": 0.0976,
+  "band_peak_slope_ns_per_m": 2.653,
+  "geometric_slope_ns_per_m": 6.671,
+  "band_fraction_of_geometric": 0.398,
+  "pipes": {
+   "high_gap": {
+    "trace": 55,
+    "h_m": 0.15,
+    "t_pipe_ns": 15.8711,
+    "t_band_ns": 3.31
+   },
+   "low_gap": {
+    "trace": 105,
+    "h_m": 0.05,
+    "t_pipe_ns": 15.2318,
+    "t_band_ns": 3.0509
+   }
+  },
+  "dh_m": 0.1,
+  "geometric_2dh_over_c_ns": 0.6671,
+  "pipe_dt_high_minus_low_ns": 0.6393,
+  "band_dt_high_minus_low_ns": 0.2591,
+  "pair_depth_diff_uncorrected_cm": 3.19
+ }
+}
