@@ -27,6 +27,7 @@ Verified 2026-10-29 with analysis/processing/zero_reference_check.py (results in
 - Z1 tail 0.6 does NOT discriminate box vs Gaussian dewow with current thresholds (box ghost 10.0 % height, just under); tail 0.8 does (box 2 events at ~+1.9 ns, Gaussian 1).
 - (2026-11-11 S1g, `docs/processing/m210_k1_s1g_judgment.md`) 4TU 후보 생성기의 실패 두 가지. (a) 꼭짓점 약 1 ns 앞 후보가 순위(min 날개, SNR)에서 이기고 NMS(0.3 m·2 ns)가 진짜 꼭짓점을 지운다. 그 뒤 깊이 힌트 창 ±0.5 주기가 진짜 꼭짓점에 닿지 못해 `no_apex`가 된다. (b) 0.6 m 간격 두 관은 안쪽 날개가 9픽이라 측선당 상한 6에서 잘린다. dt를 8배 솎아도 같다. 정답 힌트를 주면 깊이는 맞는다.
 - (2026-11-12 K7 정정, `docs/processing/m210_k7_generator.md` §1-1) 위 (a)의 "이른 엽"은 엽이 아니다. 검출 맵 $D=E/\ell$의 극대가 $\ell$이 오르는 행에서 $E$의 오르는 날로 앞당겨진 **시작점**이고(E 0.43배, E 국소 최대 아님), `parabolic_peak`가 ±0.5 샘플만 움직이며 `crest_apex`의 가장 이른 점 규칙이 그것을 남긴다. 판별: 후보 끝점이 `E[:, trace]`의 시간 국소 최대인지 본다(4TU kept 2.5 %가 아님). 고침 후보 a1 = 원 E 오르막. 순위 키를 SNR로만 바꾸는 것(b2)과 τ² 꼭짓점(c1)은 a1 없이 쓰면 나빠진다. c1은 4TU kept 약 40 %를 가리지 않고 바꾼다.
+- (2026-11-12 K7 판정, `docs/processing/m210_k7_judgment.md`, 순위 2 보류) 잡음 없는 합성 결함이 잡음 ρ 10·20에서는 창 손실로 거의 재현되지 않았다(gap 0.075–0.26 < 0.5). 오르는 날 시작점은 잡음에서도 흔하지만 대개 꼭짓점 앞 1 ns 안이라 ±1 ns 창에 든다(잡음이 행 중앙값 ℓ을 평평하게 만든다고 추정). 교훈: 잡음 없는 합성에서 찾은 생성기 결함은 재현 기준을 잡음 조건에서 먼저 점검(시제품)한 뒤 봉인하라. a1은 0.6 m 간격 3관에서 수락률을 0.55 → 0.12로 떨어뜨렸다(이웃 극대로 오름).
 
 **Why:** these are non-obvious failure modes that recur when verifying python-expert implementations.
 **How to apply:** check them first in verify/review of src/gpr_detection/preprocess/timezero.py and depth/picks.py; see [[spec-depth-v1]].
