@@ -1,0 +1,202 @@
+{
+ "note": "already-seen 4TU outputs; structure counts only, no fits",
+ "sites": {
+  "1": {
+   "eps_meta_values": [
+    9.0
+   ],
+   "n_activities_candidates": 9,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 38,
+   "n_pairs_main_radius_known": 26,
+   "n_pairs_unclustered": 50,
+   "gt_depth_m_min_max_main": [
+    0.3,
+    1.4
+   ],
+   "n_activities_with_main_pairs": 9
+  },
+  "2": {
+   "eps_meta_values": [
+    8.16,
+    9.0
+   ],
+   "n_activities_candidates": 7,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 0,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 0,
+   "gt_depth_m_min_max_main": null,
+   "n_activities_with_main_pairs": 0
+  },
+  "3": {
+   "eps_meta_values": [
+    11.11
+   ],
+   "n_activities_candidates": 9,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 24,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 46,
+   "gt_depth_m_min_max_main": [
+    0.4,
+    1.0
+   ],
+   "n_activities_with_main_pairs": 8
+  },
+  "4": {
+   "eps_meta_values": [
+    9.0
+   ],
+   "n_activities_candidates": 8,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 10,
+   "n_pairs_main_radius_known": 10,
+   "n_pairs_unclustered": 22,
+   "gt_depth_m_min_max_main": [
+    0.46,
+    1.12
+   ],
+   "n_activities_with_main_pairs": 5
+  },
+  "5": {
+   "eps_meta_values": [
+    8.16
+   ],
+   "n_activities_candidates": 10,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 9,
+   "n_pairs_main_radius_known": 2,
+   "n_pairs_unclustered": 13,
+   "gt_depth_m_min_max_main": [
+    0.51,
+    1.07
+   ],
+   "n_activities_with_main_pairs": 6
+  },
+  "6": {
+   "eps_meta_values": [
+    11.11
+   ],
+   "n_activities_candidates": 6,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 25,
+   "n_pairs_main_radius_known": 3,
+   "n_pairs_unclustered": 41,
+   "gt_depth_m_min_max_main": [
+    0.32,
+    0.84
+   ],
+   "n_activities_with_main_pairs": 6
+  },
+  "7": {
+   "eps_meta_values": [
+    9.0
+   ],
+   "n_activities_candidates": 4,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 0,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 0,
+   "gt_depth_m_min_max_main": null,
+   "n_activities_with_main_pairs": 0
+  },
+  "8": {
+   "eps_meta_values": [
+    12.17
+   ],
+   "n_activities_candidates": 8,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 14,
+   "n_pairs_main_radius_known": 9,
+   "n_pairs_unclustered": 20,
+   "gt_depth_m_min_max_main": [
+    0.41,
+    1.2
+   ],
+   "n_activities_with_main_pairs": 7
+  },
+  "9": {
+   "eps_meta_values": [
+    14.06
+   ],
+   "n_activities_candidates": 9,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 0,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 0,
+   "gt_depth_m_min_max_main": null,
+   "n_activities_with_main_pairs": 0
+  },
+  "10": {
+   "eps_meta_values": [
+    9.0,
+    12.17,
+    13.06,
+    16.89
+   ],
+   "n_activities_candidates": 24,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 34,
+   "n_pairs_main_radius_known": 5,
+   "n_pairs_unclustered": 77,
+   "gt_depth_m_min_max_main": [
+    0.3,
+    1.36
+   ],
+   "n_activities_with_main_pairs": 15
+  },
+  "11": {
+   "eps_meta_values": [
+    15.18,
+    17.36,
+    19.46
+   ],
+   "n_activities_candidates": 17,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 14,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 45,
+   "gt_depth_m_min_max_main": [
+    0.25,
+    0.8
+   ],
+   "n_activities_with_main_pairs": 10
+  },
+  "12": {
+   "eps_meta_values": [
+    9.0
+   ],
+   "n_activities_candidates": 8,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 13,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 18,
+   "gt_depth_m_min_max_main": [
+    0.48,
+    2.4
+   ],
+   "n_activities_with_main_pairs": 7
+  },
+  "13": {
+   "eps_meta_values": [
+    9.0
+   ],
+   "n_activities_candidates": 6,
+   "n_activities_mixed_eps": 0,
+   "n_pairs_main": 3,
+   "n_pairs_main_radius_known": 0,
+   "n_pairs_unclustered": 7,
+   "gt_depth_m_min_max_main": [
+    0.37,
+    1.0
+   ],
+   "n_activities_with_main_pairs": 2
+  }
+ },
+ "totals": {
+  "n_pairs_main": 184,
+  "n_pairs_unclustered": 339,
+  "n_candidates_ok": 3515
+ }
+}
