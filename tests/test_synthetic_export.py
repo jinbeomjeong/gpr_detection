@@ -682,7 +682,12 @@ def test_single_pipe_export_matches_the_stored_files(exporter, tmp_path):
 # ----------------------------------------------------------------- K7 (M2-10 K7)
 
 
-def _k7_model(model_id: str, pipe_xs: tuple[float, ...], material: str = "pec"):
+def _k7_model(
+    model_id: str,
+    pipe_xs: tuple[float, ...],
+    material: str = "pec",
+    n_traces: int = N_TRACES,
+):
     pipes = [
         {
             "pipe_index": i,
@@ -707,7 +712,7 @@ def _k7_model(model_id: str, pipe_xs: tuple[float, ...], material: str = "pec"):
         "layer": None,
         "pipes": pipes,
         "input": f"in/{model_id}.in",
-        "n_traces": N_TRACES,
+        "n_traces": n_traces,
         "scan_start_m": SCAN_START_M,
         "trace_step_m": TRACE_STEP_M,
         "output": f"h5/{model_id}_merged.h5",
@@ -740,7 +745,12 @@ def _k7_models_json(tmp_path: Path, fs_path: Path, models=None) -> Path:
     return path
 
 
-def _write_fake_k7_runs(exporter: ModuleType, tmp_path: Path) -> tuple[Path, Path]:
+K7_FAKE_LINES = (("K7_T1", (0.8, 1.4)), ("K7_TBG", ()))
+
+
+def _write_fake_k7_runs(
+    exporter: ModuleType, tmp_path: Path, lines=K7_FAKE_LINES, n_traces=N_TRACES
+) -> tuple[Path, Path]:
     h5_dir = tmp_path / "h5"
     h5_dir.mkdir()
     fs_dir = tmp_path / "reused"
@@ -754,9 +764,9 @@ def _write_fake_k7_runs(exporter: ModuleType, tmp_path: Path) -> tuple[Path, Pat
     background = direct + surface
     _write_h5(h5_dir / "K7_REF_T_merged.h5", np.tile(background[:, None], (1, 3)))
     _write_h5(fs_dir / "FS.h5", direct[:, None])
-    x_mid = SCAN_START_M + np.arange(N_TRACES) * TRACE_STEP_M
-    lateral_gain = 1.0 + BACKGROUND_LINE_DRIFT * np.arange(N_TRACES)
-    for model_id, pipe_xs in (("K7_T1", (0.8, 1.4)), ("K7_TBG", ())):
+    x_mid = SCAN_START_M + np.arange(n_traces) * TRACE_STEP_M
+    lateral_gain = 1.0 + BACKGROUND_LINE_DRIFT * np.arange(n_traces)
+    for model_id, pipe_xs in lines:
         bscan = background[:, None] * lateral_gain[None, :]
         for x0 in pipe_xs:
             ray_ns = exporter.trace_reflection_times(
@@ -809,6 +819,41 @@ def test_k7_errors(exporter, tmp_path):
         exporter.load_k7_specs(mixed_json, h5_dir)
     with pytest.raises(SystemExit, match="exclusive"):
         exporter.main(["--k7", "a.json", "--s1g", "b.json"])
+
+
+def test_k7_middle_pipe_between_neighbours_has_no_velocity_check(exporter, tmp_path):
+    """K7_P3_D080 case: three pipes 0.6 m apart, the middle one has no trace
+    nearer to it than to a neighbour with a separated echo -> velocity_check null
+    with its note; the outer pipes keep their check; the export goes on."""
+    n_traces = 81  # 0.4-3.6 m: the outer pipes need traces far from the middle one
+    pipe_xs = (1.4, 2.0, 2.6)
+    lines = (("K7_T3", pipe_xs),)
+    h5_dir, fs_path = _write_fake_k7_runs(exporter, tmp_path, lines, n_traces)
+    model = _k7_model("K7_T3", pipe_xs, n_traces=n_traces)
+    models_json = _k7_models_json(tmp_path, fs_path, [model])
+    out_dir = tmp_path / "out"
+    exporter.main(
+        ["--k7", str(models_json), "--h5-dir", str(h5_dir), "--out-dir", str(out_dir)]
+    )
+    pipes = _read_json(out_dir / "K7_T3.json")["pipes"]
+    assert pipes[1]["velocity_check"] is None
+    assert pipes[1]["velocity_check_note"] == "no_usable_picks_neighbours"
+    keys = list(pipes[1])
+    assert keys[keys.index("velocity_check") + 1] == "velocity_check_note"
+    for outer in (pipes[0], pipes[2]):
+        assert outer["velocity_check"]["n_picks"] > 0
+        assert "velocity_check_note" not in outer
+    with (out_dir / "manifest.csv").open(encoding="utf-8", newline="") as handle:
+        row = next(csv.DictReader(handle))
+    assert row["apparent_v_ratio_pick_slope"].split(";")[1] == "None"
+    assert load_synthetic_pipe_truths("K7_T3", root=out_dir)[1].apex_trace_index == 40
+
+
+def test_a_lone_pipe_without_picks_still_fails(exporter, tmp_path):
+    """Only the neighbour case is tolerated: free traces without picks stay an error."""
+    geometry = type("Geometry", (), {"x_mid_m": np.array([0.0])})()
+    with pytest.raises(ValueError, match="no usable per-trace picks"):
+        exporter._velocity_check([None], np.array([]), geometry, 0.0, "lone pipe")
 
 
 def test_k7_em_json_specs_use_the_shared_references(exporter):

@@ -101,6 +101,7 @@ PRE_ARRIVAL_MARGIN_PERIODS = 1.2
 # Per-trace velocity picks: only within this lateral distance of the pipe, and only
 # when the envelope reaches this fraction of the apex envelope.
 PICK_MAX_OFFSET_M = 1.0
+VELOCITY_NOTE_NEIGHBOURS = "no_usable_picks_neighbours"
 PICK_MIN_ENVELOPE_RATIO = 0.2
 # Multi-pipe models: a trace is skipped for a pipe's picks when another pipe's echo
 # peak is expected closer than this (pick window + echo lead). With the apex window
@@ -713,11 +714,13 @@ def _velocity_picks(residual, geometry, pipe, t_ray, apex, neighbours):
     half_window = PICK_WINDOW_PERIODS / f_ghz
     picks = [None] * len(t_ray)
     rows = []
+    n_free_traces = 0
     for i in range(len(t_ray)):
         if abs(geometry.x_mid_m[i] - x0) > PICK_MAX_OFFSET_M:
             continue
         if not _trace_is_free_of_neighbours(i, pipe, t_ray, neighbours, geometry):
             continue
+        n_free_traces += 1
         t_expected = geometry.source_peak_ns + apex["wavelet_lag_ns"] + t_ray[i]
         if t_expected + half_window > t[-1]:
             continue
@@ -727,7 +730,7 @@ def _velocity_picks(residual, geometry, pipe, t_ray, apex, neighbours):
         if ep >= PICK_MIN_ENVELOPE_RATIO * apex["envelope_peak_value"] and not at_edge:
             picks[i] = round(tp, 4)
             rows.append((t_ray[i], tp - geometry.source_peak_ns - t_ray[i]))
-    return picks, np.array(rows)
+    return picks, np.array(rows), n_free_traces
 
 
 def _velocity_check(picks, rows, geometry, x0, label):
@@ -752,16 +755,45 @@ def _velocity_check(picks, rows, geometry, x0, label):
 
 
 def _analyse_pipe(residual, geometry, pipe, t_ray, neighbours, label):
+    """Apex timing and velocity picks of one pipe.
+
+    A pipe whose every trace within ``PICK_MAX_OFFSET_M`` is nearer to a
+    neighbour pipe or overlaps its echo (the middle pipe of three at 0.6 m,
+    K7_P3_D080) has no trace to pick on: its ``velocity_check`` is ``None``
+    with ``velocity_check_note`` ``VELOCITY_NOTE_NEIGHBOURS``. The check is an
+    export sanity report only (no harness or judgment reads it).
+    """
     apex = _measure_apex(residual, geometry, pipe.center_x_m, t_ray)
-    picks, rows = _velocity_picks(residual, geometry, pipe, t_ray, apex, neighbours)
+    picks, rows, n_free_traces = _velocity_picks(
+        residual, geometry, pipe, t_ray, apex, neighbours
+    )
+    if len(rows) == 0 and n_free_traces == 0 and neighbours:
+        velocity_check, note = None, VELOCITY_NOTE_NEIGHBOURS
+    else:
+        velocity_check = _velocity_check(picks, rows, geometry, pipe.center_x_m, label)
+        note = None
     return {
         "ray_time_ns": t_ray,
         "apex": apex,
-        "velocity_check": _velocity_check(
-            picks, rows, geometry, pipe.center_x_m, label
-        ),
+        "velocity_check": velocity_check,
+        "velocity_check_note": note,
         "picks": picks,
     }
+
+
+def _with_velocity_note(record: dict, note: str | None) -> dict:
+    """``record`` with ``velocity_check_note`` right after ``velocity_check``.
+
+    Only added when there is a note, so every earlier export keeps its bytes.
+    """
+    if note is None:
+        return record
+    noted = {}
+    for key, value in record.items():
+        noted[key] = value
+        if key == "velocity_check":
+            noted["velocity_check_note"] = note
+    return noted
 
 
 def _time_zero_candidates(bg, fs, geometry):
@@ -866,7 +898,7 @@ def _ray_list(t_ray):
 
 def _pipe_record(index, analysed_pipe, spec):
     pipe = _pipe_fields(analysed_pipe, spec["velocity_m_per_ns"])
-    return {
+    record = {
         "pipe_index": index,
         "pipe_material": spec["pipe_kind"],
         "pipe_center_x_m": pipe["center_x"],
@@ -883,6 +915,7 @@ def _pipe_record(index, analysed_pipe, spec):
         "velocity_check": pipe["velocity_check"],
         "trace_envelope_pick_ns": pipe["picks"],
     }
+    return _with_velocity_note(record, pipe["velocity_note"])
 
 
 def _save_arrays(out_dir, mid, data, bg, fs):
@@ -982,7 +1015,7 @@ def _pipe_fields(analysed_pipe, v):
             "center_x", "top", "center_depth", "radius", "t0_top", "t0_center",
             "ray", "apex", "t0_eff", "d_eff", "velocity_check", "picks",
         )  # fmt: skip
-        return dict.fromkeys(names)
+        return {**dict.fromkeys(names), "velocity_note": None}
     pipe, result, (t0_eff, d_eff) = analysed_pipe
     return {
         "center_x": pipe.center_x_m,
@@ -996,6 +1029,7 @@ def _pipe_fields(analysed_pipe, v):
         "t0_eff": t0_eff,
         "d_eff": d_eff,
         "velocity_check": result["velocity_check"],
+        "velocity_note": result["velocity_check_note"],
         "picks": result["picks"],
     }
 
@@ -1011,7 +1045,7 @@ def _single_pipe_meta(spec, geometry, iters, first_pipe, tz, t_surf_geom, checks
     v = spec["velocity_m_per_ns"]
     h = geometry.air_gap_m
     pipe = _pipe_fields(first_pipe, v)
-    return {
+    meta = {
         "model_id": mid,
         "array_layout": (
             "[samples, traces], float32, raw Ez (V/m) from gprMax 4.0.1 2D TMz, "
@@ -1087,6 +1121,7 @@ def _single_pipe_meta(spec, geometry, iters, first_pipe, tz, t_surf_geom, checks
             ),
         },
     }
+    return _with_velocity_note(meta, pipe["velocity_note"])
 
 
 def _per_pipe_value(meta, read_value):
@@ -1109,7 +1144,10 @@ def _wavelet_lag_ns(record):
 
 
 def _pick_slope_v_ratio(record):
-    return round(record["velocity_check"]["apparent_v_ratio_from_pick_slope"], 5)
+    check = record["velocity_check"]
+    if check is None:  # no trace to pick on (velocity_check_note)
+        return None
+    return round(check["apparent_v_ratio_from_pick_slope"], 5)
 
 
 def _rounded_or_none(value, digits):
@@ -1159,6 +1197,16 @@ def manifest_row(m: dict) -> dict:
     return row
 
 
+def _velocity_summary(check, with_rms=True):
+    """``vg/vt=... n=... [rms=...]`` of a velocity check (``None``: no picks)."""
+    if check is None:
+        return "vg/vt=n/a (no usable picks)"
+    text = f"vg/vt={check['apparent_v_ratio_from_pick_slope']:.4f} n={check['n_picks']}"
+    if with_rms:
+        text += f" rms={check['rms_after_linear_ns']:.3f}"
+    return text
+
+
 def _summary_line(m):
     a, vc, ck = m["apex"], m["velocity_check"], m["checks"]
     lateral_key = next(key for key in ck if key.startswith("bg_lateral_diff_rel_"))
@@ -1174,8 +1222,7 @@ def _summary_line(m):
         f"dt={m['dt_ns']:.6f} apex={a['envelope_peak_ns']:.3f} "
         f"exp={a['expected_envelope_peak_ns']:.3f} lag={a['wavelet_lag_ns']:+.3f} "
         f"edge={a['envelope_peak_at_window_edge']} pol={a['signed_peak_polarity']:+d} "
-        f"vg/vt={vc['apparent_v_ratio_from_pick_slope']:.4f} n={vc['n_picks']} "
-        f"rms={vc['rms_after_linear_ns']:.3f} lat={max(ck[lateral_key]):.2e} "
+        f"{_velocity_summary(vc)} lat={max(ck[lateral_key]):.2e} "
         f"pre={ck['pre_arrival_residual_rel']:.2e} "
         f"bot={ck['bottom_pml_window_envelope_rel']}"
     )
@@ -1186,8 +1233,7 @@ def _summary_line(m):
             f"apex_trace={p['apex_trace_index']} "
             f"apex={pipe_apex['envelope_peak_ns']:.3f} "
             f"lag={pipe_apex['wavelet_lag_ns']:+.3f} "
-            f"vg/vt={pipe_vc['apparent_v_ratio_from_pick_slope']:.4f} "
-            f"n={pipe_vc['n_picks']}"
+            f"{_velocity_summary(pipe_vc, with_rms=False)}"
         )
     return line
 

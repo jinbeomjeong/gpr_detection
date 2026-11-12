@@ -1,6 +1,6 @@
 # M2-10 K7 생성기 결함 — 원인 정리와 판정 명세 (확정판, 미봉인)
 
-- 판: **v1.1 확정판(미봉인)**, 2026-11-12, gpr-processing-expert. v1.1 = 봉인 전 구현·EM 산출 반영(실제 파일 이름, `K7_SEALED_FILES`, 구현 해석 (a)–(i)(§4-4 목록), 사건 붙임 `attach_k7_event`, 공유 참조 h5·점검 영점, 잡음 없는 행 수 정정, 상속 봉인 파일 변경 공개, 실행 전 감사·무결성 지적 반영; §4-2–§4-6·§5·§6·§9·§10, 기준·문턱·결정표 순위는 불변). v1.0 = 사용자 결정 L1–L4 반영(§0), K7-c 진단 전용, 봉인 문구·봉인 대상·운영 순서·판정서 첫머리 목록·빈 경우와 고정 집합 단언 추가(§4-6·§6–§9). v0.1 = 원인 정리·후보·초안(질문 Q1–Q5).
+- 판: **v1.2 확정판(재봉인 대상, 미봉인)**, 2026-11-12, gpr-processing-expert. v1.2 = 첫 봉인 `d6aaf0f`(v1.1) 실행이 내보내기에서 멈춰 대체됨(판정 결과 없음, §6-2·§9). 내보내기의 관별 속도 점검(판정 입력 아님) 처리 변경, run1 h5 배열 비교·대체 이력의 공개 항목 추가, 봉인 대상 blob 변경(`scripts/synthetic/export_dataset.py`·시험). 기준·문턱·결정표·모델·시드는 v1.1과 같다. v1.1 = 봉인 전 구현·EM 산출 반영(실제 파일 이름, `K7_SEALED_FILES`, 구현 해석 (a)–(i)(§4-4 목록), 사건 붙임 `attach_k7_event`, 공유 참조 h5·점검 영점, 잡음 없는 행 수 정정, 상속 봉인 파일 변경 공개, 실행 전 감사·무결성 지적 반영; §4-2–§4-6·§5·§6·§9·§10, 기준·문턱·결정표 순위는 불변). v1.0 = 사용자 결정 L1–L4 반영(§0), K7-c 진단 전용, 봉인 문구·봉인 대상·운영 순서·판정서 첫머리 목록·빈 경우와 고정 집합 단언 추가(§4-6·§6–§9). v0.1 = 원인 정리·후보·초안(질문 Q1–Q5).
 - 범위: 4TU 꼭짓점 후보 생성기(`analysis/processing/fourtu_apex_candidate_select.py`, 래퍼 `apex_candidates_for_radargram`, HEAD blob `7cc2bf2b`)의 후보 손실 기작 세 가지(K7-a·b·c)다. 정규화 바닥(M2-10 (b))은 현행 규칙 유지로 닫혔다(사용자 결정 2026-11-12, [`m210b_v3_judgment.md`](m210b_v3_judgment.md) §9). 이 문서는 바닥 규칙을 다시 다루지 않는다.
 - 자료 규율
   - 이 문서의 수치는 모두 **이미 본 자료**(S1g gprMax, M2-10 (b) 묶음 1·v2·v3, 4TU)이거나 순수 함수 몬테카를로다. 개발 근거일 뿐이고 채택 판정에 쓰지 않는다.
@@ -191,8 +191,8 @@
 - **상속 봉인 파일 변경 공개**: (b) v1.4·v2·v3의 봉인 파일 가운데 다음이 K7 구현으로 작업 트리에서 바뀐다.
   - 생성기 `fourtu_apex_candidate_select.py`(플래그·c 진단 추가, blob `7cc2bf2b…`에서 바뀜)
   - `tests/test_m210b_s4s6_pipeline.py`의 `test_floor_rules_and_wrapper_are_unchanged_since_752e783`(생성기는 752e783 blob 확인만 하고, 기본 경로 동일성은 K7 T6·G0가 맡는다)
-  - `scripts/synthetic/export_dataset.py`(`--k7` 경로 +142줄)
-  - `tests/test_synthetic_export.py`(K7 시험 4개 +150줄)
+  - `scripts/synthetic/export_dataset.py`(`--k7` 경로와 v1.2 속도 점검 처리, +197/−17줄, `git diff d6aaf0f~1 --numstat` 기준)
+  - `tests/test_synthetic_export.py`(K7 시험 6개 = `test_k7*` 5개 + `test_a_lone_pipe_without_picks_still_fails`, +195/−0줄, `git diff d6aaf0f~1 --numstat` 기준)
   - 이 넷 모두 그 판정들은 각 봉인 커밋에서 재현하고, K7 변경이 그 판정을 바꾸지 않는다.
 
 ### 4-3. 새 gprMax 모델 (electromagnetic-simulation-expert 위임, L4 확정)
@@ -220,11 +220,12 @@
   - K7_P1_D060은 이미 본 S1G_C1과 물리적으로 거의 같다(단일 PEC 관 0.60 m). 대조(K-F2) 역할에는 문제가 없지만, 새 기하가 아니라는 점을 판정서에 적는다.
   - 층 모델(K7_P2_D070_L·K7_P3_D080·K7_BG_L)의 층 관련 사건은 기대 시각이 서로 가까워 사건 목록에 `ambiguous_with`로 표시돼 있다. 붙임은 §4-4의 `attach_k7_event` 규칙을 따르고 `ambiguous_with`는 기록만 한다. 애매한 사건끼리의 붙임 차이는 U 수(K-F3)를 바꾸지 않는다(어느 쪽이든 알려진 사건).
 - **역할 집합(판정 스크립트가 고정 단언, §4-6)**: `defect_a` = (K7_P2_D070, K7_P2_D070_L), `defect_b` = (K7_P3_D080), `control` = (K7_P1_D060, K7_P1_D150_S003, K7_P1_D110_S002, K7_PVC_D070), `pvc` = (K7_PVC_D070, control의 부분 집합), `bg` = (K7_BG_L), `c_diag` = (K7_P1_D150_S003, K7_P1_D110_S002, 보고만). 기대 모델 집합은 위 표의 8개 ID다.
+- **내보내기 속도 점검(v1.2)**: 내보내기 json의 관별 `velocity_check`(트레이스별 포락선 픽 기울기로 본 겉보기 속도 비, S1g 형식)는 **판정 입력이 아니다**. K7 하네스·판정 스크립트·`load_synthetic`은 이 키를 읽지 않는다(코드 검색으로 확인). 다른 사용처는 `scripts/synthetic/theory_table.py`(M01–M20 보고)와 내보내기 자신뿐이다. **이웃 관이 있고**, 이웃 제외를 통과한 트레이스가 0개라 쓸 점이 0개인 관(K7_P3_D080 가운데 관, 0.6 m 간격)만 `velocity_check: null`과 `velocity_check_note: "no_usable_picks_neighbours"`를 기록하고 내보내기를 계속한다. 관이 하나뿐인데 점이 0개이면 여전히 `ValueError`로 멈춘다. 이 경우 manifest의 `apparent_v_ratio_pick_slope`만 빈 값(None)이고, 콘솔 요약은 `vg/vt=n/a (no usable picks)`로 찍힌다.
 - 점검 실행(봉인 전)은 측선 일부·단일 트레이스로 했다(점검 입력 `P_<모델>`). 그 h5와 `pilot_run.log`는 전체 실행 전에 보관 폴더로 옮긴다(§6-1).
 
 ### 4-4. 하네스 규약 (확정)
 
-- **파일 이름(구현 확정)**: 하네스 `analysis/processing/m210_k7_pipeline.py --protocol k7 --seal-commit <봉인 커밋>`, 판정 `analysis/processing/m210_k7_judge.py --expected-seal-commit <봉인 커밋>`, 시험 `tests/test_m210_k7_generator.py`·`tests/test_m210_k7_pipeline.py`·`tests/test_m210_k7_judge.py`와 `tests/test_synthetic_export.py`의 K7 시험 4개, 내보내기 `scripts/synthetic/export_dataset.py --k7 analysis/synthetic/k7/models_k7.json` → `data/synthetic_gprmax_k7/`, 하네스 출력 `data/processing/m210_k7/`(`runs_k7.csv` 37열, `run_info.json`, 하네스만 쓰는 `pre_run.txt`·`post_run.txt`).
+- **파일 이름(구현 확정)**: 하네스 `analysis/processing/m210_k7_pipeline.py --protocol k7 --seal-commit <봉인 커밋>`, 판정 `analysis/processing/m210_k7_judge.py --expected-seal-commit <봉인 커밋>`, 시험 `tests/test_m210_k7_generator.py`·`tests/test_m210_k7_pipeline.py`·`tests/test_m210_k7_judge.py`와 `tests/test_synthetic_export.py`의 K7 시험 6개(`test_k7*` 5개 + `test_a_lone_pipe_without_picks_still_fails`), 내보내기 `scripts/synthetic/export_dataset.py --k7 analysis/synthetic/k7/models_k7.json` → `data/synthetic_gprmax_k7/`, 하네스 출력 `data/processing/m210_k7/`(`runs_k7.csv` 37열, `run_info.json`, 하네스만 쓰는 `pre_run.txt`·`post_run.txt`).
 - **시작·끝 가드**: 하네스는 시작 때 K7 시험 파일 3개(`test_m210_k7_generator.py`·`test_m210_k7_pipeline.py`·`test_m210_k7_judge.py`)를 자식 pytest로 돌려 하나라도 실패하면 즉시 끝낸다. 끝에서 G0 세 가지(§4-2)와 `sealed_files` 대조를 한다.
 - **경로**: 재표본 0.098 ns((b) v1.4 규약 2와 같음) → `prepare_depth_inputs` → 래퍼(변형 인자) → `ev.run_line(apex_qc=True)` → 주 QC 통과 → 사건 붙임(`attach_k7_event`, 아래).
 - **사건 목록과 붙임**(봉인 전 확정, 하네스 `m210_k7_pipeline.py`; S1g 하네스 파일은 바뀌지 않음):
@@ -313,7 +314,7 @@
 | K7-3 | `analysis/processing/m210_k7_pipeline.py`(새, `--protocol k7 --seal-commit`) | 하네스 | §4-4 전부. `K7_SEALED_FILES`·`K7_SEALED_FOLDERS`, 시작 때 K7 시험 3파일 자식 pytest(실패 시 즉시 종료), 시작·끝 정체성, 끝 G0 세 가지, 시드 겹침 단언, `pre_run.txt`·`post_run.txt`는 하네스만 쓴다 |
 | K7-4 | `analysis/processing/m210_k7_judge.py`(새) | 판정 | §4-5·§4-6. `--expected-seal-commit`. 자기 blob = 봉인 커밋 blob, `run_info.protocol == "k7"`, `sealed_files ⊇ K7_SEALED_FILES`를 **스스로 단언**한다((b) v3 실행 전 감사 6의 공백 해소). 고정 집합 단언, 셀 수 출력, 빈 경우 규칙, 후보별 순위와 `rank_reasons`, 최종 채택, 보고 키(K-F5·K-F6, c 진단, 자명 통과·해당 없음 셀 목록) |
 | K7-5 | `scripts/synthetic/export_dataset.py` | `--k7 <models_k7.json>` | `data/synthetic_gprmax_k7/`로 내보내기. 기존 폴더와 섞지 않음 |
-| K7-6 | 시험 | `tests/test_m210_k7_generator.py`, `tests/test_m210_k7_pipeline.py`, `tests/test_m210_k7_judge.py`, `tests/test_synthetic_export.py`(K7 4개) | §4-1 T1–T8, 허용 조합 밖 → `ValueError`, 고정 집합 누락(모델 하나 뺌) → 순위 1, 대상 셀 0 → 순위 1, K7_PVC 짝 행 부족 → 순위 2, 시드 하나 겹침 → 실패, 결정표 순위 1–7 각 경계 |
+| K7-6 | 시험 | `tests/test_m210_k7_generator.py`, `tests/test_m210_k7_pipeline.py`, `tests/test_m210_k7_judge.py`, `tests/test_synthetic_export.py`(K7 6개) | §4-1 T1–T8, 허용 조합 밖 → `ValueError`, 고정 집합 누락(모델 하나 뺌) → 순위 1, 대상 셀 0 → 순위 1, K7_PVC 짝 행 부족 → 순위 2, 시드 하나 겹침 → 실패, 결정표 순위 1–7 각 경계 |
 | K7-7 | G0 | §4-2 | 기본 경로 4TU 두 csv 바이트 동일, (b)·S1g 하네스 기본 경로 회귀 |
 
 - 4TU 커밋 산출물(`fourtu_apex_candidates_v1.csv` 등)을 덮어쓰지 않는다. 변형 실행은 다른 출력 폴더에 쓴다.
@@ -323,7 +324,7 @@
 ## 6. 봉인 대상과 순서
 
 - **봉인 대상**:
-  - 이 문서(v1.1 봉인판)
+  - 이 문서(v1.2 봉인판)
   - `K7_SEALED_FILES`(하네스 상수, 판정 스크립트가 `run_info.sealed_files ⊇` 단언):
     - 이 문서, 결정 근거 `analysis/processing/m210_k7_probe.py`·`analysis/processing/m210_k7_rank_replay.py`·`docs/processing/m210_k7_probe.json`·`docs/processing/m210_k7_rank_replay.json`
     - `analysis/synthetic/k7/models_k7.json`
@@ -332,27 +333,47 @@
     - 상속: `analysis/processing/m210b_floor_rules.py`(`bad0f95c…`, 변경 없음), `analysis/processing/m210b_s4s6_pipeline.py`, `analysis/processing/m210_s1g_pipeline.py`, `scripts/eval_depth_4tu.py`, QC 상수 `docs/processing/m29c_qc_constants.json`(LF 기준 SHA-256 `6a88bd8d…ec56ba8c`)
   - `K7_SEALED_FOLDERS` = `analysis/synthetic/k7`(폴더 통째: 모델 json, `inputs/`, `pilot/`, `run_k7.cmd`)
   - `DepthConfig()` 기본값은 `run_info`에 기록한다(파일 봉인이 아니라 기록 대조)
+- **명세 판 문자열**: 하네스 `run_info.spec`("… v1.1 sections 4-4 and 5 …")과 판정 스크립트 출력 `note`("… v1.1 4-5, 4-6")의 "v1.1"은 하네스·판정 스크립트 blob을 `d6aaf0f`와 같게 두려고 고치지 않는다. 두 스크립트의 계약(§4-4–§4-6)은 v1.2에서 바뀌지 않았다. 판정서는 이 문자열이 아니라 봉인 커밋과 blob(§8 항목 1·18)으로 판을 가린다.
+- **v1.2 재봉인에서 바뀌는 봉인 대상**: 이 문서, `scripts/synthetic/export_dataset.py`(작업 트리 blob `00069282…`, 봉인 커밋에서 재확인), `tests/test_synthetic_export.py`(시험 2개 추가: `test_k7_middle_pipe_between_neighbours_has_no_velocity_check`, `test_a_lone_pipe_without_picks_still_fails`)의 blob. 하네스·판정 스크립트·생성기는 바뀌지 않는다. 봉인 전 확인(python-expert): 전체 pytest 1099 passed, 1 skipped. 나머지 `K7_SEALED_FILES`·`K7_SEALED_FOLDERS`는 `d6aaf0f`와 blob이 같아야 한다(판정서 §8 항목 1에서 파일별로 대조). §8의 "봉인 커밋"은 v1.2 재봉인 커밋이다(`d6aaf0f` 아님).
 - **순서**: 사용자 결정(완료, §0) → EM(모델·점검)과 python-expert(코드·시험)를 봉인 전에 병행 → 무결성 점검 → **실행 전 감사(봉인 전)** → 지적 반영 → 봉인 커밋 → §6-1 운영 → verify → 판정.
 
 ### 6-1. 실행 운영 순서 (봉인 커밋 뒤)
 
-1. 하네스 로그 폴더 `data/processing/m210_k7/`와 러너 로그 폴더 `data/synthetic_gprmax_k7/runner_logs/`를 **gprMax 전에** 만든다.
+**run1 보관(v1.2)**: 첫 봉인 실행 산출은 `data/synthetic_gprmax_k7/run1_d6aaf0f/`(h5 13개, `runner_logs/`, 부분 내보내기 `export_partial/`, `export_k7.err`)에 있다. 이 폴더는 **판정에 쓰지 않는다.** 재실행부터 verify까지 이 폴더에 쓰지 않는다. 재실행 전에 run1 h5 13개의 파일 SHA-256을 기록한다.
+
+1. 하네스 로그 폴더 `data/processing/m210_k7/`와 러너 로그 폴더 `data/synthetic_gprmax_k7/runner_logs/`(새로)를 **gprMax 전에** 만든다.
 2. **점검 산출 보관**: 봉인 전 점검 실행의 `data/synthetic_gprmax_k7/pilot/`(h5·`.log`)와 `data/synthetic_gprmax_k7/pilot_run.log`를 전체 실행 전에 `data/synthetic_gprmax_k7/pilot_prerun_h5/`로 **이동**한다(복사 아님, mtime 유지). 입력 폴더 맨 위에 점검 로그를 남기지 않는다((b) v3 감사 10 재발 방지).
 3. gprMax 전체 실행: 8모델과 참조 자료(`_bg`·`_fs`). gprMax 로그와 러너 로그는 새 파일로 쓴다. GPU는 한 계열 작업만.
 4. **점검 산출 재현 대조**: 점검과 전체 실행이 같은 입력으로 만든 h5는 `K7_REF_S001`·`K7_REF_S002`·`K7_REF_S003` 셋뿐이다. 층 참조 `K7_REF_L085_S001`·`K7_REF_L130_S001`은 점검 실행에 없었고(§9), 모델 점검 `P_<모델>`은 입력이 달라 대상이 아니다. 셋은 python-dev로 `~/.claude/tools/gprmax/h5_compare.py <pilot_prerun_h5 안의 점검 h5> <새 h5> --expect bit --all-datasets --format json --out <scratchpad 보고서 경로>`(`--out` 필수, 점검 h5는 2에서 옮긴 경로)로 `rxs/rx1/Ez`·dt·Iterations를 **배열 비트 단위로** 비교한다. 파일 SHA-256은 기록만 한다(HDF5 `track_times` 때문에 배열이 같아도 다름, 예상된 차이). 배열이 다르면 판정서에 공개하고 전체 실행 것을 쓴다.
+   - **run1 재현 대조(v1.2, 공개 항목)**: 재실행 h5 13개를 같은 이름의 run1 h5와 4와 같은 명령(`--expect bit --all-datasets --format json --out <scratchpad 보고서 경로>`)으로 배열 비트 비교한다. 같은 입력의 결정적 계산이라 같아야 한다. 결과(같음/다름, 다르면 데이터셋 이름)는 판정서에 공개하고, 판정에는 언제나 재실행 h5를 쓴다. 파일 SHA-256은 기록만 한다(`track_times`).
 5. **h5 snapshot**: 내보내기 전에 참조 h5 6개(`K7_REF_S001`·`S002`·`S003`·`L085_S001`·`L130_S001`과 재사용 `data/synthetic_gprmax_s4s6/h5/FS.h5`)와 **모델 h5 8개**(`data/synthetic_gprmax_k7/h5/K7_*_merged.h5`)에 `source_guard` snapshot을 건다. 파일 SHA-256은 기록만 하고, 대조 기준은 snapshot ↔ verify 값이다.
-6. 내보내기 → 내보낸 npy·json에 `source_guard` snapshot → 하네스 → 하네스 종료 뒤 **두 snapshot 모두 verify**.
+6. 내보내기(`MKL_CBWR=COMPATIBLE`로 실행) → 내보낸 npy·json에 `source_guard` snapshot → 하네스 → 하네스 종료 뒤 **두 snapshot 모두 verify**.
+   - `MKL_CBWR=COMPATIBLE`가 필요한 이유: S1g 내보내기 json 3개가 `velocity_check` polyfit 값의 끝자리만 MKL 실행 경로에 따라 달라졌고, `MKL_CBWR=COMPATIBLE`에서는 77f5f96 스크립트와 현재 스크립트가 바이트 동일했다(코드 무관, python-expert 확인). 판정 입력 npy는 h5 원값을 그대로 옮긴 것이라 영향이 없다. 흔들릴 수 있는 것은 json의 보고 값 끝자리뿐이다. S4S6 묶음 1·v2·v3 내보내기는 각 37파일이 바이트 동일했다.
 7. 봉인 커밋부터 verify까지 어느 세션도 커밋·저장소 쓰기를 하지 않는다. 저장소 쓰기에는 `.claude/agent-memory/**`(에이전트 메모리)도 든다. 그래서 이 구간에는 메모리를 쓰는 프로젝트 에이전트를 부르지 않는다(작업 트리가 dirty가 되면 순위 1). 입력 폴더 맨 위에는 하네스 시작부터 끝까지 쓰지 않는다.
 8. **하네스 출력 폴더의 `pre_run.txt`·`post_run.txt`는 하네스만 쓴다.** 메인 세션의 정체성 기록은 같은 폴더의 `main_session_pre.txt`·`main_session_post.txt`(또는 다른 폴더)에 쓴다((b) v3 판정서의 `post_run.txt` 덮어쓰기 재발 방지).
 9. 하네스가 30분을 넘으면 long-running-task-monitor 규칙을 따른다.
 
+### 6-2. 첫 봉인 실행의 대체 이력 (v1.2)
+
+- 첫 봉인 `d6aaf0f`(v1.1, 12:48:54) 뒤 §6-1대로 gprMax 13단계(8모델 + 참조 5)를 12:50–14:26에 돌렸고 모두 exit 0이었다. 레인 B는 12:59–14:00에 conda `reg.exe`가 Suspended 상태로 멈췄다가 사용자 승인 뒤 재개됐다.
+- §6-1 4의 점검 산출 대조: `K7_REF_S001`–`S003`가 점검 산출과 배열 비트 동일이었다.
+- 내보내기(14:27:00–14:27:41)가 `K7_P3_D080 pipe 1: no usable per-trace picks for the velocity check`로 실패했다. 0.6 m 간격 관 3개 가운데 관은 양쪽 이웃 관 때문에 트레이스별 픽이 모두 빠져 점이 0개였다. P2 두 모델만 내보내졌다.
+- 하네스·판정은 돌지 않았다. 성공률·깊이 등 **판정 결과는 하나도 없다.** 그래서 v1.1 판정은 성립하지 않고, v1.2 재봉인 실행으로 대체한다.
+- **마른 내보내기에서 본 범위(공개, python-expert 사실 보고)**: 보관 run1 h5로 내보내기를 끝까지 돌려(출력 scratchpad, 뒤에 삭제) 다른 실패가 없는지 봤다.
+  - 부른 것: 내보내기 `main(--k7 … --h5-dir <run1> … --out-dir <scratchpad>)`, 하네스 모듈의 `json_models`·`model_set_failures`·`load_model`(`load_synthetic` + 관 정답)·`floor_harness.resample_to`·`floor_harness.input_record`뿐이다.
+  - 부르지 않은 것: 생성기(`apex_candidates_for_radargram`·`_peaks`), `prepare_depth_inputs`, `clean_model`, `calibrate`, `model_rows`·`line_rows`·`variant_rows`, `qc_summary`·`run_line`, 하네스 `main`, 판정 스크립트. 하네스를 import하면서 생성기·`eval_depth_4tu` 모듈이 import만 됐다.
+  - 화면에 본 값: `line_id`, 배열 크기(4665, 161) → 재표본 뒤 (562, 161), dt 0.098 ns, 꼭짓점 트레이스(json 입력값과 같음), 안테나 높이 0.1 m, εr 9, 관별 `velocity_check_note`(K7_P3_D080 관 1만 사유), `model_set_failures` 빈 목록, `input_record` 34파일.
+  - 내보내기 json의 꼭짓점 포락선 시각·파형 지연·속도 점검 기울기와 콘솔 요약은 scratch 로그에 쓰였으나 필터로 걸러 화면에 띄우지 않았고, 폴더는 지웠다.
+  - 성공률·깊이·후보 위치는 출력하지도 보지도 않았다.
+- 이 결함은 판정 입력이 아닌 내보내기 진단 키(`velocity_check`)의 예외 처리다. 기준·문턱·결정표·모델·시드는 바꾸지 않는다.
+
 ## 7. 봉인 문구
 
-"이 문서 v1.1(§0 결정 L1–L4, §2-1·§2-2 채택 후보 a1·b2의 정의, §4-1 시험, §4-2 G0, §4-3 모델·역할 집합, §4-4 하네스 규약·시드·변형 집합, §4-5 판정 항목, §4-6 결정표·판정 순서·고정 집합 단언·빈 경우 규칙, §5 위임 계약, §6 봉인 대상·운영, §8 판정서 첫머리 목록)은 K7 새 실현 전체 실행 결과를 보기 전에 고정한다. **결과를 본 뒤 기준·셈법·결정표를 바꾸지 않는다.** 결과 뒤 착상은 새 판(v2)으로 적고 이 판정에 쓰지 않는다. S1g·S4S6(묶음 1·v2·v3)의 h5·npy·시드·runs·판정 결과와 4TU 결과는 K7 판정에 쓰지 않는다(참조 h5 예외 `FS.h5` 제외). K7-c는 진단으로 보고만 하고 판정에 쓰지 않는다."
+"이 문서 v1.2(§0 결정 L1–L4, §2-1·§2-2 채택 후보 a1·b2의 정의, §4-1 시험, §4-2 G0, §4-3 모델·역할 집합, §4-4 하네스 규약·시드·변형 집합, §4-5 판정 항목, §4-6 결정표·판정 순서·고정 집합 단언·빈 경우 규칙, §5 위임 계약, §6 봉인 대상·운영, §8 판정서 첫머리 목록)은 K7 새 실현 전체 실행 결과를 보기 전에 고정한다. **결과를 본 뒤 기준·셈법·결정표를 바꾸지 않는다.** 결과 뒤 착상은 새 판(v2)으로 적고 이 판정에 쓰지 않는다. S1g·S4S6(묶음 1·v2·v3)의 h5·npy·시드·runs·판정 결과와 4TU 결과는 K7 판정에 쓰지 않는다(참조 h5 예외 `FS.h5` 제외). K7-c는 진단으로 보고만 하고 판정에 쓰지 않는다. 첫 봉인 `d6aaf0f` 실행(run1)은 내보내기에서 멈춰 판정 결과가 없으며, 그 h5는 재실행 h5와의 배열 대조에만 쓰고 판정에 쓰지 않는다."
 
 ## 8. 판정서 첫머리에 적을 것 — 하나라도 없거나 맞지 않으면 결정 순위 1(보류)
 
-- 단, 공개 항목은 예외다. 항목 10의 대조 결과(같음/다름)·영점 값, 항목 11의 셀 목록, 항목 13 감사 기록 표의 내용, 항목 15의 c 진단 값, 항목 17의 영향 기술은 **값이 무엇이든 순위 1 사유가 아니다.** 그 항목이 판정서에서 **빠지면** 순위 1이다.
+- 단, 공개 항목은 예외다. 항목 10의 대조 결과(같음/다름)·영점 값, 항목 11의 셀 목록, 항목 13 감사 기록 표의 내용, 항목 15의 c 진단 값, 항목 17의 영향 기술, 항목 18의 이력 기술, 항목 19의 대조 결과는 **값이 무엇이든 순위 1 사유가 아니다.** 그 항목이 판정서에서 **빠지면** 순위 1이다.
 
 1. 봉인 커밋 해시와 파일별 blob SHA-1: `K7_SEALED_FILES` 목록과 EM 폴더의 봉인 대상(§6). `git rev-parse <커밋>:<경로>`, LF 기준. CRLF 작업 사본은 blob으로만 대조한다.
 2. 판정 인자 `--expected-seal-commit` = 봉인 커밋
@@ -371,6 +392,8 @@
 15. c 진단 보고(K-F6의 c 열 분포) — 공개 항목
 16. 결과 전 결정 기록(§9)의 마지막 행 시각(KST) < 봉인 커밋 시각(`git log -1 --format=%cI <봉인 커밋>`)
 17. §4-3 판정 해석 주의 세 가지(PVC +0.22 ns, K7_P1_D060 ≈ S1G_C1, 층 사건 `ambiguous_with`)와 그 영향 — 공개 항목
+18. 첫 봉인 대체 이력(§6-2): `d6aaf0f`, 실패 단계(내보내기)와 메시지, 하네스·판정 미실행(판정 결과 없음), v1.2 재봉인 커밋, v1.2에서 blob이 바뀐 봉인 파일 목록 — 공개 항목
+19. run1 재현 대조(§6-1 4의 하위 항목): run1 h5 13개 ↔ 재실행 h5 배열 비트 비교 결과(같음/다름)와 양쪽 파일 SHA-256(기록) — 공개 항목
 
 ## 9. 결과 전 결정 기록
 
@@ -390,9 +413,16 @@
 | 12:03 v1.1: 구현 해석 | BG 보정 전체 짝, 관 없는 행 수 max(관 수, 1), primary 고르기 순서, `nms` 묶음·`lost_reason_detail`, `n_window_starts`, b2 동률 = 피크 순서, S1g G0 열 단위 | 위와 같음 | 아니오 |
 | 12:03 v1.1: 행 수 정정 | 잡음 행 3,840, 잡음 없는 행 48(v1.0 "2,560 + 32" 정정; 구현 보고의 "44"는 K7_BG_L 행을 빠뜨린 셈이다. 하네스 `model_rows`는 관 없는 모델도 변형마다 1행을 내고, 판정 단언 `noise_free_rows_*` = max(관 수, 1)이라 48이다) | 하네스·판정 스크립트 코드 | 아니오 |
 | 12:03 v1.1: EM 산출 | §4-3에 경로, 공유 참조 h5 5개 + FS 재사용(참조 h5 예외), 점검 영점 S001 3.6162·S002 3.6156·S003 3.6151 ns, 해석 주의 셋 | EM 점검 실행(영점·사건 시각·기하, 성공률 아님) | 아니오 |
-| 12:03 v1.1: 상속 변경 공개 | 생성기 blob 변경, `test_m210b_s4s6_pipeline.py` 수정, `export_dataset.py` +142줄, `test_synthetic_export.py` +150줄로 (b) 봉인 파일이 작업 트리에서 바뀜 — 그 판정은 각 봉인 커밋에서 재현(§4-2) | python-expert 구현 보고 | 아니오 |
+| 12:03 v1.1: 상속 변경 공개 | 생성기 blob 변경, `test_m210b_s4s6_pipeline.py` 수정, `export_dataset.py`·`test_synthetic_export.py` 변경(v1.1 당시 값; 현재 합계는 §4-2)으로 (b) 봉인 파일이 작업 트리에서 바뀜 — 그 판정은 각 봉인 커밋에서 재현(§4-2) | python-expert 구현 보고 | 아니오 |
 | 12:13 v1.1: 사건 붙임 | §4-4 붙임 문구를 `attach_k7_event`로: 최상위 `expected_events`(모델별 사본 불일치 = 시작 가드 실패), `K7_EVENT_KINDS` 7종(모르는 종류 오류, `x_m` null은 `flat_layer`만), `flat_layer` $\lvert\Delta x\rvert=0$, 관 정답 = `primary`만(`pvc_internal`은 알려진 사건, U 아님), `ambiguous_with` 기록만 | python-expert 마른 점검(실제 json 구조, 결과 없음) | 아니오 |
 | 12:29 v1.1: 실행 전 감사·무결성 지적 반영 | §9 시각, 상속 변경 4파일, 판 표시 v1.1, 순위 SNR 위치(끝점의 $D$, 현행과 같음), §8 항목 10 대조 기준(`FS.h5` SHA)·모델 h5 snapshot·비트 대조 S001–S003만, 비교 명령, 관 수 = `pipes` 길이, a1 동률 늦은 쪽, $\tau\le0$ 대체, export 시험 4개, pytest 수 기록 방식, 홈 경로 제거, CSV CRLF 기준, 구현 해석 (a)–(i) 표지, 메모리 쓰기 금지, 인용 출처, 고정 집합 단언 2개 추가(`models_k7.json` SHA, 관별 행 수) — 기준·문턱·결정표 불변 | 실행 전 감사·무결성 점검 지적, 생성기 코드(`climb_to_local_max`·`tau2_vertex_trace`·`accepted` 행 `snr`) | 아니오 |
+| 12:48 첫 봉인 `d6aaf0f`(12:48:54) | v1.1 봉인 | 위 행들 | 아니오 |
+| 12:50–14:26 run1 gprMax 13단계 | 모두 exit 0. 레인 B 12:59–14:00 conda `reg.exe` Suspended → 사용자 승인 뒤 재개. `K7_REF_S001`–`S003` 점검 산출과 배열 비트 동일 | 러너 로그·`h5_compare` 결과 | 아니오(h5만, 성공률 없음) |
+| 14:27 run1 내보내기 실패(14:27:00–14:27:41) | `K7_P3_D080 pipe 1: no usable per-trace picks for the velocity check`. P2 두 모델만 내보내짐. 하네스·판정 미실행 | `export_k7.err` | 아니오(판정 결과 없음) |
+| 14:36 이전 사용자 결정(정확한 시각 기록 없음; 상한 = 내보내기 수정 mtime 14:36:56, 이 행 기록 14:37) | python-expert가 내보내기를 고침(속도 점검이 판정 입력이 아니면 점 0개 관은 `velocity_check: null` + 사유로 기록하고 계속, 보관 h5로 마른 내보내기를 끝까지 돌려 다른 실패 확인), 명세 v1.2 재봉인, gprMax 재실행, run1 산출은 `run1_d6aaf0f/`에 보관 | run1 실패 메시지, 보관 h5 목록 | 아니오 |
+| 14:37 v1.2 틀 작성 | 판 표시, §4-3 속도 점검 줄(키 이름 확정 대기), §6 재봉인 대상, §6-1 run1 보관·run1 재현 대조, §6-2 대체 이력, §7 봉인 문구, §8 항목 18·19, 이 행들 — 기준·문턱·결정표·모델·시드 불변 | 위와 같음, 하네스·판정·로더의 `velocity_check` 사용 여부 코드 검색 | 아니오 |
+| 14:59 v1.2 마무리(봉인 대상 확정) | 사유 키 `velocity_check_note` = `"no_usable_picks_neighbours"`(이웃 관이 있고 쓸 점 0일 때만, 관 하나에 점 0이면 여전히 오류), 바뀐 봉인 파일 2개(`export_dataset.py` blob `00069282…`, `test_synthetic_export.py` 시험 2개 추가), 내보내기 `MKL_CBWR=COMPATIBLE`. 보관 run1 h5로 마른 내보내기(출력 scratchpad, 삭제): 8모델 모두 내보내짐, K7_P3_D080 관 1만 null + 사유, 하네스 쪽 읽기(고정 집합 단언·`load_synthetic`·관 정답·꼭짓점 트레이스·사건 두 벌·`input_record` 34파일) 통과, 다른 실패 없음. 하네스 본실행·판정 미실행 — 기준·문턱·결정표·모델·시드 불변 | python-expert 수정·마른 내보내기 보고(pytest 1099 passed, 1 skipped; 기존 내보내기 바이트 대조) | 아니오(성공률·깊이 없음) |
+| 15:02 v1.2 재봉인 직전 문구 정정 | export K7 시험 수 6개·줄 수(+197/−17, +195/−0), 봉인판 표시 v1.2, 콘솔 요약 `vg/vt=n/a (no usable picks)`, 사용자 결정 행 시각 구분, 하네스·판정 판 문자열 v1.1 유지 사유 — 기준·문턱·결정표·모델·시드 불변 | 무결성 점검·실행 전 감사 지적, `git diff d6aaf0f~1 --numstat`, `tests/test_synthetic_export.py` 시험 이름. 같은 시각에 §6-2에 마른 내보내기에서 본 범위(부른 함수·화면에 본 값, 성공률·깊이·후보 위치는 안 봄)를 공개 | 아니오 |
 
 - **시제품 출력 시각 공개**: `analysis/processing/m210_k7_probe.py`의 mtime(11:05:44)이 출력 `docs/processing/m210_k7_probe.json`(10:59:12)보다 늦다. json을 만든 전체 실행(10:52–10:59) 뒤 이 스크립트에 한 변경은 **모듈 머리말 문서 문자열 추가뿐**이다("D. Prototype variants …" 문단과 `K7_PROBE_LINES` 설명). 코드·상수·출력 키는 바꾸지 않았으므로 json 수치에는 영향이 없다(gpr-processing-expert 작업 기록). `m210_k7_rank_replay.py`(11:00:45)는 그 json(11:03:00)보다 먼저다. 새 생성기에서 시제품을 다시 돌려 확인하는 것은 불가능하다(§10, 752e783 생성기 사본 필요).
 - EM 점검 실행(봉인 전)은 모델 확인(진폭·사건 시각·넣는 조건)에만 쓴다. 점검 실행으로 성공률을 재지 않는다. 점검 결과로 모델·기준을 바꾸면 그 사실과 본 값(예: $A_0$, 사건 시각)을 이 표에 적는다((b) v3 실행 전 감사 8과 같은 공개).
