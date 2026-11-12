@@ -104,6 +104,24 @@ MANUAL_APEX_CANDIDATES: dict[tuple[str, str], list[tuple[int, int]]] = {
 }
 """Copied verbatim from analysis/processing/fourtu_explore.py (trace, sample)."""
 
+START_CURRENT = "current"
+START_ENVELOPE_MAX = "envelope_max"
+RANK_WINGS_SNR = "wings_snr"
+RANK_SNR = "snr"
+GENERATOR_VARIANTS: dict[str, tuple[str, str, int | None]] = {
+    "cur": (START_CURRENT, RANK_WINGS_SNR, MAX_APEX_CANDIDATES_PER_LINE),
+    "a1": (START_ENVELOPE_MAX, RANK_WINGS_SNR, MAX_APEX_CANDIDATES_PER_LINE),
+    "a1b2": (START_ENVELOPE_MAX, RANK_SNR, MAX_APEX_CANDIDATES_PER_LINE),
+    "a1b1": (START_ENVELOPE_MAX, RANK_WINGS_SNR, None),
+}
+"""The only allowed ``(start_rule, rank_rule, per_line_cap)`` combinations (K7 spec
+m210_k7_generator.md section 5, K7-1): ``cur`` is selector v1; b2 and b1 are only
+defined on top of the a1 start (sections 2-2, 2-3)."""
+VERTEX_HALF_WIDTH_M = 0.30
+VERTEX_MIN_POINTS = 5
+"""The curvature window of ``accept`` (|xi| <= 0.30 m, >= 5 points), reused by the
+K7-c tau^2 vertex diagnostic (no new constant)."""
+
 FATE_KEPT = "kept"
 FATE_NMS = "nms"
 FATE_CAP6 = "cap6"
@@ -166,6 +184,104 @@ def crest_apex(
                 best = (j, k)
             prev = k
     return best
+
+
+def crest_walk(
+    E: np.ndarray, j0: int, k0: float, dt: float, dx: float
+) -> list[tuple[int, float]]:
+    """Every point ``crest_apex`` visits, the start first (K7-c diagnostic only).
+
+    Same walk as ``crest_apex`` (left side, then right side); the earliest point
+    of the list (first on ties) is the ``crest_apex`` result.
+    """
+    e0 = float(E[round(k0), j0])
+    points = [(j0, k0)]
+    for step in (-1, 1):
+        prev = k0
+        for dist in range(1, int(0.5 / dx + 1e-9) + 1):
+            j = j0 + step * dist
+            if not 0 <= j < E.shape[1]:
+                break
+            lo = max(0, math.floor(prev - 1.0 / dt))
+            hi = min(E.shape[0] - 1, math.ceil(prev + 1.0 / dt))
+            col = E[:, j]
+            k, a = parabolic_peak(col, lo + int(np.argmax(col[lo : hi + 1])))
+            if a < STOP_REL * e0:
+                break
+            points.append((j, k))
+            prev = k
+    return points
+
+
+def climb_to_local_max(column: np.ndarray, k: int) -> int:
+    """K7-a1 start: climb ``column`` from sample ``k`` to a local maximum.
+
+    Each step goes to a strictly larger neighbour (the larger one when both are
+    larger, the later one on a tie), so a flat top or a local maximum does not
+    move and the climb always ends; it stops at the array ends.
+    """
+    n_samples = len(column)
+    while True:
+        later_is_larger = k + 1 < n_samples and column[k + 1] > column[k]
+        earlier_is_larger = k >= 1 and column[k - 1] > column[k]
+        if later_is_larger and (
+            not earlier_is_larger or column[k + 1] >= column[k - 1]
+        ):
+            k += 1
+        elif earlier_is_larger:
+            k -= 1
+        else:
+            return k
+
+
+def is_time_local_max(column: np.ndarray, k: float) -> bool:
+    """Whether sample ``round(k)`` is >= both time neighbours (missing ones pass)."""
+    k_int = round(k)
+    is_above_earlier = k_int == 0 or column[k_int] >= column[k_int - 1]
+    is_above_later = k_int == len(column) - 1 or column[k_int] >= column[k_int + 1]
+    return bool(is_above_earlier and is_above_later)
+
+
+def tau2_vertex_trace(
+    points: list[tuple[int, float]], dt: float, dx: float, t_z: float
+) -> int | None:
+    """K7-c1 diagnostic: crest trace nearest the tau^2 vertex, or ``None``.
+
+    ``tau^2 = a + b xi + c xi^2`` (``tau = k dt - t_z``) is fitted by least
+    squares on the crest points within ``VERTEX_HALF_WIDTH_M`` of the earliest
+    point ``j_e``. ``None`` (fallback, section 2-3) with fewer than
+    ``VERTEX_MIN_POINTS`` points, a non-positive ``tau``, ``c <= 0`` or
+    ``|xi_0| > VERTEX_HALF_WIDTH_M`` (``xi_0 = -b / 2c``).
+    """
+    j_e = min(points, key=lambda point: point[1])[0]
+    xi = np.array([(j - j_e) * dx for j, _ in points])
+    tau = np.array([k * dt - t_z for _, k in points])
+    selected = np.abs(xi) <= VERTEX_HALF_WIDTH_M + 1e-9
+    if selected.sum() < VERTEX_MIN_POINTS or np.any(tau[selected] <= 0):
+        return None
+    c, b, _ = np.polyfit(xi[selected], tau[selected] ** 2, 2)
+    if c <= 0:
+        return None
+    xi_vertex = -b / (2 * c)
+    if abs(xi_vertex) > VERTEX_HALF_WIDTH_M + 1e-9:
+        return None
+    nearest = min(points, key=lambda point: abs((point[0] - j_e) * dx - xi_vertex))
+    return int(nearest[0])
+
+
+def variant_of(start_rule: str, rank_rule: str, per_line_cap: int | None) -> str:
+    """Name of an allowed generator combination (``GENERATOR_VARIANTS``).
+
+    Raises:
+        ValueError: Any other combination (K7 spec section 5, T7).
+    """
+    for name, combination in GENERATOR_VARIANTS.items():
+        if combination == (start_rule, rank_rule, per_line_cap):
+            return name
+    raise ValueError(
+        f"generator combination start_rule={start_rule!r}, rank_rule={rank_rule!r},"
+        f" per_line_cap={per_line_cap!r} is not one of {sorted(GENERATOR_VARIANTS)}"
+    )
 
 
 def track(
@@ -246,18 +362,21 @@ def apex_candidates_for_line(act: str, path: str):
 
 
 def _rank_and_suppress(
-    accepted: list[dict], dx: float
+    accepted: list[dict],
+    dx: float,
+    per_line_cap: int | None = MAX_APEX_CANDIDATES_PER_LINE,
 ) -> tuple[list[dict], list[dict]]:
     """Kept candidates (NMS, per-line cap) and the fate of every accepted one.
 
     ``accepted`` must already be in rank order. A fate is ``{"fate": FATE_*,
     "winner": index into kept or None}``; ``winner`` is the first kept candidate
-    that suppressed an ``FATE_NMS`` entry.
+    that suppressed an ``FATE_NMS`` entry. ``per_line_cap`` ``None`` keeps every
+    candidate that survives the NMS (K7 ``a1b1``).
     """
     kept: list[dict] = []
     fates: list[dict] = []
     for s in accepted:
-        if len(kept) >= MAX_APEX_CANDIDATES_PER_LINE:
+        if per_line_cap is not None and len(kept) >= per_line_cap:
             fates.append({"fate": FATE_CAP6, "winner": None})
             continue
         winner = next(
@@ -277,6 +396,35 @@ def _rank_and_suppress(
     return kept, fates
 
 
+def _peak_diagnostics(
+    E: np.ndarray,
+    j0: int,
+    k_start: float,
+    k_snapped: float,
+    end: tuple[int, float],
+    t_z: float,
+    dt: float,
+    dx: float,
+) -> dict[str, object]:
+    """K7-c diagnostic keys of one detection peak (report only, L3).
+
+    ``sample_snapped`` is the a1 start (climb + ``parabolic_peak``) for every
+    start rule; ``start_is_local_max`` / ``end_is_local_max`` test the start the
+    crest walk used and its end point on their own traces;
+    ``tau2_vertex_trace`` comes from a separate walk (``crest_walk``), so the
+    decision path of ``crest_apex`` is untouched.
+    """
+    j_end, k_end = end
+    return {
+        "sample_snapped": k_snapped,
+        "start_is_local_max": is_time_local_max(E[:, j0], k_start),
+        "end_is_local_max": is_time_local_max(E[:, j_end], k_end),
+        "tau2_vertex_trace": tau2_vertex_trace(
+            crest_walk(E, j0, k_start, dt, dx), dt, dx, t_z
+        ),
+    }
+
+
 def apex_candidates_for_radargram(
     rg,
     inputs,
@@ -285,12 +433,15 @@ def apex_candidates_for_radargram(
     path: str,
     floor_rule: str = "current",
     mute_offset_ns: float = 0.0,
+    start_rule: str = START_CURRENT,
+    rank_rule: str = RANK_WINGS_SNR,
+    per_line_cap: int | None = MAX_APEX_CANDIDATES_PER_LINE,
 ):
     """Apex candidates of a loaded radargram and its depth inputs (spec_eval 9-9-1 (b)).
 
     The generator body of ``apex_candidates_for_line`` after loading, so a
-    synthetic B-scan (S1g, S4/S6) goes through the same rules as a 4TU line. The
-    defaults reproduce selector v1 exactly (m210b 8-2).
+    synthetic B-scan (S1g, S4/S6, K7) goes through the same rules as a 4TU line.
+    The defaults reproduce selector v1 exactly (m210b 8-2, K7 G0).
 
     Args:
         rg: The radargram.
@@ -302,6 +453,17 @@ def apex_candidates_for_radargram(
         mute_offset_ns: Shift of the mute only: the search starts at
             ``t_z + mute_offset_ns + 1/f_c``. ``tau_ns`` and the acceptance keep
             the detected zero ``t_z``.
+        start_rule: ``"current"`` (crest walk from the refined detection peak)
+            or ``"envelope_max"`` (K7-a1: first ``climb_to_local_max`` on the
+            un-normalised envelope, then ``parabolic_peak``).
+        rank_rule: ``"wings_snr"`` (``(-min(n_left, n_right), -snr)``) or
+            ``"snr"`` (K7-b2: ``-snr`` only; ties keep the detection-peak order).
+        per_line_cap: Kept candidates per line; ``None`` = no cap (K7 a1b1).
+            Only the ``GENERATOR_VARIANTS`` combinations are allowed.
+
+    Raises:
+        ValueError: A ``(start_rule, rank_rule, per_line_cap)`` combination that
+            is not in ``GENERATOR_VARIANTS``.
 
     Returns:
         ``(line, kept, E)``: the line row, the kept candidate rows and the envelope
@@ -310,10 +472,12 @@ def apex_candidates_for_radargram(
         ``_accepted_fate`` (parallel list, see ``_rank_and_suppress``), ``_peaks``
         (every detection peak after the edge rule: its ``row`` and ``trace0``,
         the refined start ``sample0``, the crest-moved ``trace``/``sample`` and
-        ``status`` = ``"accepted"`` or the reject reason) and ``_floor`` (search
-        rows, ``L``, ``F``, the unfloored level profile and the raw peak count
-        before the edge rule).
+        ``status`` = ``"accepted"`` or the reject reason, and the K7-c
+        diagnostics of ``_peak_diagnostics``, never used by a decision) and
+        ``_floor`` (search rows, ``L``, ``F``, the unfloored level profile and
+        the raw peak count before the edge rule).
     """
+    variant_of(start_rule, rank_rule, per_line_cap)
     dt, dx = rg.dt_ns, rg.dx_m
     zero = inputs.zero
     line = {
@@ -382,8 +546,20 @@ def apex_candidates_for_radargram(
     accepted, reasons, peak_records = [], {}, []
     for k_int, j0 in peaks:
         k0, _ = parabolic_peak(E[:, j0], k_int)
-        j, k = crest_apex(E, j0, k0, dt, dx)
-        peak = {"row": k_int, "trace0": j0, "sample0": k0, "trace": j, "sample": k}
+        k_snapped, _ = parabolic_peak(E[:, j0], climb_to_local_max(E[:, j0], k_int))
+        k_start = k_snapped if start_rule == START_ENVELOPE_MAX else k0
+        j, k = crest_apex(E, j0, k_start, dt, dx)
+        peak = {
+            "row": k_int,
+            "trace0": j0,
+            "sample0": k0,
+            "trace": j,
+            "sample": k,
+            "status": "",
+        }
+        peak.update(
+            _peak_diagnostics(E, j0, k_start, k_snapped, (j, k), zero.t_zero_ns, dt, dx)
+        )
         peak_records.append(peak)
         if not edge <= j < rg.n_traces - edge or k < k_lo:
             reasons["apex_at_edge_or_mute"] = reasons.get("apex_at_edge_or_mute", 0) + 1
@@ -412,10 +588,13 @@ def apex_candidates_for_radargram(
                 "note": "",
             }
         )
-    # Rank by two-sided support (both wings tracked far), then by detection SNR:
-    # short limb crossings rarely have long wings on both sides.
-    accepted.sort(key=lambda s: (-min(s["n_left"], s["n_right"]), -s["snr"]))
-    kept, fates = _rank_and_suppress(accepted, dx)
+    if rank_rule == RANK_SNR:
+        accepted.sort(key=lambda s: -s["snr"])
+    else:
+        # Rank by two-sided support (both wings tracked far), then by detection
+        # SNR: short limb crossings rarely have long wings on both sides.
+        accepted.sort(key=lambda s: (-min(s["n_left"], s["n_right"]), -s["snr"]))
+    kept, fates = _rank_and_suppress(accepted, dx, per_line_cap)
     line["n_apex_candidates"] = len(kept)
     if not kept:
         line["reason"] = (

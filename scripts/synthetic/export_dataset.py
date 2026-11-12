@@ -37,6 +37,15 @@ S4/S6 (M2-10 (b), scan lines with 1 pipe or none, shallow clutter ``none``,
   ``apex_trace_index`` (both null without a pipe) and ``s4s6`` (family, batch,
   role, clutter and its ``paving`` / ``stones`` block, background reference)
 
+K7 (M2-10 K7, scan lines with 0-3 pipes, optional flat boundary), described by
+``analysis/synthetic/k7/models_k7.json``:
+
+* inputs: ``data/synthetic_gprmax_k7/h5/<id>_merged.h5``; the 3-trace background
+  named by the model's ``bg_ref`` (same soil and layering, no pipe) and the
+  free space named by ``fs_ref`` (reused S4/S6 ``FS.h5``)
+* outputs in ``data/synthetic_gprmax_k7`` only: the S1g file set and json schema
+  (``n_pipes`` 0-3) plus ``k7`` (batch, role, roles, layer, json pipes, references)
+
 Run:
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
@@ -46,6 +55,8 @@ Run:
     conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
         --s4s6 analysis/synthetic/s4s6/models_s4s6_v3.json --batch v3
         (json batch "v3" only, into data/synthetic_gprmax_s4s6_v3; "v2" likewise)
+    conda run -n gprmax-acceleration python -I scripts/synthetic/export_dataset.py ^
+        --k7 analysis/synthetic/k7/models_k7.json   (into data/synthetic_gprmax_k7)
 """
 
 import argparse
@@ -75,6 +86,7 @@ OUT = PROJECT / "data" / "synthetic_gprmax"
 RAW = OUT / "_raw"
 S1G_OUT = PROJECT / "data" / "synthetic_gprmax_s1g"
 S4S6_OUT = PROJECT / "data" / "synthetic_gprmax_s4s6"
+K7_OUT = PROJECT / "data" / "synthetic_gprmax_k7"
 S4S6_BATCH_OUT = {
     "v2": PROJECT / "data" / "synthetic_gprmax_s4s6_v2",
     "v3": PROJECT / "data" / "synthetic_gprmax_s4s6_v3",
@@ -103,6 +115,8 @@ S1G_BG_TRACE_X_M = [0.4, 2.0, 3.6]
 # models_s4s6.json references BG_*: "3 traces x 0.4/2.0/3.6".
 S4S6_BG_TRACE_X_M = [0.4, 2.0, 3.6]
 S4S6_FREE_SPACE_ID = "FS"
+# models_k7.json references K7_REF_*: 3 traces, the same layout as S4/S6.
+K7_BG_TRACE_X_M = [0.4, 2.0, 3.6]
 S4S6_BACKGROUND_PREFIX = {"none": "BG_N", "stones": "BG_N", "paving": "BG_PF"}
 """Background reference family per clutter (flat paving without joints for S6P)."""
 S4S6_CLUTTER_BLOCKS = ("paving", "stones")
@@ -483,6 +497,115 @@ def load_s4s6_specs(
             free_space_h5=fs_path if fs_path.exists() else None,
         )
         specs.append((_s4s6_spec(meta, model, background_id), sources))
+    return specs
+
+
+def _k7_pipe_material(model: dict) -> str | None:
+    """The one pipe material of a K7 model (``None`` without a pipe).
+
+    Raises:
+        ValueError: Pipes of one model with different materials or walls (the
+            json schema has one ``pipe_material`` per model).
+    """
+    kinds = {(pipe["material"], pipe.get("wall_m")) for pipe in model["pipes"]}
+    if len(kinds) > 1:
+        raise ValueError(f"{model['id']}: pipes differ in material or wall {kinds}")
+    return next(iter(kinds))[0] if kinds else None
+
+
+def _k7_spec(meta: dict, model: dict) -> dict:
+    common = meta["common"]
+    pipes = sorted(model["pipes"], key=lambda pipe: pipe["x_m"])
+    first = pipes[0] if pipes else None
+    eps_r = model["soil"]["eps_r"]
+    return {
+        "model_id": model["id"],
+        "pipe_kind": _k7_pipe_material(model),
+        "pipe_wall_m": None if first is None else first.get("wall_m"),
+        "pipe_radius_m": None if first is None else first["radius_m"],
+        "pipe_top_depth_m": None if first is None else first["top_depth_m"],
+        "pipe_center_x_m": None if first is None else first["x_m"],
+        "pipes": [
+            {
+                "center_x_m": pipe["x_m"],
+                "top_depth_m": pipe["top_depth_m"],
+                "radius_m": pipe["radius_m"],
+            }
+            for pipe in pipes
+        ],
+        "expected_apex_trace_index": [pipe["apex_trace_index"] for pipe in pipes],
+        "eps_r": eps_r,
+        "soil_sigma_S_per_m": model["soil"]["sigma_S_per_m"],
+        # Soil velocity above any layer: every K7 pipe lies above its boundary.
+        "velocity_m_per_ns": C0_M_PER_NS / math.sqrt(eps_r),
+        "center_freq_hz": common["center_freq_hz"],
+        "antenna_offset_m": common["antenna_offset_m"],
+        "dx_cell_m": common["fdtd_cell_m"],
+        "pml_cells": common["pml_cells"],
+        "y_surface_m": common["y_surface_m"],
+        "y_antenna_m": common["y_antenna_m"],
+        "time_window_ns": common["time_window_ns"],
+        "scan_start_m": model["scan_start_m"],
+        "trace_step_m": model["trace_step_m"],
+        "n_traces": model["n_traces"],
+        "bg_trace_positions_m": K7_BG_TRACE_X_M,
+        "fs_reference": True,
+        "gprmax_input": model["input"],
+        "extra_meta": {
+            "k7": {
+                "batch": model["batch"],
+                "role": model["role"],
+                "roles": model.get("roles"),
+                "function": model.get("function"),
+                "target_mechanism": model.get("target_mechanism"),
+                "layer": model.get("layer"),
+                "pipes_json": model["pipes"],
+                "background_reference": model["bg_ref"],
+                "free_space_reference": model["fs_ref"],
+            }
+        },
+    }
+
+
+def load_k7_specs(
+    models_json: Path, h5_dir: Path | None = None
+) -> list[tuple[dict, SourceFiles]]:
+    """Specs and source files of the K7 scan lines (0-3 pipes, M2-10 K7).
+
+    Each model names its 3-trace background (``bg_ref``) and free-space
+    (``fs_ref``) reference; both are read from the reference's ``output``.
+    ``h5_dir`` replaces the folder of the K7 outputs only (the models and the
+    references written next to them), not of a reused reference such as the
+    S4/S6 ``FS``.
+
+    Raises:
+        ValueError: A reference that is not listed, or a missing free-space file
+            (the time-zero candidates need it).
+    """
+    meta = json.loads(models_json.read_text(encoding="utf-8"))
+    references = {ref["id"]: ref["output"] for ref in meta["references"]}
+    model_folders = {(PROJECT / model["output"]).parent for model in meta["models"]}
+
+    def locate(relative_output: str) -> Path:
+        path = PROJECT / relative_output
+        if h5_dir is None or path.parent not in model_folders:
+            return path
+        return h5_dir / path.name
+
+    specs = []
+    for model in meta["models"]:
+        missing = {model["bg_ref"], model["fs_ref"]} - set(references)
+        if missing:
+            raise ValueError(f"{model['id']}: references {sorted(missing)} not listed")
+        fs_path = locate(references[model["fs_ref"]])
+        if not fs_path.exists():
+            raise ValueError(f"{model['id']}: free-space reference {fs_path} missing")
+        sources = SourceFiles(
+            bscan_h5=locate(model["output"]),
+            background_h5=locate(references[model["bg_ref"]]),
+            free_space_h5=fs_path,
+        )
+        specs.append((_k7_spec(meta, model), sources))
     return specs
 
 
@@ -1114,6 +1237,11 @@ def _parse_args(argv):
         help="S4/S6 models json (analysis/synthetic/s4s6/models_s4s6.json)",
     )
     parser.add_argument(
+        "--k7",
+        type=Path,
+        help="K7 models json (analysis/synthetic/k7/models_k7.json)",
+    )
+    parser.add_argument(
         "--batch",
         help=(
             "S4/S6 only: export only the models whose json batch is this value; "
@@ -1121,7 +1249,9 @@ def _parse_args(argv):
         ),
     )
     parser.add_argument(
-        "--h5-dir", type=Path, help="S1g, S4/S6 only: folder of the gprMax h5 outputs"
+        "--h5-dir",
+        type=Path,
+        help="S1g, S4/S6, K7 only: folder of the gprMax h5 outputs",
     )
     parser.add_argument(
         "--raw-dir", type=Path, help=f"M01-M20 only: raw h5 folder (default {RAW})"
@@ -1131,7 +1261,7 @@ def _parse_args(argv):
         type=Path,
         help=(
             f"output folder (default {OUT}, {S1G_OUT} with --s1g, "
-            f"{S4S6_OUT} with --s4s6)"
+            f"{S4S6_OUT} with --s4s6, {K7_OUT} with --k7)"
         ),
     )
     parser.add_argument(
@@ -1144,8 +1274,9 @@ def _parse_args(argv):
 
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
-    if args.s1g is not None and args.s4s6 is not None:
-        raise SystemExit("--s1g and --s4s6 are exclusive")
+    chosen_sets = [s for s in (args.s1g, args.s4s6, args.k7) if s is not None]
+    if len(chosen_sets) > 1:
+        raise SystemExit("--s1g, --s4s6 and --k7 are exclusive")
     if args.batch is not None and args.s4s6 is None:
         raise SystemExit("--batch needs --s4s6")
     if args.s4s6 is not None:
@@ -1153,6 +1284,9 @@ def main(argv: list[str] | None = None) -> None:
         out_dir = s4s6_out_dir(args.batch, args.out_dir)
         if args.batch is not None:
             jobs = [(spec, src) for spec, src in jobs if s4s6_batch(spec) == args.batch]
+    elif args.k7 is not None:
+        jobs = load_k7_specs(args.k7, args.h5_dir)
+        out_dir = K7_OUT if args.out_dir is None else args.out_dir
     elif args.s1g is not None:
         jobs = load_s1g_specs(args.s1g, args.h5_dir)
         out_dir = S1G_OUT if args.out_dir is None else args.out_dir

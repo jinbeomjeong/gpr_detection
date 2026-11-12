@@ -677,3 +677,153 @@ def test_single_pipe_export_matches_the_stored_files(exporter, tmp_path):
             name
         )
     _assert_same_json(_read_json(tmp_path / stored_json.name), _read_json(stored_json))
+
+
+# ----------------------------------------------------------------- K7 (M2-10 K7)
+
+
+def _k7_model(model_id: str, pipe_xs: tuple[float, ...], material: str = "pec"):
+    pipes = [
+        {
+            "pipe_index": i,
+            "x_m": x,
+            "top_depth_m": 0.3,
+            "radius_m": 0.05,
+            "material": material,
+            "wall_m": None,
+            "fill": None,
+            "apex_trace_index": round((x - SCAN_START_M) / TRACE_STEP_M),
+        }
+        for i, x in enumerate(pipe_xs)
+    ]
+    return {
+        "id": model_id,
+        "role": "test",
+        "target_mechanism": "a",
+        "function": "defect",
+        "batch": "k7",
+        "roles": ["defect_a"],
+        "soil": {"eps_r": 9.0, "sigma_S_per_m": 0.001},
+        "layer": None,
+        "pipes": pipes,
+        "input": f"in/{model_id}.in",
+        "n_traces": N_TRACES,
+        "scan_start_m": SCAN_START_M,
+        "trace_step_m": TRACE_STEP_M,
+        "output": f"h5/{model_id}_merged.h5",
+        "bg_ref": "K7_REF_T",
+        "fs_ref": "FS",
+    }
+
+
+def _k7_models_json(tmp_path: Path, fs_path: Path, models=None) -> Path:
+    common = {
+        "eps_r_soil": 9.0,
+        "center_freq_hz": FREQ_HZ,
+        "air_gap_m": 0.1,
+        "antenna_offset_m": 0.1,
+        "fdtd_cell_m": 0.005,
+        "pml_cells": 20,
+        "y_surface_m": 0.7,
+        "y_antenna_m": 0.8,
+        "time_window_ns": 28.0,
+    }
+    references = [
+        {"id": "K7_REF_T", "n_traces": 3, "output": "h5/K7_REF_T_merged.h5"},
+        # Absolute: a reference reused from another folder (as the S4/S6 FS).
+        {"id": "FS", "n_traces": 1, "output": str(fs_path)},
+    ]
+    models = models or [_k7_model("K7_T1", (0.8, 1.4)), _k7_model("K7_TBG", ())]
+    meta = {"common": common, "models": models, "references": references}
+    path = tmp_path / "models_k7.json"
+    path.write_text(json.dumps(meta), encoding="utf-8")
+    return path
+
+
+def _write_fake_k7_runs(exporter: ModuleType, tmp_path: Path) -> tuple[Path, Path]:
+    h5_dir = tmp_path / "h5"
+    h5_dir.mkdir()
+    fs_dir = tmp_path / "reused"
+    fs_dir.mkdir()
+    t_ns = np.arange(N_SAMPLES) * DT_NS
+    source_peak_ns = math.sqrt(2.0) / (FREQ_HZ * 1e-9)
+    direct = _ricker(t_ns, source_peak_ns + exporter.direct_air_time(0.1))
+    surface = 0.5 * _ricker(
+        t_ns, source_peak_ns + exporter.surface_reflection_time(0.1, 0.1)
+    )
+    background = direct + surface
+    _write_h5(h5_dir / "K7_REF_T_merged.h5", np.tile(background[:, None], (1, 3)))
+    _write_h5(fs_dir / "FS.h5", direct[:, None])
+    x_mid = SCAN_START_M + np.arange(N_TRACES) * TRACE_STEP_M
+    lateral_gain = 1.0 + BACKGROUND_LINE_DRIFT * np.arange(N_TRACES)
+    for model_id, pipe_xs in (("K7_T1", (0.8, 1.4)), ("K7_TBG", ())):
+        bscan = background[:, None] * lateral_gain[None, :]
+        for x0 in pipe_xs:
+            ray_ns = exporter.trace_reflection_times(
+                x_mid, 0.1, 0.1, x0, 0.3, 0.05, VELOCITY_M_PER_NS
+            )
+            for i, ray in enumerate(ray_ns):
+                bscan[:, i] += _ricker(t_ns, source_peak_ns + ray)
+        _write_h5(h5_dir / f"{model_id}_merged.h5", bscan)
+    return h5_dir, fs_dir / "FS.h5"
+
+
+def test_k7_export_writes_the_s1g_schema_with_k7_keys(exporter, tmp_path):
+    h5_dir, fs_path = _write_fake_k7_runs(exporter, tmp_path)
+    models_json = _k7_models_json(tmp_path, fs_path)
+    out_dir = tmp_path / "out"
+    exporter.main(
+        ["--k7", str(models_json), "--h5-dir", str(h5_dir), "--out-dir", str(out_dir)]
+    )
+    meta = _read_json(out_dir / "K7_T1.json")
+    assert list(meta)[: len(SINGLE_PIPE_KEYS)] == SINGLE_PIPE_KEYS
+    assert meta["n_pipes"] == 2
+    assert [p["apex_trace_index"] for p in meta["pipes"]] == [10, 25]
+    assert meta["k7"]["background_reference"] == "K7_REF_T"
+    assert meta["k7"]["batch"] == "k7"
+    truths = load_synthetic_pipe_truths("K7_T1", root=out_dir)
+    assert [t.apex_trace_index for t in truths] == [10, 25]
+    background = _read_json(out_dir / "K7_TBG.json")
+    assert background["n_pipes"] == 0 and background["pipe_material"] is None
+    assert load_synthetic_pipe_truths("K7_TBG", root=out_dir) == []
+
+
+def test_k7_specs_read_the_references(exporter, tmp_path):
+    h5_dir, fs_path = _write_fake_k7_runs(exporter, tmp_path)
+    jobs = exporter.load_k7_specs(_k7_models_json(tmp_path, fs_path), h5_dir)
+    for _, sources in jobs:
+        assert sources.background_h5 == h5_dir / "K7_REF_T_merged.h5"
+        assert sources.free_space_h5 == fs_path
+    assert exporter.K7_OUT == exporter.PROJECT / "data" / "synthetic_gprmax_k7"
+
+
+def test_k7_errors(exporter, tmp_path):
+    h5_dir, fs_path = _write_fake_k7_runs(exporter, tmp_path)
+    missing_fs = _k7_models_json(tmp_path, tmp_path / "absent" / "FS.h5")
+    with pytest.raises(ValueError, match="free-space reference"):
+        exporter.load_k7_specs(missing_fs, h5_dir)
+    mixed = _k7_model("K7_MIX", (0.8, 1.4))
+    mixed["pipes"][1]["material"] = "pvc_air"
+    mixed_json = _k7_models_json(tmp_path, fs_path, [mixed])
+    with pytest.raises(ValueError, match="differ in material"):
+        exporter.load_k7_specs(mixed_json, h5_dir)
+    with pytest.raises(SystemExit, match="exclusive"):
+        exporter.main(["--k7", "a.json", "--s1g", "b.json"])
+
+
+def test_k7_em_json_specs_use_the_shared_references(exporter):
+    """Dry run on the committed models_k7.json (no h5 is read)."""
+    models_json = PROJECT / "analysis" / "synthetic" / "k7" / "models_k7.json"
+    fs_path = PROJECT / "data" / "synthetic_gprmax_s4s6" / "h5" / "FS.h5"
+    if not (models_json.exists() and fs_path.exists()):
+        pytest.skip("models_k7.json or the reused S4/S6 FS.h5 not available")
+    jobs = exporter.load_k7_specs(models_json)
+    assert len(jobs) == 8
+    backgrounds = {spec["model_id"]: src.background_h5.name for spec, src in jobs}
+    assert backgrounds["K7_BG_L"] == backgrounds["K7_P2_D070_L"]
+    assert backgrounds["K7_P2_D070"] == "K7_REF_S001_merged.h5"
+    assert all(src.free_space_h5 == fs_path for _, src in jobs)
+    for spec, _ in jobs:
+        for pipe in spec["extra_meta"]["k7"]["pipes_json"]:
+            offset = (pipe["x_m"] - spec["scan_start_m"]) / spec["trace_step_m"]
+            assert round(offset) == pipe["apex_trace_index"]

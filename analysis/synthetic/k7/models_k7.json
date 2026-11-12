@@ -1,0 +1,3084 @@
+{
+ "study": "M2-10 K7 generator-defect synthetic models (docs/processing/m210_k7_generator.md section 4-3)",
+ "author": "electromagnetic-simulation-expert, 2026-11-12 (design and input check)",
+ "simulator": "gprMax 4.0.1 (env gprmax-acceleration), 2D TMz, GPU",
+ "input_identity_check": "no K7 FDTD input (models, references, pilots; title line ignored) equals any of 449 existing .in under analysis/synthetic/ (S1g, S4/S6 batch 1, v2, v3, pilots, band_top) or scripts/synthetic/inputs (M01-M20); K7 inputs pairwise distinct (asserted at generation)",
+ "conventions": {
+  "coordinates": "gprMax x horizontal, y up; depth d = y_surface_m - y",
+  "export_axes": "trace_x_m_first 0.40 (Tx/Rx midpoint), dx 0.02, time_of_sample0_ns 0.0 (raw simulation time)",
+  "antenna": "z dipole Tx at x-0.05, Rx Ez at x+0.05, y_antenna_m; offset 0.10 m; h 0.10 m",
+  "wavelet": "gprMax ricker 500 MHz, peak sqrt(2)/f = 2.8284 ns"
+ },
+ "common": {
+  "eps_r_soil": 9.0,
+  "center_freq_hz": 500000000.0,
+  "air_gap_m": 0.1,
+  "antenna_offset_m": 0.1,
+  "fdtd_cell_m": 0.005,
+  "pml_cells": 20,
+  "domain_m": [
+   4.0,
+   2.45
+  ],
+  "y_surface_m": 2.1,
+  "y_antenna_m": 2.2,
+  "time_window_ns": 55.0
+ },
+ "models": [
+  {
+   "id": "K7_P2_D070",
+   "role": "defect model (new-depth D100)",
+   "target_mechanism": "a",
+   "function": "defect",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.001
+   },
+   "layer": null,
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 1.5,
+     "top_depth_m": 0.7,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.35,
+     "apex_trace_index": 55
+    },
+    {
+     "pipe_index": 1,
+     "x_m": 2.5,
+     "top_depth_m": 0.7,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.35,
+     "apex_trace_index": 105
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_P2_D070.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_P2_D070_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_P2_D070.in",
+    "traces_x_m": [
+     1.5,
+     2.0,
+     2.5
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_P2_D070_merged.h5"
+   },
+   "roles": [
+    "defect_a"
+   ],
+   "bg_ref": "K7_REF_S001",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_P2_D070/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 1.5,
+     "t_ns": 17.566,
+     "apparent_depth_m": 0.697,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E02",
+     "kind": "primary",
+     "pipe_index": 1,
+     "x_m": 2.5,
+     "t_ns": 17.566,
+     "apparent_depth_m": 0.697,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E03",
+     "kind": "multiple_pipe",
+     "x_m": 2.0,
+     "t_ns": 28.571,
+     "apparent_depth_m": 1.247,
+     "order": 2,
+     "bounces": 0,
+     "path": "Tx-A-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E04",
+     "kind": "multiple_surface",
+     "x_m": 1.5,
+     "t_ns": 31.575,
+     "apparent_depth_m": 1.397,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E05",
+     "kind": "multiple_surface",
+     "x_m": 2.5,
+     "t_ns": 31.575,
+     "apparent_depth_m": 1.397,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-S-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E06",
+     "kind": "multiple_pipe",
+     "x_m": 1.54,
+     "t_ns": 36.177,
+     "apparent_depth_m": 1.627,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-A-B-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E07",
+     "kind": "multiple_pipe",
+     "x_m": 2.46,
+     "t_ns": 36.177,
+     "apparent_depth_m": 1.627,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-B-A-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E08",
+     "kind": "multiple_other",
+     "x_m": 2.0,
+     "t_ns": 36.236,
+     "apparent_depth_m": 1.63,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E09",
+     "kind": "multiple_surface",
+     "x_m": 1.5,
+     "t_ns": 45.585,
+     "apparent_depth_m": 2.097,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-A-S-A-S-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070/E10",
+     "kind": "multiple_surface",
+     "x_m": 2.5,
+     "t_ns": 45.585,
+     "apparent_depth_m": 2.097,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-B-S-B-S-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_P2_D070_L",
+   "role": "defect model, flat eps 9 -> 12 boundary at 0.85 m",
+   "target_mechanism": "a",
+   "function": "defect",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.001
+   },
+   "layer": {
+    "top_depth_m": 0.85,
+    "eps_r_below": 12.0,
+    "sigma_S_per_m": 0.001,
+    "y_m": 1.25
+   },
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 1.5,
+     "top_depth_m": 0.7,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.35,
+     "apex_trace_index": 55
+    },
+    {
+     "pipe_index": 1,
+     "x_m": 2.5,
+     "top_depth_m": 0.7,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.35,
+     "apex_trace_index": 105
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_P2_D070_L.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_P2_D070_L_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_P2_D070_L.in",
+    "traces_x_m": [
+     1.5,
+     2.0,
+     2.5
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_P2_D070_L_merged.h5"
+   },
+   "roles": [
+    "defect_a"
+   ],
+   "bg_ref": "K7_REF_L085_S001",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_P2_D070_L/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 1.5,
+     "t_ns": 17.566,
+     "apparent_depth_m": 0.697,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E02",
+     "kind": "primary",
+     "pipe_index": 1,
+     "x_m": 2.5,
+     "t_ns": 17.566,
+     "apparent_depth_m": 0.697,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E03",
+     "kind": "flat_layer",
+     "x_m": null,
+     "t_ns": 20.543,
+     "apparent_depth_m": 0.846,
+     "order": 1,
+     "bounces": 1,
+     "path": "Tx-layer-Rx (flat, every trace)",
+     "basis": "vertical two-way time; flat event across the line",
+     "x_range": "all traces",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E04",
+      "K7_P2_D070_L/E05"
+     ]
+    },
+    {
+     "event_id": "K7_P2_D070_L/E04",
+     "kind": "multiple_layer",
+     "x_m": 1.48,
+     "t_ns": 20.565,
+     "apparent_depth_m": 0.847,
+     "order": 1,
+     "bounces": 1,
+     "path": "Tx-A-L-Rx (+ reverse) | Tx-A-L-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E03",
+      "K7_P2_D070_L/E06"
+     ],
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E05",
+     "kind": "multiple_layer",
+     "x_m": 2.48,
+     "t_ns": 20.565,
+     "apparent_depth_m": 0.847,
+     "order": 1,
+     "bounces": 1,
+     "path": "Tx-B-L-Rx (+ reverse) | Tx-B-L-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E03",
+      "K7_P2_D070_L/E07"
+     ],
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E06",
+     "kind": "multiple_layer",
+     "x_m": 1.5,
+     "t_ns": 21.565,
+     "apparent_depth_m": 0.897,
+     "order": 1,
+     "bounces": 2,
+     "path": "Tx-L-A-L-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E04"
+     ]
+    },
+    {
+     "event_id": "K7_P2_D070_L/E07",
+     "kind": "multiple_layer",
+     "x_m": 2.5,
+     "t_ns": 21.565,
+     "apparent_depth_m": 0.897,
+     "order": 1,
+     "bounces": 2,
+     "path": "Tx-L-B-L-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E05"
+     ]
+    },
+    {
+     "event_id": "K7_P2_D070_L/E08",
+     "kind": "multiple_pipe",
+     "x_m": 2.0,
+     "t_ns": 28.571,
+     "apparent_depth_m": 1.247,
+     "order": 2,
+     "bounces": 0,
+     "path": "Tx-A-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E09"
+     ]
+    },
+    {
+     "event_id": "K7_P2_D070_L/E09",
+     "kind": "multiple_layer",
+     "x_m": 2.0,
+     "t_ns": 28.917,
+     "apparent_depth_m": 1.264,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-L-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P2_D070_L/E08"
+     ]
+    },
+    {
+     "event_id": "K7_P2_D070_L/E10",
+     "kind": "multiple_layer",
+     "x_m": 2.0,
+     "t_ns": 30.505,
+     "apparent_depth_m": 1.344,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-B-L-Rx (+ reverse) | Tx-L-A-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E11",
+     "kind": "multiple_surface",
+     "x_m": 1.5,
+     "t_ns": 31.575,
+     "apparent_depth_m": 1.397,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E12",
+     "kind": "multiple_surface",
+     "x_m": 2.5,
+     "t_ns": 31.575,
+     "apparent_depth_m": 1.397,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-S-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E13",
+     "kind": "multiple_pipe",
+     "x_m": 1.54,
+     "t_ns": 36.177,
+     "apparent_depth_m": 1.627,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-A-B-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E14",
+     "kind": "multiple_pipe",
+     "x_m": 2.46,
+     "t_ns": 36.177,
+     "apparent_depth_m": 1.627,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-B-A-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E15",
+     "kind": "multiple_other",
+     "x_m": 2.0,
+     "t_ns": 36.236,
+     "apparent_depth_m": 1.63,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E16",
+     "kind": "flat_layer",
+     "x_m": null,
+     "t_ns": 37.555,
+     "apparent_depth_m": 1.696,
+     "order": 2,
+     "bounces": 3,
+     "path": "Tx-layer-surface-layer-Rx (flat multiple)",
+     "basis": "vertical two-way time",
+     "x_range": "all traces"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E17",
+     "kind": "multiple_surface",
+     "x_m": 1.5,
+     "t_ns": 45.585,
+     "apparent_depth_m": 2.097,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-A-S-A-S-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P2_D070_L/E18",
+     "kind": "multiple_surface",
+     "x_m": 2.5,
+     "t_ns": 45.585,
+     "apparent_depth_m": 2.097,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-B-S-B-S-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_P3_D080",
+   "role": "defect model (D060-type, 3 pipes 0.6 m apart) + boundary 1.30 m",
+   "target_mechanism": "b",
+   "function": "defect",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.001
+   },
+   "layer": {
+    "top_depth_m": 1.3,
+    "eps_r_below": 12.0,
+    "sigma_S_per_m": 0.001,
+    "y_m": 0.8
+   },
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 1.4,
+     "top_depth_m": 0.8,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.25,
+     "apex_trace_index": 50
+    },
+    {
+     "pipe_index": 1,
+     "x_m": 2.0,
+     "top_depth_m": 0.8,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.25,
+     "apex_trace_index": 80
+    },
+    {
+     "pipe_index": 2,
+     "x_m": 2.6,
+     "top_depth_m": 0.8,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.25,
+     "apex_trace_index": 110
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_P3_D080.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_P3_D080_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_P3_D080.in",
+    "traces_x_m": [
+     1.4,
+     2.0,
+     2.6
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_P3_D080_merged.h5"
+   },
+   "roles": [
+    "defect_b"
+   ],
+   "bg_ref": "K7_REF_L130_S001",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_P3_D080/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 1.4,
+     "t_ns": 19.565,
+     "apparent_depth_m": 0.797,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E02",
+     "kind": "primary",
+     "pipe_index": 1,
+     "x_m": 2.0,
+     "t_ns": 19.565,
+     "apparent_depth_m": 0.797,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E03",
+     "kind": "primary",
+     "pipe_index": 2,
+     "x_m": 2.6,
+     "t_ns": 19.565,
+     "apparent_depth_m": 0.797,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-C-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E04",
+     "kind": "multiple_pipe",
+     "x_m": 1.7,
+     "t_ns": 25.527,
+     "apparent_depth_m": 1.095,
+     "order": 2,
+     "bounces": 0,
+     "path": "Tx-A-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E05",
+     "kind": "multiple_pipe",
+     "x_m": 2.3,
+     "t_ns": 25.527,
+     "apparent_depth_m": 1.095,
+     "order": 2,
+     "bounces": 0,
+     "path": "Tx-B-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E06",
+     "kind": "flat_layer",
+     "x_m": null,
+     "t_ns": 29.55,
+     "apparent_depth_m": 1.296,
+     "order": 1,
+     "bounces": 1,
+     "path": "Tx-layer-Rx (flat, every trace)",
+     "basis": "vertical two-way time; flat event across the line",
+     "x_range": "all traces",
+     "ambiguous_with": [
+      "K7_P3_D080/E07",
+      "K7_P3_D080/E08",
+      "K7_P3_D080/E09",
+      "K7_P3_D080/E10",
+      "K7_P3_D080/E11",
+      "K7_P3_D080/E12"
+     ]
+    },
+    {
+     "event_id": "K7_P3_D080/E07",
+     "kind": "multiple_layer",
+     "x_m": 1.44,
+     "t_ns": 29.565,
+     "apparent_depth_m": 1.297,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-L-A-Rx | Tx-A-L-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E06",
+      "K7_P3_D080/E10"
+     ],
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P3_D080/E08",
+     "kind": "multiple_layer",
+     "x_m": 2.04,
+     "t_ns": 29.565,
+     "apparent_depth_m": 1.297,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-L-B-Rx | Tx-B-L-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E06",
+      "K7_P3_D080/E11"
+     ],
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P3_D080/E09",
+     "kind": "multiple_layer",
+     "x_m": 2.64,
+     "t_ns": 29.565,
+     "apparent_depth_m": 1.297,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-C-L-C-Rx | Tx-C-L-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E06",
+      "K7_P3_D080/E12"
+     ],
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P3_D080/E10",
+     "kind": "multiple_pipe",
+     "x_m": 1.44,
+     "t_ns": 30.179,
+     "apparent_depth_m": 1.327,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-A-B-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E06",
+      "K7_P3_D080/E07"
+     ]
+    },
+    {
+     "event_id": "K7_P3_D080/E11",
+     "kind": "multiple_pipe",
+     "x_m": 2.0,
+     "t_ns": 30.179,
+     "apparent_depth_m": 1.327,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-B-A-B-Rx | Tx-B-C-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E06",
+      "K7_P3_D080/E08"
+     ],
+     "note": "mirror/equivalent paths with the same curve merged"
+    },
+    {
+     "event_id": "K7_P3_D080/E12",
+     "kind": "multiple_pipe",
+     "x_m": 2.56,
+     "t_ns": 30.179,
+     "apparent_depth_m": 1.327,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-C-B-C-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E06",
+      "K7_P3_D080/E09"
+     ]
+    },
+    {
+     "event_id": "K7_P3_D080/E13",
+     "kind": "multiple_layer",
+     "x_m": 1.7,
+     "t_ns": 31.177,
+     "apparent_depth_m": 1.377,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-L-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E14",
+     "kind": "multiple_layer",
+     "x_m": 2.3,
+     "t_ns": 31.177,
+     "apparent_depth_m": 1.377,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-L-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E15",
+     "kind": "multiple_pipe",
+     "x_m": 2.0,
+     "t_ns": 33.084,
+     "apparent_depth_m": 1.472,
+     "order": 3,
+     "bounces": 0,
+     "path": "Tx-A-B-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E16",
+     "kind": "multiple_layer",
+     "x_m": 1.64,
+     "t_ns": 34.465,
+     "apparent_depth_m": 1.541,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-B-L-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E17",
+     "kind": "multiple_layer",
+     "x_m": 1.76,
+     "t_ns": 34.465,
+     "apparent_depth_m": 1.541,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-L-A-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E18",
+     "kind": "multiple_layer",
+     "x_m": 2.24,
+     "t_ns": 34.465,
+     "apparent_depth_m": 1.541,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-C-L-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E19",
+     "kind": "multiple_layer",
+     "x_m": 2.36,
+     "t_ns": 34.465,
+     "apparent_depth_m": 1.541,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-L-B-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E20",
+     "kind": "multiple_surface",
+     "x_m": 1.4,
+     "t_ns": 35.576,
+     "apparent_depth_m": 1.597,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E21",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 35.576,
+     "apparent_depth_m": 1.597,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-S-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E23"
+     ]
+    },
+    {
+     "event_id": "K7_P3_D080/E22",
+     "kind": "multiple_surface",
+     "x_m": 2.6,
+     "t_ns": 35.576,
+     "apparent_depth_m": 1.597,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-C-S-C-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E23",
+     "kind": "multiple_layer",
+     "x_m": 2.0,
+     "t_ns": 36.565,
+     "apparent_depth_m": 1.646,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-L-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "ambiguous_with": [
+      "K7_P3_D080/E21"
+     ]
+    },
+    {
+     "event_id": "K7_P3_D080/E24",
+     "kind": "multiple_other",
+     "x_m": 1.7,
+     "t_ns": 37.111,
+     "apparent_depth_m": 1.674,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-B-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E25",
+     "kind": "multiple_other",
+     "x_m": 2.3,
+     "t_ns": 37.111,
+     "apparent_depth_m": 1.674,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-B-S-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E26",
+     "kind": "multiple_layer",
+     "x_m": 1.4,
+     "t_ns": 37.568,
+     "apparent_depth_m": 1.696,
+     "order": 1,
+     "bounces": 2,
+     "path": "Tx-L-A-L-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E27",
+     "kind": "multiple_layer",
+     "x_m": 2.0,
+     "t_ns": 37.568,
+     "apparent_depth_m": 1.696,
+     "order": 1,
+     "bounces": 2,
+     "path": "Tx-L-B-L-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E28",
+     "kind": "multiple_layer",
+     "x_m": 2.6,
+     "t_ns": 37.568,
+     "apparent_depth_m": 1.696,
+     "order": 1,
+     "bounces": 2,
+     "path": "Tx-L-C-L-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E29",
+     "kind": "multiple_other",
+     "x_m": 2.0,
+     "t_ns": 41.541,
+     "apparent_depth_m": 1.895,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-A-S-C-Rx (+ reverse)",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E30",
+     "kind": "multiple_surface",
+     "x_m": 1.4,
+     "t_ns": 51.587,
+     "apparent_depth_m": 2.397,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-A-S-A-S-A-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E31",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 51.587,
+     "apparent_depth_m": 2.397,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-B-S-B-S-B-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P3_D080/E32",
+     "kind": "multiple_surface",
+     "x_m": 2.6,
+     "t_ns": 51.587,
+     "apparent_depth_m": 2.397,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-C-S-C-S-C-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_P1_D150_S003",
+   "role": "c diagnosis + a/b control (deep weak apex)",
+   "target_mechanism": "c, b2 risk",
+   "function": "control_or_c",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.003
+   },
+   "layer": null,
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "top_depth_m": 1.5,
+     "radius_m": 0.1,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 0.5,
+     "apex_trace_index": 80
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_P1_D150_S003.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_P1_D150_S003_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_P1_D150_S003.in",
+    "traces_x_m": [
+     2.0,
+     2.3
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_P1_D150_S003_merged.h5"
+   },
+   "roles": [
+    "control",
+    "c_diag"
+   ],
+   "bg_ref": "K7_REF_S003",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_P1_D150_S003/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "t_ns": 33.566,
+     "apparent_depth_m": 1.496,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_P1_D110_S002",
+   "role": "c diagnosis + a/b control (mid depth)",
+   "target_mechanism": "c, b2 risk",
+   "function": "control_or_c",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.002
+   },
+   "layer": null,
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "top_depth_m": 1.1,
+     "radius_m": 0.1,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 0.9,
+     "apex_trace_index": 80
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_P1_D110_S002.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_P1_D110_S002_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_P1_D110_S002.in",
+    "traces_x_m": [
+     2.0,
+     2.3
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_P1_D110_S002_merged.h5"
+   },
+   "roles": [
+    "control",
+    "c_diag"
+   ],
+   "bg_ref": "K7_REF_S002",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_P1_D110_S002/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "t_ns": 25.565,
+     "apparent_depth_m": 1.097,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P1_D110_S002/E02",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 47.579,
+     "apparent_depth_m": 2.197,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-P-S-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_P1_D060",
+   "role": "control (lossless-type K-F2)",
+   "target_mechanism": "-",
+   "function": "control",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.001
+   },
+   "layer": null,
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "top_depth_m": 0.6,
+     "radius_m": 0.05,
+     "material": "pec",
+     "wall_m": null,
+     "fill": null,
+     "y_center_m": 1.45,
+     "apex_trace_index": 80
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_P1_D060.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_P1_D060_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_P1_D060.in",
+    "traces_x_m": [
+     2.0,
+     2.3
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_P1_D060_merged.h5"
+   },
+   "roles": [
+    "control"
+   ],
+   "bg_ref": "K7_REF_S001",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_P1_D060/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "t_ns": 15.568,
+     "apparent_depth_m": 0.597,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P1_D060/E02",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 27.575,
+     "apparent_depth_m": 1.197,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-P-S-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_P1_D060/E03",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 39.584,
+     "apparent_depth_m": 1.797,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-P-S-P-S-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_PVC_D070",
+   "role": "control (lower-reflection bias K-F4), air-filled PVC, wall 0.01 m eps 3",
+   "target_mechanism": "a1 risk",
+   "function": "control",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.001
+   },
+   "layer": null,
+   "pipes": [
+    {
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "top_depth_m": 0.7,
+     "radius_m": 0.1,
+     "material": "pvc_air",
+     "wall_m": 0.01,
+     "fill": "air",
+     "y_center_m": 1.3,
+     "apex_trace_index": 80
+    }
+   ],
+   "input": "analysis/synthetic/k7/inputs/K7_PVC_D070.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_PVC_D070_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_PVC_D070.in",
+    "traces_x_m": [
+     2.0,
+     2.3
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_PVC_D070_merged.h5"
+   },
+   "roles": [
+    "control",
+    "pvc"
+   ],
+   "bg_ref": "K7_REF_S001",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_PVC_D070/E01",
+     "kind": "primary",
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "t_ns": 17.566,
+     "apparent_depth_m": 0.697,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+     "note": "outer-wall top reflection; inner-wall top reflection follows 0.116 ns later (merged with the primary)"
+    },
+    {
+     "event_id": "K7_PVC_D070/E02",
+     "kind": "pvc_internal",
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "t_ns": 18.94,
+     "apparent_depth_m": 0.766,
+     "order": 1,
+     "bounces": 0,
+     "path": "Tx-P(top wall)-air fill-P(bottom wall, inner+outer merged)-Rx",
+     "basis": "vertical approximation through wall (eps 3) and air fill; inner and outer bottom-wall reflections 0.12 ns apart, merged"
+    },
+    {
+     "event_id": "K7_PVC_D070/E03",
+     "kind": "pvc_internal",
+     "pipe_index": 0,
+     "x_m": 2.0,
+     "t_ns": 20.141,
+     "apparent_depth_m": 0.826,
+     "order": 2,
+     "bounces": 0,
+     "path": "Tx-P-air fill reverberation (2 round trips)-Rx",
+     "basis": "vertical approximation, second air-fill round trip"
+    },
+    {
+     "event_id": "K7_PVC_D070/E04",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 31.575,
+     "apparent_depth_m": 1.397,
+     "order": 2,
+     "bounces": 1,
+     "path": "Tx-P-S-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    },
+    {
+     "event_id": "K7_PVC_D070/E05",
+     "kind": "multiple_surface",
+     "x_m": 2.0,
+     "t_ns": 45.585,
+     "apparent_depth_m": 2.097,
+     "order": 3,
+     "bounces": 2,
+     "path": "Tx-P-S-P-S-P-Rx",
+     "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+    }
+   ]
+  },
+  {
+   "id": "K7_BG_L",
+   "role": "no pipe + flat boundary 0.85 m (false candidates K-F3)",
+   "target_mechanism": "-",
+   "function": "false_candidate",
+   "batch": "k7",
+   "soil": {
+    "eps_r": 9.0,
+    "sigma_S_per_m": 0.001
+   },
+   "layer": {
+    "top_depth_m": 0.85,
+    "eps_r_below": 12.0,
+    "sigma_S_per_m": 0.001,
+    "y_m": 1.25
+   },
+   "pipes": [],
+   "input": "analysis/synthetic/k7/inputs/K7_BG_L.in",
+   "n_traces": 161,
+   "scan_start_m": 0.4,
+   "trace_step_m": 0.02,
+   "output": "data/synthetic_gprmax_k7/h5/K7_BG_L_merged.h5",
+   "pilot": {
+    "input": "analysis/synthetic/k7/pilot/P_K7_BG_L.in",
+    "traces_x_m": [
+     2.0,
+     3.0
+    ],
+    "output": "data/synthetic_gprmax_k7/pilot/P_K7_BG_L_merged.h5"
+   },
+   "roles": [
+    "bg"
+   ],
+   "bg_ref": "K7_REF_L085_S001",
+   "fs_ref": "FS",
+   "bg_fs_note": "S1g-style <id>_bg / <id>_fs come from these shared references (same soil, same layering, no pipe; identical FDTD inputs are not duplicated); the exporter writes them under the model id",
+   "expected_events": [
+    {
+     "event_id": "K7_BG_L/E01",
+     "kind": "flat_layer",
+     "x_m": null,
+     "t_ns": 20.543,
+     "apparent_depth_m": 0.846,
+     "order": 1,
+     "bounces": 1,
+     "path": "Tx-layer-Rx (flat, every trace)",
+     "basis": "vertical two-way time; flat event across the line",
+     "x_range": "all traces"
+    },
+    {
+     "event_id": "K7_BG_L/E02",
+     "kind": "flat_layer",
+     "x_m": null,
+     "t_ns": 37.555,
+     "apparent_depth_m": 1.696,
+     "order": 2,
+     "bounces": 3,
+     "path": "Tx-layer-surface-layer-Rx (flat multiple)",
+     "basis": "vertical two-way time",
+     "x_range": "all traces"
+    }
+   ]
+  }
+ ],
+ "references": [
+  {
+   "id": "K7_REF_S001",
+   "role": "time-zero reference (bg - FS = surface reflection), 3 traces",
+   "n_traces": 3,
+   "input": "analysis/synthetic/k7/inputs/K7_REF_S001.in",
+   "output": "data/synthetic_gprmax_k7/h5/K7_REF_S001_merged.h5",
+   "pilot_output": "data/synthetic_gprmax_k7/pilot/K7_REF_S001_merged.h5"
+  },
+  {
+   "id": "K7_REF_S002",
+   "role": "time-zero reference (bg - FS = surface reflection), 3 traces",
+   "n_traces": 3,
+   "input": "analysis/synthetic/k7/inputs/K7_REF_S002.in",
+   "output": "data/synthetic_gprmax_k7/h5/K7_REF_S002_merged.h5",
+   "pilot_output": "data/synthetic_gprmax_k7/pilot/K7_REF_S002_merged.h5"
+  },
+  {
+   "id": "K7_REF_S003",
+   "role": "time-zero reference (bg - FS = surface reflection), 3 traces",
+   "n_traces": 3,
+   "input": "analysis/synthetic/k7/inputs/K7_REF_S003.in",
+   "output": "data/synthetic_gprmax_k7/h5/K7_REF_S003_merged.h5",
+   "pilot_output": "data/synthetic_gprmax_k7/pilot/K7_REF_S003_merged.h5"
+  },
+  {
+   "id": "K7_REF_L085_S001",
+   "role": "time-zero / _bg reference for models with the eps 12 boundary at 0.85 m, 3 traces",
+   "n_traces": 3,
+   "input": "analysis/synthetic/k7/inputs/K7_REF_L085_S001.in",
+   "output": "data/synthetic_gprmax_k7/h5/K7_REF_L085_S001_merged.h5",
+   "pilot_output": "data/synthetic_gprmax_k7/pilot/K7_REF_L085_S001_merged.h5"
+  },
+  {
+   "id": "K7_REF_L130_S001",
+   "role": "time-zero / _bg reference for models with the eps 12 boundary at 1.3 m, 3 traces",
+   "n_traces": 3,
+   "input": "analysis/synthetic/k7/inputs/K7_REF_L130_S001.in",
+   "output": "data/synthetic_gprmax_k7/h5/K7_REF_L130_S001_merged.h5",
+   "pilot_output": "data/synthetic_gprmax_k7/pilot/K7_REF_L130_S001_merged.h5"
+  },
+  {
+   "id": "FS",
+   "role": "free space (same domain and antenna), reused from S4/S6 batch 1",
+   "n_traces": 1,
+   "output": "data/synthetic_gprmax_s4s6/h5/FS.h5"
+  }
+ ],
+ "role_sets": {
+  "defect_a": [
+   "K7_P2_D070",
+   "K7_P2_D070_L"
+  ],
+  "defect_b": [
+   "K7_P3_D080"
+  ],
+  "control": [
+   "K7_P1_D060",
+   "K7_P1_D150_S003",
+   "K7_P1_D110_S002",
+   "K7_PVC_D070"
+  ],
+  "pvc": [
+   "K7_PVC_D070"
+  ],
+  "bg": [
+   "K7_BG_L"
+  ],
+  "c_diag": [
+   "K7_P1_D150_S003",
+   "K7_P1_D110_S002"
+  ],
+  "source": "docs/processing/m210_k7_generator.md v1.1 section 4-3"
+ },
+ "folders": {
+  "inputs": "analysis/synthetic/k7/inputs/",
+  "pilot_inputs": "analysis/synthetic/k7/pilot/",
+  "full_run_h5": "data/synthetic_gprmax_k7/h5/",
+  "pilot_h5": "data/synthetic_gprmax_k7/pilot/ (move to an archive folder before the full run)",
+  "harness_input_recommended": "data/synthetic_gprmax_k7/",
+  "harness_output_recommended": "data/processing/m210_k7/"
+ },
+ "expected_events": {
+  "K7_P2_D070": [
+   {
+    "event_id": "K7_P2_D070/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 1.5,
+    "t_ns": 17.566,
+    "apparent_depth_m": 0.697,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E02",
+    "kind": "primary",
+    "pipe_index": 1,
+    "x_m": 2.5,
+    "t_ns": 17.566,
+    "apparent_depth_m": 0.697,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E03",
+    "kind": "multiple_pipe",
+    "x_m": 2.0,
+    "t_ns": 28.571,
+    "apparent_depth_m": 1.247,
+    "order": 2,
+    "bounces": 0,
+    "path": "Tx-A-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E04",
+    "kind": "multiple_surface",
+    "x_m": 1.5,
+    "t_ns": 31.575,
+    "apparent_depth_m": 1.397,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E05",
+    "kind": "multiple_surface",
+    "x_m": 2.5,
+    "t_ns": 31.575,
+    "apparent_depth_m": 1.397,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E06",
+    "kind": "multiple_pipe",
+    "x_m": 1.54,
+    "t_ns": 36.177,
+    "apparent_depth_m": 1.627,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-A-B-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E07",
+    "kind": "multiple_pipe",
+    "x_m": 2.46,
+    "t_ns": 36.177,
+    "apparent_depth_m": 1.627,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-B-A-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E08",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 36.236,
+    "apparent_depth_m": 1.63,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E09",
+    "kind": "multiple_surface",
+    "x_m": 1.5,
+    "t_ns": 45.585,
+    "apparent_depth_m": 2.097,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-A-S-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070/E10",
+    "kind": "multiple_surface",
+    "x_m": 2.5,
+    "t_ns": 45.585,
+    "apparent_depth_m": 2.097,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-B-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_P2_D070_L": [
+   {
+    "event_id": "K7_P2_D070_L/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 1.5,
+    "t_ns": 17.566,
+    "apparent_depth_m": 0.697,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E02",
+    "kind": "primary",
+    "pipe_index": 1,
+    "x_m": 2.5,
+    "t_ns": 17.566,
+    "apparent_depth_m": 0.697,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E03",
+    "kind": "flat_layer",
+    "x_m": null,
+    "t_ns": 20.543,
+    "apparent_depth_m": 0.846,
+    "order": 1,
+    "bounces": 1,
+    "path": "Tx-layer-Rx (flat, every trace)",
+    "basis": "vertical two-way time; flat event across the line",
+    "x_range": "all traces",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E04",
+     "K7_P2_D070_L/E05"
+    ]
+   },
+   {
+    "event_id": "K7_P2_D070_L/E04",
+    "kind": "multiple_layer",
+    "x_m": 1.48,
+    "t_ns": 20.565,
+    "apparent_depth_m": 0.847,
+    "order": 1,
+    "bounces": 1,
+    "path": "Tx-A-L-Rx (+ reverse) | Tx-A-L-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E03",
+     "K7_P2_D070_L/E06"
+    ],
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E05",
+    "kind": "multiple_layer",
+    "x_m": 2.48,
+    "t_ns": 20.565,
+    "apparent_depth_m": 0.847,
+    "order": 1,
+    "bounces": 1,
+    "path": "Tx-B-L-Rx (+ reverse) | Tx-B-L-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E03",
+     "K7_P2_D070_L/E07"
+    ],
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E06",
+    "kind": "multiple_layer",
+    "x_m": 1.5,
+    "t_ns": 21.565,
+    "apparent_depth_m": 0.897,
+    "order": 1,
+    "bounces": 2,
+    "path": "Tx-L-A-L-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E04"
+    ]
+   },
+   {
+    "event_id": "K7_P2_D070_L/E07",
+    "kind": "multiple_layer",
+    "x_m": 2.5,
+    "t_ns": 21.565,
+    "apparent_depth_m": 0.897,
+    "order": 1,
+    "bounces": 2,
+    "path": "Tx-L-B-L-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E05"
+    ]
+   },
+   {
+    "event_id": "K7_P2_D070_L/E08",
+    "kind": "multiple_pipe",
+    "x_m": 2.0,
+    "t_ns": 28.571,
+    "apparent_depth_m": 1.247,
+    "order": 2,
+    "bounces": 0,
+    "path": "Tx-A-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E09"
+    ]
+   },
+   {
+    "event_id": "K7_P2_D070_L/E09",
+    "kind": "multiple_layer",
+    "x_m": 2.0,
+    "t_ns": 28.917,
+    "apparent_depth_m": 1.264,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-L-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P2_D070_L/E08"
+    ]
+   },
+   {
+    "event_id": "K7_P2_D070_L/E10",
+    "kind": "multiple_layer",
+    "x_m": 2.0,
+    "t_ns": 30.505,
+    "apparent_depth_m": 1.344,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-B-L-Rx (+ reverse) | Tx-L-A-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E11",
+    "kind": "multiple_surface",
+    "x_m": 1.5,
+    "t_ns": 31.575,
+    "apparent_depth_m": 1.397,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E12",
+    "kind": "multiple_surface",
+    "x_m": 2.5,
+    "t_ns": 31.575,
+    "apparent_depth_m": 1.397,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E13",
+    "kind": "multiple_pipe",
+    "x_m": 1.54,
+    "t_ns": 36.177,
+    "apparent_depth_m": 1.627,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-A-B-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E14",
+    "kind": "multiple_pipe",
+    "x_m": 2.46,
+    "t_ns": 36.177,
+    "apparent_depth_m": 1.627,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-B-A-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E15",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 36.236,
+    "apparent_depth_m": 1.63,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E16",
+    "kind": "flat_layer",
+    "x_m": null,
+    "t_ns": 37.555,
+    "apparent_depth_m": 1.696,
+    "order": 2,
+    "bounces": 3,
+    "path": "Tx-layer-surface-layer-Rx (flat multiple)",
+    "basis": "vertical two-way time",
+    "x_range": "all traces"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E17",
+    "kind": "multiple_surface",
+    "x_m": 1.5,
+    "t_ns": 45.585,
+    "apparent_depth_m": 2.097,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-A-S-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P2_D070_L/E18",
+    "kind": "multiple_surface",
+    "x_m": 2.5,
+    "t_ns": 45.585,
+    "apparent_depth_m": 2.097,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-B-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_P3_D080": [
+   {
+    "event_id": "K7_P3_D080/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 1.4,
+    "t_ns": 19.565,
+    "apparent_depth_m": 0.797,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E02",
+    "kind": "primary",
+    "pipe_index": 1,
+    "x_m": 2.0,
+    "t_ns": 19.565,
+    "apparent_depth_m": 0.797,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E03",
+    "kind": "primary",
+    "pipe_index": 2,
+    "x_m": 2.6,
+    "t_ns": 19.565,
+    "apparent_depth_m": 0.797,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-C-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E04",
+    "kind": "multiple_pipe",
+    "x_m": 1.7,
+    "t_ns": 25.527,
+    "apparent_depth_m": 1.095,
+    "order": 2,
+    "bounces": 0,
+    "path": "Tx-A-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E05",
+    "kind": "multiple_pipe",
+    "x_m": 2.3,
+    "t_ns": 25.527,
+    "apparent_depth_m": 1.095,
+    "order": 2,
+    "bounces": 0,
+    "path": "Tx-B-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E06",
+    "kind": "flat_layer",
+    "x_m": null,
+    "t_ns": 29.55,
+    "apparent_depth_m": 1.296,
+    "order": 1,
+    "bounces": 1,
+    "path": "Tx-layer-Rx (flat, every trace)",
+    "basis": "vertical two-way time; flat event across the line",
+    "x_range": "all traces",
+    "ambiguous_with": [
+     "K7_P3_D080/E07",
+     "K7_P3_D080/E08",
+     "K7_P3_D080/E09",
+     "K7_P3_D080/E10",
+     "K7_P3_D080/E11",
+     "K7_P3_D080/E12"
+    ]
+   },
+   {
+    "event_id": "K7_P3_D080/E07",
+    "kind": "multiple_layer",
+    "x_m": 1.44,
+    "t_ns": 29.565,
+    "apparent_depth_m": 1.297,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-L-A-Rx | Tx-A-L-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E06",
+     "K7_P3_D080/E10"
+    ],
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P3_D080/E08",
+    "kind": "multiple_layer",
+    "x_m": 2.04,
+    "t_ns": 29.565,
+    "apparent_depth_m": 1.297,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-L-B-Rx | Tx-B-L-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E06",
+     "K7_P3_D080/E11"
+    ],
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P3_D080/E09",
+    "kind": "multiple_layer",
+    "x_m": 2.64,
+    "t_ns": 29.565,
+    "apparent_depth_m": 1.297,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-C-L-C-Rx | Tx-C-L-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E06",
+     "K7_P3_D080/E12"
+    ],
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P3_D080/E10",
+    "kind": "multiple_pipe",
+    "x_m": 1.44,
+    "t_ns": 30.179,
+    "apparent_depth_m": 1.327,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-A-B-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E06",
+     "K7_P3_D080/E07"
+    ]
+   },
+   {
+    "event_id": "K7_P3_D080/E11",
+    "kind": "multiple_pipe",
+    "x_m": 2.0,
+    "t_ns": 30.179,
+    "apparent_depth_m": 1.327,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-B-A-B-Rx | Tx-B-C-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E06",
+     "K7_P3_D080/E08"
+    ],
+    "note": "mirror/equivalent paths with the same curve merged"
+   },
+   {
+    "event_id": "K7_P3_D080/E12",
+    "kind": "multiple_pipe",
+    "x_m": 2.56,
+    "t_ns": 30.179,
+    "apparent_depth_m": 1.327,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-C-B-C-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E06",
+     "K7_P3_D080/E09"
+    ]
+   },
+   {
+    "event_id": "K7_P3_D080/E13",
+    "kind": "multiple_layer",
+    "x_m": 1.7,
+    "t_ns": 31.177,
+    "apparent_depth_m": 1.377,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-L-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E14",
+    "kind": "multiple_layer",
+    "x_m": 2.3,
+    "t_ns": 31.177,
+    "apparent_depth_m": 1.377,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-L-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E15",
+    "kind": "multiple_pipe",
+    "x_m": 2.0,
+    "t_ns": 33.084,
+    "apparent_depth_m": 1.472,
+    "order": 3,
+    "bounces": 0,
+    "path": "Tx-A-B-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E16",
+    "kind": "multiple_layer",
+    "x_m": 1.64,
+    "t_ns": 34.465,
+    "apparent_depth_m": 1.541,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-B-L-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E17",
+    "kind": "multiple_layer",
+    "x_m": 1.76,
+    "t_ns": 34.465,
+    "apparent_depth_m": 1.541,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-L-A-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E18",
+    "kind": "multiple_layer",
+    "x_m": 2.24,
+    "t_ns": 34.465,
+    "apparent_depth_m": 1.541,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-C-L-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E19",
+    "kind": "multiple_layer",
+    "x_m": 2.36,
+    "t_ns": 34.465,
+    "apparent_depth_m": 1.541,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-L-B-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E20",
+    "kind": "multiple_surface",
+    "x_m": 1.4,
+    "t_ns": 35.576,
+    "apparent_depth_m": 1.597,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E21",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 35.576,
+    "apparent_depth_m": 1.597,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E23"
+    ]
+   },
+   {
+    "event_id": "K7_P3_D080/E22",
+    "kind": "multiple_surface",
+    "x_m": 2.6,
+    "t_ns": 35.576,
+    "apparent_depth_m": 1.597,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-C-S-C-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E23",
+    "kind": "multiple_layer",
+    "x_m": 2.0,
+    "t_ns": 36.565,
+    "apparent_depth_m": 1.646,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-L-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "ambiguous_with": [
+     "K7_P3_D080/E21"
+    ]
+   },
+   {
+    "event_id": "K7_P3_D080/E24",
+    "kind": "multiple_other",
+    "x_m": 1.7,
+    "t_ns": 37.111,
+    "apparent_depth_m": 1.674,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-B-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E25",
+    "kind": "multiple_other",
+    "x_m": 2.3,
+    "t_ns": 37.111,
+    "apparent_depth_m": 1.674,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-B-S-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E26",
+    "kind": "multiple_layer",
+    "x_m": 1.4,
+    "t_ns": 37.568,
+    "apparent_depth_m": 1.696,
+    "order": 1,
+    "bounces": 2,
+    "path": "Tx-L-A-L-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E27",
+    "kind": "multiple_layer",
+    "x_m": 2.0,
+    "t_ns": 37.568,
+    "apparent_depth_m": 1.696,
+    "order": 1,
+    "bounces": 2,
+    "path": "Tx-L-B-L-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E28",
+    "kind": "multiple_layer",
+    "x_m": 2.6,
+    "t_ns": 37.568,
+    "apparent_depth_m": 1.696,
+    "order": 1,
+    "bounces": 2,
+    "path": "Tx-L-C-L-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E29",
+    "kind": "multiple_other",
+    "x_m": 2.0,
+    "t_ns": 41.541,
+    "apparent_depth_m": 1.895,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-A-S-C-Rx (+ reverse)",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E30",
+    "kind": "multiple_surface",
+    "x_m": 1.4,
+    "t_ns": 51.587,
+    "apparent_depth_m": 2.397,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-A-S-A-S-A-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E31",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 51.587,
+    "apparent_depth_m": 2.397,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-B-S-B-S-B-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P3_D080/E32",
+    "kind": "multiple_surface",
+    "x_m": 2.6,
+    "t_ns": 51.587,
+    "apparent_depth_m": 2.397,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-C-S-C-S-C-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_P1_D150_S003": [
+   {
+    "event_id": "K7_P1_D150_S003/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 33.566,
+    "apparent_depth_m": 1.496,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_P1_D110_S002": [
+   {
+    "event_id": "K7_P1_D110_S002/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 25.565,
+    "apparent_depth_m": 1.097,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P1_D110_S002/E02",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 47.579,
+    "apparent_depth_m": 2.197,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-P-S-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_P1_D060": [
+   {
+    "event_id": "K7_P1_D060/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 15.568,
+    "apparent_depth_m": 0.597,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P1_D060/E02",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 27.575,
+    "apparent_depth_m": 1.197,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-P-S-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_P1_D060/E03",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 39.584,
+    "apparent_depth_m": 1.797,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-P-S-P-S-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_PVC_D070": [
+   {
+    "event_id": "K7_PVC_D070/E01",
+    "kind": "primary",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 17.566,
+    "apparent_depth_m": 0.697,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)",
+    "note": "outer-wall top reflection; inner-wall top reflection follows 0.116 ns later (merged with the primary)"
+   },
+   {
+    "event_id": "K7_PVC_D070/E02",
+    "kind": "pvc_internal",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 18.94,
+    "apparent_depth_m": 0.766,
+    "order": 1,
+    "bounces": 0,
+    "path": "Tx-P(top wall)-air fill-P(bottom wall, inner+outer merged)-Rx",
+    "basis": "vertical approximation through wall (eps 3) and air fill; inner and outer bottom-wall reflections 0.12 ns apart, merged"
+   },
+   {
+    "event_id": "K7_PVC_D070/E03",
+    "kind": "pvc_internal",
+    "pipe_index": 0,
+    "x_m": 2.0,
+    "t_ns": 20.141,
+    "apparent_depth_m": 0.826,
+    "order": 2,
+    "bounces": 0,
+    "path": "Tx-P-air fill reverberation (2 round trips)-Rx",
+    "basis": "vertical approximation, second air-fill round trip"
+   },
+   {
+    "event_id": "K7_PVC_D070/E04",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 31.575,
+    "apparent_depth_m": 1.397,
+    "order": 2,
+    "bounces": 1,
+    "path": "Tx-P-S-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   },
+   {
+    "event_id": "K7_PVC_D070/E05",
+    "kind": "multiple_surface",
+    "x_m": 2.0,
+    "t_ns": 45.585,
+    "apparent_depth_m": 2.097,
+    "order": 3,
+    "bounces": 2,
+    "path": "Tx-P-S-P-S-P-Rx",
+    "basis": "geometry (Fermat refracted ray, specular points on pipe circles)"
+   }
+  ],
+  "K7_BG_L": [
+   {
+    "event_id": "K7_BG_L/E01",
+    "kind": "flat_layer",
+    "x_m": null,
+    "t_ns": 20.543,
+    "apparent_depth_m": 0.846,
+    "order": 1,
+    "bounces": 1,
+    "path": "Tx-layer-Rx (flat, every trace)",
+    "basis": "vertical two-way time; flat event across the line",
+    "x_range": "all traces"
+   },
+   {
+    "event_id": "K7_BG_L/E02",
+    "kind": "flat_layer",
+    "x_m": null,
+    "t_ns": 37.555,
+    "apparent_depth_m": 1.696,
+    "order": 2,
+    "bounces": 3,
+    "path": "Tx-layer-surface-layer-Rx (flat multiple)",
+    "basis": "vertical two-way time",
+    "x_range": "all traces"
+   }
+  ]
+ },
+ "expected_events_meta": {
+  "written": "2026-11-12, before any full-run output existed (pilot traces and geometry only)",
+  "axes": "x_m = trace_x_m_first + i*dx (0.40 + 0.02 i, Tx/Rx midpoint); t_ns = time_of_sample0_ns + k*dt with time_of_sample0_ns 0.0 (raw simulation time, two-way)",
+  "t_definition": "expected envelope (Hilbert) peak = source peak sqrt(2)/f (2.8284 ns) + ray time + wavelet lag 0.036 ns",
+  "x_definition": "apex = trace position (0.02 m grid) of minimum ray time of that path; null for flat events (every trace)",
+  "apparent_depth_m": "v*(t_ns - t_surface)/2, v = c/3, t_surface = pilot surface-reflection peak (K7_REF - FS) of the same sigma",
+  "kinds": {
+   "primary": "pipe crown reflection (truth)",
+   "multiple_surface": "pipe-surface-same pipe",
+   "multiple_pipe": "pipe-pipe only",
+   "multiple_other": "pipe-pipe with surface bounce",
+   "multiple_layer": "any path with a reflection at the eps 9/12 boundary (pipe illuminated or seen via the boundary)",
+   "flat_layer": "flat boundary reflection and its surface multiple (x_m null, every trace)",
+   "pvc_internal": "air-filled PVC bottom-wall reflection and air-fill reverberation (vertical approximation)"
+  },
+  "enumeration": "pipe chains with <= 3 pipe scatterings, <= 2 bounces (surface or boundary, including antenna legs via the boundary), scatterings + bounces <= 3, plus same-pipe surface multiples up to order 2 (P-S-P-S-P); straight pipe-pipe legs blocked by a third pipe are dropped (P3 A-C); reciprocal paths are one event; equal curves merged; events later than 54 ns dropped",
+  "attach_window": "x +-0.10 m (flat events: any x), t +-1 ns; ambiguous_with lists other events inside the window",
+  "amplitude_caveat": "2D line-source amplitudes; boundary reflection coefficient (3 - 3.464)/(3 + 3.464) = -0.072, so multiple_layer events are weak"
+ },
+ "pilot_checks": {
+  "structure": {
+   "K7_REF_S001": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 3,
+    "finite": true
+   },
+   "K7_REF_S002": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 3,
+    "finite": true
+   },
+   "P_K7_P2_D070_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 3,
+    "finite": true
+   },
+   "P_K7_P2_D070_L_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 3,
+    "finite": true
+   },
+   "P_K7_P3_D080_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 3,
+    "finite": true
+   },
+   "P_K7_P1_D150_S003_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 2,
+    "finite": true
+   },
+   "P_K7_P1_D110_S002_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 2,
+    "finite": true
+   },
+   "P_K7_P1_D060_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 2,
+    "finite": true
+   },
+   "P_K7_PVC_D070_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 2,
+    "finite": true
+   },
+   "P_K7_BG_L_merged.h5": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 2,
+    "finite": true
+   },
+   "K7_REF_S003": {
+    "Iterations": 4665,
+    "dt": 1.1793271683748419e-11,
+    "dtype": "float32",
+    "ntraces": 3,
+    "finite": true
+   }
+  },
+  "time_zero_surface_reflection_ns": {
+   "S001": 3.6162,
+   "S002": 3.6156,
+   "S003": 3.6151
+  },
+  "ref_lateral_rel": {
+   "S001": [
+    1.86e-06,
+    2.2e-06
+   ],
+   "S002": [
+    2.32e-06,
+    3.19e-06
+   ],
+   "S003": [
+    3e-06,
+    2.1e-06
+   ]
+  },
+  "substitutions": {
+   "S003": "history: when expected_events were written (2026-11-12 ~11:30) the K7_REF_S003 pilot had not finished, so K7_REF_S002 was used for the S003 time zero and the pilot subtraction. K7_REF_S003 pilot finished 11:58 (exit 0): surface-reflection zero 3.6151 ns (S002 substitute 3.6156 ns, difference -0.0005 ns), lateral residual 3.0e-6 / 2.1e-6, late-time last 5 ns / max 0.9e-7 to 1.0e-7. Effect: t_ns unchanged (independent of the zero); apparent_depth_m of K7_P1_D150_S003 changes by < 0.001 m (about 0.03 mm), so the listed values stand"
+  },
+  "event_verification": {
+   "K7_P2_D070": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_P2_D070/E01",
+      "kind": "primary",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 17.577,
+      "dt_ns": 0.011,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P2_D070/E04",
+      "kind": "multiple_surface",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 31.711,
+      "dt_ns": 0.136,
+      "rel_amp": 0.0821
+     },
+     {
+      "event_id": "K7_P2_D070/E09",
+      "pilot_x_m": 1.5,
+      "found": false
+     },
+     {
+      "event_id": "K7_P2_D070/E03",
+      "kind": "multiple_pipe",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 28.385,
+      "dt_ns": -0.186,
+      "rel_amp": 0.081
+     },
+     {
+      "event_id": "K7_P2_D070/E08",
+      "kind": "multiple_other",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 35.897,
+      "dt_ns": -0.339,
+      "rel_amp": 0.0596
+     },
+     {
+      "event_id": "K7_P2_D070/E02",
+      "kind": "primary",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 17.577,
+      "dt_ns": 0.011,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P2_D070/E05",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 31.711,
+      "dt_ns": 0.136,
+      "rel_amp": 0.0821
+     },
+     {
+      "event_id": "K7_P2_D070/E10",
+      "pilot_x_m": 2.5,
+      "found": false
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 0.00115,
+    "raw_max_per_ns_45_to_55": [
+     1.99,
+     1.2,
+     0.364,
+     0.156,
+     0.365,
+     0.742,
+     0.812,
+     0.652,
+     0.793,
+     0.488
+    ]
+   },
+   "K7_P2_D070_L": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_P2_D070_L/E01",
+      "kind": "primary",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 17.578,
+      "dt_ns": 0.012,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P2_D070_L/E03",
+      "kind": "flat_layer",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 20.698,
+      "dt_ns": 0.155,
+      "rel_amp": 0.117
+     },
+     {
+      "event_id": "K7_P2_D070_L/E04",
+      "kind": "multiple_layer",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 20.698,
+      "dt_ns": 0.133,
+      "rel_amp": 0.117
+     },
+     {
+      "event_id": "K7_P2_D070_L/E06",
+      "kind": "multiple_layer",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 22.333,
+      "dt_ns": 0.768,
+      "rel_amp": 0.0197
+     },
+     {
+      "event_id": "K7_P2_D070_L/E11",
+      "kind": "multiple_surface",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 31.711,
+      "dt_ns": 0.136,
+      "rel_amp": 0.0745
+     },
+     {
+      "event_id": "K7_P2_D070_L/E16",
+      "pilot_x_m": 1.5,
+      "found": false
+     },
+     {
+      "event_id": "K7_P2_D070_L/E17",
+      "kind": "multiple_surface",
+      "pilot_x_m": 1.5,
+      "t_meas_ns": 45.978,
+      "dt_ns": 0.393,
+      "rel_amp": 0.0127
+     },
+     {
+      "event_id": "K7_P2_D070_L/E03",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 20.931,
+      "dt_ns": 0.388,
+      "rel_amp": 0.2126
+     },
+     {
+      "event_id": "K7_P2_D070_L/E08",
+      "kind": "multiple_pipe",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 28.335,
+      "dt_ns": -0.236,
+      "rel_amp": 0.0682
+     },
+     {
+      "event_id": "K7_P2_D070_L/E09",
+      "kind": "multiple_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 28.335,
+      "dt_ns": -0.582,
+      "rel_amp": 0.0682
+     },
+     {
+      "event_id": "K7_P2_D070_L/E10",
+      "kind": "multiple_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 31.157,
+      "dt_ns": 0.652,
+      "rel_amp": 0.0019
+     },
+     {
+      "event_id": "K7_P2_D070_L/E15",
+      "kind": "multiple_other",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 35.927,
+      "dt_ns": -0.309,
+      "rel_amp": 0.1012
+     },
+     {
+      "event_id": "K7_P2_D070_L/E16",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 37.665,
+      "dt_ns": 0.11,
+      "rel_amp": 0.0224
+     },
+     {
+      "event_id": "K7_P2_D070_L/E02",
+      "kind": "primary",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 17.578,
+      "dt_ns": 0.012,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P2_D070_L/E03",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 20.699,
+      "dt_ns": 0.156,
+      "rel_amp": 0.117
+     },
+     {
+      "event_id": "K7_P2_D070_L/E05",
+      "kind": "multiple_layer",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 20.699,
+      "dt_ns": 0.134,
+      "rel_amp": 0.117
+     },
+     {
+      "event_id": "K7_P2_D070_L/E07",
+      "kind": "multiple_layer",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 22.333,
+      "dt_ns": 0.768,
+      "rel_amp": 0.0197
+     },
+     {
+      "event_id": "K7_P2_D070_L/E12",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 31.711,
+      "dt_ns": 0.136,
+      "rel_amp": 0.0745
+     },
+     {
+      "event_id": "K7_P2_D070_L/E16",
+      "pilot_x_m": 2.5,
+      "found": false
+     },
+     {
+      "event_id": "K7_P2_D070_L/E18",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.5,
+      "t_meas_ns": 45.978,
+      "dt_ns": 0.393,
+      "rel_amp": 0.0127
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 0.00107,
+    "raw_max_per_ns_45_to_55": [
+     1.64,
+     1.2,
+     0.178,
+     0.238,
+     0.497,
+     0.687,
+     0.762,
+     0.668,
+     0.624,
+     0.552
+    ]
+   },
+   "K7_P3_D080": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_P3_D080/E01",
+      "kind": "primary",
+      "pilot_x_m": 1.4,
+      "t_meas_ns": 19.597,
+      "dt_ns": 0.032,
+      "rel_amp": 0.9958
+     },
+     {
+      "event_id": "K7_P3_D080/E06",
+      "kind": "flat_layer",
+      "pilot_x_m": 1.4,
+      "t_meas_ns": 29.713,
+      "dt_ns": 0.163,
+      "rel_amp": 0.0768
+     },
+     {
+      "event_id": "K7_P3_D080/E20",
+      "kind": "multiple_surface",
+      "pilot_x_m": 1.4,
+      "t_meas_ns": 35.458,
+      "dt_ns": -0.118,
+      "rel_amp": 0.0702
+     },
+     {
+      "event_id": "K7_P3_D080/E26",
+      "kind": "multiple_layer",
+      "pilot_x_m": 1.4,
+      "t_meas_ns": 38.02,
+      "dt_ns": 0.452,
+      "rel_amp": 0.0664
+     },
+     {
+      "event_id": "K7_P3_D080/E30",
+      "kind": "multiple_surface",
+      "pilot_x_m": 1.4,
+      "t_meas_ns": 51.726,
+      "dt_ns": 0.139,
+      "rel_amp": 0.0078
+     },
+     {
+      "event_id": "K7_P3_D080/E02",
+      "kind": "primary",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 19.605,
+      "dt_ns": 0.04,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P3_D080/E06",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 29.681,
+      "dt_ns": 0.131,
+      "rel_amp": 0.0814
+     },
+     {
+      "event_id": "K7_P3_D080/E11",
+      "kind": "multiple_pipe",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 29.681,
+      "dt_ns": -0.498,
+      "rel_amp": 0.0814
+     },
+     {
+      "event_id": "K7_P3_D080/E15",
+      "pilot_x_m": 2.0,
+      "found": false
+     },
+     {
+      "event_id": "K7_P3_D080/E21",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 35.333,
+      "dt_ns": -0.243,
+      "rel_amp": 0.0731
+     },
+     {
+      "event_id": "K7_P3_D080/E23",
+      "pilot_x_m": 2.0,
+      "found": false
+     },
+     {
+      "event_id": "K7_P3_D080/E27",
+      "kind": "multiple_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 37.791,
+      "dt_ns": 0.223,
+      "rel_amp": 0.1578
+     },
+     {
+      "event_id": "K7_P3_D080/E29",
+      "kind": "multiple_other",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 41.789,
+      "dt_ns": 0.248,
+      "rel_amp": 0.1139
+     },
+     {
+      "event_id": "K7_P3_D080/E31",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 51.222,
+      "dt_ns": -0.365,
+      "rel_amp": 0.0063
+     },
+     {
+      "event_id": "K7_P3_D080/E03",
+      "kind": "primary",
+      "pilot_x_m": 2.6,
+      "t_meas_ns": 19.596,
+      "dt_ns": 0.031,
+      "rel_amp": 0.9958
+     },
+     {
+      "event_id": "K7_P3_D080/E06",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.6,
+      "t_meas_ns": 29.713,
+      "dt_ns": 0.163,
+      "rel_amp": 0.0768
+     },
+     {
+      "event_id": "K7_P3_D080/E22",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.6,
+      "t_meas_ns": 35.458,
+      "dt_ns": -0.118,
+      "rel_amp": 0.0702
+     },
+     {
+      "event_id": "K7_P3_D080/E28",
+      "kind": "multiple_layer",
+      "pilot_x_m": 2.6,
+      "t_meas_ns": 38.02,
+      "dt_ns": 0.452,
+      "rel_amp": 0.0664
+     },
+     {
+      "event_id": "K7_P3_D080/E32",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.6,
+      "t_meas_ns": 51.726,
+      "dt_ns": 0.139,
+      "rel_amp": 0.0078
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 0.00111,
+    "raw_max_per_ns_45_to_55": [
+     0.882,
+     0.973,
+     0.849,
+     1.65,
+     0.671,
+     0.476,
+     0.691,
+     0.679,
+     0.79,
+     0.505
+    ]
+   },
+   "K7_P1_D150_S003": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_P1_D150_S003/E01",
+      "kind": "primary",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 33.68,
+      "dt_ns": 0.114,
+      "rel_amp": 1.0
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 4.17e-07,
+    "raw_max_per_ns_45_to_55": [
+     0.00113,
+     0.000848,
+     0.000635,
+     0.00048,
+     0.00038,
+     0.000296,
+     0.000231,
+     0.00019,
+     0.000152,
+     0.000124
+    ]
+   },
+   "K7_P1_D110_S002": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_P1_D110_S002/E01",
+      "kind": "primary",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 25.634,
+      "dt_ns": 0.069,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P1_D110_S002/E02",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 47.75,
+      "dt_ns": 0.171,
+      "rel_amp": 0.0588
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 5.95e-05,
+    "raw_max_per_ns_45_to_55": [
+     0.138,
+     0.634,
+     2.18,
+     2.08,
+     1.07,
+     0.0422,
+     0.00508,
+     0.00284,
+     0.0028,
+     0.00178
+    ]
+   },
+   "K7_P1_D060": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_P1_D060/E01",
+      "kind": "primary",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 15.567,
+      "dt_ns": -0.001,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_P1_D060/E02",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 27.617,
+      "dt_ns": 0.042,
+      "rel_amp": 0.0712
+     },
+     {
+      "event_id": "K7_P1_D060/E03",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 39.662,
+      "dt_ns": 0.078,
+      "rel_amp": 0.0051
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 2.74e-05,
+    "raw_max_per_ns_45_to_55": [
+     0.000192,
+     0.000109,
+     0.000104,
+     0.000101,
+     0.00141,
+     0.00616,
+     0.0194,
+     0.0155,
+     0.0109,
+     0.000326
+    ]
+   },
+   "K7_PVC_D070": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_PVC_D070/E01",
+      "kind": "primary",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 17.789,
+      "dt_ns": 0.223,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_PVC_D070/E02",
+      "pilot_x_m": 2.0,
+      "found": false
+     },
+     {
+      "event_id": "K7_PVC_D070/E03",
+      "kind": "pvc_internal",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 20.018,
+      "dt_ns": -0.123,
+      "rel_amp": 0.0337
+     },
+     {
+      "event_id": "K7_PVC_D070/E04",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 32.065,
+      "dt_ns": 0.49,
+      "rel_amp": 0.0398
+     },
+     {
+      "event_id": "K7_PVC_D070/E05",
+      "kind": "multiple_surface",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 46.351,
+      "dt_ns": 0.766,
+      "rel_amp": 0.0016
+     }
+    ],
+    "amplitude_reference": "strongest primary on the pilot traces",
+    "late_last5ns_over_max": 1.05e-06,
+    "raw_max_per_ns_45_to_55": [
+     0.0375,
+     0.0477,
+     0.0429,
+     0.0244,
+     0.00248,
+     0.000747,
+     0.000441,
+     0.000239,
+     0.000217,
+     0.000134
+    ]
+   },
+   "K7_BG_L": {
+    "events_at_pilot_traces": [
+     {
+      "event_id": "K7_BG_L/E01",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 20.639,
+      "dt_ns": 0.096,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_BG_L/E02",
+      "kind": "flat_layer",
+      "pilot_x_m": 2.0,
+      "t_meas_ns": 37.743,
+      "dt_ns": 0.188,
+      "rel_amp": 0.0239
+     },
+     {
+      "event_id": "K7_BG_L/E01",
+      "kind": "flat_layer",
+      "pilot_x_m": 3.0,
+      "t_meas_ns": 20.639,
+      "dt_ns": 0.096,
+      "rel_amp": 1.0
+     },
+     {
+      "event_id": "K7_BG_L/E02",
+      "kind": "flat_layer",
+      "pilot_x_m": 3.0,
+      "t_meas_ns": 37.743,
+      "dt_ns": 0.188,
+      "rel_amp": 0.0239
+     }
+    ],
+    "amplitude_reference": "strongest matched event",
+    "late_last5ns_over_max": 1.04e-05,
+    "raw_max_per_ns_45_to_55": [
+     0.000135,
+     0.000122,
+     9.59e-05,
+     9.19e-05,
+     8.18e-05,
+     7.23e-05,
+     6.34e-05,
+     0.000515,
+     0.00195,
+     0.00734
+    ]
+   }
+  },
+  "status": "pilot run 2026-11-12 (GPU 0, E core, BelowNormal; data/synthetic_gprmax_k7/pilot/, pilot_run.log)",
+  "stability_note": "raw |Ez| in the last 5 ns is <= 1e-3 of the trace maximum for every pilot trace; local rises in 45-55 ns coincide with listed late events (K7_P1_D110_S002 M1 at 47.6 ns; K7_BG_L third-order flat layer multiple near 54.6 ns, beyond the 54 ns listing cut) and are not exponential growth",
+  "notes": [
+   "K7_PVC_D070: the bottom-wall reflection (E02, +1.37 ns) is not a separate envelope peak on the pilot trace; it merges with the primary and moves the primary envelope peak +0.22 ns (17.789 vs 17.566 ns, still inside +-1 ns). E02 is kept as listed",
+   "K7_P2_D070_L: E06/E07 (Tx-L-A-L-Rx, 2 %) and E09 (Tx-A-L-B-Rx) are not resolved as separate peaks on the pilot traces (nearest peaks +0.77 / -0.58 ns); E08/E09 are flagged ambiguous",
+   "K7_P3_D080: E15 (Tx-A-B-C-Rx) and E23 (Tx-A-L-C-Rx) have no peak within +-1 ns at x 2.0 on the pilot; kept as listed",
+   "K7_REF_S003 pilot: delayed by a Suspended conda-activation reg.exe, finished 11:58 (exit 0) after the thread was resumed; expected_events were written with the K7_REF_S002 zero (history in substitutions), difference -0.0005 ns, apparent-depth effect < 0.001 m",
+   "FS (free space, same domain and antenna) is reused from data/synthetic_gprmax_s4s6/h5/FS.h5; a K7 copy would be an identical FDTD input"
+  ]
+ }
+}

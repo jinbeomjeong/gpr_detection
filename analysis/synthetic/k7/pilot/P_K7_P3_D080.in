@@ -1,0 +1,21 @@
+#title: P_K7_P3_D080 pilot 3 traces x=1.4+0.6k of K7_P3_D080
+#domain_mode: TM
+#domain: 4.0 2.45 inf
+#dx_dy_dz: 0.005 0.005 0.005
+#time_window: 55.000e-9
+#pml_cells: 20 20 0 20 20 0
+
+#material: 9.0 0.001 1 0 soil
+#material: 12.0 0.001 1 0 soil12
+
+#waveform: ricker 1 5e+08 src_wave
+#hertzian_dipole: z 1.35 2.2 inf src_wave
+#rx: 1.45 2.2 inf rx1 Ez
+#src_steps: 0.6 0 0
+#rx_steps: 0.6 0 0
+
+#box: 0 0 0 4.0 2.1 inf soil
+#box: 0 0 0 4.0 0.8 inf soil12
+#cylinder: 1.4 1.25 0 1.4 1.25 inf 0.05 pec
+#cylinder: 2.0 1.25 0 2.0 1.25 inf 0.05 pec
+#cylinder: 2.6 1.25 0 2.6 1.25 inf 0.05 pec

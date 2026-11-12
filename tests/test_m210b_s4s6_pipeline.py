@@ -1003,21 +1003,25 @@ def test_v3_seal_lists_its_files(harness) -> None:
 
 
 @pytest.mark.parametrize(
-    ("path", "prefix"),
+    ("path", "prefix", "is_unchanged"),
     [
-        ("analysis/processing/m210b_floor_rules.py", "bad0f95c"),
-        ("analysis/processing/fourtu_apex_candidate_select.py", "7cc2bf2b"),
+        ("analysis/processing/m210b_floor_rules.py", "bad0f95c", True),
+        # M2-10 K7 adds generator flags (m210_k7_generator.md 4-2): the blob
+        # changes; the default path is checked against the 752e783 wrapper by
+        # tests/test_m210_k7_generator.py (T6) and the K7 G0 regression.
+        ("analysis/processing/fourtu_apex_candidate_select.py", "7cc2bf2b", False),
     ],
 )
 def test_floor_rules_and_wrapper_are_unchanged_since_752e783(
-    harness, path, prefix
+    harness, path, prefix, is_unchanged
 ) -> None:
     sealed = harness._git("rev-parse", f"752e783:{path}")
     working = harness._git("hash-object", "--", path)
     if sealed is None or working is None:
         pytest.skip("git history with 752e783 is not available")
     assert sealed.startswith(prefix)
-    assert working == sealed
+    if is_unchanged:
+        assert working == sealed
 
 
 # ----------------------------------------------------------------- v2 replay
