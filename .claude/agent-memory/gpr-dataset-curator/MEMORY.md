@@ -1,2 +1,3 @@
 - [AIHub XML 함정](aihub_xml_pitfalls.md) — filename/source 불일치, Val 세션 100% 중복, lpipe 수평·tpipe 쌍곡선
+- [AIHub 원본 B-scan 없음](aihub_no_uncropped_bscan.md) — zip은 전부 객체 crop 256x256, 맥락=같은 line·gain 겹친 crop뿐
 - [AIHub crop 겹침·band 라벨](aihub_crop_overlap_band.md) — 같은 측선 crop이 겹치고 band 라벨 불일치, 인접 쌍 기준, LS 서버 상태

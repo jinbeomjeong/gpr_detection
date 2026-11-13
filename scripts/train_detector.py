@@ -27,6 +27,14 @@ it nothing changes (M1-10 configs train exactly as before). The settings file
 also records the config sha256, and ``train_record.json`` (written after
 training) the sha256 of ``last.pt`` / ``best.pt`` for the A1 gate.
 
+A ``gpr_context:`` block next to ``gpr_geometric`` turns on the N2-a' context
+scale instead of the N2-a scale (``docs/experiments/m31_n2a2_retrain_plan.md``
+section 7-1); ``gpr_geometric.scale`` must then be absent or off. The context
+index (``index_dir``) is built from the fold yaml's train/val lists, so its
+start-up leak assertions also run with ``--dry-run``. The settings file adds
+``gpr_context``, ``gpr_context_sha256`` (canonical JSON of the block, checked by
+the A1 judge) and ``gpr_context_index`` (index file sha256, folds).
+
 ``--blind`` (plan section 4-2): Ultralytics and project logs only at WARNING and
 above (this also hides the Ultralytics progress bars, which turn themselves off
 above INFO), one metric-free JSON progress line per epoch on stderr
@@ -71,13 +79,18 @@ from gpr_detection.augment import (
     augment_config_from_dict,
 )
 from gpr_detection.augment_geometry import (
+    ContextIndex,
+    ContextScaleConfig,
     GeometricAugmentConfig,
+    context_config_from_dict,
     geometric_config_from_dict,
+    settings_block_sha256,
 )
 from gpr_detection.detect.yolo_logging import quiet_ultralytics_logger
 from gpr_detection.detect.yolo_train import (
     build_gpr_trainer,
     check_augmentation_policy,
+    context_index_for_data_yaml,
     geometric_settings,
     write_training_data_yaml,
 )
@@ -231,9 +244,73 @@ def _augment_config(config: Mapping[str, Any], strength: float) -> AugmentConfig
 
 
 def _geometric_config(config: Mapping[str, Any]) -> GeometricAugmentConfig | None:
-    """The ``gpr_geometric`` block, or ``None`` (off) when the config has none."""
+    """The ``gpr_geometric`` block, or ``None`` (off) when the config has none.
+
+    With a ``gpr_context`` block the N2-a scale section must be absent or off.
+    """
     block = config.get("gpr_geometric")
-    return None if block is None else geometric_config_from_dict(block)
+    if block is None:
+        return None
+    is_context_on = config.get("gpr_context") is not None
+    return geometric_config_from_dict(block, scale_owned_by_context=is_context_on)
+
+
+def _context_config(config: Mapping[str, Any]) -> ContextScaleConfig | None:
+    """The ``gpr_context`` block, or ``None`` (off, N2-a or M1-10 behaviour)."""
+    block = config.get("gpr_context")
+    return None if block is None else context_config_from_dict(block)
+
+
+def _check_context_strength(
+    strength: float, context_config: ContextScaleConfig | None
+) -> None:
+    """``gpr_context`` needs ``gpr_augment.strength`` 0 (plan v1.0 section 7-5 (3)).
+
+    Raises:
+        ValueError: If the context scale is on and the strength is > 0.
+    """
+    if context_config is not None and strength > 0:
+        raise ValueError(
+            f"gpr_augment.strength={strength} must be 0 when gpr_context is on "
+            "(GPR noise on the centre crop only would blur the stitch reference)"
+        )
+
+
+def _context_index(
+    context_config: ContextScaleConfig | None, source_yaml: Path
+) -> ContextIndex | None:
+    """Context index of the fold yaml's lists (runs the start-up leak checks)."""
+    if context_config is None:
+        return None
+    index_dir = _resolve_project_path(context_config.index_dir)
+    return context_index_for_data_yaml(index_dir, source_yaml)
+
+
+def _context_trainer_arguments(
+    context_config: ContextScaleConfig | None, context_index: ContextIndex | None
+) -> dict[str, Any]:
+    """Context keyword arguments; none at all without ``gpr_context``.
+
+    Leaving them out keeps the M1-10 / N2-a trainer call exactly as before.
+    """
+    if context_config is None:
+        return {}
+    return {"context_config": context_config, "context_index": context_index}
+
+
+def _context_settings(
+    config: Mapping[str, Any],
+    context_config: ContextScaleConfig | None,
+    context_index: ContextIndex | None,
+) -> dict[str, Any]:
+    """Settings-file entries of N2-a'; empty without a ``gpr_context`` block."""
+    if context_config is None or context_index is None:
+        return {}
+    return {
+        "gpr_context": _plain(context_config),
+        "gpr_context_sha256": settings_block_sha256(config["gpr_context"]),
+        "gpr_context_index": context_index.summary(),
+    }
 
 
 def _plain(value: Any) -> Any:
@@ -242,6 +319,8 @@ def _plain(value: Any) -> Any:
         return {key: _plain(item) for key, item in dataclasses.asdict(value).items()}
     if isinstance(value, dict):
         return {key: _plain(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):  # yaml.safe_dump cannot write tuples
+        return [_plain(item) for item in value]
     if isinstance(value, Enum):
         return value.value
     return value
@@ -435,8 +514,14 @@ def _train(args: argparse.Namespace) -> tuple[int, Path]:
     overrides = _ultralytics_overrides(config, args, data_yaml, name)
     augment_config = _augment_config(config, strength)
     geometric_config = _geometric_config(config)
-    for warning in check_augmentation_policy(overrides, geometric_config):
+    context_config = _context_config(config)
+    _check_context_strength(strength, context_config)
+    policy_warnings = check_augmentation_policy(
+        overrides, geometric_config, context_config
+    )
+    for warning in policy_warnings:
         LOGGER.warning(warning)
+    context_index = _context_index(context_config, source_yaml)
 
     config_sha256 = sha256_file(args.config)
     settings = {
@@ -450,6 +535,7 @@ def _train(args: argparse.Namespace) -> tuple[int, Path]:
         "gpr_geometric": (
             None if geometric_config is None else geometric_settings(geometric_config)
         ),
+        **_context_settings(config, context_config, context_index),
         "ultralytics": overrides,
     }
     run_dir = RUNS_DIR / name
@@ -476,6 +562,7 @@ def _train(args: argparse.Namespace) -> tuple[int, Path]:
         augment_config,
         augment_seed=seed,
         geometric_config=geometric_config,
+        **_context_trainer_arguments(context_config, context_index),
     )
     save_dir = Path(trainer.save_dir)
     if save_dir.resolve() != run_dir.resolve():

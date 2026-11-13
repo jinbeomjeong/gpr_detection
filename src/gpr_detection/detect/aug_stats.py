@@ -3,7 +3,10 @@
 Plan ``docs/experiments/m31_n2a_retrain_plan.md`` section 5-2: how many images
 each stage touched, the drawn scale factors (10-bin histogram), the band edges
 and, per class, how many boxes a stage kept or dropped. These are augmentation
-counts, not detection metrics, so the smoke run may open them.
+counts, not detection metrics, so the smoke run may open them. The N2-a'
+``context_scale`` step (``docs/experiments/m31_n2a2_retrain_plan.md`` section
+2-2 step 6) adds named ``counters`` (mode, context source, neighbour count,
+chain stops) and ``histograms`` (s per mode, dx, allowed dx span).
 
 DataLoader workers are separate processes, so every process keeps its own
 counts and writes them to ``<run>/aug_stats_workers/<step>_pid<pid>.json``
@@ -102,6 +105,17 @@ def scale_histogram_bin(s: float, edges: list[float]) -> int:
     return min(max(index, 0), SCALE_HISTOGRAM_BINS - 1)
 
 
+def histogram_edges(low: float, high: float, bins: int) -> list[float]:
+    """Edges of ``bins`` equal bins over ``[low, high]`` (N2-a' histograms)."""
+    return [float(edge) for edge in np.linspace(low, high, bins + 1)]
+
+
+def histogram_bin(value: float, edges: list[float]) -> int:
+    """Bin index of ``value``; values outside go to the first or last bin."""
+    index = int(np.searchsorted(edges, value, side="right")) - 1
+    return min(max(index, 0), len(edges) - 2)
+
+
 def write_json_atomically(path: Path, document: Mapping[str, Any]) -> None:
     """Write JSON through a temporary file so readers never see half a file."""
     temporary = path.with_name(f"{path.name}.tmp{os.getpid()}")
@@ -138,11 +152,41 @@ def _read_worker_files(worker_dir: Path) -> list[dict[str, Any]]:
     return documents
 
 
+def _sum_counters(documents: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    totals: dict[str, Counter[str]] = {}
+    for document in documents:
+        for name, counts in document.get("counters", {}).items():
+            totals.setdefault(name, Counter()).update(counts)
+    return {
+        name: dict(sorted(counts.items())) for name, counts in sorted(totals.items())
+    }
+
+
+def _sum_histograms(documents: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Sum named histograms; every process writes the same edges for a name."""
+    totals: dict[str, dict[str, Any]] = {}
+    for document in documents:
+        for name, histogram in document.get("histograms", {}).items():
+            total = totals.setdefault(
+                name,
+                {"edges": histogram["edges"], "counts": [0] * len(histogram["counts"])},
+            )
+            total["counts"] = [
+                int(left + right)
+                for left, right in zip(
+                    total["counts"], histogram["counts"], strict=True
+                )
+            ]
+    return dict(sorted(totals.items()))
+
+
 def aggregate_worker_stats(worker_dir: Path) -> dict[str, Any]:
     """Sum every per-process stats file under ``worker_dir``.
 
     Returns:
-        ``{"worker_files", "stages", "scale_histogram", "edge_sides"}``.
+        ``{"worker_files", "stages", "scale_histogram", "edge_sides"}``, plus
+        ``"counters"`` and ``"histograms"`` when a step (N2-a'
+        ``context_scale``) writes them.
     """
     documents = _read_worker_files(worker_dir)
     stages: dict[str, dict[str, Any]] = {}
@@ -159,7 +203,7 @@ def aggregate_worker_stats(worker_dir: Path) -> dict[str, Any]:
     for stage in stages.values():
         for key in ("boxes_kept_by_class", "boxes_dropped_by_class"):
             stage[key] = dict(sorted(stage[key].items()))
-    return {
+    aggregated: dict[str, Any] = {
         "worker_files": len(documents),
         "stages": stages,
         "scale_histogram": {
@@ -168,6 +212,12 @@ def aggregate_worker_stats(worker_dir: Path) -> dict[str, Any]:
         },
         "edge_sides": dict(sorted(edge_sides.items())),
     }
+    # Only N2-a' steps write these; N2-a files keep exactly their old keys.
+    if any("counters" in document for document in documents):
+        aggregated["counters"] = _sum_counters(documents)
+    if any("histograms" in document for document in documents):
+        aggregated["histograms"] = _sum_histograms(documents)
+    return aggregated
 
 
 def write_run_stats(

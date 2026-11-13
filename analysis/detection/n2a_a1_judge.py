@@ -16,7 +16,11 @@ Gates (all must hold, else no verdict, exit 1):
   - config sha256 = the blob of --config at --seal-commit (git show), for the
     file now and as recorded by every fold's training;
   - args.yaml: scale 0, translate 0.1, flipud 0, epochs 50, seed 0;
-  - identity: the metrics are last.pt on the crop unit of fold k.
+  - identity: the metrics are last.pt on the crop unit of fold k;
+  - N2-a' only (the sealed config has a ``gpr_context`` block,
+    docs/experiments/m31_n2a2_retrain_plan.md v1.0 §5 A1, §7-3): every fold's
+    recorded ``gpr_context_sha256`` = the canonical-JSON sha256 of the sealed
+    block, and all folds recorded the same context index file sha256.
 
 A1 (§3-1): unweighted 5-fold mean of overall mAP50 >= 76.8 and of
 pipe_hyperbola AP50 >= 90.9, in %, without rounding. The means are computed
@@ -46,6 +50,8 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import m31_d1_common as common
 
+from gpr_detection.augment_geometry import settings_block_sha256
+
 REPO = Path(__file__).resolve().parents[2]
 FOLDS = (0, 1, 2, 3, 4)
 DEFAULT_RUN_ROOT = REPO / "runs" / "detect"
@@ -59,6 +65,8 @@ REQUIRED_ARGS = {"scale": 0, "translate": 0.1, "flipud": 0, "epochs": 50, "seed"
 """args.yaml values the gate requires (§3-1)."""
 VERDICT_SCHEMA = "n2a_a1_verdict/1"
 RULES = "m31_n2a_retrain_plan.md v0.3.3 §3-1 (A1, gates), §5-5"
+CONTEXT_RULES = "; m31_n2a2_retrain_plan.md v1.0 §5 (A1 + gpr_context gate), §7-3"
+CONTEXT_BLOCK = "gpr_context"
 GIT_TIMEOUT_S = 30
 EXACT_DECIMAL_DIGITS = 60
 
@@ -133,6 +141,22 @@ def sealed_config_sha256(repo: Path, seal_commit: str, config: Path) -> str:
     Raises:
         common.InputError: If git cannot show the file at that commit.
     """
+    return hashlib.sha256(sealed_config_blob(repo, seal_commit, config)).hexdigest()
+
+
+def sealed_context_sha256(blob: bytes) -> str | None:
+    """Canonical sha256 of the sealed ``gpr_context`` block, ``None`` without one."""
+    sealed = yaml.safe_load(blob.decode("utf-8")) or {}
+    block = sealed.get(CONTEXT_BLOCK) if isinstance(sealed, dict) else None
+    return None if block is None else settings_block_sha256(block)
+
+
+def sealed_config_blob(repo: Path, seal_commit: str, config: Path) -> bytes:
+    """Bytes of the config blob at ``seal_commit`` (``git show``).
+
+    Raises:
+        common.InputError: If git cannot show the file at that commit.
+    """
     try:
         relative = config.resolve().relative_to(repo.resolve()).as_posix()
     except ValueError as error:
@@ -148,7 +172,7 @@ def sealed_config_sha256(repo: Path, seal_commit: str, config: Path) -> str:
         raise common.InputError(
             f"cannot read {relative} at {seal_commit}: {error!r}"
         ) from error
-    return hashlib.sha256(completed.stdout).hexdigest()
+    return completed.stdout
 
 
 # ----------------------------------------------------------------- gates
@@ -161,8 +185,26 @@ def _args_checks(args_yaml: dict) -> dict[str, bool]:
     }
 
 
-def check_fold(files: FoldFiles, seal_sha256: str) -> dict:
-    """All §3-1 gates of one fold, plus the identity of the evaluated target."""
+def _context_checks(files: FoldFiles, sealed_context_sha: str | None) -> dict:
+    """N2-a' gate: the fold trained with the sealed ``gpr_context`` block."""
+    if sealed_context_sha is None:
+        return {}
+    recorded = files.train_settings.get("gpr_context_sha256")
+    return {"gpr_context_matches_seal": recorded == sealed_context_sha}
+
+
+def _context_index_sha256(files: FoldFiles) -> dict | None:
+    index = files.train_settings.get("gpr_context_index") or {}
+    return index.get("file_sha256")
+
+
+def check_fold(
+    files: FoldFiles, seal_sha256: str, sealed_context_sha: str | None = None
+) -> dict:
+    """All §3-1 gates of one fold, plus the identity of the evaluated target.
+
+    ``sealed_context_sha`` (N2-a') adds the ``gpr_context`` gate.
+    """
     k = files.fold
     weights_sha = common.sha256_file(files.weights)
     eval_list_sha = common.sha256_file(files.eval_list)
@@ -180,8 +222,9 @@ def check_fold(files: FoldFiles, seal_sha256: str) -> dict:
         "evaluated_fold_k": str(files.metrics["fold"]) == str(k),
         "trained_fold_k": str(files.train_settings.get("fold")) == str(k),
         **_args_checks(files.args_yaml),
+        **_context_checks(files, sealed_context_sha),
     }
-    return {
+    row = {
         "fold": k,
         "pass": all(checks.values()),
         "checks": checks,
@@ -191,6 +234,12 @@ def check_fold(files: FoldFiles, seal_sha256: str) -> dict:
         "config_sha256_recorded": files.train_settings.get("config_sha256"),
         "args": {key: files.args_yaml.get(key) for key in REQUIRED_ARGS},
     }
+    if sealed_context_sha is not None:
+        row["gpr_context_sha256_recorded"] = files.train_settings.get(
+            "gpr_context_sha256"
+        )
+        row["gpr_context_index_sha256_recorded"] = _context_index_sha256(files)
+    return row
 
 
 # ----------------------------------------------------------- A1 arithmetic
@@ -298,17 +347,26 @@ def judge(args: argparse.Namespace, identity: dict) -> int:
     folds = [
         load_fold(args.run_root, args.run_prefix, args.m110_prefix, k) for k in FOLDS
     ]
-    seal_sha256 = sealed_config_sha256(args.repo, args.seal_commit, args.config)
+    sealed_blob = sealed_config_blob(args.repo, args.seal_commit, args.config)
+    seal_sha256 = hashlib.sha256(sealed_blob).hexdigest()
+    sealed_context_sha = sealed_context_sha256(sealed_blob)
     config_sha256 = common.sha256_file(_require_file(args.config))
     identity["config_sha256"] = config_sha256
     identity["seal_commit"] = args.seal_commit
     identity["sealed_config_sha256"] = seal_sha256
 
-    fold_gates = [check_fold(files, seal_sha256) for files in folds]
+    fold_gates = [check_fold(files, seal_sha256, sealed_context_sha) for files in folds]
     for row in fold_gates:
         identity["weights_sha256"][str(row["fold"])] = row["weights_sha256"]
         identity["eval_list_sha256"][str(row["fold"])] = row["eval_list_sha256"]
     config_gate = {"config_file_matches_seal": config_sha256 == seal_sha256}
+    if sealed_context_sha is not None:
+        identity["sealed_gpr_context_sha256"] = sealed_context_sha
+        index_hashes = [_context_index_sha256(files) for files in folds]
+        identity["gpr_context_index_sha256"] = index_hashes[0]
+        config_gate["context_index_same_in_all_folds"] = index_hashes[
+            0
+        ] is not None and all(hashes == index_hashes[0] for hashes in index_hashes)
     failures = [f"fold {row['fold']}" for row in fold_gates if not row["pass"]]
     if not all(config_gate.values()):
         failures.append("config file")
@@ -316,7 +374,7 @@ def judge(args: argparse.Namespace, identity: dict) -> int:
 
     out: dict[str, Any] = {
         "schema": VERDICT_SCHEMA,
-        "rules": RULES,
+        "rules": RULES if sealed_context_sha is None else RULES + CONTEXT_RULES,
         "run_identity": identity,
         "inputs": {
             "run_root": str(args.run_root),

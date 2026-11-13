@@ -36,6 +36,18 @@ With a geometric config the Ultralytics ``scale`` must be 0 (``ValueError``
 otherwise), so the affine step only translates and the two scale stages never
 multiply.
 
+N2-a' (``docs/experiments/m31_n2a2_retrain_plan.md`` v1.0 section 2-1, 7-1),
+only when a ``gpr_context`` config and its :class:`ContextIndex` are given:
+:class:`YoloContextScale` takes the place of :class:`YoloIsotropicScale` at
+index 1 (the two never run together) and :class:`YoloGeometricAugment` stays
+before ``Format``::
+
+    YoloGprAugment -> YoloContextScale -> ... -> RandomFlip(horizontal)
+    -> YoloGeometricAugment -> Format
+
+The context step reads neighbour crops next to ``labels["im_file"]`` (image
+with ``cv2.IMREAD_GRAYSCALE``, label txt at the Ultralytics label path).
+
 One-channel input uses the official ``channels: 1`` key of the data yaml: the
 dataset then decodes with ``cv2.IMREAD_GRAYSCALE`` and ``DetectionModel`` is
 built with ``ch=1``. :func:`write_training_data_yaml` adds that key to a copy
@@ -49,18 +61,28 @@ import dataclasses
 import logging
 import os
 import time
+from collections import Counter
 from collections.abc import Mapping
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
+import cv2
 import numpy as np
 import yaml
 
 from gpr_detection.augment import AugmentConfig, augment_bscan
 from gpr_detection.augment_geometry import (
+    PIPE_BAND_CLASS_ID,
+    BoxKeepRule,
+    ContextIndex,
+    ContextMode,
+    ContextRecord,
+    ContextScaleConfig,
+    CropContent,
     GeometricAugmentConfig,
     ShiftFillRecord,
+    augment_context_scale,
     augment_scale,
     augment_shift_fill,
 )
@@ -75,8 +97,17 @@ SCALE_STREAM_ID = 1
 SHIFT_FILL_STREAM_ID = 2
 """Third ``SeedSequence`` entry: keeps the geometric streams apart from
 :class:`YoloGprAugment`, whose sequence is ``[seed, worker_seed]``."""
+CONTEXT_STREAM_ID = 3
+"""Stream of :class:`YoloContextScale` (N2-a' plan section 7-1, k = 3)."""
 SCALE_STEP_INDEX = 1
-"""Position of :class:`YoloIsotropicScale` in the train ``Compose``."""
+"""Position of :class:`YoloIsotropicScale` / :class:`YoloContextScale`."""
+PIPE_BAND_NAME = "pipe_band"
+YOLO_LABEL_FIELDS = 5
+"""``class x_center y_center width height`` (normalised)."""
+IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
+S_HISTOGRAM_BINS = 10
+DX_HISTOGRAM_BINS = 8
+DX_SPAN_HISTOGRAM_BINS = 6
 
 FORBIDDEN_AUGMENTATION_KEYS = ("flipud", "degrees", "shear", "perspective")
 """Must be 0: they flip the time axis or tilt hyperbolae (augmentation_policy §1)."""
@@ -458,6 +489,302 @@ def attach_geometric_augment(
         transforms.insert(_format_step_index(transforms.transforms), shift_fill_step)
 
 
+# ------------------------------------------------- context step (N2-a')
+
+
+def _unique_rows_in_order(rows: list[list[float]]) -> list[list[float]]:
+    """Drop repeated label lines, as Ultralytics does when it caches labels."""
+    seen: set[tuple[float, ...]] = set()
+    unique = []
+    for row in rows:
+        key = tuple(row)
+        if key not in seen:
+            seen.add(key)
+            unique.append(row)
+    return unique
+
+
+class FolderCropLoader:
+    """Reads neighbour crops from the folder of the centre image.
+
+    Images with ``cv2.IMREAD_GRAYSCALE`` (as the one-channel dataset does),
+    labels from the Ultralytics label path (``/images/`` -> ``/labels/``,
+    ``.txt``) as xyxy px of a ``width_px`` x ``height_px`` crop.
+
+    Args:
+        image_dir: Folder of the centre image.
+        width_px: Crop width.
+        height_px: Crop height.
+    """
+
+    def __init__(self, image_dir: Path, width_px: int, height_px: int) -> None:
+        self.image_dir = Path(image_dir)
+        self.width_px = width_px
+        self.height_px = height_px
+
+    def image(self, file_name: str) -> np.ndarray:
+        """Grayscale uint8 image of a crop.
+
+        Raises:
+            FileNotFoundError: If OpenCV cannot read the file.
+        """
+        path = self.image_dir / file_name
+        image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+        if image is None:
+            raise FileNotFoundError(f"cannot read context crop {path}")
+        return image
+
+    def labels(self, file_name: str) -> tuple[np.ndarray, np.ndarray]:
+        """``(boxes [N, 4] xyxy px, classes [N])``; no label file = no objects."""
+        from ultralytics.data.utils import img2label_paths  # lazy (ADR-001)
+
+        label_path = Path(img2label_paths([str(self.image_dir / file_name)])[0])
+        rows = []
+        if label_path.is_file():
+            for line in label_path.read_text(encoding="utf-8").splitlines():
+                parts = line.split()
+                if len(parts) == YOLO_LABEL_FIELDS:
+                    rows.append([float(value) for value in parts])
+        table = np.array(_unique_rows_in_order(rows), dtype=np.float64).reshape(-1, 5)
+        scale = np.array([self.width_px, self.height_px])
+        centre = table[:, 1:3] * scale
+        half_size = table[:, 3:5] * scale / 2
+        boxes = np.concatenate([centre - half_size, centre + half_size], axis=1)
+        return boxes, table[:, 0].astype(np.int64)
+
+
+def _set_boxes(
+    labels: dict[str, Any],
+    boxes_xyxy: np.ndarray,
+    classes: np.ndarray,
+    height_px: int,
+    width_px: int,
+) -> None:
+    """Replace all labels by ``boxes_xyxy``/``classes``, keeping the box format.
+
+    Unlike :func:`_replace_boxes` the number of boxes may grow (labels merged
+    from neighbour crops).
+
+    Raises:
+        ValueError: If the instances carry segments or keypoints.
+    """
+    instances = labels["instances"]
+    if len(instances.segments) or instances.keypoints is not None:
+        raise ValueError("geometric GPR steps support boxes only (no segments)")
+    # Ultralytics 8.4.192 has no public getter for the box format.
+    bbox_format = instances._bboxes.format
+    was_normalized = instances.normalized
+    box_dtype = instances.bboxes.dtype
+    rebuilt = instances[np.zeros(len(instances), dtype=bool)]
+    rebuilt.convert_bbox(format="xyxy")
+    rebuilt.denormalize(width_px, height_px)
+    rebuilt.update(bboxes=np.asarray(boxes_xyxy, dtype=box_dtype).reshape(-1, 4))
+    if was_normalized:
+        rebuilt.normalize(width_px, height_px)
+    rebuilt.convert_bbox(format=bbox_format)
+    labels["instances"] = rebuilt
+    labels["cls"] = np.asarray(classes).astype(labels["cls"].dtype).reshape(-1, 1)
+
+
+def _histogram(low: float, high: float, bins: int) -> dict[str, Any]:
+    return {"edges": aug_stats.histogram_edges(low, high, bins), "counts": [0] * bins}
+
+
+def _count_in(histogram: dict[str, Any], value: float) -> None:
+    histogram["counts"][aug_stats.histogram_bin(value, histogram["edges"])] += 1
+
+
+class YoloContextScale(_GeometricStep):
+    """Ultralytics step: N2-a' context scale (``augment_context_scale``), index 1.
+
+    Args:
+        config: The ``gpr_context`` settings.
+        index: Context index of this run (start-up leak checks already done).
+        seed: Base seed, normally the training ``seed``.
+        keep_rule: Box keep rule (``gpr_geometric.keep_rule``).
+    """
+
+    stats_name = "context_scale"
+    stream_id = CONTEXT_STREAM_ID
+
+    def __init__(
+        self,
+        config: ContextScaleConfig,
+        index: ContextIndex,
+        seed: int,
+        keep_rule: BoxKeepRule | None = None,
+    ) -> None:
+        self.index = index
+        self.keep_rule = keep_rule if keep_rule is not None else BoxKeepRule()
+        super().__init__(config, seed)  # type: ignore[arg-type]
+
+    def _new_stats(self) -> dict[str, Any]:
+        config = self.config
+        max_shift_px = config.max_shift_px
+        return {
+            "calls": 0,
+            "context_scale": aug_stats.StageStats(),
+            "counters": {
+                "mode": Counter(),
+                "source": Counter(),
+                "used_neighbors": Counter(),
+                "chain_stops": Counter(),
+            },
+            "histograms": {
+                "s_context": _histogram(*config.context_scale, S_HISTOGRAM_BINS),
+                "s_plain": _histogram(*config.plain_scale, S_HISTOGRAM_BINS),
+                "dx_px": _histogram(-max_shift_px, max_shift_px, DX_HISTOGRAM_BINS),
+                "dx_span_px": _histogram(0, 2 * max_shift_px, DX_SPAN_HISTOGRAM_BINS),
+            },
+        }
+
+    def _stats_document(self) -> dict[str, Any]:
+        stats = self._stats
+        return {
+            "step": self.stats_name,
+            "pid": self._process_id,
+            "calls": stats["calls"],
+            "stages": {"context_scale": stats["context_scale"].to_dict()},
+            "counters": {
+                name: dict(sorted(counts.items()))
+                for name, counts in stats["counters"].items()
+            },
+            "histograms": copy.deepcopy(stats["histograms"]),
+        }
+
+    def _record(
+        self, classes: np.ndarray, keep_mask: np.ndarray, record: ContextRecord
+    ) -> None:
+        stats = self._stats
+        stats["calls"] += 1
+        stats["context_scale"].record(True, classes, keep_mask)
+        window = record.window
+        counters = stats["counters"]
+        counters["mode"][str(window.mode)] += 1
+        counters["source"][str(record.source)] += 1
+        counters["used_neighbors"][str(record.used_neighbors)] += 1
+        for reason in record.rejections:
+            counters["chain_stops"][str(reason)] += 1
+        histograms = stats["histograms"]
+        if window.mode is ContextMode.CONTEXT:
+            _count_in(histograms["s_context"], window.s)
+            _count_in(histograms["dx_px"], window.dx_px)
+            _count_in(histograms["dx_span_px"], window.dx_max_px - window.dx_min_px)
+        else:
+            _count_in(histograms["s_plain"], window.s)
+
+    def __call__(self, labels: dict[str, Any]) -> dict[str, Any]:
+        """Scale ``labels["img"]`` with context; merge and filter its labels.
+
+        Raises:
+            ValueError: If the image is not one-channel, or on a context leak.
+        """
+        image = labels["img"]
+        gray = _gray_plane(image, type(self).__name__)
+        height_px, width_px = gray.shape
+        boxes = _boxes_xyxy_px(labels["instances"], height_px, width_px)
+        image_path = Path(labels["im_file"])
+        loader = FolderCropLoader(image_path.parent, width_px, height_px)
+        result, new_boxes, new_classes, keep_mask, record = augment_context_scale(
+            image_path.name,
+            CropContent(gray, boxes, _class_ids(labels)),
+            self.index,
+            loader,
+            self.config,
+            self.keep_rule,
+            self._rng(),
+        )
+        self._record(new_classes, keep_mask, record)
+        labels["img"] = result.reshape(image.shape)
+        _set_boxes(
+            labels, new_boxes[keep_mask], new_classes[keep_mask], height_px, width_px
+        )
+        self._count_call()
+        return labels
+
+
+def attach_context_augment(
+    dataset: Any, context_step: YoloContextScale, shift_fill_step: YoloGeometricAugment
+) -> None:
+    """Insert the N2-a' steps once: context scale at index 1, shift/fill before Format.
+
+    Call after :func:`attach_gpr_augment`.
+
+    Raises:
+        ValueError: If ``YoloGprAugment`` is not the first step, the N2-a scale
+            step is present (double scaling), or there is no ``Format`` step.
+    """
+    transforms = dataset.transforms
+    steps = transforms.transforms
+    if not steps or not isinstance(steps[0], YoloGprAugment):
+        raise ValueError("attach_gpr_augment must run before attach_context_augment")
+    if any(isinstance(step, YoloIsotropicScale) for step in steps):
+        raise ValueError("YoloIsotropicScale and YoloContextScale must not both run")
+    if not any(isinstance(step, YoloContextScale) for step in steps):
+        transforms.insert(SCALE_STEP_INDEX, context_step)
+    if not any(isinstance(step, YoloGeometricAugment) for step in steps):
+        transforms.insert(_format_step_index(transforms.transforms), shift_fill_step)
+
+
+def _image_names(entry: str | Path, dataset_root: Path) -> list[str]:
+    """Image file names of one data-yaml entry (a list file or an image folder)."""
+    path = Path(entry)
+    if not path.is_absolute():
+        path = dataset_root / path
+    if path.is_dir():
+        return sorted(
+            item.name
+            for item in path.rglob("*")
+            if item.suffix.lower() in IMAGE_SUFFIXES
+        )
+    lines = path.read_text(encoding="utf-8-sig").splitlines()
+    return [Path(line.strip()).name for line in lines if line.strip()]
+
+
+def _split_image_names(data: Mapping[str, Any], split: str, root: Path) -> list[str]:
+    entries = data.get(split) or []
+    if not isinstance(entries, list):
+        entries = [entries]
+    names: list[str] = []
+    for entry in entries:
+        names.extend(_image_names(entry, root))
+    return names
+
+
+def context_index_for_data_yaml(index_dir: Path, data_yaml: Path) -> ContextIndex:
+    """Build the run's :class:`ContextIndex` from an Ultralytics data yaml.
+
+    The ``train`` lists give the context candidates, the ``val`` list the
+    folds no neighbour may come from (plan section 4).
+
+    Raises:
+        ValueError: On a start-up leak assertion (see :class:`ContextIndex`).
+    """
+    data = yaml.safe_load(Path(data_yaml).read_text(encoding="utf-8"))
+    root = Path(data.get("path") or Path(data_yaml).parent)
+    if not root.is_absolute():
+        root = (Path(data_yaml).parent / root).resolve()
+    return ContextIndex.from_csv(
+        index_dir,
+        _split_image_names(data, "train", root),
+        _split_image_names(data, "val", root),
+    )
+
+
+def check_context_names(names: Mapping[Any, Any]) -> None:
+    """The band label merge needs ``pipe_band`` at its project class id.
+
+    Raises:
+        ValueError: If class ``PIPE_BAND_CLASS_ID`` is not ``pipe_band``.
+    """
+    name = dict(names).get(PIPE_BAND_CLASS_ID)
+    if name != PIPE_BAND_NAME:
+        raise ValueError(
+            f"class {PIPE_BAND_CLASS_ID} must be {PIPE_BAND_NAME!r} for the context "
+            f"label merge, got {name!r}"
+        )
+
+
 def _plain(value: Any) -> Any:
     """Dataclasses, enums and tuples as JSON/YAML-friendly values."""
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
@@ -477,33 +804,52 @@ def geometric_settings(config: GeometricAugmentConfig) -> dict[str, Any]:
 
 
 def check_single_scale_stage(
-    overrides: Mapping[str, Any], geometric: GeometricAugmentConfig | None
+    overrides: Mapping[str, Any],
+    geometric: GeometricAugmentConfig | None,
+    context: ContextScaleConfig | None = None,
 ) -> None:
-    """With the project scale on, the Ultralytics ``scale`` must be exactly 0.
+    """With a project scale on, the Ultralytics ``scale`` must be exactly 0.
 
-    A missing ``scale`` key counts as non-zero (Ultralytics default 0.5).
+    A missing ``scale`` key counts as non-zero (Ultralytics default 0.5). The
+    project scale is ``gpr_geometric.scale`` (N2-a) or ``gpr_context`` (N2-a').
 
     Raises:
-        ValueError: If both scale stages would run (factors would multiply).
+        ValueError: If two scale stages would run (factors would multiply).
     """
-    if geometric is None or geometric.scale.probability == 0:
+    is_geometric_scale_on = geometric is not None and geometric.scale.probability != 0
+    if context is not None and is_geometric_scale_on:
+        raise ValueError(
+            "gpr_context and gpr_geometric.scale are both on (double scaling; "
+            "docs/experiments/m31_n2a2_retrain_plan.md section 7-1)"
+        )
+    if not is_geometric_scale_on and context is None:
         return
-    if overrides.get("scale") != 0:
+    if overrides.get("scale") == 0:
+        return
+    if context is not None:
         raise ValueError(
             f"Ultralytics scale={overrides.get('scale')!r} must be 0 when "
-            "gpr_geometric.scale is on (double scaling; "
-            "docs/experiments/m31_n2a_retrain_plan.md section 1-1-b)"
+            "gpr_context is on (double scaling; "
+            "docs/experiments/m31_n2a2_retrain_plan.md section 7-1)"
         )
+    raise ValueError(
+        f"Ultralytics scale={overrides.get('scale')!r} must be 0 when "
+        "gpr_geometric.scale is on (double scaling; "
+        "docs/experiments/m31_n2a_retrain_plan.md section 1-1-b)"
+    )
 
 
 def check_augmentation_policy(
-    overrides: Mapping[str, Any], geometric: GeometricAugmentConfig | None = None
+    overrides: Mapping[str, Any],
+    geometric: GeometricAugmentConfig | None = None,
+    context: ContextScaleConfig | None = None,
 ) -> list[str]:
     """Validate Ultralytics augmentation arguments against the project policy.
 
     Args:
         overrides: Ultralytics train arguments.
         geometric: N2-a geometric settings, or ``None`` when they are off.
+        context: N2-a' context settings, or ``None`` when they are off.
 
     Returns:
         Warnings for ablation-only settings and for ``hsv_v``, which Ultralytics
@@ -514,7 +860,7 @@ def check_augmentation_policy(
         ValueError: If a forbidden augmentation is non-zero or missing, or the
             project scale is on while the Ultralytics ``scale`` is not 0.
     """
-    check_single_scale_stage(overrides, geometric)
+    check_single_scale_stage(overrides, geometric, context)
     missing_or_active = [
         key for key in FORBIDDEN_AUGMENTATION_KEYS if overrides.get(key) != 0
     ]
@@ -566,13 +912,84 @@ def write_training_data_yaml(source_yaml: Path, out_yaml: Path) -> Path:
     return out_yaml
 
 
-def _stats_header(trainer: Any, seed: int, geometric: GeometricAugmentConfig) -> dict:
+def _stats_header(
+    trainer: Any,
+    seed: int,
+    geometric: GeometricAugmentConfig,
+    context: tuple[ContextScaleConfig, ContextIndex] | None = None,
+) -> dict:
     names = trainer.data.get("names", {}) if isinstance(trainer.data, dict) else {}
-    return {
+    header = {
         "seed": seed,
         "class_names": {str(key): str(value) for key, value in dict(names).items()},
         "gpr_geometric": geometric_settings(geometric),
     }
+    if context is not None:
+        context_config, context_index = context
+        header["gpr_context"] = _plain(context_config)
+        header["gpr_context_index"] = context_index.summary()
+    return header
+
+
+def _check_context_arguments(
+    geometric_config: GeometricAugmentConfig | None,
+    context_config: ContextScaleConfig | None,
+    context_index: ContextIndex | None,
+) -> None:
+    if (context_config is None) != (context_index is None):
+        raise ValueError("context_config and context_index must be given together")
+    if context_config is not None and geometric_config is None:
+        raise ValueError(
+            "gpr_context needs the gpr_geometric block (shift, edge fill, keep rule)"
+        )
+
+
+def check_context_without_gpr_noise(
+    augment_config: AugmentConfig, context_config: ContextScaleConfig | None
+) -> None:
+    """With ``gpr_context`` on, every GPR augmentation intensity must be 0.
+
+    The GPR noise falls on the centre crop only, so it would blur the
+    brightness reference of the stitched neighbours (plan v1.0 section 7-5 (3)).
+
+    Raises:
+        ValueError: If ``context_config`` is set and an intensity is > 0.
+    """
+    if context_config is None:
+        return
+    intensities = {
+        "gaussian_noise.sigma_max": augment_config.gaussian_noise.sigma_max,
+        "contrast_gamma.contrast_max_delta": (
+            augment_config.contrast_gamma.contrast_max_delta
+        ),
+        "contrast_gamma.gamma_max_delta": augment_config.contrast_gamma.gamma_max_delta,
+        "ringing.amplitude_max": augment_config.ringing.amplitude_max,
+        "trace_dropout.fraction_max": augment_config.trace_dropout.fraction_max,
+    }
+    active = sorted(name for name, value in intensities.items() if value > 0)
+    if active:
+        raise ValueError(
+            f"gpr_context needs the GPR augmentation strength 0, got {active} > 0 "
+            "(docs/experiments/m31_n2a2_retrain_plan.md section 7-5)"
+        )
+
+
+def _project_steps(
+    augment_seed: int,
+    geometric_config: GeometricAugmentConfig | None,
+    context: tuple[ContextScaleConfig, ContextIndex] | None,
+) -> tuple[Any, YoloGeometricAugment] | None:
+    """The two geometric steps (index-1 scale step, shift/fill) or ``None``."""
+    if geometric_config is None:
+        return None
+    shift_fill_step = YoloGeometricAugment(geometric_config, augment_seed)
+    if context is None:
+        return YoloIsotropicScale(geometric_config, augment_seed), shift_fill_step
+    context_config, context_index = context
+    context_step = YoloContextScale(
+        context_config, context_index, augment_seed, geometric_config.keep_rule
+    )
+    return context_step, shift_fill_step
 
 
 def build_gpr_trainer(
@@ -580,6 +997,8 @@ def build_gpr_trainer(
     augment_config: AugmentConfig,
     augment_seed: int,
     geometric_config: GeometricAugmentConfig | None = None,
+    context_config: ContextScaleConfig | None = None,
+    context_index: ContextIndex | None = None,
 ) -> Any:
     """Create an Ultralytics ``DetectionTrainer`` that applies the GPR augmentations.
 
@@ -590,24 +1009,31 @@ def build_gpr_trainer(
         augment_seed: Base seed of the augmentation generators.
         geometric_config: N2-a geometric settings; ``None`` (default) inserts no
             geometric step, which reproduces the M1-10 transforms exactly.
+        context_config: N2-a' context settings; with ``context_index`` they
+            put :class:`YoloContextScale` at index 1 instead of
+            :class:`YoloIsotropicScale` (needs ``geometric_config`` with its
+            scale off). ``None`` (default) keeps the N2-a transforms.
+        context_index: The run's context index (built from the same data yaml).
 
     Returns:
         The trainer; call ``.train()`` to start. With a geometric config it
         writes ``aug_stats.json`` into the run folder after every epoch.
 
     Raises:
-        ValueError: If the geometric scale is on and Ultralytics ``scale`` != 0.
+        ValueError: If two scale stages would run, the Ultralytics ``scale`` is
+            not 0 with a project scale on, or the context arguments are
+            incomplete.
     """
     from ultralytics.models.yolo.detect import DetectionTrainer  # lazy (ADR-001)
 
-    check_single_scale_stage(overrides, geometric_config)
+    _check_context_arguments(geometric_config, context_config, context_index)
+    check_context_without_gpr_noise(augment_config, context_config)
+    check_single_scale_stage(overrides, geometric_config, context_config)
     augment = YoloGprAugment(augment_config, augment_seed)
-    geometric_steps: tuple[YoloIsotropicScale, YoloGeometricAugment] | None = None
-    if geometric_config is not None:
-        geometric_steps = (
-            YoloIsotropicScale(geometric_config, augment_seed),
-            YoloGeometricAugment(geometric_config, augment_seed),
-        )
+    context = None
+    if context_config is not None and context_index is not None:
+        context = (context_config, context_index)
+    geometric_steps = _project_steps(augment_seed, geometric_config, context)
 
     class GprDetectionTrainer(DetectionTrainer):
         """DetectionTrainer whose train dataset starts with ``YoloGprAugment``."""
@@ -617,12 +1043,16 @@ def build_gpr_trainer(
             if geometric_steps is None:
                 return
             # Second guard on the resolved arguments the dataset was built with.
-            check_single_scale_stage(vars(self.args), geometric_config)
+            check_single_scale_stage(vars(self.args), geometric_config, context_config)
             stats_dir = Path(self.save_dir) / aug_stats.WORKER_STATS_DIR_NAME
             stats_dir.mkdir(parents=True, exist_ok=True)
             for step in geometric_steps:
                 step.stats_dir = stats_dir
-            attach_geometric_augment(dataset, *geometric_steps)
+            if context is None:
+                attach_geometric_augment(dataset, *geometric_steps)
+                return
+            check_context_names(dataset.data.get("names", {}))
+            attach_context_augment(dataset, *geometric_steps)
 
         def build_dataset(
             self, img_path: str, mode: str = "train", batch: int | None = None
@@ -646,7 +1076,9 @@ def build_gpr_trainer(
             aug_stats.write_run_stats(
                 Path(active_trainer.save_dir),
                 epochs_completed=int(active_trainer.epoch) + 1,
-                header=_stats_header(active_trainer, augment_seed, geometric_config),
+                header=_stats_header(
+                    active_trainer, augment_seed, geometric_config, context
+                ),
                 flushable_steps=geometric_steps,
             )
 
