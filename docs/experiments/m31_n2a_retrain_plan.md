@@ -1,6 +1,6 @@
 # M3-1 N2-a — 위치·축척 증강 재학습 계획 (사전 등록)
 
-- 상태: **v0.3.3** (2026-11-13, cv-detection-expert). **봉인 대상 판**이다. v0.3.3은 [SP] 인용을 v0.3.6 §11-2로 맞춘 것뿐이다. v0.3.2는 integrity-checker 봉인 전 점검(Critical·High 0)의 문서 지적만 반영했다(뜻 불변). v0.3.1은 v0.3.1은 (다) 구현 중 생긴 명세 밖 처리(단계 전 영상 프레임 자르기) 승인, G-10 시험 정정, 명령 초안 보완만 더했다. v0.3은 v0.2(사용자 결정 U-a·U-b·U-c)에 python-expert 구현 결과(§5-0)와 확인 필요 4건의 결정(§5-7)을 반영했다. 구현과 시험(1,302개 통과, 실패 0)은 끝났고, 학습·평가는 아직 없다. 봉인 커밋 → 감사 ① → 스모크 → 5-fold 순서로 진행한다(§6).
+- 상태: **v0.3.4** (2026-11-13, cv-detection-expert). v0.3.4는 A1 충족(판정서 `m31_n2a_a1_judgment.md`, 감사 ② 차단 0) 뒤 D1 r3 봉인 부록 §4-3을 붙인 판이다. 학습 봉인(651cc10)의 규칙·설정은 바뀌지 않았다. v0.3.3은 **봉인 대상 판**이었다. v0.3.3은 [SP] 인용을 v0.3.6 §11-2로 맞춘 것뿐이다. v0.3.2는 integrity-checker 봉인 전 점검(Critical·High 0)의 문서 지적만 반영했다(뜻 불변). v0.3.1은 v0.3.1은 (다) 구현 중 생긴 명세 밖 처리(단계 전 영상 프레임 자르기) 승인, G-10 시험 정정, 명령 초안 보완만 더했다. v0.3은 v0.2(사용자 결정 U-a·U-b·U-c)에 python-expert 구현 결과(§5-0)와 확인 필요 4건의 결정(§5-7)을 반영했다. 구현과 시험(1,302개 통과, 실패 0)은 끝났고, 학습·평가는 아직 없다. 봉인 커밋 → 감사 ① → 스모크 → 5-fold 순서로 진행한다(§6).
 - 배경: D1 r2 판정서 [`m31_detection_input_tiling.md`](m31_detection_input_tiling.md) §8-5(이하 [T]). M1-10 YOLO11m(scratch)은 위치·축척 허용 폭이 매우 좁다.
   - 객체를 64 px 옮기면 쌍곡선 재현율(conf > 0.25)이 평균 68 %p 떨어진다.
   - 객체 옆 64 열만 회색(128)으로 덮어도 35 %p 떨어진다.
@@ -213,6 +213,53 @@ $py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
 - **사후 변경 금지**: A1·D1 r3 결과를 본 뒤 증강·규칙을 바꾸지 않는다. 바꾸려면 새 사전 등록과 새 학습이 필요하고, 그 사실을 공개한다.
 - **공개**: 블라인드가 깨지면(로그를 연 경우 등) 판정서에 누가 무엇을 언제 봤는지 그대로 적는다([T] §8-3 (6) 방식).
 
+### 4-3. D1 r3 봉인 부록 (v0.3.4, A1 충족 뒤 작성, 감사 ③ 전 봉인)
+
+근거: A1 판정서 [`m31_n2a_a1_judgment.md`](m31_n2a_a1_judgment.md)(A1 충족, 감사 ② 차단 0). 이 부록은 §4-1 규칙의 입력 값만 고정한다. 판정 규칙([T] v0.5.2 §8-2의 P·O·게이트·문턱 3.0 %p·집계)은 바꾸지 않는다.
+
+| 항목 | 값 |
+|---|---|
+| 규칙 | [T] `m31_detection_input_tiling.md` v0.5.2 §8-2(봉인 3c81aca, 규칙 blob eacf9126376c199d9486bb8a98b13fa2b411d7bd) |
+| N2-a 학습 봉인 | 651cc10(설정 `configs/train_yolo11m_n2a.yaml` sha256 7d5c6112529e9cdd6b6014985eada732d112b6e8460a0402badffac35152163d) |
+| run-prefix | `yolo11m_aihubv1n2a_20261113_fold` |
+| export-root | `runs/analysis/n2a_val_export` |
+| 기대 sha8(`--expected-weights-sha8`, fold 0–4) | `235ec15e,3907621c,8ae8cc60,9d3f3b52,99f3bf95` |
+| G3 기대 | r2와 같음(`g1.00_dx+0` n_gt 4클래스 = M1-10 instances, n_ignored 0, 판정 대상 13개 쌍곡선 결손 0, `gp6_dx±64` 쌍곡선 결손 0/0, 0/0, 0/3, 3/3, 2/0) |
+| 출력 | `runs/detect/yolo11m_aihubv1n2a_20261113_fold<k>/eval/m31_d1_r3/`, `analysis/detection/m31_d1_r3_summary.json`, `analysis/detection/m31_d1_r3_verdict.json` |
+
+가중치 `last.pt` sha256(`train_record.json`·A1 판정 재해시와 같음)
+
+| fold | sha256 |
+|---|---|
+| 0 | 235ec15e344dc9a314d9e444126c92e0aa9c0eecb8091157cec90e8a9b3ce338 |
+| 1 | 3907621cf57048c61dbd23e66f7740582b573a8985cbb945d352313b5bbed3e5 |
+| 2 | 8ae8cc60679db04ed576dee351d00cd898c8da682608be9522839822d1e05a94 |
+| 3 | 9d3f3b52d67c588ed76d35a69cadbcc19940d6b6c6ee9c36736e595c51e61304 |
+| 4 | 99f3bf95602a39aea7e4300bc1d9888a1585761f85647d4d8aa06bfc511c9979 |
+
+G1 입력 sha256(`runs/analysis/n2a_val_export/fold<k>_crop/`, 2026-11-13 `Get-FileHash -Algorithm SHA256`로 다시 계산)
+
+| fold | predictions.csv | images.csv | val_metrics.json |
+|---|---|---|---|
+| 0 | 85b186c239898832d32032dec2c0e59144900d7aabcfc77dc695d8e83bb2f2b5 | 1e13f9e5b034c040726854985e20534d862c5f2e1cf90df70e3bed2d8778c3fb | 77f194c1a3c0be1ab6255d416bf4eae25d2b4ec11072c960e812a21d9f323f3e |
+| 1 | a6441b1476fb145e6521bdc876121e87f9aa3f3bb0cb1bbe8b14babad43a6018 | 6de0bb2b3a0424663b2afd4d437cdab4444fba27e0f14d845c72684180d660c7 | 645d79293725663b9bccd3dd4eb52acba0f954652d50f043f5f342b2fada94e7 |
+| 2 | 16f3907473b1be4094b14e952b1430ba4594be1470675197d88f263bc013054e | cd2f17392c4ffed03431f1081550e93edfd2e5cb866e7f8df3241703f92cad1a | c41a11250e888d21664eac8bec392319a540566acda38fc370fd7562cedbd2b8 |
+| 3 | 49e4792165a1a7b014969a4c761bf0bb3c6ccea10dd33b71cc67f036f17fb0f0 | 8636da995ddc0700972d0593543df2403c3064e7c79b6babb39b1893c41c9ad6 | 6fa0f0a6c19eddc4aea31c07b9c43037258257213ca72a2b63469c0c9909166b |
+| 4 | 071329d399a3fa57660210753ccb80cb996de5fd0e959eb29ad4480f2999a11a | da1cd9f5e7274e517844692940d12e97e77b140b898430e95216bf63805a0d07 | 8f0b3ddbd8cc49534bc84d683508b736699a5ba44051f78e26eaef28850c480e |
+
+실행 명령(메인 세션 러너, PowerShell, 작업 폴더 `C:\workspace\gpr_detection`)
+
+```powershell
+$py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_d1_shift_scale.py --run-prefix yolo11m_aihubv1n2a_20261113_fold --export-root runs/analysis/n2a_val_export --folds 0,1,2,3,4 --device 0 --fill 128 --save-examples --out-subdir m31_d1_r3 --summary analysis/detection/m31_d1_r3_summary.json
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_d1_judge.py --run-prefix yolo11m_aihubv1n2a_20261113_fold --export-root runs/analysis/n2a_val_export --expected-weights-sha8 235ec15e,3907621c,8ae8cc60,9d3f3b52,99f3bf95 --subdir m31_d1_r3 --out analysis/detection/m31_d1_r3_verdict.json
+```
+
+- **`--no-capture-output`을 쓴다(결정).** §4-1 원문에는 없지만 conda 출력 버퍼링만 바꾸는 옵션이다(로그가 실시간으로 쓰임). 두 스크립트는 지표를 stdout에 쓰지 않으므로([T] §8-4 (d)) 판정 입력·블라인드에 영향이 없다. §2의 학습 명령과 같은 방식으로 맞춘다.
+- **HEAD 확인(감사 ② 권고)**: 메인 세션이 만드는 러너는 실행 단계(`m31_d1_shift_scale.py`) 앞과 판정 단계(`m31_d1_judge.py`) 앞에 각각 HEAD 확인을 넣는다. 조건은 HEAD = 이 부록의 봉인 커밋이고 추적 파일 변경 0이다. 어긋나면 그 단계를 멈춘다. N2-a 학습 때 fold 4 평가 사이에 다른 커밋(d26a5fa)이 들어간 일(A1 판정서 §2-1)을 막기 위해서다.
+- **한계**: export의 `val_metrics.json`에는 git 커밋과 가중치 sha256 기록이 없다(가중치 경로만 있음). 그래서 G1 입력과 가중치의 결속은 다음 두 가지로만 보증된다: `val_metrics.json.weights` 경로가 이 fold `last.pt`와 같다는 G1 단언, 위 표의 파일 sha256(실행 기록 G2-c와 판정 때 대조). 내보내기 실행 당시 HEAD는 N2-a 러너 로그의 머리 점검으로 확인한다(fold 0–3은 651cc10, fold 4 내보내기는 d26a5fa — 검출 코드 변경 없음, A1 판정서 §2-1).
+- 예상: 약 24분, VRAM 2.5 GB 이하(r2 실측 1,430 s). 블라인드 절차는 §4-2와 같다.
+
 ## 5. python-expert 구현 명세
 
 **위치**
@@ -401,3 +448,4 @@ gpr_geometric:
 | 2026-11-13 | v0.3.1 | (다) 구현 반영: 단계 전 영상 프레임 자르기(`_clip_to_image`) 승인 — §5-0 #8, §1-1-a. 이유: 라벨 끝 결함(y1 = −0.000128 px) manhole 1개 × gain 3장이 S-12에서 버려짐, D1 §8-4 (a)와 같은 처리. G-10을 잘린 3 px 조각(−2, 50, 3, 80; 넓이 0.6)으로 정정하고 G-10b(잘리지 않은 3 px 박스 남음) 추가. 명령 초안에 `--device 0`·`--no-capture-output`, `--on-existing` 운용(기본 error, 재시작 때만 archive) 추가. 나머지 불변 |
 | 2026-11-13 | v0.3.2 | integrity-checker 봉인 전 점검 반영(뜻 불변): §1 머리에 [T] §8-5 N2-a 초안 대비 변경과 이유 한 줄, [SP] v0.3.4 인용 4곳을 'gpr-processing-expert 의견 2026-11-13, [SP] v0.3.6 기록 예정'으로, 관련 목록·§1-4의 구현 위치에 `augment_geometry.py`, §4-2 tqdm 문장을 '끈다(§5-0 #4)'로, §3-1 `eval_images.sha256`이 metrics.json 키임을 명시, 0.5배 재현율 '약 0 %(0.41 %)' |
 | 2026-11-13 | v0.3.3 | [SP] 축척 하한 인용(관련 목록, §1-3 곡률·하한, §1-4)을 '[SP] v0.3.6 §11-2'로 맞춤. 뜻 불변 |
+| 2026-11-13 | v0.3.4 | D1 r3 봉인 부록 §4-3: 기대 sha8·sha256, run-prefix, export-root, G1 입력 sha256 15개(64자, 다시 계산), 명령(`--no-capture-output` 사용 결정), 러너 HEAD 확인(실행·판정 단계 앞, 감사 ② 권고), export `val_metrics.json`에 git·가중치 sha가 없는 한계. 판정 규칙 불변 |
