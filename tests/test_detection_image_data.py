@@ -103,7 +103,7 @@ CANDIDATES = (
     _guangzhou(
         "pipe/MALA_07011/LA010001",
         ("amplitude_processed",),
-        note="spec expects compression ~1.8 + scale_out_of_range at P 4.45",
+        note="spec v0.4 expects compression ~2.7 + scale_out_of_range (P* 6)",
     ),
     _guangzhou(
         "pipe/1030_181224AB/LID10001",

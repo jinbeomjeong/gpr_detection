@@ -57,6 +57,26 @@ for name, args in cases.items():
     r = line_scale(*args)
     mpp = r["tpp"] * args[2]
     print("o_phys v0.3", name, o_phys_capped(mpp, args[5]))
+# v0.4: default P* 6.0 for the same cases (O = max(O_phys capped, 192))
+print("--- P* 6.0 (v0.4 default) ---")
+for name, args in cases.items():
+    a6 = (*args[:5], 6.0)
+    r = line_scale(*a6)
+    mpp = r["tpp"] * a6[2]
+    op = o_phys_capped(mpp, 6.0)
+    print(name, {k: r[k] for k in ("s_y", "s_x", "H_c", "W1", "tpp", "spp", "compressed")},
+          "o_phys", op, "tiles_O192", n_tiles(r["W1"], max(op, 192)))
+# T7(f) 4TU eps cases at P* 4.06 and 6.0 (dt 0.098, P 25.61 samples)
+for eps in (9.0, 17.36):
+    v = C / math.sqrt(eps)
+    for ps in (4.06, 6.0):
+        s_y = (2.51 / 0.098) / ps
+        mpp = s_y * (0.098 * v / 2)
+        print("T7f eps", eps, "P*", ps, "2a_max px", round(2 / mpp, 1), "cap", 20 * ps,
+              "o_phys", o_phys_capped(mpp, ps), "capped", 2 / mpp > 20 * ps)
+# MALA_07011-like compression at P* 6.0 (P 4.45 samples, n_s 512)
+s_y = 4.45 / 6.0
+print("MALA P*6 compression", round((512 / 256) / s_y, 3))
 # Guangzhou 2000 MHz example: dt 0.039 ns, dx 0.01 m, P 0.5 ns, v 0.10
 s_y = (0.5 / 0.039) / 4.06
 mpp = s_y * (0.10 * 0.039 / 2)

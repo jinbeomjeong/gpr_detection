@@ -18,6 +18,11 @@ Two ways to get an L1 image:
   line L1 image per profile with a period-matched vertical scale and a
   depth-isotropic horizontal scale, cut into overlapping 256 x 256 tiles at
   integer pixel origins. The line has a single :class:`ImageGridMap`.
+
+State (spec v0.4, M3-1): the line image, tiling and overlap rules are
+implemented here; the defaults are ``P*`` 6.0 px and overlap 192 px. The
+padding grey, the grey mapping and the background window are M3-2
+assumptions, listed in ``DetectionImage.assumed_params``.
 """
 
 import itertools
@@ -52,8 +57,10 @@ class ImageGridMap:
     factors because a resized B-scan need not keep a square pixel.
 
     Attributes:
-        trace_offset: Grid trace at image column 0 (tile origin).
-        sample_offset: Grid sample at image row 0 (tile origin).
+        trace_offset: Grid trace at image column 0 (line L1 origin, 0 for
+            ``DetectionImage``; the tile origin is ``LineTile.x0_px``).
+        sample_offset: Grid sample at image row 0 (line L1 origin, 0 for
+            ``DetectionImage``).
         traces_per_px: Traces per image pixel along x.
         samples_per_px: Samples per image pixel along y.
         n_traces: Trace count of the whole radargram, for clipping.
@@ -76,7 +83,10 @@ class ImageGridMap:
             0 <= self.trace_offset < self.n_traces
             and 0 <= self.sample_offset < self.n_samples
         ):
-            raise ValueError(f"tile origin must lie inside the grid, got {self}")
+            raise ValueError(
+                f"line L1 origin (0 for DetectionImage) must lie inside the grid, "
+                f"got {self}"
+            )
 
     @classmethod
     def identity(cls, width_px: int, height_px: int) -> "ImageGridMap":
@@ -104,16 +114,17 @@ class DetectionImageConfig:
     """Settings of the line L1 image (spec_detection_image_v1 section 4-2).
 
     Attributes:
-        p_target_px: Target period ``P*`` in L1 px (D1 r2: 4.06 kept).
-        overlap_px: Detector-side overlap ``O_cv`` (D1 r2: provisional 192,
-            re-judged in r3 after the N2-a retraining).
+        p_target_px: Target period ``P*`` in L1 px (D1 r4, N2-a' baseline,
+            2026-11-14; 4.06 was the earlier default).
+        overlap_px: Detector-side overlap ``O_cv`` (D1 r4 rule O: 75 %, final).
         tile_px: Tile side ``L`` (training images are 256 x 256).
         overlap_min_px: Lower bound ``O_min`` of the physical overlap.
         a_max_m: Pick tracking half-aperture limit (spec_depth section 5).
         overlap_width_periods: Widest AIHub ``tpipe`` box in periods (19.9).
         overlap_max_px: Overlap cap; keeps the stride at least 32 px.
-        compress_max: Compression ``c`` above this flags ``scale_out_of_range``
-            (1 / 0.8, the lower end of the isotropic scale augmentation).
+        compress_max: Compression ``c`` above this flags ``scale_out_of_range``,
+            i.e. outside the scales with confirmed detector recall (1 / 0.74,
+            N2-a' scale curve, spec section 11-2 item 5).
         period_pad_factor: Zero padding of the period spectrum.
         period_min_samples: Shortest valid period; the longest is ``n_s / 4``.
         clip_percentile: ``|a|`` percentile used as the grey clip level.
@@ -126,14 +137,14 @@ class DetectionImageConfig:
             in traces (M3-2 assumption, Q5).
     """
 
-    p_target_px: float = 4.06
+    p_target_px: float = 6.0
     overlap_px: int = 192
     tile_px: int = 256
     overlap_min_px: int = 64
     a_max_m: float = 1.0
     overlap_width_periods: float = 20.0
     overlap_max_px: int = 224
-    compress_max: float = 1.25
+    compress_max: float = 1.35
     period_pad_factor: int = 8
     period_min_samples: float = 4.0
     clip_percentile: float = 99.0

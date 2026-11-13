@@ -1,0 +1,472 @@
+{
+ "r2_fold0": {
+  "top_diff_p": {
+   "p5": 0.002,
+   "p25": 0.009,
+   "p50": 0.036,
+   "p75": 0.076,
+   "p95": 0.24,
+   "n": 57,
+   "max": 0.376
+  },
+  "n_ge_0p5": 0,
+  "n_ge_1p0": 0,
+  "gap_over_limit": {
+   "p5": 0.007,
+   "p25": 0.028,
+   "p50": 0.06,
+   "p75": 0.107,
+   "p95": 0.392,
+   "n": 57,
+   "max": 0.586
+  },
+  "either_truncated": 9,
+  "v1": 0,
+  "v2": 0
+ },
+ "r2_all": {
+  "top_diff_p": {
+   "p5": 0.004,
+   "p25": 0.017,
+   "p50": 0.042,
+   "p75": 0.088,
+   "p95": 0.215,
+   "n": 510,
+   "max": 0.54
+  },
+  "n_ge_0p5": 1,
+  "n_ge_1p0": 0,
+  "gap_over_limit": {
+   "p5": 0.005,
+   "p25": 0.026,
+   "p50": 0.056,
+   "p75": 0.115,
+   "p95": 0.335,
+   "n": 510,
+   "max": 0.701
+  },
+  "either_truncated": 70,
+  "v1": 0,
+  "v2": 0
+ },
+ "band_fold0": {
+  "pairs": 198,
+  "not_candidate": 52,
+  "reasons": {
+   "gap_only": 30,
+   "overlap<0.5": 22
+  },
+  "top_diff_px_all": {
+   "p5": 0.03,
+   "p25": 0.643,
+   "p50": 1.342,
+   "p75": 3.364,
+   "p95": 33.412,
+   "n": 198,
+   "max": 34.764
+  },
+  "top_diff_p_all": {
+   "p5": 0.005,
+   "p25": 0.107,
+   "p50": 0.224,
+   "p75": 0.562,
+   "p95": 5.581,
+   "n": 198,
+   "max": 5.807
+  },
+  "smaller_height_px": {
+   "p5": 22.237,
+   "p25": 24.162,
+   "p50": 26.259,
+   "p75": 28.169,
+   "p95": 29.222,
+   "n": 198,
+   "max": 30.418
+  },
+  "top_diff_px_not_candidate": {
+   "p5": 0.164,
+   "p25": 0.928,
+   "p50": 3.525,
+   "p75": 31.373,
+   "p95": 34.643,
+   "n": 52,
+   "max": 34.764
+  },
+  "height_px_not_candidate": {
+   "p5": 22.226,
+   "p25": 23.586,
+   "p50": 25.168,
+   "p75": 27.096,
+   "p95": 29.027,
+   "n": 52,
+   "max": 30.384
+  },
+  "ratio_topdiff_over_height_not_candidate": {
+   "p5": 0.006,
+   "p25": 0.035,
+   "p50": 0.145,
+   "p75": 1.33,
+   "p95": 1.45,
+   "n": 52,
+   "max": 1.565
+  },
+  "lines_with_band_pairs": 6
+ },
+ "band_all": {
+  "pairs": 1096,
+  "not_candidate": 335,
+  "reasons": {
+   "gap_only": 228,
+   "overlap<0.5": 107
+  },
+  "top_diff_px_all": {
+   "p5": 0.077,
+   "p25": 0.521,
+   "p50": 1.144,
+   "p75": 2.92,
+   "p95": 32.725,
+   "n": 1096,
+   "max": 51.849
+  },
+  "top_diff_p_all": {
+   "p5": 0.013,
+   "p25": 0.087,
+   "p50": 0.191,
+   "p75": 0.488,
+   "p95": 5.466,
+   "n": 1096,
+   "max": 8.661
+  },
+  "smaller_height_px": {
+   "p5": 22.06,
+   "p25": 24.488,
+   "p50": 26.988,
+   "p75": 29.02,
+   "p95": 31.644,
+   "n": 1096,
+   "max": 35.43
+  },
+  "top_diff_px_not_candidate": {
+   "p5": 0.153,
+   "p25": 0.786,
+   "p50": 2.387,
+   "p75": 27.819,
+   "p95": 40.611,
+   "n": 335,
+   "max": 51.849
+  },
+  "height_px_not_candidate": {
+   "p5": 22.18,
+   "p25": 23.897,
+   "p50": 26.064,
+   "p75": 28.23,
+   "p95": 30.671,
+   "n": 335,
+   "max": 35.201
+  },
+  "ratio_topdiff_over_height_not_candidate": {
+   "p5": 0.005,
+   "p25": 0.03,
+   "p50": 0.094,
+   "p75": 1.05,
+   "p95": 1.591,
+   "n": 335,
+   "max": 2.495
+  },
+  "lines_with_band_pairs": 13
+ },
+ "flags": {
+  "lines": 59,
+  "capped_lines": [
+   [
+    "08.4/Path2",
+    "12.17",
+    "23.4057"
+   ],
+   [
+    "011.17/Profile_6409",
+    "17.36",
+    "12.1543"
+   ],
+   [
+    "011.17/Profile_6410",
+    "17.36",
+    "12.642"
+   ]
+  ],
+  "compressed": 0,
+  "scale_out_of_range": 0,
+  "period_source": {
+   "measured": 59
+  },
+  "content_height_px": {
+   "p5": 97.1,
+   "p25": 113.5,
+   "p50": 121.0,
+   "p75": 124.0,
+   "p95": 204.9,
+   "n": 59,
+   "max": 253.0
+  },
+  "overlap_phys_px": {
+   "p5": 79.8,
+   "p25": 91.5,
+   "p50": 99.0,
+   "p75": 108.0,
+   "p95": 119.1,
+   "n": 59,
+   "max": 120.0
+  }
+ },
+ "apex": {
+  "n": 41,
+  "hit_fold0": 15,
+  "miss_causes": {
+   "no_hyperbola_box_on_line": 15,
+   "no_box_at_apex_trace(>3 tr)": 8,
+   "apex_above_box_top(>0.5P)": 2,
+   "no_hyperbola_box_on_line+covered_by_cavity": 1
+  },
+  "miss_cases": [
+   {
+    "id": "G130",
+    "line": "01.1/Path2",
+    "hit": false,
+    "folds_hit": 3,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G043",
+    "line": "01.1/Path2",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G099",
+    "line": "01.1/Path3",
+    "hit": false,
+    "folds_hit": 4,
+    "nearest_hyp_dtrace": 46,
+    "nearest_hyp_dk_periods": -0.55,
+    "nearest_hyp_score": 0.7325,
+    "other_class_covering": []
+   },
+   {
+    "id": "G134",
+    "line": "01.1/Path4",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G001",
+    "line": "01.1/Path4",
+    "hit": false,
+    "folds_hit": 2,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G132",
+    "line": "01.1/Path5",
+    "hit": false,
+    "folds_hit": 4,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G005",
+    "line": "01.1/Path5",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G076",
+    "line": "01.1/Path5",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G066",
+    "line": "01.1/Path6",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": 95,
+    "nearest_hyp_dk_periods": -1.97,
+    "nearest_hyp_score": 0.4939,
+    "other_class_covering": []
+   },
+   {
+    "id": "G100",
+    "line": "01.1/Path7",
+    "hit": false,
+    "folds_hit": 2,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G057",
+    "line": "01.1/Path7",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G086",
+    "line": "01.1/Path7",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G051",
+    "line": "01.1/Path8",
+    "hit": false,
+    "folds_hit": 3,
+    "nearest_hyp_dtrace": 65,
+    "nearest_hyp_dk_periods": 0.0,
+    "nearest_hyp_score": 0.5659,
+    "other_class_covering": []
+   },
+   {
+    "id": "G040",
+    "line": "01.1/Path11",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": 37,
+    "nearest_hyp_dk_periods": -2.18,
+    "nearest_hyp_score": 0.4776,
+    "other_class_covering": []
+   },
+   {
+    "id": "G153",
+    "line": "01.1/Path12",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G093",
+    "line": "03.6/Path7",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": 0,
+    "nearest_hyp_dk_periods": -1.73,
+    "nearest_hyp_score": 0.5796,
+    "other_class_covering": []
+   },
+   {
+    "id": "G160",
+    "line": "03.8/Path11",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": 6,
+    "nearest_hyp_dk_periods": -2.18,
+    "nearest_hyp_score": 0.3424,
+    "other_class_covering": []
+   },
+   {
+    "id": "G133",
+    "line": "05.3/Path1",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": 1,
+    "nearest_hyp_dk_periods": -0.55,
+    "nearest_hyp_score": 0.4217,
+    "other_class_covering": []
+   },
+   {
+    "id": "G157",
+    "line": "05.8/Path1",
+    "hit": false,
+    "folds_hit": 4,
+    "nearest_hyp_dtrace": 29,
+    "nearest_hyp_dk_periods": 0.0,
+    "nearest_hyp_score": 0.3024,
+    "other_class_covering": []
+   },
+   {
+    "id": "G039",
+    "line": "05.10/Path1",
+    "hit": false,
+    "folds_hit": 2,
+    "nearest_hyp_dtrace": 110,
+    "nearest_hyp_dk_periods": 0.0,
+    "nearest_hyp_score": 0.7471,
+    "other_class_covering": []
+   },
+   {
+    "id": "G081",
+    "line": "07.4/Path8",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G104",
+    "line": "08.3/Path2",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G065",
+    "line": "08.8/Path3",
+    "hit": false,
+    "folds_hit": 1,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G131",
+    "line": "010.14/Path4",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": 48,
+    "nearest_hyp_dk_periods": 0.0,
+    "nearest_hyp_score": 0.2718,
+    "other_class_covering": []
+   },
+   {
+    "id": "G159",
+    "line": "012.1/Path4",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": []
+   },
+   {
+    "id": "G103",
+    "line": "012.3/Path1",
+    "hit": false,
+    "folds_hit": 0,
+    "nearest_hyp_dtrace": null,
+    "other_class_covering": [
+     "cavity"
+    ]
+   }
+  ],
+  "above_top_dk_periods": {
+   "p5": -1.671,
+   "p25": -1.435,
+   "p50": -1.14,
+   "p75": -0.845,
+   "p95": -0.609,
+   "n": 2,
+   "max": -0.55
+  }
+ }
+}

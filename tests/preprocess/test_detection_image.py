@@ -210,6 +210,41 @@ def test_t3_line_scale_matches_expected_values(case: str) -> None:
         assert len(tile_layout(width, TILE_PX, overlap)) == expected_tiles
 
 
+# "P* 6.0 (v0.4 default)" lines of detection_image_expected_values.py:
+# (s_y 4 dp, s_x 4 dp, H_c, W1, sigma_x 5 dp, sigma_y 5 dp, O_phys, tiles at 192)
+DEFAULT_SCALE_CASE_EXPECTED = {
+    "4tu_01.1_path1": (4.3127, 1.0451, 119, 291, 1.04467, 4.30252, 96, 2),
+    "4tu_09.1_path2": (2.1453, 1.0451, 239, 11660, 1.04511, 2.14226, 96, 180),
+    "gz_1030_30ns": (8.3342, 1.0174, 61, 698, 1.01719, 8.39344, 82, 8),
+    "gprsd_cementroad2_1": (8.5333, 3.4133, 38, 2757, 3.41349, 8.44737, 64, 41),
+    "4tu_03.9_path5": (4.2687, 1.0451, 120, 9, 1.0, 4.26667, 100, 1),
+}
+
+
+@pytest.mark.parametrize("case", sorted(DEFAULT_SCALE_CASE_EXPECTED))
+def test_t3_default_p_target_6_matches_expected_values(case: str) -> None:
+    """T3 (v0.4): the spec 4-7 cases with the default config (P* 6.0, O 192)."""
+    n_s, n_traces, dx_m, period, depth_per_sample, _ = SCALE_CASE_INPUTS[case]
+    s_y, s_x, height, width, sigma_x, sigma_y, o_phys, tiles = (
+        DEFAULT_SCALE_CASE_EXPECTED[case]
+    )
+    config = DetectionImageConfig()
+    p_star = config.p_target_px
+
+    scale = line_scale(n_s, n_traces, dx_m, period, depth_per_sample, p_star)
+
+    assert (scale.content_height_px, scale.width_px) == (height, width)
+    assert round(scale.s_y_nominal, 4) == s_y
+    assert round(scale.s_x_nominal, 4) == s_x
+    assert round(scale.traces_per_px, 5) == sigma_x
+    assert round(scale.samples_per_px, 5) == sigma_y
+    assert scale.compression == 1.0
+    overlap, overlap_phys, _ = overlap_for(scale.traces_per_px, dx_m, p_star, config)
+    assert overlap_phys == o_phys
+    assert overlap == max(o_phys, 192)
+    assert len(tile_layout(width, TILE_PX, overlap)) == tiles
+
+
 @pytest.mark.parametrize("case", sorted(SCALE_CASE_INPUTS))
 def test_t3_vertical_and_horizontal_lines_land_on_their_cells(case: str) -> None:
     """T3: a line at trace i (sample k) peaks in an L1 column (row) mapping to i+-1."""
@@ -426,8 +461,18 @@ def test_t7b_nine_trace_line_is_one_padded_tile() -> None:
     assert image.assumed_params == M3_2_ASSUMED
 
 
-def test_t7c_compression_within_training_scale(monkeypatch) -> None:
-    """P* 8, 4TU dt 0.195 type: compressed by 1.243 <= 1.25."""
+COMPRESS_MAX_V04 = 1.35
+"""Spec v0.4 section 11-2 item 5; asserted as a constant so a default change fails."""
+
+
+def test_t7c_default_config_values() -> None:
+    config = DetectionImageConfig()
+    assert config.compress_max == COMPRESS_MAX_V04
+    assert (config.p_target_px, config.overlap_px) == (6.0, 192)
+
+
+def test_t7c_compression_within_detector_scale(monkeypatch) -> None:
+    """P* 8, 4TU dt 0.195 type: compressed by 1.243 <= 1.35."""
     _fixed_period(monkeypatch, 2.51 / 0.195)
     radargram = _scale_radargram(512, 401, 0.195, 0.02, eps_r_meta=9.0)
     image = make_detection_image(radargram, DetectionImageConfig(p_target_px=8.0))
@@ -437,16 +482,40 @@ def test_t7c_compression_within_training_scale(monkeypatch) -> None:
     assert "scale_out_of_range" not in image.flags
 
 
-def test_t7c_mala_compression_out_of_training_scale(monkeypatch) -> None:
-    _fixed_period(monkeypatch, 4.45)
-    radargram = _scale_radargram(
+def _mala_radargram() -> Radargram:
+    return _scale_radargram(
         512, 208, 0.391, 0.0256, amplitude_processed=True, dataset="guangzhou"
     )
-    image = make_detection_image(radargram)
-    assert image.compression == pytest.approx(1.825, abs=5e-4)
+
+
+@pytest.mark.parametrize(("p_star", "expected_c"), [(4.06, 1.825), (6.0, 2.697)])
+def test_t7c_mala_compression_out_of_detector_scale(
+    monkeypatch, p_star: float, expected_c: float
+) -> None:
+    """MALA type (P 4.45 samples): c 1.825 at P* 4.06, 2.697 at the default 6.0."""
+    _fixed_period(monkeypatch, 4.45)
+    config = DetectionImageConfig(p_target_px=p_star)
+    image = make_detection_image(_mala_radargram(), config)
+    assert image.compression == pytest.approx(expected_c, abs=5e-4)
     assert {"period_compressed", "scale_out_of_range"} <= set(image.flags)
     assert {"amplitude_processed", "v_scale_assumed"} <= set(image.flags)
     assert image.v_scale_source == "assumed"
+
+
+@pytest.mark.parametrize(
+    ("compression", "is_out_of_range"), [(1.30, False), (1.40, True)]
+)
+def test_t7c_compress_max_boundary(
+    monkeypatch, compression: float, is_out_of_range: bool
+) -> None:
+    """Default config: c 1.30 -> compressed only, c 1.40 -> out of range too."""
+    p_star = DetectionImageConfig().p_target_px
+    # c = (n_s / L) / (P / P*) -> P = (n_s / L) P* / c
+    _fixed_period(monkeypatch, (512 / TILE_PX) * p_star / compression)
+    image = make_detection_image(_mala_radargram())
+    assert image.compression == pytest.approx(compression, rel=1e-9)
+    assert "period_compressed" in image.flags
+    assert ("scale_out_of_range" in image.flags) == is_out_of_range
 
 
 def test_t7d_flat_line_is_all_pad_gray() -> None:
@@ -478,34 +547,47 @@ def test_t7_period_fallback_uses_dataset_default(monkeypatch) -> None:
         make_detection_image(no_default)
 
 
+T7F_CASES = [
+    # (dx, P_line, delta_z, P*, O_phys, capped); expected_values.py "T7f" lines
+    (0.01, 12.82, 0.00195, 4.06, 82, True),  # high frequency (Guangzhou 2000 MHz)
+    (0.02, 25.61, 0.004897, 4.06, 65, False),  # 4TU eps_r 9
+    (0.02, 25.61, 0.003526, 4.06, 82, True),  # 4TU eps_r 17.36
+    (0.01, 12.82, 0.00195, 6.0, 120, True),
+    (0.02, 25.61, 0.004897, 6.0, 96, False),
+    (0.02, 25.61, 0.003526, 6.0, 120, True),
+]
+
+
 @pytest.mark.parametrize("overlap_cv", [192, 128])
 def test_t7f_overlap_period_cap(overlap_cv: int) -> None:
     """T7 (f): the 20-period cap sets O_phys; the overlap stays O_cv."""
-    config = DetectionImageConfig(overlap_px=overlap_cv)
-    cases = [
-        # (dx, P_line, delta_z, O_phys, capped)
-        (0.01, 12.82, 0.00195, 82, True),  # high frequency (Guangzhou 2000 MHz)
-        (0.02, 25.61, 0.004897, 65, False),  # 4TU eps_r 9
-        (0.02, 25.61, 0.003526, 82, True),  # 4TU eps_r 17.36
-    ]
-    for dx_m, period, depth_per_sample, expected_phys, expected_capped in cases:
-        scale = line_scale(512, 1000, dx_m, period, depth_per_sample, 4.06)
+    for (
+        dx_m,
+        period,
+        depth_per_sample,
+        p_star,
+        expected_phys,
+        expected_capped,
+    ) in T7F_CASES:
+        config = DetectionImageConfig(p_target_px=p_star, overlap_px=overlap_cv)
+        scale = line_scale(512, 1000, dx_m, period, depth_per_sample, p_star)
         overlap, overlap_phys, capped = overlap_for(
-            scale.traces_per_px, dx_m, 4.06, config
+            scale.traces_per_px, dx_m, p_star, config
         )
         assert (overlap, overlap_phys, capped) == (
             overlap_cv,
             expected_phys,
             expected_capped,
-        )
+        ), (p_star, dx_m, depth_per_sample)
 
 
-def test_t7f_capped_flag_on_image(monkeypatch) -> None:
+@pytest.mark.parametrize(("p_star", "expected_phys"), [(4.06, 82), (6.0, 120)])
+def test_t7f_capped_flag_on_image(monkeypatch, p_star: float, expected_phys: int):
     _fixed_period(monkeypatch, 12.82)
     radargram = _scale_radargram(512, 1000, 0.039, 0.01, dataset="guangzhou")
-    image = make_detection_image(radargram)
+    image = make_detection_image(radargram, DetectionImageConfig(p_target_px=p_star))
     assert image.depth_m_per_sample == pytest.approx(0.00195)
-    assert image.overlap_phys_px == 82
+    assert image.overlap_phys_px == expected_phys
     assert image.overlap_px == 192
     assert "overlap_period_capped" in image.flags
 

@@ -102,22 +102,24 @@ flowchart LR
   pipeMod --> prepMod
   pipeMod --> detMod
   detMod -->|"증강 어댑터"| augMod["augment<br/>B-scan 광도 증강(numpy)"]
+  detMod -->|"학습 증강 어댑터"| augGeoMod["augment_geometry<br/>기하 증강 N2-a′(numpy+cv2)"]
   pipeMod --> depthMod
   pipeMod --> ioMod
   cliMod --> pipeMod
   scriptsMod --> pipeMod
 ```
 
-화살표는 "import한다"이다. 검증: Mermaid Chart 검증 도구 통과(2026-10-29).
+화살표는 "import한다"이다. 검증: Mermaid Chart 검증 도구 통과(2026-10-29). `augment_geometry` 노드 추가 뒤 Mermaid Chart 검증 도구·mmdc 렌더 다시 통과(2026-11-14). `scripts/train_detector.py`도 `augment_geometry`를 직접 import하지만 `scripts/` 화살표는 대표만 그렸다.
 
 | 모듈 | 책임 | 드라이버 |
 |---|---|---|
 | `io` | `Radargram`(spec §1-1)과 데이터셋별 로더, 원본 격자 박스 `GridBox`. 메타 t0 샘플 → ns 변환. 스케일 없는 입력은 `dt_ns=None` | FR-2, FR-3, QA-4, CON-4 |
-| `preprocess` | `filters`(DC·dewow·bandpass·median 배경 제거·AGC), `timezero`(영점 사건 검출·선택), `to_image`(검출 갈래 영상화와 `ImageGridMap`) | QA-2, QA-8 |
+| `preprocess` | `filters`(DC·dewow·bandpass·median 배경 제거·AGC), `timezero`(영점 사건 검출·선택), `to_image`(검출 갈래 영상화와 `ImageGridMap`. M3-1: 측선 L1 `DetectionImage`(C′ 배율)·256×256 겹침 타일 `LineTile`) | QA-2, QA-8 |
 | `detect` | 두 종류의 파일을 둔다. **백엔드 파일**: 백엔드 래퍼(`yolo.py`, M4에 `rfdetr.py`), 학습 어댑터(`yolo_train.py`, 증강 본체는 최상위 `augment.py`), 백엔드 평가(`yolo_eval.py`) — ultralytics·rfdetr를 함수 안에서 지연 import한다. **백엔드 무관 파일**: `Detector` 프로토콜·계약 타입(`base.py`, `__init__.py`), `pipe_band` 보조 지표(`band_metrics.py`, 2026-11-01: 띠 x구간 합집합·세로 겹침 기준·층 묶기·가로 구간 재현율/정밀도·분절 수·Ultralytics와 같은 결과를 내는 AP50, numpy만 사용, U-3 띠 목표의 계산 근거 `docs/experiments/2026-11-01_m110_baseline.md` §6-1) — 검출 라이브러리를 import하지 않으므로 `gpr-dev`·`gpr-detr` 양쪽에서 같은 코드로 YOLO11m·RF-DETR 예측을 채점한다. **ultralytics·rfdetr import는 `detect/` 안에만**(밖 0건) | QA-1, QA-7, CRN-4, FR-5 |
 | `augment` | 백엔드 공통 B-scan 광도 증강 4종(가우시안 잡음·대비/감마·수평 띠 잡음·트레이스 누락). numpy만 사용(torch·cv2·ultralytics·rfdetr 금지) | QA-1, M1-7 |
+| `augment_geometry` | 검출(`detect`) 쪽 **학습 증강**의 기하 부분(M3-1 N2-a·N2-a′, 2026-11-13–14): 등방 축척(축소 AREA·확대 LINEAR), 정수 열 가로 이동, 가장자리 채움 띠, N2-a′ 문맥 모드(같은 line·gain·fold의 겹친 train crop 이어 붙이기 `ContextIndex`·`assemble_context_strip`·`place_window`·`augment_context_scale`), 박스 유지 규칙. 표준 라이브러리 + **numpy + cv2**만 import하고 검출 라이브러리·torch는 import하지 않는다. cv2를 쓰므로 `augment`(규칙 5)와 분리한 모듈이다. 사용처는 `detect/yolo_train.py`(Ultralytics 어댑터)와 `scripts/train_detector.py`이고, M4-2에 RF-DETR 어댑터도 같은 모듈을 쓴다(ADR-001 결정 4, 같은 증강으로 비교) | QA-1, FR-1, ADR-001 |
 | `depth` | 점 추출·RANSAC·least_squares(R 고정)·굴절 모델·v 결정표·불확도 → `DepthResult`. M2-6b: `band.py`(띠 상단 픽·masked median·flat/sloped/curved)·`velocity.py` 속도 풀(`VelocityEstimate`, `select_band_velocity`) | FR-2, QA-2, QA-3 |
-| `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`·`pipe_band`, `cavity`·`manhole` 제외)와 좌표 변환을 적용. 측선 단위 깊이 호출 순서(ADR-004 결정 7)는 M3-1·M5-1에서 구현 | FR-4, QA-8 |
+| `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`·`pipe_band`, `cavity`·`manhole` 제외)와 좌표 변환을 적용. M3-1(2026-11-13, `abbe8dc`): 타일 박스를 측선 L1 연속 좌표에서 병합(R2 + 물리 거부권 V1·V2, 띠 구간 중재, `merge_line_boxes`)한 뒤 L0로 한 번 반올림하고(`line_boxes_to_grid`, 묶음 `detect_line`), 측선 단위 깊이 호출 순서(ADR-004 결정 7)를 `estimate_line_depths`·`estimate_survey_depths`로 구현. CLI 연결은 M5-1 | FR-2, FR-4, QA-8 |
 | `cli` | `gpr-detect infer` | FR-4 |
 | `scripts/` | 데이터 빌드·평가 진입점. 패키지를 import하고 **패키지는 `scripts/`를 import하지 않는다** | QA-5, FR-5 |
 
@@ -128,6 +130,7 @@ flowchart LR
 4. `src/`는 `scripts/`를 import하지 않는다(spec §6-1: `ray_geometry` 알고리즘은 `depth/refraction.py`로 옮겨 구현).
 5. `augment`는 torch·cv2·ultralytics·rfdetr를 import하지 않는다(시험: `tests/test_architecture_rules.py`). `detect` → `augment` 의존은 허용(어댑터).
 6. `detect/band_metrics.py`는 표준 라이브러리(`collections`, `dataclasses`)와 numpy만 import한다(시험: `tests/test_band_metrics.py::test_module_imports_numpy_only`, AST 허용 목록). 다만 `gpr_detection.detect.band_metrics`를 import하면 `detect/__init__.py` → `base.py`를 거쳐 cv2도 올라온다 — 두 env 모두 opencv가 있어(`gpr-dev` opencv-python, `gpr-detr` opencv-python-headless) 문제가 없다.
+7. `augment_geometry`는 표준 라이브러리·numpy·cv2(와 `gpr_detection`)만 import하고 torch·ultralytics·rfdetr는 import하지 않는다(시험: `tests/test_architecture_rules.py`의 `test_augment_geometry_imports_only_the_allow_list`(허용 목록 numpy·cv2·stdlib·`gpr_detection`)와 `test_augment_geometry_allow_list_rejects_detector_imports`. ultralytics·rfdetr는 규칙 3의 패키지 전역 시험 `test_detector_libraries_only_in_detect_backends`도 잡는다). 두 env 모두 opencv가 있어 같은 코드를 YOLO·RF-DETR 학습에 쓴다.
 
 ### 2-3. 두 갈래 데이터 흐름과 좌표 계약
 
@@ -137,10 +140,10 @@ flowchart TB
   common["공통 전처리<br/>DC → dewow → bandpass"]
   subgraph detBranch["검출 갈래 (gain 허용)"]
     bgD["배경 제거 → gain → clip"]
-    toImg["to_image<br/>DetectionImage + ImageGridMap"]
-    detector["Detector.predict<br/>모델 입력 좌표 L2 + InputTransform"]
+    toImg["to_image<br/>측선 L1 DetectionImage + 256 겹침 타일<br/>ImageGridMap 측선당 1개"]
+    detector["Detector.predict 타일마다<br/>모델 입력 좌표 L2 + InputTransform"]
   end
-  mapBox["pipeline 좌표 변환<br/>L2 → L1 → L0 GridBox"]
+  mapBox["pipeline 좌표 변환·병합<br/>L2 → 타일 L1 → 측선 L1 병합 R2+V1/V2<br/>→ L0 GridBox, 반올림 1회"]
   subgraph depthBranch["피팅 갈래 (gain 금지, 측선 단위)"]
     tz["① timezero<br/>배경 제거 전, 띠 트레이스 제외"]
     bgF["median 배경 제거"]
@@ -167,14 +170,14 @@ flowchart TB
   bandEst --> out
 ```
 
-검증: Mermaid Chart 검증 도구 통과(2026-10-29, `pipe_band` 경로 추가 뒤 다시 통과 2026-10-30). 갈래 분리 근거는 spec_depth_v1 §3(피팅은 gain 없는 시간축, 영점은 배경 제거 전). 띠 갈래는 측선 전체 median 배경 제거 대신 박스 밖 트레이스로만 구한 masked median을 쓴다(spec_band_depth_v1 §3-2). ①–④는 측선 단위 호출 순서(ADR-004 결정 7)다. 영점·쌍곡선·띠는 같은 (1)–(3) 전처리 자료(`FittingBranch`, `prepare_depth_inputs`가 만든 `inputs.branch`)를 공유하고, ④는 `estimate_band_depths(..., branch=inputs.branch)`로 받는다(2026-10-31, M2-6b 구현). 조사 단위 풀(`survey_pool`)은 같은 조사 단위의 모든 측선에서 ②가 끝난 뒤 모은다.
+검증: Mermaid Chart 검증 도구 통과(2026-10-29, `pipe_band` 경로 추가 뒤 다시 통과 2026-10-30, M3-1 타일·병합 레이블 갱신 뒤 Mermaid Chart·mmdc 통과 2026-11-14). 갈래 분리 근거는 spec_depth_v1 §3(피팅은 gain 없는 시간축, 영점은 배경 제거 전). 띠 갈래는 측선 전체 median 배경 제거 대신 박스 밖 트레이스로만 구한 masked median을 쓴다(spec_band_depth_v1 §3-2). ①–④는 측선 단위 호출 순서(ADR-004 결정 7)다. 영점·쌍곡선·띠는 같은 (1)–(3) 전처리 자료(`FittingBranch`, `prepare_depth_inputs`가 만든 `inputs.branch`)를 공유하고, ④는 `estimate_band_depths(..., branch=inputs.branch)`로 받는다(2026-10-31, M2-6b 구현). 조사 단위 풀(`survey_pool`)은 같은 조사 단위의 모든 측선에서 ②가 끝난 뒤 모은다.
 
 좌표는 세 층이다. 각 층의 소유자와 변환 책임을 고정한다. **좌표 역변환(L2 → L1 → L0)은 `pipeline`이 한 곳에서 공통으로 한다**(사용자 결정 2026-10-29). 대안·트레이드오프·반올림 규칙 비교는 [ADR-004](ADR-004-coordinate-contract.md)에 있다.
 
 | 층 | 좌표 | 정의 위치 | 다음 층으로의 변환 책임 |
 |---|---|---|---|
 | L0 원본 격자 | (trace `i`, sample `k`), 정수 인덱스, `data[k, i]` | `io` (`Radargram`, `GridBox`) | — (깊이는 이 층만 받는다, spec §1-2) |
-| L1 검출 이미지 | 검출 입력 영상의 픽셀 (u, v), 리사이즈·타일 후, **letterbox 전** | `preprocess/to_image` (`DetectionImage`, `ImageGridMap`) | `pipeline`이 `ImageGridMap`으로 L1 → L0 |
+| L1 검출 이미지 | 검출 입력 영상의 픽셀 (u, v), 리사이즈 후, **letterbox 전**. 실측(M3-1, C′)은 **측선 L1**(측선 전체를 한 번 리샘플) 연속 좌표이고, 타일 픽셀은 `u_line = u_tile + x0_px`(정수)로 옮긴다 | `preprocess/to_image` (`DetectionImage`, `LineTile`, `ImageGridMap`) | `pipeline`이 타일 L1 → 측선 L1(`tile_box_to_line_box`), 병합 뒤 `ImageGridMap`으로 측선 L1 → L0 |
 | L2 모델 입력 | letterbox·정사각 리사이즈 후 텐서 좌표 | 각 `Detector` 백엔드가 만들고 `InputTransform`으로 공개 | `pipeline`이 `InputTransform`으로 L2 → L1 |
 
 인터페이스(시그니처는 계약 설명용 스케치):
@@ -206,12 +209,20 @@ class DetectorOutput:
 
 @dataclass(frozen=True)
 class ImageGridMap:       # preprocess/to_image.py
-    trace_offset: int; sample_offset: int        # 타일 원점(L0)
+    trace_offset: int; sample_offset: int        # L1 원점의 L0 위치. 측선 L1(M3-1)은 0 — 타일 원점이 아님
+                                                 # (타일 원점은 LineTile.x0_px, 측선 L1의 정수 px)
     traces_per_px: float; samples_per_px: float  # 리사이즈 배율
     n_traces: int; n_samples: int                # 격자 크기(자르기용)
     # pipeline: u = (x − pad_x) / scale_x  (L2→L1),  i = trace_offset + u · traces_per_px  (L1→L0)
     #           셀 j는 [j, j+1). 박스 [t1,t2]는 닫힌 인덱스 floor(t1+1e-6) .. ceil(t2−1e-6)−1,
     #           영폭은 1셀, 격자 범위로 자르고 격자 밖이면 버린다(None). 이 규칙은 pipeline.py 한 곳에만 둔다
+    #           타일 경로: L2 → 타일 L1 → (+x0_px) 측선 L1 LineBox → 병합 → 반올림 1회 → GridBox
+
+@dataclass(frozen=True)
+class LineTile:           # preprocess/to_image.py — 측선 L1의 256×256 타일
+    index: int; x0_px: int                       # 타일 원점(측선 L1 정수 px)
+    content_width_px: int; owner_px: tuple[float, float]
+    inner_left: bool; inner_right: bool          # 이웃 타일과 맞닿은 변(잘림 판정용)
 
 @dataclass(frozen=True)
 class GridBox:            # io/radargram.py
@@ -229,30 +240,31 @@ class GridBox:            # io/radargram.py
 - `ImageGridMap`은 등방 여부와 무관하게 축별 배율을 따로 가진다(4TU 512×N 측선은 가로세로 배율이 다를 수 있음).
 - 스케일 없는 입력(AIHub·모로코)도 L0가 정의된다(이미지 픽셀 = 격자). `dt_ns=None`이라 깊이는 `no_scale`(QA-4). 라벨 박스 `io/annotated.py`의 `Box`(원본 이미지 px)는 이 경우 L0 좌표다.
 - `GridBox`는 `io/radargram.py`에 구현됨(M1-8, 닫힌 구간 `i0..i1`·`k0..k1`). `detect`·`depth`가 서로 import하지 않고 같은 타입을 쓴다.
-- `depth`는 `Detection`을 모른다. `pipeline`이 `class_name`이 `pipe_hyperbola`인 박스는 `estimate_depth`로, `pipe_band`인 박스는 `depth.band`(`estimate_band_depths`)로 `GridBox`(L0)로 바꿔 넘긴다(ADR-002 결정 8, ADR-004 결정 7, 2026-10-30 개정). 측선마다 영점(`prepare_depth_inputs(..., exclude_traces=띠 트레이스)`)을 한 번 구해 두 클래스가 같은 `ZeroResult`를 쓴다. `pipeline`의 이 연결은 M3-1·M5-1에서 구현한다.
+- `depth`는 `Detection`을 모른다. `pipeline`이 `class_name`이 `pipe_hyperbola`인 박스는 `estimate_depth`로, `pipe_band`인 박스는 `depth.band`(`estimate_band_depths`)로 `GridBox`(L0)로 바꿔 넘긴다(ADR-002 결정 8, ADR-004 결정 7, 2026-10-30 개정). 측선마다 영점(`prepare_depth_inputs(..., exclude_traces=띠 트레이스)`)을 한 번 구해 두 클래스가 같은 `ZeroResult`를 쓴다. `pipeline`의 이 연결은 M3-1에서 구현됐다(`estimate_line_depths`·`estimate_survey_depths`, 2026-11-13 `abbe8dc`). `gpr-detect infer` 연결은 M5-1이다.
+- 실측 L1(M3-1)은 측선당 `ImageGridMap` 1개(`trace_offset = sample_offset = 0`)와 정수 px 타일 원점(`LineTile.x0_px`)이다. 타일은 학습 crop과 같은 256×256이라 YOLO letterbox가 항등이다. 기본값 `P*` 6 px·겹침 192 px는 D1 r4(2026-11-14)로 정했다. 대안 비교는 ADR-004 하위 결정 표(C′·T1·M1)에 있다.
 
 ## 3. 결정 요약
 
 | ADR | 결정 | 드라이버 | 상태 |
 |---|---|---|---|
-| [ADR-001](ADR-001-detector-migration.md) | YOLO11m 초안 → RF-DETR S/M 이전, `Detector` 프로토콜 뒤로 격리 | QA-1, QA-7, CON-1, CON-3 | Accepted 2026-10-29 |
+| [ADR-001](ADR-001-detector-migration.md) | YOLO11m 초안 → RF-DETR S/M 이전, `Detector` 프로토콜 뒤로 격리. 이전 판정 기준선 N2-a′ 79.59 %(경계 74.59 %), RF-DETR도 N2-a′ 증강으로 학습한 뒤 판정 | QA-1, QA-7, QA-6, CON-1, CON-3 | Accepted 2026-10-29, 결정 4 개정 2026-11-14(N6-a) |
 | [ADR-002](ADR-002-physics-based-depth.md) | 물리 기반 쌍곡선 피팅, 공기결합은 지표 반사 영점·v 고정, R 고정, 스케일 없으면 m 금지. `pipe_band`는 띠 상단 시각(꼭짓점 시각 규칙), v는 이웃 쌍곡선 → 메타 εr → 조사 단위 중앙값 → `no_velocity`(가정 v 금지) | QA-2, QA-3, QA-4, FR-2, FR-3 | Accepted 2026-10-29, 결정 8 개정 2026-10-30 |
 | [ADR-003](ADR-003-data-split-and-classes.md) | 클래스 4개, 그룹 키 단위 분할(AIHub 세션·크롭 키, 모로코 그룹, 4TU 현장), 기준점 두 가정 보고 | QA-5, QA-6, QA-3, FR-1 | Accepted 2026-10-29 |
-| [ADR-004](ADR-004-coordinate-contract.md) | 3층 좌표 계약(L0·L1·L2), 역변환은 pipeline 공통, 바깥쪽 반올림. 깊이 호출은 측선 단위 영점(띠 제외) → 쌍곡선 → 속도 풀 → 띠 | QA-8, QA-1, FR-2, FR-3, QA-4, CRN-2, CRN-4 | Accepted 2026-10-30(결정 2026-10-29), 결정 7 개정 2026-10-30 |
+| [ADR-004](ADR-004-coordinate-contract.md) | 3층 좌표 계약(L0·L1·L2), 역변환은 pipeline 공통, 바깥쪽 반올림. 깊이 호출은 측선 단위 영점(띠 제외) → 쌍곡선 → 속도 풀 → 띠. M3-1: 측선 L1(C′) + 256 겹침 타일(정수 `x0`), 측선 연속 좌표 병합 뒤 반올림 1회 | QA-8, QA-1, FR-2, FR-3, QA-4, CRN-2, CRN-4 | Accepted 2026-10-30(결정 2026-10-29), 결정 7 개정 2026-10-30, M3-1 반영 2026-11-14 |
 | (이 문서) | 단일 패키지 계층형 + 두 갈래 | QA-1, CRN-2, CRN-4 | 확정 2026-10-29 |
 
 ## 4. 분석 (반복 1, ADD ⑦단계)
 
 | 드라이버 | 판정 | 근거·남은 일 |
 |---|---|---|
-| QA-1 | 부분 해결 | 구조(§2-2 규칙 1·3, `InputTransform` 스키마로 백엔드 변환을 표준화)로 대응. M1-8 정적 검사와 M4-4 실제 교체로 확인. 이전 판정 기준은 전체 mAP50 −5 %p 이내. `pipe_band` 보조 지표(U-3 띠 목표, `band_metrics.py`)는 클래스별 AP50처럼 함께 보고하고 이전 판정 조건에는 넣지 않는다(사용자 결정 2026-11-01, ADR-001 변경 없음) |
+| QA-1 | 부분 해결 | 구조(§2-2 규칙 1·3, `InputTransform` 스키마로 백엔드 변환을 표준화)로 대응. M1-8 정적 검사와 M4-4 실제 교체로 확인. 이전 판정 기준은 전체 mAP50 −5 %p 이내. `pipe_band` 보조 지표(U-3 띠 목표, `band_metrics.py`)는 클래스별 AP50처럼 함께 보고하고 이전 판정 조건에는 넣지 않는다(사용자 결정 2026-11-01, ADR-001 변경 없음). 기준선 교체(2026-11-14, N6-a): 기준 N2-a′ 79.59 %, 경계 74.59 %, RF-DETR은 같은 증강(`augment_geometry`)으로 학습한 뒤 판정(ADR-001 결정 4) |
 | QA-2 | 부분 해결 | 알고리즘·허용치는 spec_depth_v1에 확정. 구현(M2-1–M2-5) 후 시험으로 판정 — **측정으로 검증** |
 | QA-3 | 부분 해결 | 보고 형식(4조합)과 "4TU 튜닝 없음·13개 현장 전체 시험" 확정, 목표 판정률 확정(U-3, 2026-11-07: 판정률 B ≥ 0.25 그리고 기준선 대비 p < 0.05). 4TU 재평가 1회 실행·판정 완료(2026-11-11, [`depth_4tu_v2.md`](../processing/depth_4tu_v2.md) 수기 판정 절): **불합격(기준선)** — 140/388(판정률 B 0.361, 절대 목표 0.25 충족), 같은 추정 수 활동 범위 기준선(평균 0.451) 대비 단측 p = 1.0. 결과는 튜닝 없이 그대로 둔다. 후속은 M2-10(4TU는 탐색으로만, 규칙 채택·검증은 다른 실측·gprMax 합성) — **측정으로 검증**. M2-8·M2-9·M2-10 |
 | QA-4 | 부분 해결 | 규칙 확정(spec §7 순서 1, U7). 구현 후 시험 |
 | QA-5 | 부분 해결 | 그룹 키 정의 확정(ADR-003). M1-3·M1-5 단언으로 확인 |
 | QA-6 | 부분 해결 | 시드 규약과 AIHub test 세션 홀드아웃 + train_pool 세션 그룹 5-fold(기준선 포함) 확정. 학습 비용 약 5배(ADR-003) |
 | QA-7 | 부분 해결 | 격리 경계 확정. M4 이전·M5-4 배포 점검 전까지 리스크 유지(U-4) |
-| QA-8 | 부분 해결 | 3층 계약 정의(ADR-004). M1-8 합성 왕복 시험 있음(L0 정확 왕복, L1↔L2 ≤ 0.5 px). M3-1 실측 경로 왕복 시험 남음. 허용 오차 ≤ 1 trace·1 sample 확정(2026-10-30) |
+| QA-8 | **해결**(2026-11-14 갱신) | 3층 계약 정의(ADR-004). M1-8 합성 왕복 시험(L0 정확 왕복, L1↔L2 ≤ 0.5 px)에 더해 M3-1 실측 11측선 왕복 합격. 근거: `P*` 4.06 판정(정렬 `GridBox` 3,280개 불일치 0, 연속 박스 9,840개 바깥쪽으로만 1셀 미만, [`m31_qa8_roundtrip.md`](../processing/m31_qa8_roundtrip.md)) + `P*` 6.0 재확인(같은 문서 추가 절: 정렬 3,740개 정확 왕복, 연속 11,220개 안쪽 0·1셀 이상 0, realdata 13/13). 판정 문서 인용 — 이 문서 작성 때 시험은 다시 돌리지 않음. 1셀 양자화의 깊이 영향 ≤ 1.0 mm(명세 T10). 남은 RF-DETR 래퍼 왕복(M4-4)은 QA-1 교체 작업의 시험으로 본다 |
 
 리스크:
 - R-A: pipe 독립 세션이 lpipe 13·tpipe 11개뿐이고 전부 NM 장비 → 분할 분산·장비 편향(ADR-003).
@@ -261,6 +273,7 @@ class GridBox:            # io/radargram.py
 - R-D: 공개 저장소에 YOLO 가중치가 실수로 올라가면 AGPL 산출물이 공개된다. 대응: `.gitignore`(`*.pt`, `*.onnx`, `/runs/`, `/data/`)와 커밋 전 비밀·데이터 점검(CLAUDE.md 작업 운영). 별도 규칙은 추가하지 않는다(사용자 결정 2026-10-29).
 - R-E: test 홀드아웃 뒤 train_pool 5-fold 전면 적용으로 검출 학습 비용이 약 5배다(GPU 1장, CON-2). 30분 넘는 학습은 long-running-task-monitor 규칙을 따른다.
 - R-F: `detect/band_metrics.py`의 AP50 계산(QA-7 관련). 초기 구현을 표준 정의(VOC·COCO) 기반 독자 구현으로 교체했다(python-expert, 2026-11-01). 같은 날 분석 스크립트의 혼동 행렬 매칭(`analysis/detection/m110_band_aux.py`, `m17_pipe_band_fp_gallery.py`)도 `greedy_assignment`로 교체했다. 정의는 101점 선형 보간 + 사다리꼴이다(M1-10 기준선·U-3 목표가 이 값에 묶여 있다). 동작 차이는 IoU가 정확히 문턱인 경계뿐이고, M1-10 실데이터에서는 비트 단위로 같다. Ultralytics와 같다는 것은 시험으로만 확인한다(`tests/test_band_metrics.py::test_ap50_equals_the_ultralytics_validator`(`importorskip`), `tests/test_band_metrics_regression.py`). 대응(사용자 결정 2026-11-01): M5-4 배포 점검에서 사람이 최종 확인한다. 저장소 LICENSE와 git 이력 판단은 U-4와 연결된다.
+- R-G(2026-11-14): 검출 기준선을 N2-a′로 바꾼 대가로 띠 가로 구간 재현율이 61.29 %(M1-10 69.52 %, U-3 목표 64.1 미만)이고 `pipe_hyperbola` AP50 여유가 U-3 문턱 대비 0.71 %p다. M4-3 test 1회에서 U-3 목표를 못 맞출 위험이 커졌다. 대응: 띠는 M3-3·M4에서 추적한다(ADR-001 위험, D1 r4 판정서 §7).
 
 ## 5. 확인 질문과 답 (2026-10-29 사용자 답변 반영)
 
@@ -276,15 +289,17 @@ class GridBox:            # io/radargram.py
 
 | 드라이버 | 상태 | 다음 반복 |
 |---|---|---|
-| FR-1, QA-1, QA-7 | 부분 해결 | 반복 2(M1-8 `Detector` 구현 검토), 반복 4(M4 이전) |
-| FR-2, FR-3, QA-2, QA-3, QA-4 | 부분 해결 | 반복 3(M2 구현 결과로 판정). `pipe_band` 깊이 규칙은 ADR-002 결정 8(2026-10-30)로 정함, M2-6b 시험·M3-1/M5-1 `pipeline` 연결 남음 |
+| FR-1, QA-1, QA-7 | 부분 해결 | 반복 2(M1-8 `Detector` 구현 검토), 반복 4(M4 이전). 이전 판정 기준선 N2-a′ 79.59 %·경계 74.59 %(ADR-001 결정 4 개정 2026-11-14), RF-DETR에 같은 증강 구현(M4-2) |
+| FR-2, FR-3, QA-2, QA-3, QA-4 | 부분 해결 | 반복 3(M2 구현 결과로 판정). `pipe_band` 깊이 규칙은 ADR-002 결정 8(2026-10-30)로 정함. M3-1에서 `pipeline` 측선 단위 깊이 연결 구현됨(2026-11-13, ADR-004 결정 7). M5-1 CLI 연결 남음 |
 | QA-5, QA-6 | 부분 해결 | 반복 2(M1-3 매니페스트 검토) |
-| QA-8 | 부분 해결(ADR-004) | 반복 3(M3-1 좌표 시험) |
+| QA-8 | **해결**(2026-11-14. 근거: `P*` 4.06 판정([`m31_qa8_roundtrip.md`](../processing/m31_qa8_roundtrip.md)) + `P*` 6.0 재확인(같은 문서 추가 절), ADR-004 검증 상태) | RF-DETR 래퍼 왕복은 M4-4(반복 4)에서 QA-1과 함께 본다 |
 | FR-4, FR-5 | 미착수 | 반복 5(M5 통합) |
 | CRN-1–CRN-4 | 부분 해결 | 반복 2 |
 | 성능(추론 지연) | 드라이버 없음 | M5 전에 필요 여부 확인 |
 
 반복 로드맵: 1회차(이 문서) 최상위 구조·좌표 계약·ADR 3건 → 2회차 M1 산출물(io·detect·분할) 검토 → 3회차 M2·M3-1(깊이·좌표 계약) 검토 → 4회차 M4 이전 결과로 ADR-001 갱신(M4-5) → 5회차 M5 배포·라이선스.
+- 진행(2026-11-14): 3회차 중 **M3-1 부분 반영 완료** — QA-8 해결, ADR-004 M3-1 하위 결정(C′·T1·M1)과 결정 7 구현 기록, ADR-001 기준선 교체(N2-a′). 3회차에 남은 것: M2 깊이 쪽(QA-2·QA-3·QA-4) 판정 검토, M3-2 영상 품질 가정값(`assumed_params`)의 확정.
+- 4회차 입력이 바뀌었다: RF-DETR은 N2-a′ 증강(`augment_geometry`)으로 학습하고, 기준 79.59 %·경계 74.59 %로 판정한다. M4-4 RF-DETR 래퍼 `InputTransform` 왕복도 이 회차에서 본다.
 
 ## 7. 변경 이력
 
@@ -297,3 +312,4 @@ class GridBox:            # io/radargram.py
 | 2026-11-01 | `detect/band_metrics.py` 반영: §2-2 모듈 뷰 `detect` 노드 레이블, 모듈 표 `detect` 행(백엔드 파일 / 백엔드 무관 파일 구분, `yolo_eval.py` 누락 보완), 의존 규칙 3 설명·규칙 6 추가, §4 리스크 R-F(대응 상태), §4 QA-1 띠 지표 보고 방식 | python-expert 구현(2026-11-01), U-3 `pipe_band` 목표(사용자 결정 2026-11-01, `docs/experiments/2026-11-01_m110_baseline.md` §6-1) |
 | 2026-11-01 | AP50 독자 구현 교체 반영: 의존 규칙 3의 `NEUTRAL_DETECT_MODULES`·런타임 probe에 `band_metrics.py` 포함, §4 R-F를 사실 중심으로 정리(표준 정의 기반 교체, 분석 스크립트 매칭 `greedy_assignment` 교체, 동등성은 시험으로만, M5-4 사람 최종 확인, LICENSE·git 이력은 U-4 연결) | python-expert 교체·시험 분류 변경(2026-11-01), 사용자 결정 Q1·R-F 문구 완화(2026-11-01) |
 | 2026-11-11 | §6 백로그 QA-3 행 사실 갱신(상태 "부분 해결" 유지, 결정 불변): 4TU 재평가 "미실행" → 실행·판정 완료, U-3 불합격(기준선) 140/388·판정률 B 0.361·p = 1.0, 후속 M2-10 | `docs/processing/depth_4tu_v2.md` 수기 판정 절, `docs/CHECKLIST.md` M2-9·M2-10(사용자 결정 2026-11-11) |
+| 2026-11-14 | M3-1·기준선 교체 반영: §2-2 모듈 뷰에 `augment_geometry` 노드, 모듈 표 `augment_geometry` 행(numpy + cv2, `detect` 쪽 학습 증강)·`preprocess`·`pipeline` 행 갱신, 의존 규칙 7. §2-3 데이터 흐름 뷰(측선 L1·타일·병합·반올림 1회), 층 표 L1 행, `ImageGridMap.trace_offset` 의미(측선 L1 기준 0, 타일 원점은 `LineTile.x0_px`)와 `LineTile` 스케치, 계약 규칙(결정 7 구현됨). §3 ADR-001·ADR-004 요약, §4 QA-1·QA-8(해결) 행과 R-G, §6 백로그·반복 로드맵 | 사용자 결정 N6-a(2026-11-14), `m31_qa8_roundtrip.md`, D1 r4·A1 판정서, spec_detection_image_v1, 코드 `abbe8dc`·`augment_geometry.py` |

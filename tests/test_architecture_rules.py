@@ -185,6 +185,36 @@ def test_augment_module_is_backend_neutral() -> None:
     assert names.isdisjoint({*DETECTOR_LIBRARIES, "torch", "cv2"})
 
 
+AUGMENT_GEOMETRY_ALLOWED_THIRD_PARTY = frozenset({"numpy", "cv2"})
+AUGMENT_GEOMETRY_FORBIDDEN = frozenset({*DETECTOR_LIBRARIES, "torch"})
+
+
+def test_augment_geometry_imports_only_the_allow_list() -> None:
+    """``augment_geometry.py``: stdlib, numpy, cv2 and gpr_detection only.
+
+    An allow list (not a deny list) so a new heavy dependency fails here;
+    torch, ultralytics and rfdetr are named for a clear message.
+    """
+    path = PACKAGE_ROOT / "augment_geometry.py"
+    if not path.is_file():
+        pytest.skip("augment_geometry.py not present")
+    allowed = {
+        *sys.stdlib_module_names,
+        *AUGMENT_GEOMETRY_ALLOWED_THIRD_PARTY,
+        "gpr_detection",
+    }
+    names = {record.top_level_name for record in _imports_of(path)}
+    assert names.isdisjoint(AUGMENT_GEOMETRY_FORBIDDEN)
+    assert names <= allowed, sorted(names - allowed)
+
+
+def test_augment_geometry_allow_list_rejects_detector_imports() -> None:
+    source = "import numpy\nfrom torch import nn\nimport ultralytics\nimport rfdetr\n"
+    records = _imports_in_source(source, PACKAGE_ROOT / "augment_geometry.py")
+    names = {record.top_level_name for record in records}
+    assert names & AUGMENT_GEOMETRY_FORBIDDEN == {"torch", "ultralytics", "rfdetr"}
+
+
 def test_package_never_imports_scripts() -> None:
     offenders = [
         f"{record.relative_path}:{record.line} {record.module}"

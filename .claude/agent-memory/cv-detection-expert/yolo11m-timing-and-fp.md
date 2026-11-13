@@ -24,5 +24,6 @@ Recurring FP pattern: pipe_band (AIHub lpipe) has ~7x more background->pipe_band
 - 50 ep overfits: val mAP50 peaks epoch 24-36, val box loss min epoch 14-26 then rises; best.pt beats last.pt by 2.1-4.6 %p on every fold. Fold0 50 ep was not better than 30 ep.
 - Band AP across folds tracks val-session label style (single long box sessions fold1/2 -> AP 35-39, FP/GT ~1.0), not instance count, not train/val convention mismatch.
 - eval metrics.json weights.checkpoint_epoch_zero_based = -1 / epochs_completed 0 for last & best (stripped ckpt); take epochs from results.csv.
+- Real-data band FP (D3 4TU, N2-a′ fold0, 2026-11-14): 152/243 pipe_band boxes sit within 8 px of the content bottom (time-window end -> gray pad 128), 140 on one line 09.7/Path5. Check "box touches content/pad boundary" before reading band counts or R3 pair stats on field lines. Missed hyperbolas on 01.1 look wider (~100-135 L1 px) than the fold0 box width max 88.6 px.
 
 **How to apply:** use ~29.7 s/epoch for train+val ~14.8k images (scale by train+val total, not train only). Treat pipe-AP differences under ~5 %p from single runs as noise; need multiple seeds/folds before claiming a difference.
