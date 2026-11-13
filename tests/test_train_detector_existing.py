@@ -38,7 +38,9 @@ def train_script(load_script, tmp_path: Path, monkeypatch) -> ModuleType:
     monkeypatch.setattr(module, "DATA_YAML_DIR", runs_dir / "_data")
     module.trainers = []
 
-    def fake_build_trainer(overrides, augment_config, augment_seed) -> FakeTrainer:
+    def fake_build_trainer(
+        overrides, augment_config, augment_seed, geometric_config=None
+    ) -> FakeTrainer:
         trainer = FakeTrainer(Path(overrides["project"]) / overrides["name"])
         module.trainers.append(trainer)
         return trainer
@@ -220,7 +222,9 @@ def test_dry_run_reports_state_and_changes_nothing(
 def test_unexpected_save_dir_stops_before_training(
     train_script, data_yaml: Path, monkeypatch
 ) -> None:
-    def renamed_trainer(overrides, augment_config, augment_seed) -> FakeTrainer:
+    def renamed_trainer(
+        overrides, augment_config, augment_seed, geometric_config=None
+    ) -> FakeTrainer:
         trainer = FakeTrainer(Path(overrides["project"]) / f"{overrides['name']}2")
         train_script.trainers.append(trainer)
         return trainer

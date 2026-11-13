@@ -28,6 +28,13 @@ unless ``--allow-test`` is given.
 
 Exit codes: 0 done, 1 input error (missing file, list mismatch), 2 test refused.
 
+``--blind`` (``docs/experiments/m31_n2a_retrain_plan.md`` section 4-2): metrics
+go to the files only. Logs are WARNING and above (no Ultralytics table, no
+progress bars, no summary line), each finished evaluation writes one
+metric-free JSON line on stderr (``{"stage", "fold", "weights", "unit",
+"elapsed_s"}``) and the last stdout line is ``{"status", "exit_code", "out"}``.
+An unexpected error then exits 3.
+
 Examples:
     conda run -n gpr-dev python -I scripts/eval_detector.py \\
         --run-dir runs/detect/yolo11m_aihubv1_20261030_fold0 --device 0
@@ -41,6 +48,7 @@ import json
 import logging
 import os
 import sys
+import time
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -61,6 +69,7 @@ from gpr_detection.data.splits import (
     select_crop_representatives,
 )
 from gpr_detection.detect.yolo_eval import evaluate_yolo
+from gpr_detection.detect.yolo_logging import quiet_ultralytics_logger
 from gpr_detection.run_info import (
     git_state,
     local_timestamp,
@@ -86,6 +95,8 @@ VERSIONED_PACKAGES = ("torch", "ultralytics")
 EXIT_OK = 0
 EXIT_INPUT_ERROR = 1
 EXIT_TEST_SEALED = 2
+EXIT_INTERNAL_ERROR = 3
+"""Unexpected error in a ``--blind`` run (without ``--blind`` it propagates)."""
 
 LOGGER = logging.getLogger("eval_detector")
 
@@ -167,6 +178,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "matrix only (e.g. 0.25); AP metrics always use --conf",
     )
     parser.add_argument("--device", default=None, help="e.g. 0 or cpu")
+    parser.add_argument(
+        "--blind",
+        action="store_true",
+        help="metrics only in files: logs at WARNING+, metric-free progress "
+        "lines on stderr, last stdout line {status, exit_code, out}",
+    )
     return parser
 
 
@@ -505,10 +522,16 @@ def _run(args: argparse.Namespace) -> int:
         confusion_conf=args.confusion_conf,
     )
 
+    started_s = time.monotonic()
+    if args.blind:
+        quiet_ultralytics_logger()
     for target in _targets(run_dir, args.weights, args.unit):
         document = _evaluate_target(
             target, fold, run_dir, fold_rows, dataset_dir, settings
         )
+        if args.blind:
+            _print_blind_progress(target, fold, started_s)
+            continue
         LOGGER.info(
             "%s_%s: mAP50 %s, mAP50-95 %s, pipe AP50 mean %s",
             target.weights_name,
@@ -520,19 +543,54 @@ def _run(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    """Evaluate the requested weights and units of one run.
+def _print_blind_progress(target: EvalTarget, fold: str, started_s: float) -> None:
+    line = {
+        "stage": "eval",
+        "fold": int(fold) if fold.isdigit() else fold,
+        "weights": target.weights_name,
+        "unit": target.unit,
+        "elapsed_s": round(time.monotonic() - started_s, 1),
+    }
+    print(json.dumps(line), file=sys.stderr, flush=True)
 
-    Returns:
-        Process exit code: 0 done, 1 input error, 2 test hold-out refused.
-    """
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    args = _build_parser().parse_args(argv)
+
+def _print_final_line(exit_code: int, out: Path) -> int:
+    line = {
+        "status": "ok" if exit_code == EXIT_OK else "error",
+        "exit_code": exit_code,
+        "out": str(out),
+    }
+    print(json.dumps(line), flush=True)
+    return exit_code
+
+
+def _run_reporting_errors(args: argparse.Namespace) -> int:
     try:
         return _run(args)
     except EvalInputError as error:
         LOGGER.error("%s", error)
         return EXIT_INPUT_ERROR
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Evaluate the requested weights and units of one run.
+
+    Returns:
+        Process exit code: 0 done, 1 input error, 2 test hold-out refused,
+        3 unexpected error (``--blind`` only).
+    """
+    args = _build_parser().parse_args(argv)
+    log_level = logging.WARNING if args.blind else logging.INFO
+    logging.basicConfig(level=log_level, format="%(levelname)s %(message)s")
+    if not args.blind:
+        return _run_reporting_errors(args)
+    out = _resolve_project_path(args.run_dir) / EVAL_DIR_NAME
+    try:
+        exit_code = _run_reporting_errors(args)
+    except Exception:  # blind runs report through the exit code (plan §4-2)
+        LOGGER.exception("evaluation failed")
+        exit_code = EXIT_INTERNAL_ERROR
+    return _print_final_line(exit_code, out)
 
 
 if __name__ == "__main__":

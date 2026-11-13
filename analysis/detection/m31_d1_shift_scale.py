@@ -434,6 +434,13 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--run-root", type=Path, default=common.RUN_ROOT)
     parser.add_argument("--run-prefix", default=common.RUN_PREFIX)
+    parser.add_argument(
+        "--export-root",
+        type=Path,
+        default=None,
+        help="folder of the fold<k>_crop validator detections whose sha256 is "
+        f"recorded as the G1 input (G2-c); default: M1-10 ({common.EXPORT_ROOT})",
+    )
     parser.add_argument("--folds", default="0,1,2,3,4")
     parser.add_argument("--device", default="0", help="'0' (GPU) or 'cpu'")
     parser.add_argument(
@@ -509,10 +516,18 @@ def _prepare_outputs(args: argparse.Namespace, out_dirs: list[Path]) -> None:
             path.unlink()
 
 
-def _record_inputs(identity: dict, fold: int, weights: Path, eval_list: Path) -> None:
+def _record_inputs(
+    identity: dict,
+    fold: int,
+    weights: Path,
+    eval_list: Path,
+    export_root: Path | None = None,
+) -> None:
+    """Hash this fold's inputs; ``export_root`` None = ``common.EXPORT_ROOT``."""
     identity["weights_sha256"][str(fold)] = common.sha256_file(weights)
     identity["eval_list_sha256"][str(fold)] = common.sha256_file(eval_list)
-    folder = common.export_folder(common.EXPORT_ROOT, fold)
+    root = common.EXPORT_ROOT if export_root is None else export_root
+    folder = common.export_folder(root, fold)
     identity["g1_inputs_sha256"][str(fold)] = common.export_sha256(folder)
 
 
@@ -602,7 +617,7 @@ def run(args: argparse.Namespace) -> None:
     started = time.time()
     fold_outputs = {}
     for fold, (weights, eval_list, out_dir) in paths.items():
-        _record_inputs(identity, fold, weights, eval_list)
+        _record_inputs(identity, fold, weights, eval_list, args.export_root)
         fold_result, object_rows = _run_fold(
             args, fold, conds, weights, eval_list, out_dir, started
         )

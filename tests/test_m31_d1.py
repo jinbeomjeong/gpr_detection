@@ -858,3 +858,91 @@ def test_objects_without_gt_index_exits_2(
     ]
     objects.write_text("\n".join(stripped) + "\n", encoding="utf-8")
     assert _judge(judge_script, synthetic, workdir / "verdict.json") == 2
+
+
+# ------------------------------------- D1 r3 arguments (n2a plan §4-1, §5-5)
+
+
+def test_explicit_expected_weights_sha8_is_used(
+    judge_script, run_script, common, synthetic, workdir
+) -> None:
+    write_r2_metrics(synthetic, run_script, common)
+    right = ",".join(common.EXPECTED_WEIGHTS_SHA8)
+    wrong = ",".join((*common.EXPECTED_WEIGHTS_SHA8[:4], "00000000"))
+    sha_flag = "--expected-weights-sha8"
+    right_out = workdir / "right.json"
+    wrong_out = workdir / "wrong.json"
+
+    assert _judge(judge_script, synthetic, right_out, sha_flag, right) == 0
+    assert _judge(judge_script, synthetic, wrong_out, sha_flag, wrong) == 1
+    verdict = json.loads(wrong_out.read_text(encoding="utf-8"))
+    assert verdict["failures"] == ["G2 fold 4"]
+    assert verdict["gates"]["G2"][4]["weights_sha8_expected"] == "00000000"
+
+
+BAD_SHA8_LISTS = ["a,b,c,d,e", "5300f34b,cf9423f1", "zzzzzzzz," * 4 + "1"]
+
+
+@pytest.mark.parametrize("text", BAD_SHA8_LISTS)
+def test_expected_weights_sha8_must_be_five_hex_prefixes(judge_script, text) -> None:
+    with pytest.raises(SystemExit):
+        judge_script._parse_args(["--out", "x.json", "--expected-weights-sha8", text])
+
+
+def test_run_prefix_selects_other_run_folders(
+    judge_script, run_script, common, synthetic, workdir
+) -> None:
+    write_r2_metrics(synthetic, run_script, common)
+    for k in FOLDS:
+        source = synthetic.run_root / f"{PREFIX}{k}"
+        shutil.copytree(source, synthetic.run_root / f"n2a_copy_fold{k}")
+    copied_out = workdir / "verdict.json"
+    absent_out = workdir / "none.json"
+    explicit_out = workdir / "explicit.json"
+    assert _judge(judge_script, synthetic, explicit_out, "--run-prefix", PREFIX) == 0
+    # The copies are read (G2 passes on them) but the export still names the
+    # original weights path, so G1 fails: an export must come from these runs.
+    code = _judge(judge_script, synthetic, copied_out, "--run-prefix", "n2a_copy_fold")
+    verdict = json.loads(copied_out.read_text(encoding="utf-8"))
+    assert code == 1
+    assert verdict["failures"] == [f"G1 fold {k}" for k in FOLDS]
+    assert all(row["pass"] for row in verdict["gates"]["G2"])
+    assert "n2a_copy_fold0" in verdict["gates"]["G2"][0]["weights"]
+    assert (
+        _judge(judge_script, synthetic, absent_out, "--run-prefix", "absent_fold") == 2
+    )
+
+
+def _dry_g1_sha(synthetic, run_script, workdir, name: str, *extra: str) -> dict:
+    summary = workdir / f"{name}_summary.json"
+    args = ("--dry-labels", "--overwrite", *extra)
+    assert _run(run_script, synthetic, summary, *args) == 0
+    metrics = synthetic.run_root / f"{PREFIX}0" / "eval" / SUBDIR / "metrics.json"
+    identity = json.loads(metrics.read_text(encoding="utf-8"))["run_identity"]
+    return identity["g1_inputs_sha256"]
+
+
+def test_run_export_root_sets_recorded_g1_inputs(
+    run_script, common, synthetic, workdir
+) -> None:
+    default = _dry_g1_sha(synthetic, run_script, workdir, "default")
+    explicit = _dry_g1_sha(
+        synthetic,
+        run_script,
+        workdir,
+        "explicit",
+        "--export-root",
+        str(synthetic.export_root),
+    )
+    other_root = workdir / "other_export"
+    shutil.copytree(synthetic.export_root, other_root)
+    images_csv = other_root / "fold3_crop" / "images.csv"
+    images_csv.write_bytes(images_csv.read_bytes() + b"\n")
+    other = _dry_g1_sha(
+        synthetic, run_script, workdir, "other", "--export-root", str(other_root)
+    )
+
+    assert explicit == default
+    assert other["3"] == common.export_sha256(common.export_folder(other_root, 3))
+    assert other["3"] != default["3"]
+    assert other["0"] == default["0"]

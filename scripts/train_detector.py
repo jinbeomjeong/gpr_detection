@@ -21,6 +21,18 @@ otherwise silently create ``<name>2``). ``--on-existing`` decides what happens:
 A run is complete when ``results.csv`` has at least ``epochs`` data rows and
 ``weights/last.pt`` exists. Complete folders are never moved or overwritten.
 
+A ``gpr_geometric:`` block in the config turns on the N2-a geometric
+augmentations (``docs/experiments/m31_n2a_retrain_plan.md`` section 5-3); without
+it nothing changes (M1-10 configs train exactly as before). The settings file
+also records the config sha256, and ``train_record.json`` (written after
+training) the sha256 of ``last.pt`` / ``best.pt`` for the A1 gate.
+
+``--blind`` (plan section 4-2): Ultralytics and project logs only at WARNING and
+above (this also hides the Ultralytics progress bars, which turn themselves off
+above INFO), one metric-free JSON progress line per epoch on stderr
+(``{"stage", "fold", "epoch", "elapsed_s"}``) and a last stdout line
+``{"status", "exit_code", "out"}``. An unexpected error then exits 3.
+
 Examples:
     conda run -n gpr-dev python -I scripts/train_detector.py --fold 0 --dry-run
     conda run -n gpr-dev python -I scripts/train_detector.py --fold 0 \\
@@ -38,6 +50,7 @@ import logging
 import os
 import shutil
 import sys
+import time
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from enum import Enum, StrEnum
@@ -57,12 +70,23 @@ from gpr_detection.augment import (
     AugmentConfig,
     augment_config_from_dict,
 )
+from gpr_detection.augment_geometry import (
+    GeometricAugmentConfig,
+    geometric_config_from_dict,
+)
+from gpr_detection.detect.yolo_logging import quiet_ultralytics_logger
 from gpr_detection.detect.yolo_train import (
     build_gpr_trainer,
     check_augmentation_policy,
+    geometric_settings,
     write_training_data_yaml,
 )
-from gpr_detection.run_info import git_state, local_timestamp, package_versions
+from gpr_detection.run_info import (
+    git_state,
+    local_timestamp,
+    package_versions,
+    sha256_file,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "train_yolo11m_base.yaml"
@@ -71,8 +95,11 @@ DATA_YAML_DIR = RUNS_DIR / "_data"
 INCOMPLETE_DIR_NAME = "_incomplete"
 FOLD_CHOICES = ("0", "1", "2", "3", "4", "test")
 SETTINGS_FILE_NAME = "gpr_train_settings.yaml"
+TRAIN_RECORD_FILE_NAME = "train_record.json"
+TRAIN_RECORD_SCHEMA = "gpr_train_record/1"
 RESULTS_FILE_NAME = "results.csv"
 LAST_WEIGHTS_RELATIVE = Path("weights") / "last.pt"
+RECORDED_WEIGHTS = ("last", "best")
 ARCHIVE_TIME_FORMAT = "%Y%m%dT%H%M%S"
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff")
 VERSIONED_PACKAGES = ("torch", "ultralytics")
@@ -80,6 +107,8 @@ VERSIONED_PACKAGES = ("torch", "ultralytics")
 EXIT_OK = 0
 EXIT_EXISTING_RUN = 2
 """Refused because of the existing run folder (see ``--on-existing``)."""
+EXIT_INTERNAL_ERROR = 3
+"""Unexpected error in a ``--blind`` run (without ``--blind`` it propagates)."""
 
 LOGGER = logging.getLogger("train_detector")
 
@@ -146,6 +175,12 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print the resolved settings and exit without training",
     )
+    parser.add_argument(
+        "--blind",
+        action="store_true",
+        help="no metric output: logs at WARNING+, metric-free progress lines on "
+        "stderr, last stdout line {status, exit_code, out}",
+    )
     return parser
 
 
@@ -195,6 +230,12 @@ def _augment_config(config: Mapping[str, Any], strength: float) -> AugmentConfig
     return augment_config_from_dict(settings)
 
 
+def _geometric_config(config: Mapping[str, Any]) -> GeometricAugmentConfig | None:
+    """The ``gpr_geometric`` block, or ``None`` (off) when the config has none."""
+    block = config.get("gpr_geometric")
+    return None if block is None else geometric_config_from_dict(block)
+
+
 def _plain(value: Any) -> Any:
     """Convert dataclasses and enums to YAML/JSON-friendly values."""
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
@@ -204,6 +245,55 @@ def _plain(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
     return value
+
+
+def _write_train_record(run_dir: Path, config_sha256: str) -> None:
+    """Hash the written weights so later gates can check them (A1, section 3-1)."""
+    weights_sha256 = {}
+    for weights_name in RECORDED_WEIGHTS:
+        path = run_dir / "weights" / f"{weights_name}.pt"
+        weights_sha256[weights_name] = sha256_file(path) if path.is_file() else None
+    record = {
+        "schema": TRAIN_RECORD_SCHEMA,
+        "finished_at": local_timestamp(),
+        "config_sha256": config_sha256,
+        "weights_sha256": weights_sha256,
+    }
+    with (run_dir / TRAIN_RECORD_FILE_NAME).open(
+        "w", encoding="utf-8", newline="\n"
+    ) as handle:
+        json.dump(record, handle, indent=2)
+        handle.write("\n")
+
+
+def _fold_for_progress(fold: str) -> int | str:
+    return int(fold) if fold.isdigit() else fold
+
+
+def _add_blind_progress(trainer: Any, fold: str, started_s: float) -> None:
+    """One metric-free JSON line per finished epoch on stderr."""
+
+    def report_epoch(active_trainer: Any) -> None:
+        line = {
+            "stage": "train",
+            "fold": _fold_for_progress(fold),
+            "epoch": int(active_trainer.epoch) + 1,
+            "elapsed_s": round(time.monotonic() - started_s, 1),
+        }
+        print(json.dumps(line), file=sys.stderr, flush=True)
+
+    trainer.add_callback("on_train_epoch_end", report_epoch)
+
+
+def _print_final_line(exit_code: int, out: Path | None) -> int:
+    status = "ok" if exit_code == EXIT_OK else "error"
+    line = {
+        "status": status,
+        "exit_code": exit_code,
+        "out": None if out is None else str(out),
+    }
+    print(json.dumps(line), flush=True)
+    return exit_code
 
 
 def _count_results_rows(results_csv: Path) -> int:
@@ -305,10 +395,25 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     Returns:
         Process exit code: 0 trained or skipped as complete, 2 refused because
-        of the existing run folder.
+        of the existing run folder, 3 unexpected error (``--blind`` only).
     """
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = _build_parser().parse_args(argv)
+    log_level = logging.WARNING if args.blind else logging.INFO
+    logging.basicConfig(level=log_level, format="%(levelname)s %(message)s")
+    if not args.blind:
+        exit_code, _ = _train(args)
+        return exit_code
+    try:
+        exit_code, run_dir = _train(args)
+    except Exception:  # blind runs report through the exit code (plan §4-2)
+        LOGGER.exception("training failed")
+        return _print_final_line(EXIT_INTERNAL_ERROR, None)
+    return _print_final_line(exit_code, run_dir)
+
+
+def _train(args: argparse.Namespace) -> tuple[int, Path]:
+    """Body of :func:`main`; returns the exit code and the run folder."""
+    started_s = time.monotonic()
     config = _load_config(args.config)
 
     if args.data is not None:
@@ -329,16 +434,22 @@ def main(argv: Sequence[str] | None = None) -> int:
     data_yaml = DATA_YAML_DIR / f"{name}.yaml"
     overrides = _ultralytics_overrides(config, args, data_yaml, name)
     augment_config = _augment_config(config, strength)
-    for warning in check_augmentation_policy(overrides):
+    geometric_config = _geometric_config(config)
+    for warning in check_augmentation_policy(overrides, geometric_config):
         LOGGER.warning(warning)
 
+    config_sha256 = sha256_file(args.config)
     settings = {
         "config_file": str(args.config),
+        "config_sha256": config_sha256,
         "fold": fold,
         "source_data_yaml": str(source_yaml),
         "augment_strength": strength,
         "augment_seed": seed,
         "gpr_augment": _plain(augment_config),
+        "gpr_geometric": (
+            None if geometric_config is None else geometric_settings(geometric_config)
+        ),
         "ultralytics": overrides,
     }
     run_dir = RUNS_DIR / name
@@ -349,16 +460,23 @@ def main(argv: Sequence[str] | None = None) -> int:
                 {**settings, "existing_run": state.value}, indent=2, ensure_ascii=False
             )
         )
-        return EXIT_OK
+        return EXIT_OK, run_dir
 
     stop_code = _handle_existing_run(run_dir, state, OnExisting(args.on_existing))
     if stop_code is not None:
-        return stop_code
+        return stop_code, run_dir
 
     write_training_data_yaml(source_yaml, data_yaml)
     settings["image_counts"] = _split_image_counts(data_yaml)
     settings.update(_provenance())
-    trainer = build_gpr_trainer(overrides, augment_config, augment_seed=seed)
+    if args.blind:
+        quiet_ultralytics_logger()  # before the trainer logs its arguments
+    trainer = build_gpr_trainer(
+        overrides,
+        augment_config,
+        augment_seed=seed,
+        geometric_config=geometric_config,
+    )
     save_dir = Path(trainer.save_dir)
     if save_dir.resolve() != run_dir.resolve():
         raise RuntimeError(
@@ -371,8 +489,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         encoding="utf-8",
     )
     LOGGER.info("training run folder: %s", save_dir)
+    if args.blind:
+        _add_blind_progress(trainer, fold, started_s)
     trainer.train()
-    return EXIT_OK
+    _write_train_record(save_dir, config_sha256)
+    return EXIT_OK, run_dir
 
 
 if __name__ == "__main__":

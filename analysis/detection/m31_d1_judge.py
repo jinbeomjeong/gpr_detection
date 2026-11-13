@@ -27,6 +27,10 @@ Aggregation (§8-2 (3)(a)-(e)):
   - compression loss (report only): recall at g = 0.79 and 0.53 by linear
     interpolation in log g between neighbouring S points, per fold, then mean.
 
+D1 r3 (m31_n2a_retrain_plan.md §4-1, §5-5) reuses this judge with
+--run-prefix (the N2-a run folders) and --expected-weights-sha8 (the seal
+appendix values); without them it judges the M1-10 runs as in r2.
+
 Stdout carries progress only; its last line is {"status", "exit_code", "out"}.
 Exit codes: 0 gates passed and judged, 1 gate failed, 2 input missing or
 --out exists (without --overwrite), 3 internal error.
@@ -110,6 +114,7 @@ SHIFT_PAIRS = {
     "X6": ("gp6_dx+0", {d: (f"gp6_dx+{d}", f"gp6_dx-{d}") for d in (32, 64)}),
 }
 INTERNAL_TOL_PP = 1e-9
+MIN_SHA_PREFIX_DIGITS = 8
 SECONDARY_CLASSES = ("cavity", "manhole")
 MAP50_CONDITIONS = ("g1.00_dx+0", "gp6_dx+0", "g1.67_dx+0", "g0.50_dx+0", "g0.74_dx+0")
 
@@ -206,14 +211,29 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def load_fold(run_root: Path, export_root: Path, subdir: str, fold: int) -> FoldInputs:
+def load_fold(
+    run_root: Path,
+    export_root: Path,
+    subdir: str,
+    fold: int,
+    run_prefix: str | None = None,
+) -> FoldInputs:
     """Read one fold's inputs.
+
+    Args:
+        run_root: Folder of the run folders.
+        export_root: Folder of the ``fold<k>_crop`` validator detections.
+        subdir: ``eval/<subdir>`` of the D1 run.
+        fold: Fold index.
+        run_prefix: Run folder name without the fold digit; ``None`` = the
+            M1-10 prefix (``common.RUN_PREFIX``).
 
     Raises:
         common.InputError: If a file is missing, is not a full r2 metrics file,
             or lacks a condition.
     """
-    run = run_root / f"{common.RUN_PREFIX}{fold}"
+    prefix = common.RUN_PREFIX if run_prefix is None else run_prefix
+    run = run_root / f"{prefix}{fold}"
     metrics = _read_json(run / "eval" / subdir / "metrics.json")
     if metrics.get("schema") != METRICS_SCHEMA:
         raise common.InputError(
@@ -261,13 +281,28 @@ def read_hyperbola_hits(path: Path) -> dict[str, dict[tuple[str, int], int]]:
 # ----------------------------------------------------------------- gates
 
 
-def check_identity(inputs: FoldInputs, is_single_run: bool) -> dict:
+def check_identity(
+    inputs: FoldInputs,
+    is_single_run: bool,
+    expected_weights_sha8: tuple[str, ...] | None = None,
+) -> dict:
     """G2: weights, eval list and validator image set are those of M1-10.
 
     v0.5.1 adds G2-a (weights sha recorded by the run = recomputed), G2-b (one
     ``run_id`` over the five folds, passed in) and G2-c (G1 input sha256 at
     run time = at judge time).
+
+    The ``*_m110`` keys keep their r2 names for JSON compatibility; in r3 they
+    hold the evaluation metrics of the same (N2-a) run.
+
+    Args:
+        inputs: One fold's inputs.
+        is_single_run: Whether the five folds share one ``run_id`` (G2-b).
+        expected_weights_sha8: Audited weights sha256 prefixes per fold;
+            ``None`` = the M1-10 values (``common.EXPECTED_WEIGHTS_SHA8``).
     """
+    if expected_weights_sha8 is None:
+        expected_weights_sha8 = common.EXPECTED_WEIGHTS_SHA8
     k = inputs.fold
     run_identity = inputs.metrics.get("run_identity", {})
     recorded_g1 = run_identity.get("g1_inputs_sha256", {}).get(str(k))
@@ -279,7 +314,7 @@ def check_identity(inputs: FoldInputs, is_single_run: bool) -> dict:
     )
     checks = {
         "weights_match_m110_metrics": weights_sha == inputs.m110["weights"]["sha256"],
-        "weights_match_audit": weights_sha.startswith(common.EXPECTED_WEIGHTS_SHA8[k]),
+        "weights_match_audit": weights_sha.startswith(expected_weights_sha8[k]),
         "eval_list_match_m110_metrics": eval_sha
         == inputs.m110["eval_images"]["sha256"],
         "n_images_match_m110": inputs.metrics["n_images"]
@@ -297,7 +332,7 @@ def check_identity(inputs: FoldInputs, is_single_run: bool) -> dict:
         "checks": checks,
         "weights": str(inputs.weights),
         "weights_sha256": weights_sha,
-        "weights_sha8_expected": common.EXPECTED_WEIGHTS_SHA8[k],
+        "weights_sha8_expected": expected_weights_sha8[k],
         "weights_sha256_recorded_by_run": recorded,
         "g1_inputs_sha256_recorded_by_run": recorded_g1,
         "eval_list": str(inputs.eval_list),
@@ -661,13 +696,16 @@ def judge(args: argparse.Namespace, identity: dict) -> int:
     if args.out.exists() and not args.overwrite:
         raise common.InputError(f"--out exists (use --overwrite): {args.out}")
     folds = {
-        k: load_fold(args.run_root, args.export_root, args.subdir, k)
+        k: load_fold(args.run_root, args.export_root, args.subdir, k, args.run_prefix)
         for k in common.FOLDS
     }
     print("inputs read", flush=True)
     source_runs = _source_runs(folds)
     gates: dict[str, list[dict]] = {"G2": [], "G3": [], "G1": []}
-    gates["G2"] = [check_identity(f, source_runs["single_run"]) for f in folds.values()]
+    gates["G2"] = [
+        check_identity(f, source_runs["single_run"], args.expected_weights_sha8)
+        for f in folds.values()
+    ]
     print("G2 done", flush=True)
     for gate, check in (("G3", check_n_gt), ("G1", check_same_path)):
         gates[gate] = [check(inputs) for inputs in folds.values()]
@@ -697,6 +735,22 @@ def judge(args: argparse.Namespace, identity: dict) -> int:
     return 0
 
 
+def _weights_sha8_list(text: str) -> tuple[str, ...]:
+    """Parse ``a,b,c,d,e``: one hex sha256 prefix (>= 8 digits) per fold."""
+    values = tuple(value.strip().lower() for value in text.split(","))
+    is_hex = all(
+        len(value) >= MIN_SHA_PREFIX_DIGITS
+        and all(char in "0123456789abcdef" for char in value)
+        for value in values
+    )
+    if len(values) != len(common.FOLDS) or not is_hex:
+        raise argparse.ArgumentTypeError(
+            f"expected {len(common.FOLDS)} comma-separated hex sha256 prefixes of "
+            f"at least {MIN_SHA_PREFIX_DIGITS} digits, got {text!r}"
+        )
+    return values
+
+
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--out", type=Path, required=True)
@@ -704,6 +758,19 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--run-root", type=Path, default=common.RUN_ROOT)
     parser.add_argument("--export-root", type=Path, default=common.EXPORT_ROOT)
+    parser.add_argument(
+        "--run-prefix",
+        default=None,
+        help="run folder name without the fold digit; default: the M1-10 runs "
+        f"({common.RUN_PREFIX})",
+    )
+    parser.add_argument(
+        "--expected-weights-sha8",
+        type=_weights_sha8_list,
+        default=None,
+        help="G2 audited last.pt sha256 prefixes for folds 0-4, comma-separated "
+        "(e.g. from the D1 r3 seal appendix); default: the M1-10 values",
+    )
     return parser.parse_args(argv)
 
 

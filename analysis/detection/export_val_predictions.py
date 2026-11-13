@@ -26,6 +26,12 @@ Usage::
         --out-dir runs/analysis/<name>
 
 The last stdout line is a JSON summary. Exit codes: 0 ok, 2 input error.
+
+``--blind`` (``docs/experiments/m31_n2a_retrain_plan.md`` section 4-2): the
+metrics go to ``val_metrics.json`` only. Ultralytics logs at WARNING and above
+(no table, no progress bar), one metric-free progress line goes to stderr and
+the last stdout line is ``{"status", "exit_code", "out"}``; an unexpected error
+then exits 3.
 Imports ultralytics (AGPL-3.0) as an analysis-only script, like
 ``analysis/detection/m17_pipe_band_fp_gallery.py``; keep it out of ``src/``
 (outside ``detect/``) and ``scripts/``.
@@ -34,7 +40,9 @@ Imports ultralytics (AGPL-3.0) as an analysis-only script, like
 import argparse
 import csv
 import json
+import logging
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -48,6 +56,12 @@ DEFAULT_CONF = 0.001
 DEFAULT_NMS_IOU = 0.7
 SEALED_TEST_MARKER = "test"
 """Val lists whose path mentions this word are refused (test is sealed)."""
+EXIT_OK = 0
+EXIT_INPUT_ERROR = 2
+EXIT_INTERNAL_ERROR = 3
+BLIND_LOG_LEVEL = logging.WARNING
+
+LOGGER = logging.getLogger("export_val_predictions")
 
 
 @dataclass(frozen=True)
@@ -72,6 +86,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--conf", type=float, default=DEFAULT_CONF)
     parser.add_argument("--iou", type=float, default=DEFAULT_NMS_IOU)
     parser.add_argument("--device", default="0")
+    parser.add_argument(
+        "--blind",
+        action="store_true",
+        help="metrics only in val_metrics.json; last stdout line "
+        "{status, exit_code, out}",
+    )
     return parser.parse_args(argv)
 
 
@@ -102,7 +122,14 @@ def _to_original_pixels(boxes: np.ndarray, ratio_pad: Any) -> np.ndarray:
 
 def _run_validation(args: argparse.Namespace) -> tuple[list[CapturedImage], Any]:
     from ultralytics import YOLO
+    from ultralytics.utils import LOGGER as ULTRALYTICS_LOGGER
     from ultralytics.utils.metrics import ConfusionMatrix
+
+    if args.blind:
+        # After the import, which sets the level; above INFO also hides the bar.
+        ULTRALYTICS_LOGGER.setLevel(BLIND_LOG_LEVEL)
+        for handler in ULTRALYTICS_LOGGER.handlers:
+            handler.setLevel(BLIND_LOG_LEVEL)
 
     captured: list[CapturedImage] = []
     original_process_batch = ConfusionMatrix.process_batch
@@ -184,14 +211,48 @@ def _per_class_metrics(metrics: Any) -> dict[str, dict[str, float]]:
     return per_class
 
 
+def _print_blind_final_line(status: str, exit_code: int, out_dir: Path) -> int:
+    line = {"status": status, "exit_code": exit_code, "out": str(out_dir)}
+    print(json.dumps(line), flush=True)
+    return exit_code
+
+
+def _main_blind(args: argparse.Namespace) -> int:
+    logging.basicConfig(
+        stream=sys.stderr, level=BLIND_LOG_LEVEL, format="%(levelname)s %(message)s"
+    )
+    started_s = time.monotonic()
+    try:
+        images = _check_inputs(args)
+    except (OSError, KeyError, ValueError, yaml.YAMLError) as error:
+        print(f"input error: {error!r}", file=sys.stderr, flush=True)
+        return _print_blind_final_line("input_error", EXIT_INPUT_ERROR, args.out_dir)
+    try:
+        _export(args, images)
+    except Exception:  # blind runs report through the exit code (plan §4-2)
+        LOGGER.exception("export failed")
+        return _print_blind_final_line("error", EXIT_INTERNAL_ERROR, args.out_dir)
+    progress = {"stage": "export", "elapsed_s": round(time.monotonic() - started_s, 1)}
+    print(json.dumps(progress), file=sys.stderr, flush=True)
+    return _print_blind_final_line("ok", EXIT_OK, args.out_dir)
+
+
 def main(argv: list[str] | None = None) -> int:
     """Validate once, write the three output files, print a JSON summary."""
     args = _parse_args(argv)
+    if args.blind:
+        return _main_blind(args)
     try:
         images = _check_inputs(args)
     except (OSError, KeyError, ValueError, yaml.YAMLError) as error:
         print(json.dumps({"status": "input_error", "error": repr(error)}))
-        return 2
+        return EXIT_INPUT_ERROR
+    print(json.dumps(_export(args, images)))
+    return EXIT_OK
+
+
+def _export(args: argparse.Namespace, images: list[str]) -> dict[str, Any]:
+    """Run the validation, write the output files and return the summary."""
     args.out_dir.mkdir(parents=True, exist_ok=True)
     captured, metrics = _run_validation(args)
     if len(captured) != len(images):
@@ -216,8 +277,7 @@ def main(argv: list[str] | None = None) -> int:
     (args.out_dir / "val_metrics.json").write_text(
         json.dumps(summary, indent=2), encoding="utf-8"
     )
-    print(json.dumps(summary))
-    return 0
+    return summary
 
 
 if __name__ == "__main__":
