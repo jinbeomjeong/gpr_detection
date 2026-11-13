@@ -1,7 +1,7 @@
 """Count 4TU lines whose O_phys is set by the period cap (spec_detection_image v0.3.2, 4-4 item 9).
 
 Same defaults as the spec: P 2.51 ns (dataset default), v from eps_r_used, a_max 1 m,
-w_P 20 periods, O_min 64, O_cv 128. Uses actual sigma_x = N / W1. Metadata only.
+w_P 20 periods, O_min 64, O_cv 128 and 192 (default from v0.3.4). Uses actual sigma_x = N / W1. Metadata only.
 """
 import csv
 import math
@@ -25,6 +25,7 @@ for p_star in (4.06, 6.0):
         is_capped = metres > cap
         o_phys = max(64, math.ceil(min(metres, cap) - 1e-9))
         o = min(224, max(o_phys, 128))
+        o_used[("O192", min(224, max(o_phys, 192)))] += 1
         capped += is_capped
         o_used[o] += 1
         if is_capped:

@@ -1,4 +1,9 @@
-"""Shared fixtures: load a ``scripts/*.py`` file as a module for in-process tests."""
+"""Shared fixtures: load a ``scripts/*.py`` file as a module for in-process tests.
+
+Also registers the opt-in ``realdata`` marker: tests that read many real
+dataset files (M3-1 T7(e)) are skipped unless the ``-m`` expression names
+``realdata`` (e.g. ``pytest -m realdata``).
+"""
 
 import importlib.util
 import sys
@@ -9,6 +14,25 @@ from types import ModuleType
 import pytest
 
 SCRIPTS_DIR = Path(__file__).resolve().parents[1] / "scripts"
+REALDATA_MARKER = "realdata"
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.addinivalue_line(
+        "markers",
+        f"{REALDATA_MARKER}: real-data round trips (opt-in, -m {REALDATA_MARKER})",
+    )
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    if REALDATA_MARKER in (config.option.markexpr or ""):
+        return
+    skip = pytest.mark.skip(reason=f"opt-in: run with -m {REALDATA_MARKER}")
+    for item in items:
+        if REALDATA_MARKER in item.keywords:
+            item.add_marker(skip)
 
 
 @pytest.fixture

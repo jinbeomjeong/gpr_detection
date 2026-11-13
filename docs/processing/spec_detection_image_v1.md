@@ -1,6 +1,6 @@
 # 명세 v1 — 검출 영상(L1) 생성, 타일 병합, 측선 단위 깊이 호출 (M3-1 · M3-2 `DetectionImage` 좌표 부분)
 
-- 상태: **v0.3.3** (2026-11-13, gpr-processing-expert). 사용자 결정(2026-11-13)을 반영한 **구현 위임 명세**다. §4·§5·§6·§8을 python-expert가 그대로 구현한다. v0.1(같은 날 초안)의 대안 비교·근거는 §2·§3에 남겼다.
+- 상태: **v0.3.5** (2026-11-13, gpr-processing-expert). 사용자 결정(2026-11-13)을 반영한 **구현 위임 명세**다. §4·§5·§6·§8을 python-expert가 그대로 구현한다. v0.1(같은 날 초안)의 대안 비교·근거는 §2·§3에 남겼다.
 - v0.3 정정은 [CV] v0.2의 발견 3건·선택 4건을 반영한 것이고, 요약은 §0-1에 있다. 시험 목록은 §8이 한 벌이고, [CV] C1–C5와의 대응도 §8에 적었다.
 - 범위
   - 실측 npy(4TU·광저우대·GPR-SD) → 측선 L1 영상 → 256×256 겹침 타일 → 검출 → 측선 연속 좌표에서 병합 → L0 `GridBox`.
@@ -8,7 +8,7 @@
   - M3-1 왕복 시험과 깊이 순서 시험.
 - 범위 밖
   - 영상 품질(채움 값·회색 매핑·검출 영상 배경 제거 창)은 M3-2로 넘긴다. M3-1은 §4-2의 **가정값**으로 구현하고, 결과에 그 사실을 표시한다(`assumed_params`).
-  - 목표 주기 $P^*$와 겹침 폭은 cv-detection-expert의 D1 GPU 평가로 정한다. 여기서는 파라미터로만 둔다(기본 4.06 px·128 px).
+  - 목표 주기 $P^*$와 겹침 폭은 cv-detection-expert의 D1 GPU 평가로 정한다. 여기서는 파라미터로만 둔다. D1 r2(커밋 ea7f447, [CV] §8-5) 결과 기본값은 4.06 px·**192 px(잠정)**이다.
   - GPR-SD 라벨 축척은 M3-4 라벨이 나온 뒤 본다.
 - 바꾸지 않는 것
   - 좌표 계약(ADR-004 결정 1–8)과 `ImageGridMap`·`InputTransform` 스키마.
@@ -24,9 +24,9 @@
 
 | 항목 | 결정 | 이 문서 |
 |---|---|---|
-| Q1 L1 방식 | **C′ 채택**: 주기 맞춤 세로 배율, 깊이 등방 가로 배율, 256×256 겹침 타일, 겹침 = max($O_\text{phys}$, 128). 시간창 전체를 쓰고 세로는 자르지 않는다 | §4 |
+| Q1 L1 방식 | **C′ 채택**: 주기 맞춤 세로 배율, 깊이 등방 가로 배율, 256×256 겹침 타일, 겹침 = max($O_\text{phys}$, 128)(v0.3.4: $O_\text{cv}$ 잠정 192, Q2 행). 시간창 전체를 쓰고 세로는 자르지 않는다 | §4 |
 | 병합 | [CV] R2(IoU ≥ 0.7, 잘린 박스가 끼면 IoMin ≥ 0.8, 대표 1개, 평균 없음) + 물리 거부권 V1·V2. `pipe_band`는 트레이스 구간만 중재하고 $k_0,k_1$은 그대로 두며 `group_band_boxes`로 넘긴다. 짝 없이 잘린 쌍곡선은 `tile_truncated` 플래그를 달아 깊이로 넘긴다 | §5, §6 |
-| Q2 $P^*$, 겹침 50/75 % | M3-1 안에서 cv D1 GPU 평가로 정한다. 파라미터로 두고 기본값 4.06 px·128 px | §4-2 |
+| Q2 $P^*$, 겹침 50/75 % | D1 r2(ea7f447): $P^*$ **4.06 유지**. 겹침은 규칙 O "둘 다 불충족"이라 **잠정 192 px(75 %)**. 사용자 선택 N2-a(위치·축척 쏠림 보정 증강 재학습) 뒤 D1 r3에서 다시 판정 | §4-2 |
 | Q4·Q7 | $v_s$ = 메타 v, 광저우 0.10 m/ns 가정. GPR-SD는 M3-1에서 기본안(주기 맞춤)으로 좌표 왕복 시험만 한다. 라벨 축척은 M3-4 뒤 | §4-4, §9 |
 | Q3·Q5 | M3-2(영상 품질)로 넘긴다. M3-1은 가정값으로 구현하고 표시한다 | §4-2 `assumed_params` |
 | Q6 | 깊이 계약을 바꾸지 않는다 | §7 (a) |
@@ -92,7 +92,7 @@
 | GPR-SD | 12 | 321 | 가설 A 0.3022 / B 0.2553 (미확정) | 0.03 | 9,360–27,628 | float32 처리본 |
 | AIHub `tpipe` (비교) | 크롭 1,522 (gain 3벌) | 256 px | 미상 | 미상 | 256 px | JPG |
 
-- 4TU 타일 수는 겹침 128 px에서 2,209장, 물리 하한 65 px에서 1,780장이다. εr 9·$P$ 2.51 ns 일괄 가정이고, 실제는 측선별 $P_\text{line}$·εr로 조금 달라진다. [CV] §4-4의 3,297장은 1 트레이스 = 1 px 기준이다.
+- 4TU 타일 수(εr 9 일괄)는 겹침 128 px에서 2,209장, 192 px(v0.3.4 잠정 기본)에서는 3,530장([CV] §4-4 표 4,263장은 측선별 εr 기준), 물리 하한 65 px에서 1,780장이다. εr 9·$P$ 2.51 ns 일괄 가정이고, 실제는 측선별 $P_\text{line}$·εr로 조금 달라진다. [CV] §4-4의 3,297장은 1 트레이스 = 1 px 기준이다.
 
 ### 2-2. 우세 주기 (근거: [PC], AIHub는 [AW])
 
@@ -167,8 +167,8 @@ $$h_\text{ns}=\frac{2}{v}\left(\sqrt{d^2+a^2}-d\right)+3P,\qquad w_\text{tr}=\fr
 ```python
 @dataclass(frozen=True)
 class DetectionImageConfig:
-    p_target_px: float = 4.06          # P*  (D1 decides 4.06 vs 6.0)
-    overlap_px: int = 128              # O_cv (D1 decides 128 vs 192)
+    p_target_px: float = 4.06          # P*  (D1 r2: 4.06 kept)
+    overlap_px: int = 192              # O_cv (D1 r2: provisional 192, re-judged in r3 after N2-a)
     tile_px: int = 256                 # L
     overlap_min_px: int = 64           # O_min of O_phys
     a_max_m: float = 1.0               # O_phys: tracking limit (spec_depth 5)
@@ -192,8 +192,8 @@ M3_2_ASSUMED = ("pad_gray", "gray_mapping", "detection_bg_window")
 
 | 파라미터 | 기본값 | 근거 / 결정 상태 |
 |---|---|---|
-| `p_target_px` | 4.06 | [AW] `tpipe` 꼭짓점 크롭 p50. **D1로 4.06/6.0 결정** |
-| `overlap_px` | 128 | [CV] U2. **D1로 128/192 결정** |
+| `p_target_px` | 4.06 | [AW] `tpipe` 꼭짓점 크롭 p50. **D1 r2 결과 4.06 유지** |
+| `overlap_px` | 192 | **잠정**(D1 r2 규칙 O 둘 다 불충족 → 75 %). N2-a 재학습 뒤 D1 r3에서 128/192 재판정 |
 | `tile_px` | 256 | 학습 영상 256×256, imgsz 256([AP], [CV] U7) |
 | `overlap_min_px`, `a_max_m`, `overlap_width_periods` | 64, 1.0 m, 20 | $O_\text{phys}$: AIHub `tpipe` 폭 p95 60.5 px, [D] §5 추적 상한, AIHub `tpipe` 최대 폭 80.7 px = 19.9 주기(v0.3) |
 | `overlap_max_px` | 224 | 보폭 ≥ 32 px 보장(안전 상한, 가정). v0.3 식에서는 $O_\text{phys}\le 20P^*$(4.06 → 82, 6 → 120)라 $O_\text{cv}$ 128·192에서 작동하지 않는다 |
@@ -293,8 +293,9 @@ def make_detection_image(
    - 둘째 항이 이기면 `overlap_period_capped`를 붙인다. 측선은 빼지 않는다. 조건은 $2a_\max>w_P\,\lambda/2$, 곧 토양 속 반파장 $\lambda/2=v_sP_\text{ns}/2<0.1$ m다. $P^*$와 무관하고(L1 반올림 차만 있음), **고주파 또는 저속(큰 εr)** 측선에서 생긴다(v0.3.2 정정).
      - 광저우: 600·900·2000 MHz 51측선([CV] v0.3 `m31_cprime_tiles.json`).
      - 4TU: $P$ 2.51 ns이면 $v_s$ < 0.0797 m/ns, 곧 εr > 14.16인 측선이다. 메타 εr 15.18·16.89·17.36·19.46의 91측선이고, $P^*$ 4.06에서는 반올림 때문에 εr 14.06 측선 1개가 더해져 92측선이다(`analysis/processing/detection_image_capped_count.py`).
-     - 플래그가 붙어도 실제 겹침은 바뀌지 않는다. 상한 값이 $20P^*$ = 82 / 120 px로 $O_\text{cv}$ 128보다 작기 때문이다. 4TU 759측선 모두 $O$ = 128이다(같은 스크립트, $P^*$ 4.06·6).
+     - 플래그가 붙어도 실제 겹침은 바뀌지 않는다. 상한 값이 $20P^*$ = 82 / 120 px로 $O_\text{cv}$(128·192)보다 작기 때문이다. 4TU 759측선 모두 $O=O_\text{cv}$(128이면 128, 192이면 192)이다(같은 스크립트, $P^*$ 4.06·6).
      - 4TU의 메타 εr는 실측이 아니므로(헤더 기본값 포함) 이 플래그는 정보용이다. 판정에는 쓰지 않는다.
+     - 실행 때는 측정 $P_\text{line}$을 쓰므로 위 건수(2.51 ns 가정)와 다르다. 주기가 짧게 재진 측선은 εr가 작아도 붙는다. 예: 03.9 Path5는 $P_\text{line}$ 21.33 샘플(2.09 ns), εr 11.11이라 $\lambda/2$ = 0.094 m < 0.1 m이고, 플래그가 붙는 것이 맞다(구현 `detection_image_flags.csv`, v0.3.5 확인).
    - $O=\min(O_\text{max},\ \max(O_\text{phys}, O_\text{cv}))$, $S=L-O$.
    - 값: 4TU(측선별 εr) 64–82 px($P^*$ 4.06), 91–120 px($P^*$ 6). 광저우 전 측선 ≤ 82 / ≤ 120 px(2000 MHz 2 $a_\max$ 환산 325 px → 82 px). 그래서 기본값에서 $O=O_\text{cv}$다(근거: `analysis/processing/detection_image_gz_height_check.py`, `detection_image_expected_values.py`).
 10. **타일 배치** `tile_layout(width_px, tile_px, overlap_px) -> tuple[LineTile, ...]`([CV] §5-2와 같음)
@@ -420,7 +421,7 @@ DEFAULT_MERGE_CONFIG = MergeConfig()
    3. **$y_1, y_2$($k_0,k_1$)는 절대 바꾸지 않는다.** 띠 깊이는 박스 위 끝을 따라가기 때문이다(`band_box_convention_depth.md`).
    4. 결과 조각은 모두 깊이로 넘긴다. 묶기는 `group_band_boxes`([B] §3-4)가 한다.
       - 중재 뒤 조각은 맞닿거나(gap 0) 떨어져 있으므로 끝 5 픽 중앙값 비교 경로로 묶인다.
-      - [CV] §5-5 "확인 필요"(위 끝이 1–2 px 다른 맞닿은 조각이 묶이는가)의 답: 묶음 후보 조건은 시간 겹침 ≥ 50 %와 gap ≤ $G$다. 판정은 박스 위 끝이 아니라 **픽** 시각 차(≤ 1.25 ns, UB18 기준)로 한다. 그래서 같은 띠의 조각은 박스 위 끝이 L1 1–2 px(4TU 0.6–1.3 ns) 달라도 같은 사건을 픽하면 묶인다. 위 끝 차 때문에 창이 다른 겹을 잡으면 묶이지 않고 각각 `fragment_of_group`이 붙는다. 이것은 T8k로 확인한다.
+      - [CV] §5-5 "확인 필요"(위 끝이 1–2 px 다른 맞닿은 조각이 묶이는가)의 답: 묶음 후보 조건은 시간 겹침 ≥ 50 %와 gap ≤ $G$다. 판정은 박스 위 끝이 아니라 **픽** 시각 차(≤ 1.25 ns, UB18 기준)로 한다. 묶이는 조건은 두 가지다(v0.3.5 정정). (i) 위 끝 차가 작은 박스 높이의 절반 이하라 시간 겹침이 50 % 이상이어야 한다. (ii) 두 조각이 같은 사건을 픽해야 한다(창이 다른 겹을 잡으면 묶이지 않고 각각 `fragment_of_group`). v0.3.4의 "1–2 px 달라도 묶인다"는 얇은 박스(높이 1.2 P ≈ 5 px)에서만 맞는 표현이었다. 그 높이에서는 3 px 차부터 후보에서 빠진다(구현 시험 결과). AIHub형 띠 박스 높이(p5 13 / p50 16 / p95 21 px, [CV] §2)라면 6–10 px 차까지 (i)을 만족한다. 실측 이웃 타일 띠의 위 끝 차와 박스 높이 분포는 D3에서 보고한다(§11-1 R3). T8k·T8k-2로 확인한다.
 
 ### 5-4. 물리 근거 (v0.1 §5-1·§5-2)
 
@@ -546,10 +547,10 @@ def estimate_survey_depths(
 | T1 (C2) | **정확 왕복**(QA-8). §4-7 표의 6개 사례 `line_scale`로 `ImageGridMap`을 만든다. 무작위 격자 정렬 `GridBox` 200개(시드 고정, 타일 경계를 넘는 것 포함)를 L0 → 측선 L1(`grid_box_to_image_box`) → 그 박스를 온전히 담는 모든 타일(경계를 넘는 박스는 두 타일 모두)의 타일 L1(−$x_0$) → L2(`letterbox`의 `InputTransform`, 언제나 항등) → 타일 L1 → 측선 L1(+$x_0$) → L0(`image_box_to_grid_box`) | 모든 경로에서 **정확히 같은 `GridBox`**. 연속 박스 L1 ↔ L2 ≤ 0.5 px |
 | T2 (C1) | **타일 배치** `tile_layout`. $W_1$ ∈ {1, 97, 255, 256, 257, 300, 383, 512, 2,250, 14,516, 27,628} × $O$ ∈ {0, 64, 128, 141, 192}, $L$ = 256 | 타일 수가 다음 표와 같다. 모든 열이 덮이고, 소유 구간이 $[0,W_1)$을 빈틈·겹침 없이 나누며, 마지막 타일 오른쪽 끝 = $W_1$이다. $W_1\le256$이면 1장·`single_tile`. 폭 ≤ $O$인 모든 정수 위치 구간 $[x, x+w)$이 어떤 타일 안에 온전히 든다 |
 | T3 | **실제 배율**: `line_scale`의 6개 사례 | §4-7 표 값과 상대 $10^{-9}$ 안에서 일치. L0 트레이스 $i$에 세로선(진폭 1)을 그린 합성(DC·gain 끔 — `resample_area`만)을 측선 L1로 바꾸고, 최대 열 $u$에서 $\lfloor u\sigma_x\rfloor$ ∈ {i−1, i, i+1}. 샘플 축도 같다 |
-| T4 | **주기 정규화**: `BScanSpec(f_c_hz=500e6, dt_ns=0.098, n_traces=401, n_samples=512, air_gap_m=0, snr_db=None)` → `make_detection_image` → 내용 영역 `line_image[:H_c]`에 `measure_period_samples` | `period_l1_px`가 $P^*$ ±1 %(반올림 오차). 내용 영역에서 잰 주기가 $P^*$ ±10 %. `p_target_px=6.0`도 같은 기준 |
+| T4 | **주기 정규화**(v0.3.5 개정): `BScanSpec(f_c_hz=500e6, dt_ns=0.098, n_traces=401, n_samples=512, air_gap_m=0)`, `snr_db` ∈ {None, 20.0}(시드 고정) → `make_detection_image`. (a) `period_l1_px`. (b) **꼭짓점 창**에서 잰 주기: 꼭짓점은 `prepare_fitting_branch(...).background_removed`의 가운데 트레이스 포락선 최대(앞 60 샘플 제외)다. 이를 측선 L1로 옮긴 행 $r$·열 $c$에서 `line_image[r−2P*:r+4P*+1, c−7:c+8] − 127.5`에 `measure_period_samples(..., min_period=2.0)`를 쓴다 | (a) $P^*$ ±1 %. (b) $P^*$ ±10 %. 기대값(`analysis/processing/detection_image_t4_check.py`)은 잡음 없음 4.06 / 5.95 px, SNR 20 dB 4.41 / 6.48 px($P^*$ 4.06 / 6.0). xfail을 없앤다. 내용 전체에서 잰 주기는 판정하지 않는다(AGC가 잡음 구간을 키워 바뀜, R2) |
 | T5 | **앨리어싱**: 길이 4,096 샘플의 정현파 $f$ = 0.75/s cycle/샘플(새 나이퀴스트의 1.5배)을 `resample_area`로 $s$ ∈ {3, 6.3, 12.6}배 축소 | 출력 RMS / 입력 RMS ≤ **0.36**(상자 응답 0.333 / 0.307 / 0.302). 반송파 $f$ = 0.246/s에서는 ≥ 0.85 |
 | T6 | **letterbox 항등**: 모든 `tile_image(k)`가 shape (256, 256)이고 `letterbox(tile, 256)`의 `InputTransform`이 `scale_x == scale_y == 1`, `pad_x == pad_y == 0`(짧은 측선 포함, [CV] 선택 (c)). 짧은 측선 타일은 열 ≥ $W_1$이 모두 `pad_gray`이고, 그 열 안의 박스는 `image_box_to_grid_box`가 `None` | 예외 없음 |
-| T7 | **경계·실측**: (a) `dt_ns=None` → `ValueError`. (b) 03.9 Path5 형(9 트레이스) → $W_1$ = 6, 타일 1장. (c) $P^*$ 8, 4TU Δt 0.195형($P$ 12.87 샘플) → `period_compressed`, $H_c$ = 256, `compression` = 1.243(≤ 1.25라 `scale_out_of_range` 없음). MALA형($n_s$ 512, $P$ 4.45 샘플, $P^*$ 4.06) → `compression` = 1.825, `scale_out_of_range`. (d) 평탄 자료 → `flat_line`. (f) 고주파형(Δt 0.039, Δx 0.01, $P$ 12.82 샘플, $\delta_z$ 0.00195) → `overlap_for`가 $O_\text{phys}$ 82, `period_capped` True, 플래그 `overlap_period_capped`. 4TU형: εr 9($P$ 25.61 샘플, Δt 0.098)은 2 $a_\max$ 환산 약 65 px라 False·$O_\text{phys}$ 65, εr 17.36(같은 Δt, $\delta_z$ 0.003526)은 약 90 px > 81.2라 True·$O_\text{phys}$ 82. 세 경우 모두 $O$ = 128. (g) 메타데이터 회귀(원본 불필요): `docs/processing/fourtu_lines_v1.csv` 759측선에 $P$ 2.51 ns·메타 εr로 `line_scale`·`overlap_for`를 돌리면 `period_capped`가 $P^*$ 4.06에서 92측선, 6.0에서 91측선이고, 모든 측선의 `overlap_px` = 128이다(`analysis/processing/detection_image_capped_count.py`와 같은 값). 실측 실행에서는 $P_\text{line}$을 재므로 건수가 달라질 수 있다(T7(e)는 건수를 판정하지 않음). (e) `data`: §9 후보 실측 파일 전부에 `make_detection_image`를 하고 T1을 반복, `assumed_params == M3_2_ASSUMED`, GPR-SD는 `v_scale_source == "depth_per_sample_rough"`(dt 가설 A·B로 읽은 `line_image`가 같음), 광저우 IDS는 `"assumed"`·`v_scale_assumed`, 4TU는 `"eps_r_meta"`, MALA는 `amplitude_processed`, 광저우 2000 MHz는 `overlap_period_capped`. 압축된 측선은 `compression`을 보고한다(MALA_07011은 실측 주기 4.45 샘플이면 약 1.8). 실행 결과로 `overlap_period_capped`·`period_compressed`·`scale_out_of_range` 세 플래그의 측선별 값과 건수를 csv(`data/processing/detection_image_flags.csv`, git 제외)와 로그에 남긴다(판정 없이 보고) | 각 항목대로 |
+| T7 | **경계·실측**: (a) `dt_ns=None` → `ValueError`. (b) 03.9 Path5 형(9 트레이스) → $W_1$ = 6, 타일 1장. (c) $P^*$ 8, 4TU Δt 0.195형($P$ 12.87 샘플) → `period_compressed`, $H_c$ = 256, `compression` = 1.243(≤ 1.25라 `scale_out_of_range` 없음). MALA형($n_s$ 512, $P$ 4.45 샘플, $P^*$ 4.06) → `compression` = 1.825, `scale_out_of_range`. (d) 평탄 자료 → `flat_line`. (f) 고주파형(Δt 0.039, Δx 0.01, $P$ 12.82 샘플, $\delta_z$ 0.00195) → `overlap_for`가 $O_\text{phys}$ 82, `period_capped` True, 플래그 `overlap_period_capped`. 4TU형: εr 9($P$ 25.61 샘플, Δt 0.098)은 2 $a_\max$ 환산 약 65 px라 False·$O_\text{phys}$ 65, εr 17.36(같은 Δt, $\delta_z$ 0.003526)은 약 90 px > 81.2라 True·$O_\text{phys}$ 82. 세 경우 모두 $O=O_\text{cv}$(기본값 192; `overlap_px=128`로 주면 128). (g) 메타데이터 회귀(원본 불필요): `docs/processing/fourtu_lines_v1.csv` 759측선에 $P$ 2.51 ns·메타 εr로 `line_scale`·`overlap_for`를 돌리면 `period_capped`가 $P^*$ 4.06에서 92측선, 6.0에서 91측선이고, 모든 측선의 `overlap_px` = 설정한 $O_\text{cv}$(기본 192, 128로 주면 128)이다(`analysis/processing/detection_image_capped_count.py`와 같은 값). 실측 실행에서는 $P_\text{line}$을 재므로 건수가 달라질 수 있다(T7(e)는 건수를 판정하지 않음). (e) `data`: §9 후보 실측 파일 전부에 `make_detection_image`를 하고 T1을 반복, `assumed_params == M3_2_ASSUMED`, GPR-SD는 `v_scale_source == "depth_per_sample_rough"`(dt 가설 A·B로 읽은 `line_image`가 같음), 광저우 IDS는 `"assumed"`·`v_scale_assumed`, 4TU는 `"eps_r_meta"`, MALA는 `amplitude_processed`, 광저우 2000 MHz는 `overlap_period_capped`. 압축된 측선은 `compression`을 보고한다(MALA_07011은 실측 주기 4.45 샘플이면 약 1.8). 실행 결과로 `overlap_period_capped`·`period_compressed`·`scale_out_of_range` 세 플래그의 측선별 값과 건수를 csv(`data/processing/detection_image_flags.csv`, git 제외)와 로그에 남긴다(판정 없이 보고) | 각 항목대로 |
 | T9 | **깊이 불변**: 같은 L0 `GridBox`·합성 측선에서 `estimate_line_depths` 결과가 `DetectionImageConfig`($P^*$ 4.06/6.0/8.0, 겹침 128/192)와 무관 | `DepthResult` 전 필드 동일(`==`) |
 | T10 | **박스 위 끝 민감도**(`synthetic`, 보고용): gprMax 20개 모델 정답 박스(M2-5 규칙) → 측선 L1 연속 박스 → (i) 정수 px로 바깥쪽 양자화, (ii) 위 끝 ±1·±2 L1 px 이동 → L0 → `estimate_depth` | (i) $\lvert\Delta d\rvert$ ≤ 1 cm(**가정** 기준, 넘으면 보고). (ii) 판정 없이 $\Delta d$·플래그 분포를 csv로 남긴다(`data/processing/l1_box_sensitivity.csv`, git 제외). Q6 재검토 근거 |
 
@@ -575,7 +576,7 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 | T8m | C5 | 종단 가짜 검출기(`tile_seam_box` 0) |
 | T3–T7, T9, T10, TD1–TD6 | – | 이 문서에만 있음 |
 
-박스는 `LineBox`를 직접 만든다. `DetectionImage`는 `dx_m` = 0.02를 포함해 아래 값으로 직접 만든다(V2가 `image.dx_m`을 쓴다). 측선은 4TU형이다($\sigma_x$ 1.5445, $\sigma_y$ 6.32, $P_\text{line}$ 25.61 샘플 → $P_{L1}$ = 4.05 px, $\delta_z$ 0.004897, $\Delta x$ 0.02, $W_1$ = 1,000, $O$ = 128 → 타일 7장).
+박스는 `LineBox`를 직접 만든다. `DetectionImage`는 `dx_m` = 0.02를 포함해 아래 값으로 직접 만든다(V2가 `image.dx_m`을 쓴다). 측선은 4TU형이다($\sigma_x$ 1.5445, $\sigma_y$ 6.32, $P_\text{line}$ 25.61 샘플 → $P_{L1}$ = 4.05 px, $\delta_z$ 0.004897, $\Delta x$ 0.02, $W_1$ = 1,000, $O$ = 128 → 타일 7장. 기본값과 무관하게 `overlap_px=128`로 **고정**한 픽스처다).
 
 | ID | 내용 | 기대값 |
 |---|---|---|
@@ -590,6 +591,7 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 | T8i (C3j-4) | 사슬: 같은 x, 폭 50 × 높이 60 px, 위 끝 A 40, B 42.5, C 45 px(A–B·B–C는 2.5 px라 IoU 0.92·거부 없음, A–C는 5 px > $P_{L1}$로 V1 거부). A·C는 타일 0, B는 타일 1(A–C는 같은 타일이라 비교 안 함). 점수 A > B > C, 모두 온전, 중심은 각자 소유 구간 안 | 대표 A(B 합침, `n_tiles_seen` 2), C는 재확인 4로 빠져 따로 남음 → 출력 2개 |
 | T8j (C3i) | **반올림 1회**: 병합 결과의 `line_boxes_to_grid` = 반올림 전 대표 박스에 `image_box_to_grid_box`를 한 번 한 값 | 같음. 안쪽으로 줄어든 변 없음 |
 | T8k (C3f) | **띠**: 5개 타일에 걸친 띠 하나(위 끝이 타일마다 0/±1/±2 px 다름) + 6 ns 아래 다른 띠 | 층 2개. 층마다 조각이 겹치지 않고 맞닿으며 x 합집합 길이 보존. 모든 조각의 $y_1,y_2$가 입력과 같다. 합성 측선(평탄 띠 진폭 1)에 넣어 `estimate_band_depths`를 부르면 첫 층이 결과 1개로 묶이고 깊이 ±2 cm |
+| T8k-2 (v0.3.5) | 띠 묶음 경계: 박스 높이 16 px(AIHub형)에서 이웃 조각 위 끝 차 3 / 6 / 9 px, 높이 5 px(1.2 P)에서 2 / 3 px. 평탄 띠 사건(진폭 1, 다른 층 없음)은 두 박스 모두의 세로 구간 안에 둔다 | 높이 16: 3·6 px는 결과 1개(묶임), 9 px(겹침 44 %)는 후보 아님. 높이 5: 2 px는 묶임, 3 px는 후보 아님. 모든 경우 $y_1,y_2$는 입력 그대로 |
 | T8l (C3g·C3h) | 띠 한쪽만 검출, 타일 순서 섞기, 병합 두 번(멱등) | 그 길이가 남음(`tile_clipped` False), 결과 같음 |
 | T8m (C5) | **종단 가짜 검출기**: 측선 L1 2,250 × 256에 사각형 50개(경계 위 포함, 폭 ≤ 120 px) → 타일 → 타일 안에서 보이는 부분만 내는 가짜 `Detector`(M1-8 `test_detect_contract.py` 방식) → 병합 → L0 | 사각형마다 정확히 1개, 각 변 오차 < 1 트레이스·1 샘플(바깥쪽만), 중복 0, 누락 0, `tile_seam_box` = 0 |
 | T8n (C4) | **단일 타일 동등성**: $W_1\le256$ 측선(예: 03.9 Path5형 $W_1$ 6, 01.1 Path1형 197) | `detect_line`의 결과 = 타일 1장에 `detect_tiles`만 하고 병합 없이 `line_boxes_to_grid`를 한 결과(같은 `GridBox`·점수·순서) |
@@ -633,7 +635,7 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 |---|---|---|
 | Q1 L1 방식 | 확정(C′) | – |
 | 병합(R2 + V1·V2, 띠 중재, `tile_truncated`) | 확정 | V1 문턱 1 P는 D3(4TU 정성)에서 확인 |
-| Q2 $P^*$ 4.06/6.0, 겹침 128/192 | **D1 평가 뒤 결정**(cv, M3-1 안) | 기본값 4.06·128로 구현 |
+| Q2 $P^*$ 4.06/6.0, 겹침 128/192 | $P^*$ 4.06 확정(D1 r2). 겹침 잠정 192(규칙 O 둘 다 불충족) | N2-a 재학습 → D1 r3에서 겹침 재판정. 구현은 기본값 4.06·192, 파라미터 유지 |
 | Q3 채움 값·회색 매핑 | M3-2 | 가정값 128·대칭, `assumed_params` |
 | Q4 GPR-SD 축척 | M3-1은 기본안 왕복만 | 라벨 축척은 M3-4 뒤 |
 | Q5 검출 영상 배경 창 | M3-2 | 가정값 301 |
@@ -646,7 +648,7 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 ## 11. 핸드오프
 
 - **python-expert**: §4(`to_image.py`), §5(`pipeline.py` 병합), §6(`pipeline.py` 깊이 순서), §8 시험. 기본값은 §4-2. 실행은 `conda run -n gpr-dev python -I`, PowerShell 도구다. 구현 뒤 gpr-processing-expert verify(T1–T10·TD1–TD6 결과 대조).
-- **cv-detection-expert**: D1(`p_target_px` 4.06/6.0 × 겹침 128/192), D3에서 V1 문턱과 `tile_truncated` 건수 확인, AIHub `tpipe` 라벨 위 여유(P 단위) 측정(Q6 근거). [CV] §5-5 "확인 필요"의 답은 §5-3 4-4다.
+- **cv-detection-expert**: D1 r3(N2-a 재학습 뒤 겹침 128/192 재판정; $P^*$는 r2에서 4.06), D3에서 V1 문턱과 `tile_truncated` 건수 확인, AIHub `tpipe` 라벨 위 여유(P 단위) 측정(Q6 근거). [CV] §5-5 "확인 필요"의 답은 §5-3 4-4다.
 - **add-architect**: ADR-004 "위험" 갱신. L1 = 측선 L1 + 정수 px 타일(Q8), 병합은 `pipeline`의 측선 연속 좌표, 결정 7 연결 구현 위치는 이 문서 §6. 스키마 변경 없음.
 - **cv-detection-expert(v0.3 어긋남 통지)**: 해소(CV v0.3.1). 높이 > 256 처리(Q9 확정 (A) 압축), 2000 MHz 측선 포함, 2,048 샘플 측선 높이, 절 번호 인용 5건 모두 [CV] v0.3.1에 반영됐다.
 - **gpr-dataset-curator**: **데이터셋 카드 기록 후보**. GPR-SD 우세 주기 약 51 샘플(배경 처리본, 측선 전체·관로 표식 창 모두)이 문서의 200–400 MHz·dt 가설 A(62 MHz)·B(73 MHz)와 맞지 않는다([PC], 탐색). 판정 아님.
@@ -655,6 +657,8 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 
 | ID | 위험 | 근거 | 다룰 곳 |
 |---|---|---|---|
+| R2 (v0.3.5) | 검출 영상의 AGC((5), 창 $8/f_c$)가 잡음·필터 끝 구간을 키워, L1 **전체**에서 잰 주기가 $P^*$보다 길어진다. 실측 4TU 6측선 4.57–5.25 px(+13–29 %, AIHub 크롭 전체 기준 p50 4.06·p90 4.57). 잡음 없는 합성은 17 px, SNR 20 dB는 7.4 px다. 관 반사 자리(꼭짓점 창)의 주기는 3.37–4.41 px로 $P^*$ 근처다. 그래서 축척 규칙(배경 제거 후·gain 전 $P_\text{line}$)은 맞고, 바뀌는 것은 영상 질감이다 | `analysis/processing/detection_image_t4_check.py` | M3-2 영상 품질: gain 종류·창과 AIHub 질감(크롭 전체 주기) 맞춤. M3-1 알고리즘은 바꾸지 않는다 |
+| R3 (v0.3.5) | 얇은 띠 박스(높이 ≤ 2 × 위 끝 차)는 이웃 타일 조각이 묶이지 않아 띠 결과가 둘로 나뉜다 | 구현 시험(높이 1.2 P, 3 px) | D3: 실측 이웃 타일 띠 조각의 위 끝 차·높이 분포와 미묶음 건수 보고 |
 | R1 | 광저우 MALA의 측정 주기가 폴더마다 4.45–36.6 샘플로 흩어진다. 처리본이라 저주파 잔여나 gain이 섞인 것으로 보인다. 그래서 $s_y$와 압축 여부가 측선마다 크게 바뀌고, 높이 > 256 측선 수가 주기 가정에 따라 8–75개로 달라진다 | `analysis/processing/detection_image_gz_height_check.py`(폴더 첫 파일 6개) | M3-2 영상 품질: MALA 주기 추정(창 제한·폴더 단위 대표값)과 D3에서 `compression`·`scale_out_of_range` 측선의 검출 품질 확인. M3-1은 측정값을 그대로 쓴다 |
 
 ## 12. [CV] 가정·결정 후보에 대한 물리 쪽 답
@@ -683,3 +687,5 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 | 2026-11-13 | v0.3.1 | Q9 사용자 결정 (A) 기록(§0 결정 표, §0-1 발견 3 반영 칸, §10). 다른 내용 변경 없음 |
 | 2026-11-13 | v0.3.2 | `overlap_period_capped` 조건 정정: 고주파만이 아니라 반파장 < 0.1 m인 측선 전부(4TU εr > 14.16의 91–92측선 포함, [CV] v0.3 관찰). §4-4 9·§4-6·T7(f)(g) 갱신, 겹침 결과 불변 확인(4TU 759측선 모두 128). 근거 `detection_image_capped_count.py` |
 | 2026-11-13 | v0.3.3 | integrity-checker 감사 반영: $P^*$ 6의 4TU $O_\text{phys}$ 92–120 → 91–120(4곳), `measure_period_samples`를 새로 만드는 이유와 기존 `dominant_period_px`·`estimate_period_px`와의 차이(§4-1), `DetectionImage.dx_m` 추가(V2, T8h), §4-7 기대값 정본 = 스크립트 출력·정밀 입력식, 해소된 [CV] 어긋남 통지 정리, Q9 확정 문구(§3), §11-1 위험 R1(MALA 주기), [CV] 인용 갱신(§5-4 5, C3d), T7(e) 플래그 건수 보고, 변경 이력 정렬 |
+| 2026-11-13 | v0.3.4 | D1 r2(ea7f447, [CV] §8-5) 반영: `p_target_px` 4.06 유지, `overlap_px` 기본 128 → **192(잠정)**, N2-a 재학습 뒤 D1 r3에서 재판정(§0 Q2, §4-2, §10 Q2, §11). 기본값에 묶인 기대값만 고침(T7(f)(g)는 $O=O_\text{cv}$). T2·§4-7·T8·T9는 고정 파라미터라 그대로다 |
+| 2026-11-13 | v0.3.5 | 구현 확인 3건 반영: T4 (b)를 꼭짓점 창 주기로 개정(`min_period=2.0`, 잡음 없음·SNR 20 dB 기대값, xfail 제거)하고 전체 주기의 AGC 영향은 R2(M3-2)로 둠. §5-3 4-4 띠 묶음 조건 정정(위 끝 차 ≤ 작은 높이의 절반)과 T8k-2·R3 추가. 03.9 Path5 `overlap_period_capped`가 맞음을 확인(§4-4 9). 근거 `detection_image_t4_check.py` |
