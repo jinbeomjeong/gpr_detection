@@ -1,0 +1,693 @@
+{
+ "schema": "m31_d1_verdict/1",
+ "rules": "m31_detection_input_tiling.md v0.3.3 §8-2 (3)(4)",
+ "identity": [
+  {
+   "fold": 0,
+   "weights": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold0\\weights\\last.pt",
+   "weights_sha256": "5300f34bf93b87f1a5c06a800b154b446a93c45be029af5c60c1512a0c4397ce",
+   "weights_sha8_expected": "5300f34b",
+   "weights_match_audit": true,
+   "weights_match_m110_metrics": true,
+   "eval_list": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold0\\eval\\last_crop\\eval_images.txt",
+   "eval_list_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+   "eval_list_match_m110_metrics": true,
+   "n_images": 1298,
+   "n_images_m110": 1298
+  },
+  {
+   "fold": 1,
+   "weights": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold1\\weights\\last.pt",
+   "weights_sha256": "cf9423f1b219581a58f6134bf911646d021960070d9c32c77fe52c5cd71571d9",
+   "weights_sha8_expected": "cf9423f1",
+   "weights_match_audit": true,
+   "weights_match_m110_metrics": true,
+   "eval_list": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold1\\eval\\last_crop\\eval_images.txt",
+   "eval_list_sha256": "4ef169c95d1a6f8ad8fc797ba3e0a191d34e9575f2503ed7eb95a8f4f9454f13",
+   "eval_list_match_m110_metrics": true,
+   "n_images": 1186,
+   "n_images_m110": 1186
+  },
+  {
+   "fold": 2,
+   "weights": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold2\\weights\\last.pt",
+   "weights_sha256": "8dfa57133b7d15505a059f7b7bb94e07202f90b987c9a00d91ce48f5a36e0486",
+   "weights_sha8_expected": "8dfa5713",
+   "weights_match_audit": true,
+   "weights_match_m110_metrics": true,
+   "eval_list": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold2\\eval\\last_crop\\eval_images.txt",
+   "eval_list_sha256": "69a61b9a49cbaa1d94f5b63149cab364dadb0619188af0a88e062d82d8f5070f",
+   "eval_list_match_m110_metrics": true,
+   "n_images": 1074,
+   "n_images_m110": 1074
+  },
+  {
+   "fold": 3,
+   "weights": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold3\\weights\\last.pt",
+   "weights_sha256": "43ae65ee9227f49f2c78e937f5b28f06637ec909ab025b0c0245bc0b8c4091cc",
+   "weights_sha8_expected": "43ae65ee",
+   "weights_match_audit": true,
+   "weights_match_m110_metrics": true,
+   "eval_list": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold3\\eval\\last_crop\\eval_images.txt",
+   "eval_list_sha256": "3f917aa72b0e7c472004dfb05388d0cb2b6528ee4fede78de00b08e9435c6b78",
+   "eval_list_match_m110_metrics": true,
+   "n_images": 922,
+   "n_images_m110": 922
+  },
+  {
+   "fold": 4,
+   "weights": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold4\\weights\\last.pt",
+   "weights_sha256": "1960286041d3777e6ed1a65bda662e2cdfddccfda38ec95fdb546ec74a5e5071",
+   "weights_sha8_expected": "19602860",
+   "weights_match_audit": true,
+   "weights_match_m110_metrics": true,
+   "eval_list": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1_20261101_fold4\\eval\\last_crop\\eval_images.txt",
+   "eval_list_sha256": "06c10d22b90e887bc42c82fe968819ed166023af6293736a70bc3c2502b4a42e",
+   "eval_list_match_m110_metrics": true,
+   "n_images": 993,
+   "n_images_m110": 993
+  }
+ ],
+ "baseline_check": {
+  "pass": false,
+  "values": [
+   {
+    "fold": 0,
+    "class": "pipe_hyperbola",
+    "ap50_d1": 97.092,
+    "ap50_m110": 96.499,
+    "diff_pp": 0.593,
+    "pass": true
+   },
+   {
+    "fold": 0,
+    "class": "cavity",
+    "ap50_d1": 85.762,
+    "ap50_m110": 87.128,
+    "diff_pp": -1.366,
+    "pass": false
+   },
+   {
+    "fold": 0,
+    "class": "manhole",
+    "ap50_d1": 90.127,
+    "ap50_m110": 88.796,
+    "diff_pp": 1.331,
+    "pass": false
+   },
+   {
+    "fold": 1,
+    "class": "pipe_hyperbola",
+    "ap50_d1": 87.679,
+    "ap50_m110": 91.596,
+    "diff_pp": -3.917,
+    "pass": false
+   },
+   {
+    "fold": 1,
+    "class": "cavity",
+    "ap50_d1": 88.335,
+    "ap50_m110": 87.365,
+    "diff_pp": 0.97,
+    "pass": true
+   },
+   {
+    "fold": 1,
+    "class": "manhole",
+    "ap50_d1": 87.624,
+    "ap50_m110": 87.486,
+    "diff_pp": 0.139,
+    "pass": true
+   },
+   {
+    "fold": 2,
+    "class": "pipe_hyperbola",
+    "ap50_d1": 97.264,
+    "ap50_m110": 96.902,
+    "diff_pp": 0.362,
+    "pass": true
+   },
+   {
+    "fold": 2,
+    "class": "cavity",
+    "ap50_d1": 87.392,
+    "ap50_m110": 87.888,
+    "diff_pp": -0.496,
+    "pass": true
+   },
+   {
+    "fold": 2,
+    "class": "manhole",
+    "ap50_d1": 90.015,
+    "ap50_m110": 88.886,
+    "diff_pp": 1.129,
+    "pass": false
+   },
+   {
+    "fold": 3,
+    "class": "pipe_hyperbola",
+    "ap50_d1": 95.493,
+    "ap50_m110": 94.744,
+    "diff_pp": 0.749,
+    "pass": true
+   },
+   {
+    "fold": 3,
+    "class": "cavity",
+    "ap50_d1": 80.85,
+    "ap50_m110": 84.369,
+    "diff_pp": -3.519,
+    "pass": false
+   },
+   {
+    "fold": 3,
+    "class": "manhole",
+    "ap50_d1": 90.994,
+    "ap50_m110": 89.701,
+    "diff_pp": 1.293,
+    "pass": false
+   },
+   {
+    "fold": 4,
+    "class": "pipe_hyperbola",
+    "ap50_d1": 89.666,
+    "ap50_m110": 90.013,
+    "diff_pp": -0.347,
+    "pass": true
+   },
+   {
+    "fold": 4,
+    "class": "cavity",
+    "ap50_d1": 85.185,
+    "ap50_m110": 84.958,
+    "diff_pp": 0.227,
+    "pass": true
+   },
+   {
+    "fold": 4,
+    "class": "manhole",
+    "ap50_d1": 86.484,
+    "ap50_m110": 87.061,
+    "diff_pp": -0.577,
+    "pass": true
+   }
+  ]
+ },
+ "n_gt": [
+  {
+   "fold": 0,
+   "hyp_ngt_g1dx0": 71,
+   "expected": 71,
+   "match": true,
+   "judged_all_kept": true,
+   "ignored_by_condition": {
+    "g0.50_dx+0": {
+     "pipe_band": 44,
+     "manhole": 6
+    },
+    "g0.74_dx+0": {
+     "pipe_band": 44,
+     "manhole": 6
+    },
+    "g0.87_dx+0": {
+     "pipe_band": 44,
+     "manhole": 6
+    },
+    "g1.00_dx+0": {
+     "pipe_band": 44,
+     "manhole": 6
+    },
+    "g1.13_dx+0": {
+     "pipe_band": 510,
+     "manhole": 16
+    },
+    "g1.28_dx+0": {
+     "pipe_band": 541,
+     "manhole": 17
+    },
+    "gp6_dx+0": {
+     "pipe_band": 608,
+     "cavity": 4,
+     "manhole": 28
+    },
+    "g1.67_dx+0": {
+     "pipe_band": 676,
+     "cavity": 5,
+     "manhole": 31
+    },
+    "g1.00_dx-96": {
+     "pipe_hyperbola": 6,
+     "pipe_band": 750,
+     "cavity": 12,
+     "manhole": 35
+    },
+    "g1.00_dx-64": {
+     "pipe_band": 535,
+     "cavity": 3,
+     "manhole": 20
+    },
+    "g1.00_dx-32": {
+     "pipe_band": 332,
+     "manhole": 14
+    },
+    "g1.00_dx+32": {
+     "pipe_band": 315,
+     "manhole": 11
+    },
+    "g1.00_dx+64": {
+     "pipe_band": 524,
+     "manhole": 24
+    },
+    "g1.00_dx+96": {
+     "pipe_hyperbola": 8,
+     "pipe_band": 743,
+     "cavity": 5,
+     "manhole": 39
+    },
+    "gp6_dx-64": {
+     "pipe_band": 693,
+     "cavity": 9,
+     "manhole": 26
+    },
+    "gp6_dx-32": {
+     "pipe_band": 712,
+     "cavity": 5,
+     "manhole": 24
+    },
+    "gp6_dx+32": {
+     "pipe_band": 715,
+     "cavity": 2,
+     "manhole": 28
+    },
+    "gp6_dx+64": {
+     "pipe_band": 687,
+     "cavity": 5,
+     "manhole": 32
+    },
+    "g1.00_dx+0_fillL64": {
+     "pipe_band": 535,
+     "cavity": 3,
+     "manhole": 20
+    },
+    "g1.00_dx+0_fillR64": {
+     "pipe_band": 524,
+     "manhole": 24
+    }
+   }
+  },
+  {
+   "fold": 1,
+   "hyp_ngt_g1dx0": 45,
+   "expected": 45,
+   "match": true,
+   "judged_all_kept": true,
+   "ignored_by_condition": {
+    "g0.50_dx+0": {
+     "pipe_band": 13,
+     "manhole": 2
+    },
+    "g0.74_dx+0": {
+     "pipe_band": 13,
+     "manhole": 2
+    },
+    "g0.87_dx+0": {
+     "pipe_band": 13,
+     "manhole": 2
+    },
+    "g1.00_dx+0": {
+     "pipe_band": 13,
+     "manhole": 2
+    },
+    "g1.13_dx+0": {
+     "pipe_band": 123,
+     "manhole": 15
+    },
+    "g1.28_dx+0": {
+     "pipe_band": 146,
+     "manhole": 26
+    },
+    "gp6_dx+0": {
+     "pipe_band": 188,
+     "manhole": 36
+    },
+    "g1.67_dx+0": {
+     "pipe_band": 238,
+     "manhole": 41
+    },
+    "g1.00_dx-96": {
+     "pipe_hyperbola": 3,
+     "pipe_band": 450,
+     "cavity": 5,
+     "manhole": 40
+    },
+    "g1.00_dx-64": {
+     "pipe_band": 237,
+     "manhole": 22
+    },
+    "g1.00_dx-32": {
+     "pipe_band": 96,
+     "manhole": 14
+    },
+    "g1.00_dx+32": {
+     "pipe_band": 92,
+     "manhole": 15
+    },
+    "g1.00_dx+64": {
+     "pipe_band": 256,
+     "manhole": 25
+    },
+    "g1.00_dx+96": {
+     "pipe_band": 460,
+     "cavity": 5,
+     "manhole": 42
+    },
+    "gp6_dx-64": {
+     "pipe_band": 390,
+     "cavity": 4,
+     "manhole": 36
+    },
+    "gp6_dx-32": {
+     "pipe_band": 265,
+     "manhole": 33
+    },
+    "gp6_dx+32": {
+     "pipe_band": 284,
+     "manhole": 31
+    },
+    "gp6_dx+64": {
+     "pipe_band": 409,
+     "cavity": 5,
+     "manhole": 40
+    },
+    "g1.00_dx+0_fillL64": {
+     "pipe_band": 237,
+     "manhole": 22
+    },
+    "g1.00_dx+0_fillR64": {
+     "pipe_band": 256,
+     "manhole": 25
+    }
+   }
+  },
+  {
+   "fold": 2,
+   "hyp_ngt_g1dx0": 98,
+   "expected": 98,
+   "match": true,
+   "judged_all_kept": true,
+   "ignored_by_condition": {
+    "g0.50_dx+0": {
+     "manhole": 8
+    },
+    "g0.74_dx+0": {
+     "manhole": 8
+    },
+    "g0.87_dx+0": {
+     "manhole": 8
+    },
+    "g1.00_dx+0": {
+     "manhole": 8
+    },
+    "g1.13_dx+0": {
+     "pipe_band": 14,
+     "manhole": 9
+    },
+    "g1.28_dx+0": {
+     "pipe_band": 15,
+     "manhole": 17
+    },
+    "gp6_dx+0": {
+     "pipe_band": 25,
+     "manhole": 25
+    },
+    "g1.67_dx+0": {
+     "pipe_band": 62,
+     "cavity": 1,
+     "manhole": 31
+    },
+    "g1.00_dx-96": {
+     "pipe_band": 249,
+     "cavity": 5,
+     "manhole": 38
+    },
+    "g1.00_dx-64": {
+     "pipe_band": 85,
+     "cavity": 2,
+     "manhole": 22
+    },
+    "g1.00_dx-32": {
+     "pipe_band": 9,
+     "manhole": 14
+    },
+    "g1.00_dx+32": {
+     "pipe_band": 10,
+     "manhole": 11
+    },
+    "g1.00_dx+64": {
+     "pipe_band": 89,
+     "manhole": 24
+    },
+    "g1.00_dx+96": {
+     "pipe_hyperbola": 6,
+     "pipe_band": 245,
+     "manhole": 39
+    },
+    "gp6_dx-64": {
+     "pipe_band": 223,
+     "cavity": 4,
+     "manhole": 31
+    },
+    "gp6_dx-32": {
+     "pipe_band": 87,
+     "cavity": 2,
+     "manhole": 23
+    },
+    "gp6_dx+32": {
+     "pipe_band": 90,
+     "manhole": 27
+    },
+    "gp6_dx+64": {
+     "pipe_hyperbola": 3,
+     "pipe_band": 218,
+     "manhole": 32
+    },
+    "g1.00_dx+0_fillL64": {
+     "pipe_band": 85,
+     "cavity": 2,
+     "manhole": 22
+    },
+    "g1.00_dx+0_fillR64": {
+     "pipe_band": 89,
+     "manhole": 24
+    }
+   }
+  },
+  {
+   "fold": 3,
+   "hyp_ngt_g1dx0": 147,
+   "expected": 147,
+   "match": true,
+   "judged_all_kept": true,
+   "ignored_by_condition": {
+    "g0.50_dx+0": {
+     "pipe_band": 2,
+     "manhole": 5
+    },
+    "g0.74_dx+0": {
+     "pipe_band": 2,
+     "manhole": 5
+    },
+    "g0.87_dx+0": {
+     "pipe_band": 2,
+     "manhole": 5
+    },
+    "g1.00_dx+0": {
+     "pipe_band": 2,
+     "manhole": 5
+    },
+    "g1.13_dx+0": {
+     "pipe_band": 18,
+     "manhole": 18
+    },
+    "g1.28_dx+0": {
+     "pipe_band": 21,
+     "manhole": 26
+    },
+    "gp6_dx+0": {
+     "pipe_band": 21,
+     "manhole": 44
+    },
+    "g1.67_dx+0": {
+     "pipe_band": 25,
+     "cavity": 3,
+     "manhole": 49
+    },
+    "g1.00_dx-96": {
+     "pipe_hyperbola": 20,
+     "pipe_band": 51,
+     "cavity": 9,
+     "manhole": 61
+    },
+    "g1.00_dx-64": {
+     "pipe_band": 18,
+     "cavity": 1,
+     "manhole": 41
+    },
+    "g1.00_dx-32": {
+     "pipe_band": 11,
+     "manhole": 22
+    },
+    "g1.00_dx+32": {
+     "pipe_band": 12,
+     "manhole": 15
+    },
+    "g1.00_dx+64": {
+     "pipe_band": 18,
+     "manhole": 30
+    },
+    "g1.00_dx+96": {
+     "pipe_hyperbola": 11,
+     "pipe_band": 46,
+     "cavity": 3,
+     "manhole": 46
+    },
+    "gp6_dx-64": {
+     "pipe_hyperbola": 3,
+     "pipe_band": 39,
+     "cavity": 4,
+     "manhole": 52
+    },
+    "gp6_dx-32": {
+     "pipe_band": 25,
+     "cavity": 1,
+     "manhole": 50
+    },
+    "gp6_dx+32": {
+     "pipe_band": 27,
+     "manhole": 35
+    },
+    "gp6_dx+64": {
+     "pipe_hyperbola": 3,
+     "pipe_band": 35,
+     "cavity": 3,
+     "manhole": 44
+    },
+    "g1.00_dx+0_fillL64": {
+     "pipe_band": 18,
+     "cavity": 1,
+     "manhole": 41
+    },
+    "g1.00_dx+0_fillR64": {
+     "pipe_band": 18,
+     "manhole": 30
+    }
+   }
+  },
+  {
+   "fold": 4,
+   "hyp_ngt_g1dx0": 142,
+   "expected": 142,
+   "match": true,
+   "judged_all_kept": true,
+   "ignored_by_condition": {
+    "g0.50_dx+0": {
+     "pipe_band": 5,
+     "manhole": 11
+    },
+    "g0.74_dx+0": {
+     "pipe_band": 5,
+     "manhole": 11
+    },
+    "g0.87_dx+0": {
+     "pipe_band": 5,
+     "manhole": 11
+    },
+    "g1.00_dx+0": {
+     "pipe_band": 5,
+     "manhole": 11
+    },
+    "g1.13_dx+0": {
+     "pipe_band": 127,
+     "cavity": 2,
+     "manhole": 23
+    },
+    "g1.28_dx+0": {
+     "pipe_band": 129,
+     "cavity": 2,
+     "manhole": 30
+    },
+    "gp6_dx+0": {
+     "pipe_band": 134,
+     "cavity": 2,
+     "manhole": 41
+    },
+    "g1.67_dx+0": {
+     "pipe_band": 136,
+     "cavity": 2,
+     "manhole": 51
+    },
+    "g1.00_dx-96": {
+     "pipe_hyperbola": 21,
+     "pipe_band": 153,
+     "cavity": 8,
+     "manhole": 57
+    },
+    "g1.00_dx-64": {
+     "pipe_band": 101,
+     "cavity": 2,
+     "manhole": 35
+    },
+    "g1.00_dx-32": {
+     "pipe_band": 84,
+     "cavity": 2,
+     "manhole": 23
+    },
+    "g1.00_dx+32": {
+     "pipe_band": 76,
+     "manhole": 20
+    },
+    "g1.00_dx+64": {
+     "pipe_band": 96,
+     "manhole": 32
+    },
+    "g1.00_dx+96": {
+     "pipe_hyperbola": 9,
+     "pipe_band": 141,
+     "cavity": 5,
+     "manhole": 51
+    },
+    "gp6_dx-64": {
+     "pipe_hyperbola": 2,
+     "pipe_band": 139,
+     "cavity": 5,
+     "manhole": 47
+    },
+    "gp6_dx-32": {
+     "pipe_band": 137,
+     "cavity": 2,
+     "manhole": 41
+    },
+    "gp6_dx+32": {
+     "pipe_band": 140,
+     "cavity": 2,
+     "manhole": 40
+    },
+    "gp6_dx+64": {
+     "pipe_band": 131,
+     "cavity": 1,
+     "manhole": 47
+    },
+    "g1.00_dx+0_fillL64": {
+     "pipe_band": 101,
+     "cavity": 2,
+     "manhole": 35
+    },
+    "g1.00_dx+0_fillR64": {
+     "pipe_band": 96,
+     "manhole": 32
+    }
+   }
+  }
+ ],
+ "verdict": "no verdict: baseline check failed"
+}
