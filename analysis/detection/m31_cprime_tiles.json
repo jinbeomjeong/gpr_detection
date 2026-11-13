@@ -1,0 +1,835 @@
+{
+ "spec": "docs/processing/spec_detection_image_v1.md v0.3 §4-4 3, 9, 10",
+ "assumptions": {
+  "fourtu_period_ns": 2.51,
+  "gz_period_ns": {
+   "30": 2.93,
+   "50": 2.11
+  },
+  "gz_mala_period_ns": 2.5,
+  "gz_velocity_m_per_ns": 0.1,
+  "gprsd_period_samples": 51.2,
+  "a_max_m": 1.0,
+  "overlap_width_periods": 20.0,
+  "o_min_px": 64,
+  "o_max_px": 224,
+  "compress_max": 1.25,
+  "tile_px": 256
+ },
+ "fourtu": {
+  "dataset": "4TU",
+  "n_lines": 759,
+  "n_traces_total": 459308,
+  "conditions": {
+   "P4.06_Ophys": {
+    "tiles_total": 2109,
+    "single_tile_lines": 500,
+    "o_phys_px_min_med_max": [
+     64,
+     72,
+     82
+    ],
+    "overlap_used_px_max": 82,
+    "period_capped_lines": 92,
+    "period_capped_groups": [
+     "all"
+    ],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     80,
+     161
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      759,
+      459308,
+      2109
+     ]
+    }
+   },
+   "P4.06_O128": {
+    "tiles_total": 2588,
+    "single_tile_lines": 500,
+    "o_phys_px_min_med_max": [
+     64,
+     72,
+     82
+    ],
+    "overlap_used_px_max": 128,
+    "period_capped_lines": 92,
+    "period_capped_groups": [
+     "all"
+    ],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     80,
+     161
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      759,
+      459308,
+      2588
+     ]
+    }
+   },
+   "P4.06_O192": {
+    "tiles_total": 4256,
+    "single_tile_lines": 500,
+    "o_phys_px_min_med_max": [
+     64,
+     72,
+     82
+    ],
+    "overlap_used_px_max": 192,
+    "period_capped_lines": 92,
+    "period_capped_groups": [
+     "all"
+    ],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     80,
+     161
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      759,
+      459308,
+      4256
+     ]
+    }
+   },
+   "P6_Ophys": {
+    "tiles_total": 3428,
+    "single_tile_lines": 406,
+    "o_phys_px_min_med_max": [
+     91,
+     107,
+     120
+    ],
+    "overlap_used_px_max": 120,
+    "period_capped_lines": 91,
+    "period_capped_groups": [
+     "all"
+    ],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     119,
+     239
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      759,
+      459308,
+      3428
+     ]
+    }
+   },
+   "P6_O128": {
+    "tiles_total": 3719,
+    "single_tile_lines": 406,
+    "o_phys_px_min_med_max": [
+     91,
+     107,
+     120
+    ],
+    "overlap_used_px_max": 128,
+    "period_capped_lines": 91,
+    "period_capped_groups": [
+     "all"
+    ],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     119,
+     239
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      759,
+      459308,
+      3719
+     ]
+    }
+   },
+   "P6_O192": {
+    "tiles_total": 6470,
+    "single_tile_lines": 406,
+    "o_phys_px_min_med_max": [
+     91,
+     107,
+     120
+    ],
+    "overlap_used_px_max": 192,
+    "period_capped_lines": 91,
+    "period_capped_groups": [
+     "all"
+    ],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     119,
+     239
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      759,
+      459308,
+      6470
+     ]
+    }
+   }
+  }
+ },
+ "guangzhou_pipe": {
+  "dataset": "Guangzhou pipe",
+  "n_lines": 523,
+  "n_traces_total": 532602,
+  "conditions": {
+   "P4.06_Ophys": {
+    "tiles_total": 2644,
+    "single_tile_lines": 178,
+    "o_phys_px_min_med_max": [
+     64,
+     65,
+     82
+    ],
+    "overlap_used_px_max": 82,
+    "period_capped_lines": 51,
+    "period_capped_groups": [
+     "2000MHz",
+     "600MHz",
+     "900MHz"
+    ],
+    "compressed_lines": 75,
+    "compressed_groups": [
+     "MALA"
+    ],
+    "scale_out_of_range_lines": 14,
+    "compression_max": 1.269,
+    "content_height_px_min_max": [
+     32,
+     256
+    ],
+    "n2048_height_px_min_max": [
+     65,
+     156
+    ],
+    "by_group_lines_traces_tiles": {
+     "2000MHz": [
+      24,
+      26547,
+      251
+     ],
+     "400MHz": [
+      391,
+      285650,
+      1235
+     ],
+     "200MHz": [
+      4,
+      24331,
+      50
+     ],
+     "600MHz": [
+      16,
+      61645,
+      344
+     ],
+     "900MHz": [
+      11,
+      84174,
+      567
+     ],
+     "80MHz": [
+      2,
+      2858,
+      5
+     ],
+     "MALA": [
+      75,
+      47397,
+      192
+     ]
+    }
+   },
+   "P4.06_O128": {
+    "tiles_total": 3425,
+    "single_tile_lines": 178,
+    "o_phys_px_min_med_max": [
+     64,
+     65,
+     82
+    ],
+    "overlap_used_px_max": 128,
+    "period_capped_lines": 51,
+    "period_capped_groups": [
+     "2000MHz",
+     "600MHz",
+     "900MHz"
+    ],
+    "compressed_lines": 75,
+    "compressed_groups": [
+     "MALA"
+    ],
+    "scale_out_of_range_lines": 14,
+    "compression_max": 1.269,
+    "content_height_px_min_max": [
+     32,
+     256
+    ],
+    "n2048_height_px_min_max": [
+     65,
+     156
+    ],
+    "by_group_lines_traces_tiles": {
+     "2000MHz": [
+      24,
+      26547,
+      327
+     ],
+     "400MHz": [
+      391,
+      285650,
+      1564
+     ],
+     "200MHz": [
+      4,
+      24331,
+      71
+     ],
+     "600MHz": [
+      16,
+      61645,
+      459
+     ],
+     "900MHz": [
+      11,
+      84174,
+      762
+     ],
+     "80MHz": [
+      2,
+      2858,
+      6
+     ],
+     "MALA": [
+      75,
+      47397,
+      236
+     ]
+    }
+   },
+   "P4.06_O192": {
+    "tiles_total": 6132,
+    "single_tile_lines": 178,
+    "o_phys_px_min_med_max": [
+     64,
+     65,
+     82
+    ],
+    "overlap_used_px_max": 192,
+    "period_capped_lines": 51,
+    "period_capped_groups": [
+     "2000MHz",
+     "600MHz",
+     "900MHz"
+    ],
+    "compressed_lines": 75,
+    "compressed_groups": [
+     "MALA"
+    ],
+    "scale_out_of_range_lines": 14,
+    "compression_max": 1.269,
+    "content_height_px_min_max": [
+     32,
+     256
+    ],
+    "n2048_height_px_min_max": [
+     65,
+     156
+    ],
+    "by_group_lines_traces_tiles": {
+     "2000MHz": [
+      24,
+      26547,
+      617
+     ],
+     "400MHz": [
+      391,
+      285650,
+      2609
+     ],
+     "200MHz": [
+      4,
+      24331,
+      138
+     ],
+     "600MHz": [
+      16,
+      61645,
+      896
+     ],
+     "900MHz": [
+      11,
+      84174,
+      1509
+     ],
+     "80MHz": [
+      2,
+      2858,
+      9
+     ],
+     "MALA": [
+      75,
+      47397,
+      354
+     ]
+    }
+   },
+   "P6_Ophys": {
+    "tiles_total": 4425,
+    "single_tile_lines": 117,
+    "o_phys_px_min_med_max": [
+     64,
+     83,
+     120
+    ],
+    "overlap_used_px_max": 120,
+    "period_capped_lines": 50,
+    "period_capped_groups": [
+     "2000MHz",
+     "600MHz",
+     "900MHz"
+    ],
+    "compressed_lines": 84,
+    "compressed_groups": [
+     "2000MHz",
+     "400MHz",
+     "600MHz",
+     "MALA"
+    ],
+    "scale_out_of_range_lines": 78,
+    "compression_max": 1.875,
+    "content_height_px_min_max": [
+     48,
+     256
+    ],
+    "n2048_height_px_min_max": [
+     96,
+     230
+    ],
+    "by_group_lines_traces_tiles": {
+     "2000MHz": [
+      24,
+      26547,
+      454
+     ],
+     "400MHz": [
+      391,
+      285650,
+      2000
+     ],
+     "200MHz": [
+      4,
+      24331,
+      75
+     ],
+     "600MHz": [
+      16,
+      61645,
+      634
+     ],
+     "900MHz": [
+      11,
+      84174,
+      1064
+     ],
+     "80MHz": [
+      2,
+      2858,
+      6
+     ],
+     "MALA": [
+      75,
+      47397,
+      192
+     ]
+    }
+   },
+   "P6_O128": {
+    "tiles_total": 4977,
+    "single_tile_lines": 117,
+    "o_phys_px_min_med_max": [
+     64,
+     83,
+     120
+    ],
+    "overlap_used_px_max": 128,
+    "period_capped_lines": 50,
+    "period_capped_groups": [
+     "2000MHz",
+     "600MHz",
+     "900MHz"
+    ],
+    "compressed_lines": 84,
+    "compressed_groups": [
+     "2000MHz",
+     "400MHz",
+     "600MHz",
+     "MALA"
+    ],
+    "scale_out_of_range_lines": 78,
+    "compression_max": 1.875,
+    "content_height_px_min_max": [
+     48,
+     256
+    ],
+    "n2048_height_px_min_max": [
+     96,
+     230
+    ],
+    "by_group_lines_traces_tiles": {
+     "2000MHz": [
+      24,
+      26547,
+      479
+     ],
+     "400MHz": [
+      391,
+      285650,
+      2341
+     ],
+     "200MHz": [
+      4,
+      24331,
+      107
+     ],
+     "600MHz": [
+      16,
+      61645,
+      675
+     ],
+     "900MHz": [
+      11,
+      84174,
+      1131
+     ],
+     "80MHz": [
+      2,
+      2858,
+      8
+     ],
+     "MALA": [
+      75,
+      47397,
+      236
+     ]
+    }
+   },
+   "P6_O192": {
+    "tiles_total": 9215,
+    "single_tile_lines": 117,
+    "o_phys_px_min_med_max": [
+     64,
+     83,
+     120
+    ],
+    "overlap_used_px_max": 192,
+    "period_capped_lines": 50,
+    "period_capped_groups": [
+     "2000MHz",
+     "600MHz",
+     "900MHz"
+    ],
+    "compressed_lines": 84,
+    "compressed_groups": [
+     "2000MHz",
+     "400MHz",
+     "600MHz",
+     "MALA"
+    ],
+    "scale_out_of_range_lines": 78,
+    "compression_max": 1.875,
+    "content_height_px_min_max": [
+     48,
+     256
+    ],
+    "n2048_height_px_min_max": [
+     96,
+     230
+    ],
+    "by_group_lines_traces_tiles": {
+     "2000MHz": [
+      24,
+      26547,
+      927
+     ],
+     "400MHz": [
+      391,
+      285650,
+      4139
+     ],
+     "200MHz": [
+      4,
+      24331,
+      210
+     ],
+     "600MHz": [
+      16,
+      61645,
+      1327
+     ],
+     "900MHz": [
+      11,
+      84174,
+      2244
+     ],
+     "80MHz": [
+      2,
+      2858,
+      14
+     ],
+     "MALA": [
+      75,
+      47397,
+      354
+     ]
+    }
+   }
+  }
+ },
+ "gprsd": {
+  "dataset": "GPR-SD",
+  "n_lines": 12,
+  "n_traces_total": 275885,
+  "conditions": {
+   "P4.06_Ophys": {
+    "tiles_total": 290,
+    "single_tile_lines": 0,
+    "o_phys_px_min_med_max": [
+     64,
+     64,
+     64
+    ],
+    "overlap_used_px_max": 64,
+    "period_capped_lines": 0,
+    "period_capped_groups": [],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     25,
+     25
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      12,
+      275885,
+      290
+     ]
+    }
+   },
+   "P4.06_O128": {
+    "tiles_total": 420,
+    "single_tile_lines": 0,
+    "o_phys_px_min_med_max": [
+     64,
+     64,
+     64
+    ],
+    "overlap_used_px_max": 128,
+    "period_capped_lines": 0,
+    "period_capped_groups": [],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     25,
+     25
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      12,
+      275885,
+      420
+     ]
+    }
+   },
+   "P4.06_O192": {
+    "tiles_total": 826,
+    "single_tile_lines": 0,
+    "o_phys_px_min_med_max": [
+     64,
+     64,
+     64
+    ],
+    "overlap_used_px_max": 192,
+    "period_capped_lines": 0,
+    "period_capped_groups": [],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     25,
+     25
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      12,
+      275885,
+      826
+     ]
+    }
+   },
+   "P6_Ophys": {
+    "tiles_total": 421,
+    "single_tile_lines": 0,
+    "o_phys_px_min_med_max": [
+     64,
+     64,
+     64
+    ],
+    "overlap_used_px_max": 64,
+    "period_capped_lines": 0,
+    "period_capped_groups": [],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     38,
+     38
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      12,
+      275885,
+      421
+     ]
+    }
+   },
+   "P6_O128": {
+    "tiles_total": 624,
+    "single_tile_lines": 0,
+    "o_phys_px_min_med_max": [
+     64,
+     64,
+     64
+    ],
+    "overlap_used_px_max": 128,
+    "period_capped_lines": 0,
+    "period_capped_groups": [],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     38,
+     38
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      12,
+      275885,
+      624
+     ]
+    }
+   },
+   "P6_O192": {
+    "tiles_total": 1231,
+    "single_tile_lines": 0,
+    "o_phys_px_min_med_max": [
+     64,
+     64,
+     64
+    ],
+    "overlap_used_px_max": 192,
+    "period_capped_lines": 0,
+    "period_capped_groups": [],
+    "compressed_lines": 0,
+    "compressed_groups": [],
+    "scale_out_of_range_lines": 0,
+    "compression_max": 1.0,
+    "content_height_px_min_max": [
+     38,
+     38
+    ],
+    "n2048_height_px_min_max": [
+     null,
+     null
+    ],
+    "by_group_lines_traces_tiles": {
+     "all": [
+      12,
+      275885,
+      1231
+     ]
+    }
+   }
+  }
+ }
+}
