@@ -1,6 +1,6 @@
 # M3-1 N2-a′ — 문맥 이동 증강 재학습 계획
 
-- 상태: **v1.0 봉인 판** (2026-11-14, cv-detection-expert). 구현은 C-22–C-25까지 끝났다(`tests/test_context_augment.py` 43개 통과, 전체 1,361 passed, python-expert 기준). 이 문서 v1.0과 설정·구현을 한 커밋으로 봉인한다. v1.0은 v0.3(python-expert 구현 결과 §7-0, 확인 필요 4건 결정 §7-5)에 integrity-checker 봉인 전 점검을 반영한 것이고, 뜻은 바뀌지 않았다.
+- 상태: **v1.1** (2026-11-14, cv-detection-expert). v1.1은 A1 충족(판정서 `m31_n2a2_a1_judgment.md`) 뒤 D1 r4 봉인 부록 §12를 붙인 판이다. 설계·규칙은 v1.0 봉인 판(커밋 fa4b91c: 이 문서 v1.0 + 설정 + 구현 C-1–C-25·R-1, `test_context_augment.py` 43개·전체 1,361 passed)과 같다.
 - 배경: D1 r3 판정서 [`m31_detection_input_tiling.md`](m31_detection_input_tiling.md) §8-6(이하 [T]). N2-a는 축척 손실과 채움 이동 손실을 거의 없앴다. 그러나 **채움 없이 실제 맥락 안에서 옮겨진 객체**(X6, 1.478배 확대 영상 안에서 창만 옮김)는 Δ(32) 15.7 %p, Δ(64) 42.1 %p를 잃었다. 채움 띠만으로도 11.6 %p가 떨어졌다. 그 결과 A2 미충족으로 불채택됐다.
 - 이전 계획: [`m31_n2a_retrain_plan.md`](m31_n2a_retrain_plan.md) v0.3.4(이하 [P]), N2-a A1 판정서 [`m31_n2a_a1_judgment.md`](m31_n2a_a1_judgment.md).
 - 자료: `data/aihub_context_index/`(`crops.csv`, `groups.csv`, `adjacent_pairs.csv`), 스크립트 `analysis/data/aihub_context_groups.py`(gpr-dataset-curator, 2026-11-13). 매니페스트 `data/splits/aihub_yolo_v1.csv`.
@@ -312,6 +312,59 @@ $py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
 
 - **절차 위반 1건(구현 단계)**: python-expert가 시험 코드를 파일에 덧붙일 때 Bash heredoc(`cat >> file <<'PYEOF'`)을 한 번 썼다. Python 실행은 아니었지만, 호출 지시의 heredoc 금지에 어긋난다. 결과 파일은 시험 통과(1,355개)와 integrity-checker 봉인 전 점검으로 확인한다. 코드 내용에 대한 영향은 없는 것으로 본다.
 
+## 12. D1 r4 봉인 부록 (v1.1, A1 충족 뒤 작성, 감사 ③ 전 봉인)
+
+근거: A1 판정서 [`m31_n2a2_a1_judgment.md`](m31_n2a2_a1_judgment.md)(A1 충족). 이 부록은 §5의 D1 r4 규칙에 들어갈 **입력 값만** 고정한다. 판정 규칙([T] v0.5.2 §8-2의 P·O·게이트·문턱 3.0 %p·집계)과 이 문서 v1.0의 설계는 바꾸지 않는다.
+
+| 항목 | 값 |
+|---|---|
+| 규칙 | [T] `m31_detection_input_tiling.md` v0.5.2 §8-2(봉인 3c81aca, 규칙 blob eacf9126376c199d9486bb8a98b13fa2b411d7bd) |
+| N2-a′ 학습 봉인 | fa4b91c(설정 `configs/train_yolo11m_n2a2.yaml` sha256 b9416b57e8877ba8c6b696fc6a3e63ba87b18bc608664e2613ff4c3d3ee142ef, 맥락 인덱스는 §4 고정값) |
+| run-prefix | `yolo11m_aihubv1n2a2_20261114_fold` |
+| export-root | `runs/analysis/n2a2_val_export` |
+| 기대 sha8(`--expected-weights-sha8`, fold 0–4) | `7ead71c7,f4b7e044,32c0e854,0238d4d6,98922d2e` |
+| G3 기대 | r2·r3와 같음(`g1.00_dx+0` n_gt 4클래스 = M1-10 instances, n_ignored 0, 판정 대상 13개 쌍곡선 결손 0, `gp6_dx±64` 쌍곡선 결손 0/0, 0/0, 0/3, 3/3, 2/0) |
+| D1 출력 | `runs/detect/yolo11m_aihubv1n2a2_20261114_fold<k>/eval/m31_d1_r4/`, `analysis/detection/m31_d1_r4_summary.json`, `analysis/detection/m31_d1_r4_verdict.json` |
+| R1 출력(보고 전용) | `analysis/detection/m31_r1_m110.json`(M1-10), `analysis/detection/m31_r1_n2a.json`(N2-a), `analysis/detection/m31_r1_n2a2.json`(N2-a′) |
+
+가중치 `last.pt` sha256(`train_record.json`·A1 판정 재해시와 같음)
+
+| fold | sha256 |
+|---|---|
+| 0 | 7ead71c7fa62d85edb11f5614e78b11619062b455dca62f5cc66c93b2dcf8d92 |
+| 1 | f4b7e0443799d66983adb21356a390bf5cf68ec98964e9425f0981cd3b079b15 |
+| 2 | 32c0e854ed7e6ac6e4847265f956f038030bb968f4d01ab8a550a40e2d98a99b |
+| 3 | 0238d4d62722ff7318e8c8fa8c283471b008f01905e95d326510547882b74de8 |
+| 4 | 98922d2e79b547fd7cf4714b400e693b131d9082c58d293b9e0f5163e039c6b2 |
+
+G1 입력 sha256(`runs/analysis/n2a2_val_export/fold<k>_crop/`, 2026-11-14 `Get-FileHash -Algorithm SHA256`)
+
+| fold | predictions.csv | images.csv | val_metrics.json |
+|---|---|---|---|
+| 0 | 928eee83248d8a6e2fa983277e8b730ddb1e0144ad8371fca683583f36beed55 | 829b5036dd07935e4d1f75616ea3244aef1788a9b3acc8a0d6b04d524c4967fd | 0b1731296210713b19c29ae5a3c56252ebd3d151fd16b4df08382ebb79e9fd6f |
+| 1 | f8d902b15490e8b44cb1a5a8e32d7d2c43cd7820a9389531ffb4eb8777990060 | 94011f6b6bdd51edab1402c34f6f8fb478f704c1a46a2e7670f41a0c4967644e | 4d655adf86f2e813472dcdc8885884a330738cab5b96e60b1956399cad5d1c1d |
+| 2 | 8ce6c5f2e39770c2d05716ed1d48a2ae6638507780c578c0587e8e3e3b6f088f | 8c6bb066653b85ed19e1474fcda093cc44681243d66a97969a8cf9ba055d96ff | 85b543f6991254b419ca1bfd39eedd4a60751caadd6de5205e4803d52b8e0500 |
+| 3 | 76c9f04f2f481ef0d596c5589819f74c64697ac544af4163cf4faf78a6c59a6a | 48ee60fa08d9963fae062b642d01ffa6c797f18a61be6c1b8afc8b53a1c3772e | caedb8567a068df24bc773322220c8450caf3796d8b9d7d0fcef6331c4e85f03 |
+| 4 | 42ea881b144702e3b1aa4fb9a9c4ddbb94b06a3c8d2b0df17d4a4ff7680554a5 | 0589b79bcfc50212253c4fdce18174c2a3ec45db747ef89d07df9389b70e3b27 | 16b7b754fa4fbdc7072eecdf214a3bd2696a6a0d391f70bd9f7b6019c20f7210 |
+
+실행 명령(메인 세션 러너, PowerShell, 작업 폴더 `C:\workspace\gpr_detection`). 각 단계 앞에 HEAD 확인 단계를 둔다(아래).
+
+```powershell
+$py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
+# D1 r4
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_d1_shift_scale.py --run-prefix yolo11m_aihubv1n2a2_20261114_fold --export-root runs/analysis/n2a2_val_export --folds 0,1,2,3,4 --device 0 --fill 128 --save-examples --out-subdir m31_d1_r4 --summary analysis/detection/m31_d1_r4_summary.json
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_d1_judge.py --run-prefix yolo11m_aihubv1n2a2_20261114_fold --export-root runs/analysis/n2a2_val_export --expected-weights-sha8 7ead71c7,f4b7e044,32c0e854,0238d4d6,98922d2e --subdir m31_d1_r4 --out analysis/detection/m31_d1_r4_verdict.json
+# R1 (report only): three models, same validation folds
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_r1_overlap_shift.py --run-prefix yolo11m_aihubv1_20261101_fold --folds 0,1,2,3,4 --device 0 --out analysis/detection/m31_r1_m110.json --blind
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_r1_overlap_shift.py --run-prefix yolo11m_aihubv1n2a_20261113_fold --folds 0,1,2,3,4 --device 0 --out analysis/detection/m31_r1_n2a.json --blind
+& $py run -n gpr-dev --no-capture-output python -I analysis/detection/m31_r1_overlap_shift.py --run-prefix yolo11m_aihubv1n2a2_20261114_fold --folds 0,1,2,3,4 --device 0 --out analysis/detection/m31_r1_n2a2.json --blind
+```
+
+- **HEAD 확인(확정)**: 러너는 **5번** 확인한다. 위치는 D1 실행 앞 1번, D1 판정 앞 1번, **R1 명령 3개(M1-10·N2-a·N2-a′) 각각 앞**에 1번씩이다. 매번 HEAD = 이 부록의 봉인 커밋, 추적 파일 변경 0, §4 인덱스 sha256 일치를 단언한다. 어긋나면 그 단계를 멈춘다. 러너가 도는 동안 저장소에 커밋하지 않는다.
+- **R1 정체성**: R1 출력에는 `run_identity`(git·가중치 sha·인덱스 sha·argv)가 남는다. 판정서에서 세 모델의 가중치 sha256을 각 판정서 값과 손으로 대조한다. 기준은 M1-10 [T] §8-3 (1), N2-a 계획 §4-3, N2-a′ 위 표다.
+- **자원**: 실행 직전 `status.py`로 빈 코어만 마스크로 준다(§6). 예상 D1 25–35분, R1 세 모델 수 분, VRAM 2.5 GB 이하.
+- **한계**: export의 `val_metrics.json`에는 git·가중치 sha 기록이 없다. 결속은 G1의 가중치 경로 단언, 위 G1 sha256과 실행 기록(G2-c)의 대조, 러너 headcheck로 보증한다(N2-a 계획 §4-3과 같음).
+
 ## 변경 이력
 
 | 날짜 | 판 | 내용 |
@@ -320,3 +373,5 @@ $py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
 | 2026-11-13 | v0.2 | 사용자 결정(U2-a: c1 + a, U2-b: cv 결정, U2-c: R1만 보고 전용, U2-d: scratch·seed 0·50 epoch)과 curator 결과((b) 없음, 맥락 인덱스, band 라벨 XOR 0.41, 밝기 차 p90 15.9) 반영. `YoloContextScale` 설계(모드 0.5/0.5, 맥락 모드 축척 U[1.0, 1.5]·가능 범위 안 창 이동), 밝기 보정·픽셀 우선순위·라벨 합침(band는 중심 열은 중심 라벨, 밖은 이웃 라벨 열 자르기), 누수 단언, A1·A2·D1 r4(v0.5.2 그대로)·R1, 블라인드·감사·빈 코어 마스크·HEAD 확인, 구현 명세·시험 C-1–C-21·R-1, 명령 초안 |
 | 2026-11-14 | v0.3 | 봉인 대상 판. 구현 결과 표 §7-0(보고 원문 6줄 승인, 실데이터 점검 band 91.3·hyp 26.0·man 4.4·cav 0.2 %), 확인 필요 결정 §7-5: (1) 중심 crop 박스 보로노이 예외(항상 유지, 이웃 박스 중심 열 안 버림, IoMin ≥ 0.7이면 넓은 박스) — §3-2 수정·C-22–C-24, (2) C-21 = 겹침 ≥ 16 px·fold 0 학습 집합·정확값 306/1,172, (3) 밝기 기준 승인 + GPR 증강 강도 > 0과 `gpr_context` 동시 사용 금지(C-25), (4) 이웃 가까운 순·keep 기준(다른 클래스 원래 넓이, band 소유 열 박스) 승인. 공개 §11(heredoc 절차 위반 1건) |
 | 2026-11-14 | v1.0 | 봉인 판. integrity-checker 봉인 전 점검 반영(뜻 불변): §4에 맥락 인덱스 sha256 고정(crops e10192bf…bbbf, groups f1fc261d…8570), §5 A1 게이트에 `context_index_same_in_all_folds`와 인덱스 고정값 손 확인, 머리말·§9를 구현 완료(C-22–C-25, 43개·전체 1,361 passed)와 한 커밋 봉인으로, R1 구간 '≥ 96'·쌍 구성(crops.csv 순서), §10 curator 요청 완료 처리 |
+| 2026-11-14 | v1.1 | D1 r4 봉인 부록 §12: 기대 sha8·sha256 5개, G1 입력 sha256 15개(64자, Get-FileHash), run-prefix, export-root, D1·R1 출력 경로(R1 세 모델 `m31_r1_m110/n2a/n2a2.json`), 명령, D1 실행·판정·R1 앞 HEAD 확인, 빈 코어 마스크, export 한계. 설계·규칙 불변 |
+| 2026-11-14 | v1.1(감사 ② 반영) | 머리말을 v1.1 기준으로 정리(v1.0 문장 제거), §12 HEAD 확인 위치 확정(D1 실행 앞·D1 판정 앞·R1 명령 3개 각각 앞, 총 5번). 설계·규칙·부록 값 불변 |

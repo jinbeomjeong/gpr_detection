@@ -1,0 +1,231 @@
+{
+ "schema": "n2a2_band_drop_diag/1",
+ "note": "report only; augmentation label counts, not a detection metric",
+ "run_identity": {
+  "run_id": "dc575200-a362-4c46-b48d-bf100169ddfa",
+  "started_at": "2026-11-14T03:53:36+09:00",
+  "finished_at": "2026-11-14T03:53:45+09:00",
+  "argv": [
+   "analysis/detection/n2a2_band_drop_diag.py",
+   "--images",
+   "2000",
+   "--seed",
+   "0",
+   "--overwrite"
+  ],
+  "git": {
+   "head": "fa4b91c37134160f67802b6aca6261ccd64abcb7",
+   "dirty": true,
+   "status": [
+    " M docs/experiments/m31_n2a2_retrain_plan.md",
+    "?? analysis/detection/n2a2_a1_verdict.json",
+    "?? analysis/detection/n2a2_band_aux.csv",
+    "?? analysis/detection/n2a2_band_aux.json",
+    "?? analysis/detection/n2a2_band_aux.py",
+    "?? analysis/detection/n2a2_band_drop_diag.json",
+    "?? analysis/detection/n2a2_band_drop_diag.py",
+    "?? docs/experiments/m31_n2a2_a1_judgment.md"
+   ],
+   "error": null
+  },
+  "versions": {
+   "python": "3.13.18",
+   "numpy": "2.5.4",
+   "opencv": "4.14.0",
+   "torch": "2.14.1+cu130",
+   "torch_cuda": "13.0",
+   "ultralytics": "8.4.192",
+   "gpr_detection": "0.1.0"
+  },
+  "gpu": "cpu",
+  "weights_sha256": {},
+  "eval_list_sha256": {},
+  "g1_inputs_sha256": {},
+  "seal_commit": "fa4b91c",
+  "config_sha256": "b9416b57e8877ba8c6b696fc6a3e63ba87b18bc608664e2613ff4c3d3ee142ef",
+  "index_sha256": {
+   "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+   "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+  }
+ },
+ "inputs": {
+  "validation_fold": 0,
+  "train_images": 11276,
+  "sampled_images": 2000,
+  "sampled_primary_class": {
+   "cavity": 677,
+   "manhole": 705,
+   "pipe_band": 401,
+   "pipe_hyperbola": 217
+  },
+  "seed": 0,
+  "config": "C:\\workspace\\gpr_detection\\configs\\train_yolo11m_n2a2.yaml"
+ },
+ "context_mode_forced": {
+  "images": 2000,
+  "context_source": {
+   "a": 458,
+   "c1": 1542
+  },
+  "window_stage_by_class": {
+   "pipe_hyperbola": {
+    "kept": 217,
+    "dropped": 10,
+    "dropped_share": 0.04405286343612335
+   },
+   "pipe_band": {
+    "kept": 600,
+    "dropped": 762,
+    "dropped_share": 0.5594713656387665
+   },
+   "cavity": {
+    "kept": 676,
+    "dropped": 1,
+    "dropped_share": 0.0014771048744460858
+   },
+   "manhole": {
+    "kept": 829,
+    "dropped": 22,
+    "dropped_share": 0.025851938895417155
+   }
+  },
+  "window_band_by_source": {
+   "centre": {
+    "dropped": 28,
+    "kept": 480
+   },
+   "neighbour": {
+    "dropped": 734,
+    "kept": 120
+   }
+  },
+  "window_drop_reasons": {
+   "cavity": {
+    "below_half_visible_centre": 1
+   },
+   "manhole": {
+    "below_half_visible_centre": 6,
+    "outside_window_centre": 9,
+    "outside_window_neighbour": 7
+   },
+   "pipe_band": {
+    "below_half_visible_centre": 21,
+    "below_half_visible_neighbour": 105,
+    "outside_window_centre": 7,
+    "outside_window_neighbour": 629
+   },
+   "pipe_hyperbola": {
+    "outside_window_neighbour": 10
+   }
+  },
+  "merge_stage_losses": {
+   "cavity": {
+    "neighbour_in_centre_columns": 1
+   },
+   "manhole": {
+    "neighbour_in_centre_columns": 57,
+    "voronoi_other_neighbour": 1
+   },
+   "pipe_band": {
+    "band_no_owned_columns": 518
+   },
+   "pipe_hyperbola": {
+    "neighbour_in_centre_columns": 53
+   }
+  },
+  "band_length_px_entering_window": {
+   "192-256": 45,
+   "32-64": 275,
+   "64-128": 464,
+   "128-192": 162,
+   "0-32": 416
+  },
+  "band_length_px_below_half_visible": {
+   "32-64": 39,
+   "64-128": 63,
+   "0-32": 13,
+   "128-192": 11
+  },
+  "band_visible_share_below_half": {
+   "0.4-0.5": 21,
+   "0.2-0.3": 29,
+   "0.0-0.1": 29,
+   "0.1-0.2": 32,
+   "0.3-0.4": 15
+  },
+  "images_with_band_drop": 346,
+  "images_with_band_drop_share": 0.173,
+  "images_with_centre_band": 401,
+  "centre_band_all_lost_share": 0.0,
+  "any_band_all_lost_share": 0.0,
+  "images_all_labels_lost_share": 0.0025
+ },
+ "plain_mode_forced": {
+  "images": 2000,
+  "context_source": {
+   "none": 2000
+  },
+  "window_stage_by_class": {
+   "pipe_hyperbola": {
+    "kept": 217,
+    "dropped": 0,
+    "dropped_share": 0.0
+   },
+   "pipe_band": {
+    "kept": 503,
+    "dropped": 5,
+    "dropped_share": 0.00984251968503937
+   },
+   "cavity": {
+    "kept": 676,
+    "dropped": 1,
+    "dropped_share": 0.0014771048744460858
+   },
+   "manhole": {
+    "kept": 836,
+    "dropped": 7,
+    "dropped_share": 0.00830367734282325
+   }
+  },
+  "window_band_by_source": {
+   "centre": {
+    "dropped": 5,
+    "kept": 503
+   }
+  },
+  "window_drop_reasons": {
+   "cavity": {
+    "outside_window_centre": 1
+   },
+   "manhole": {
+    "below_half_visible_centre": 2,
+    "outside_window_centre": 5
+   },
+   "pipe_band": {
+    "below_half_visible_centre": 5
+   }
+  },
+  "merge_stage_losses": {},
+  "band_length_px_entering_window": {
+   "192-256": 45,
+   "64-128": 291,
+   "128-192": 129,
+   "32-64": 43
+  },
+  "band_length_px_below_half_visible": {
+   "64-128": 2,
+   "32-64": 3
+  },
+  "band_visible_share_below_half": {
+   "0.4-0.5": 4,
+   "0.2-0.3": 1
+  },
+  "images_with_band_drop": 5,
+  "images_with_band_drop_share": 0.0025,
+  "images_with_centre_band": 401,
+  "centre_band_all_lost_share": 0.0,
+  "any_band_all_lost_share": 0.0,
+  "images_all_labels_lost_share": 0.0015
+ },
+ "even_mix_window_band_drop_share": 0.4101604278074866
+}
