@@ -11,6 +11,8 @@ Measured consequence (D1 r2, 2026-11-13, M1-10 YOLO11m last.pt, 5 folds): hyperb
 
 N2-a retrain (2026-11-13: project isotropic scale 0.55–1.5 with AREA shrink, horizontal shift ±96 with grey-128 fill, edge-fill strips) fixed scale (flat 91–95 % over 0.74–1.67x) and shift-with-fill (Δ64 68 → 6 %p), but shift WITHOUT fill (crop window moved inside real context, D1 X6) still lost 16 %p at ±32 and 42 %p at ±64, and a 64-px fill strip alone still costs 12 %p. Lesson: shift augmentation must move a window inside real context, not pad with fill, or the model ties "off-centre" to "fill strip present".
 
+N2-a′ (2026-11-14, context-window shift inside real content: c1 enlarged-view window + stitched overlapping crops) cut X6 to Δ32 2.4 / Δ64 8.7 %p and passed D1 (P* 6, overlap 75 %). Costs: 0.5x recall 68 → 48 % (shrink share halved), band recall 69 → 61 % (≈30 % of context-mode band labels were < 32 px slivers from clipping), hyperbola FP up. Overlapping-crop pairs (R1) give no hyperbola offsets ≥ 32 px — not usable as an independent position test.
+
 **Why:** a scratch YOLO trained only on centered objects may lose recall for objects near tile edges when real lines are tiled (M3-1/M3-3), and has never seen truncated hyperbolas.
 
 **How to apply:** when choosing tile overlap or judging edge misses, run a horizontal-shift sensitivity eval first (design in `docs/experiments/m31_detection_input_tiling.md` §8-2 D1). Overlapping crops can be stitched into labeled pseudo-lines for merge tests, but pixel identity of overlaps is unverified.

@@ -1,0 +1,2575 @@
+{
+ "schema": "m31_r1_overlap_shift/1",
+ "rules": "m31_n2a2_retrain_plan.md v1.0 §5 R1 (report only), §7-1",
+ "note": "report only (U2-c); not a judgement input",
+ "run_identity": {
+  "run_id": "14bd9904-3e76-460b-99be-bb5fd464a2dc",
+  "started_at": "2026-11-14T04:35:34+09:00",
+  "finished_at": "2026-11-14T04:35:43+09:00",
+  "argv": [
+   "analysis/detection/m31_r1_overlap_shift.py",
+   "--run-prefix",
+   "yolo11m_aihubv1n2a2_20261114_fold",
+   "--folds",
+   "0,1,2,3,4",
+   "--device",
+   "0",
+   "--out",
+   "analysis/detection/m31_r1_n2a2.json",
+   "--blind"
+  ],
+  "git": {
+   "head": "b4a791fdf3e97032646522736f856019b9a95bc5",
+   "dirty": true,
+   "status": [
+    "?? analysis/detection/m31_d1_r4_summary.json",
+    "?? analysis/detection/m31_d1_r4_verdict.json",
+    "?? analysis/detection/m31_r1_m110.json",
+    "?? analysis/detection/m31_r1_n2a.json"
+   ],
+   "error": null
+  },
+  "versions": {
+   "python": "3.13.18",
+   "numpy": "2.5.4",
+   "opencv": "4.14.0",
+   "torch": "2.14.1+cu130",
+   "torch_cuda": "13.0",
+   "ultralytics": "8.4.192",
+   "gpr_detection": "0.1.0"
+  },
+  "gpu": "NVIDIA GeForce RTX 4070 SUPER",
+  "weights_sha256": {
+   "0": "7ead71c7fa62d85edb11f5614e78b11619062b455dca62f5cc66c93b2dcf8d92",
+   "1": "f4b7e0443799d66983adb21356a390bf5cf68ec98964e9425f0981cd3b079b15",
+   "2": "32c0e854ed7e6ac6e4847265f956f038030bb968f4d01ab8a550a40e2d98a99b",
+   "3": "0238d4d62722ff7318e8c8fa8c283471b008f01905e95d326510547882b74de8",
+   "4": "98922d2e79b547fd7cf4714b400e693b131d9082c58d293b9e0f5163e039c6b2"
+  },
+  "eval_list_sha256": {},
+  "g1_inputs_sha256": {},
+  "index_sha256": {
+   "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+   "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+  }
+ },
+ "inputs": {
+  "run_root": "C:\\workspace\\gpr_detection\\runs\\detect",
+  "run_prefix": "yolo11m_aihubv1n2a2_20261114_fold",
+  "folds": [
+   0,
+   1,
+   2,
+   3,
+   4
+  ],
+  "index_dir": "C:\\workspace\\gpr_detection\\data\\aihub_context_index",
+  "label_dir": "C:\\workspace\\gpr_detection\\data\\aihub_yolo_v1\\labels",
+  "image_dir": "C:\\workspace\\gpr_detection\\data\\aihub_yolo_v1\\images",
+  "predict_conf": 0.001,
+  "recall_conf_exclusive": 0.25,
+  "offset_bins_px": [
+   "0-32",
+   "32-64",
+   "64-96",
+   ">96"
+  ]
+ },
+ "per_fold": {
+  "0": {
+   "crop_pairs": 369,
+   "paired_objects": 47,
+   "by_class": {
+    "pipe_hyperbola": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "pipe_band": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 35,
+        "detected": 23,
+        "recall": 0.6571428571428571
+       },
+       "far": {
+        "n": 11,
+        "detected": 5,
+        "recall": 0.45454545454545453
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 2,
+        "detected": 1,
+        "recall": 0.5
+       },
+       "far": {
+        "n": 9,
+        "detected": 4,
+        "recall": 0.4444444444444444
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 4,
+        "detected": 0,
+        "recall": 0.0
+       },
+       "far": {
+        "n": 19,
+        "detected": 5,
+        "recall": 0.2631578947368421
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 2,
+        "detected": 1,
+        "recall": 0.5
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 11,
+       "both": 5,
+       "near_only": 2,
+       "far_only": 0,
+       "neither": 4
+      },
+      "32-64": {
+       "n": 9,
+       "both": 4,
+       "near_only": 3,
+       "far_only": 0,
+       "neither": 2
+      },
+      "64-96": {
+       "n": 19,
+       "both": 4,
+       "near_only": 5,
+       "far_only": 1,
+       "neither": 9
+      },
+      ">96": {
+       "n": 2,
+       "both": 1,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      }
+     }
+    },
+    "cavity": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "manhole": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 6,
+        "detected": 6,
+        "recall": 1.0
+       },
+       "far": {
+        "n": 1,
+        "detected": 1,
+        "recall": 1.0
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 2,
+        "detected": 2,
+        "recall": 1.0
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 3,
+        "detected": 3,
+        "recall": 1.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 1,
+       "both": 1,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 2,
+       "both": 2,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 3,
+       "both": 3,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "all": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 41,
+        "detected": 29,
+        "recall": 0.7073170731707317
+       },
+       "far": {
+        "n": 12,
+        "detected": 6,
+        "recall": 0.5
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 2,
+        "detected": 1,
+        "recall": 0.5
+       },
+       "far": {
+        "n": 11,
+        "detected": 6,
+        "recall": 0.5454545454545454
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 4,
+        "detected": 0,
+        "recall": 0.0
+       },
+       "far": {
+        "n": 22,
+        "detected": 8,
+        "recall": 0.36363636363636365
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 2,
+        "detected": 1,
+        "recall": 0.5
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 12,
+       "both": 6,
+       "near_only": 2,
+       "far_only": 0,
+       "neither": 4
+      },
+      "32-64": {
+       "n": 11,
+       "both": 6,
+       "near_only": 3,
+       "far_only": 0,
+       "neither": 2
+      },
+      "64-96": {
+       "n": 22,
+       "both": 7,
+       "near_only": 5,
+       "far_only": 1,
+       "neither": 9
+      },
+      ">96": {
+       "n": 2,
+       "both": 1,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      }
+     }
+    }
+   }
+  },
+  "1": {
+   "crop_pairs": 340,
+   "paired_objects": 21,
+   "by_class": {
+    "pipe_hyperbola": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "pipe_band": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 9,
+        "detected": 2,
+        "recall": 0.2222222222222222
+       },
+       "far": {
+        "n": 2,
+        "detected": 1,
+        "recall": 0.5
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 3,
+        "detected": 0,
+        "recall": 0.0
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 4,
+        "detected": 0,
+        "recall": 0.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 2,
+       "both": 1,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      "32-64": {
+       "n": 3,
+       "both": 0,
+       "near_only": 1,
+       "far_only": 0,
+       "neither": 2
+      },
+      "64-96": {
+       "n": 4,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 4
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "cavity": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "manhole": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 10,
+        "detected": 10,
+        "recall": 1.0
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 2,
+        "detected": 2,
+        "recall": 1.0
+       },
+       "far": {
+        "n": 9,
+        "detected": 9,
+        "recall": 1.0
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 3,
+        "detected": 3,
+        "recall": 1.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 9,
+       "both": 9,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 3,
+       "both": 3,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "all": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 19,
+        "detected": 12,
+        "recall": 0.631578947368421
+       },
+       "far": {
+        "n": 2,
+        "detected": 1,
+        "recall": 0.5
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 2,
+        "detected": 2,
+        "recall": 1.0
+       },
+       "far": {
+        "n": 12,
+        "detected": 9,
+        "recall": 0.75
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 7,
+        "detected": 3,
+        "recall": 0.42857142857142855
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 2,
+       "both": 1,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      "32-64": {
+       "n": 12,
+       "both": 9,
+       "near_only": 1,
+       "far_only": 0,
+       "neither": 2
+      },
+      "64-96": {
+       "n": 7,
+       "both": 3,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 4
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    }
+   }
+  },
+  "2": {
+   "crop_pairs": 176,
+   "paired_objects": 10,
+   "by_class": {
+    "pipe_hyperbola": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "pipe_band": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "cavity": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "manhole": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 10,
+        "detected": 7,
+        "recall": 0.7
+       },
+       "far": {
+        "n": 4,
+        "detected": 3,
+        "recall": 0.75
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 5,
+        "detected": 3,
+        "recall": 0.6
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 1,
+        "detected": 0,
+        "recall": 0.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 4,
+       "both": 3,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      "32-64": {
+       "n": 5,
+       "both": 3,
+       "near_only": 1,
+       "far_only": 0,
+       "neither": 1
+      },
+      "64-96": {
+       "n": 1,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "all": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 10,
+        "detected": 7,
+        "recall": 0.7
+       },
+       "far": {
+        "n": 4,
+        "detected": 3,
+        "recall": 0.75
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 5,
+        "detected": 3,
+        "recall": 0.6
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 1,
+        "detected": 0,
+        "recall": 0.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 4,
+       "both": 3,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      "32-64": {
+       "n": 5,
+       "both": 3,
+       "near_only": 1,
+       "far_only": 0,
+       "neither": 1
+      },
+      "64-96": {
+       "n": 1,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    }
+   }
+  },
+  "3": {
+   "crop_pairs": 59,
+   "paired_objects": 39,
+   "by_class": {
+    "pipe_hyperbola": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 10,
+        "detected": 10,
+        "recall": 1.0
+       },
+       "far": {
+        "n": 10,
+        "detected": 10,
+        "recall": 1.0
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 10,
+       "both": 10,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "pipe_band": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 4,
+        "detected": 3,
+        "recall": 0.75
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 1,
+        "detected": 0,
+        "recall": 0.0
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 3,
+        "detected": 0,
+        "recall": 0.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 1,
+       "both": 0,
+       "near_only": 1,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 3,
+       "both": 0,
+       "near_only": 2,
+       "far_only": 0,
+       "neither": 1
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "cavity": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "manhole": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 25,
+        "detected": 25,
+        "recall": 1.0
+       },
+       "far": {
+        "n": 3,
+        "detected": 3,
+        "recall": 1.0
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 11,
+        "detected": 11,
+        "recall": 1.0
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 9,
+        "detected": 9,
+        "recall": 1.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 2,
+        "detected": 2,
+        "recall": 1.0
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 3,
+       "both": 3,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 11,
+       "both": 11,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 9,
+       "both": 9,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 2,
+       "both": 2,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "all": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 39,
+        "detected": 38,
+        "recall": 0.9743589743589743
+       },
+       "far": {
+        "n": 13,
+        "detected": 13,
+        "recall": 1.0
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 12,
+        "detected": 11,
+        "recall": 0.9166666666666666
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 12,
+        "detected": 9,
+        "recall": 0.75
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 2,
+        "detected": 2,
+        "recall": 1.0
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 13,
+       "both": 13,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 12,
+       "both": 11,
+       "near_only": 1,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 12,
+       "both": 9,
+       "near_only": 2,
+       "far_only": 0,
+       "neither": 1
+      },
+      ">96": {
+       "n": 2,
+       "both": 2,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    }
+   }
+  },
+  "4": {
+   "crop_pairs": 105,
+   "paired_objects": 20,
+   "by_class": {
+    "pipe_hyperbola": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 7,
+        "detected": 6,
+        "recall": 0.8571428571428571
+       },
+       "far": {
+        "n": 7,
+        "detected": 6,
+        "recall": 0.8571428571428571
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 7,
+       "both": 5,
+       "near_only": 1,
+       "far_only": 1,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "pipe_band": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 1,
+        "detected": 0,
+        "recall": 0.0
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 1,
+        "detected": 1,
+        "recall": 1.0
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 1,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 1,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "cavity": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "64-96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      ">96": {
+       "n": 0,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      }
+     }
+    },
+    "manhole": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 9,
+        "detected": 8,
+        "recall": 0.8888888888888888
+       },
+       "far": {
+        "n": 1,
+        "detected": 1,
+        "recall": 1.0
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 3,
+        "detected": 1,
+        "recall": 0.3333333333333333
+       },
+       "far": {
+        "n": 3,
+        "detected": 2,
+        "recall": 0.6666666666666666
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 7,
+        "detected": 6,
+        "recall": 0.8571428571428571
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 1,
+        "detected": 0,
+        "recall": 0.0
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 1,
+       "both": 1,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 3,
+       "both": 2,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      "64-96": {
+       "n": 7,
+       "both": 6,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      ">96": {
+       "n": 1,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      }
+     }
+    },
+    "all": {
+     "objects_by_offset_bin": {
+      "0-32": {
+       "near": {
+        "n": 17,
+        "detected": 14,
+        "recall": 0.8235294117647058
+       },
+       "far": {
+        "n": 8,
+        "detected": 7,
+        "recall": 0.875
+       }
+      },
+      "32-64": {
+       "near": {
+        "n": 3,
+        "detected": 1,
+        "recall": 0.3333333333333333
+       },
+       "far": {
+        "n": 3,
+        "detected": 2,
+        "recall": 0.6666666666666666
+       }
+      },
+      "64-96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 8,
+        "detected": 7,
+        "recall": 0.875
+       }
+      },
+      ">96": {
+       "near": {
+        "n": 0,
+        "detected": 0,
+        "recall": null
+       },
+       "far": {
+        "n": 1,
+        "detected": 0,
+        "recall": 0.0
+       }
+      }
+     },
+     "pairs_by_far_offset_bin": {
+      "0-32": {
+       "n": 8,
+       "both": 6,
+       "near_only": 1,
+       "far_only": 1,
+       "neither": 0
+      },
+      "32-64": {
+       "n": 3,
+       "both": 2,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      },
+      "64-96": {
+       "n": 8,
+       "both": 6,
+       "near_only": 0,
+       "far_only": 1,
+       "neither": 1
+      },
+      ">96": {
+       "n": 1,
+       "both": 0,
+       "near_only": 0,
+       "far_only": 0,
+       "neither": 1
+      }
+     }
+    }
+   }
+  }
+ },
+ "pooled": {
+  "paired_objects": 137,
+  "by_class": {
+   "pipe_hyperbola": {
+    "objects_by_offset_bin": {
+     "0-32": {
+      "near": {
+       "n": 17,
+       "detected": 16,
+       "recall": 0.9411764705882353
+      },
+      "far": {
+       "n": 17,
+       "detected": 16,
+       "recall": 0.9411764705882353
+      }
+     },
+     "32-64": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     },
+     "64-96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     },
+     ">96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     }
+    },
+    "pairs_by_far_offset_bin": {
+     "0-32": {
+      "n": 17,
+      "both": 15,
+      "near_only": 1,
+      "far_only": 1,
+      "neither": 0
+     },
+     "32-64": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     },
+     "64-96": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     },
+     ">96": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     }
+    }
+   },
+   "pipe_band": {
+    "objects_by_offset_bin": {
+     "0-32": {
+      "near": {
+       "n": 49,
+       "detected": 28,
+       "recall": 0.5714285714285714
+      },
+      "far": {
+       "n": 13,
+       "detected": 6,
+       "recall": 0.46153846153846156
+      }
+     },
+     "32-64": {
+      "near": {
+       "n": 2,
+       "detected": 1,
+       "recall": 0.5
+      },
+      "far": {
+       "n": 13,
+       "detected": 4,
+       "recall": 0.3076923076923077
+      }
+     },
+     "64-96": {
+      "near": {
+       "n": 4,
+       "detected": 0,
+       "recall": 0.0
+      },
+      "far": {
+       "n": 27,
+       "detected": 6,
+       "recall": 0.2222222222222222
+      }
+     },
+     ">96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 2,
+       "detected": 1,
+       "recall": 0.5
+      }
+     }
+    },
+    "pairs_by_far_offset_bin": {
+     "0-32": {
+      "n": 13,
+      "both": 6,
+      "near_only": 2,
+      "far_only": 0,
+      "neither": 5
+     },
+     "32-64": {
+      "n": 13,
+      "both": 4,
+      "near_only": 5,
+      "far_only": 0,
+      "neither": 4
+     },
+     "64-96": {
+      "n": 27,
+      "both": 4,
+      "near_only": 7,
+      "far_only": 2,
+      "neither": 14
+     },
+     ">96": {
+      "n": 2,
+      "both": 1,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 1
+     }
+    }
+   },
+   "cavity": {
+    "objects_by_offset_bin": {
+     "0-32": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     },
+     "32-64": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     },
+     "64-96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     },
+     ">96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      }
+     }
+    },
+    "pairs_by_far_offset_bin": {
+     "0-32": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     },
+     "32-64": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     },
+     "64-96": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     },
+     ">96": {
+      "n": 0,
+      "both": 0,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 0
+     }
+    }
+   },
+   "manhole": {
+    "objects_by_offset_bin": {
+     "0-32": {
+      "near": {
+       "n": 60,
+       "detected": 56,
+       "recall": 0.9333333333333333
+      },
+      "far": {
+       "n": 9,
+       "detected": 8,
+       "recall": 0.8888888888888888
+      }
+     },
+     "32-64": {
+      "near": {
+       "n": 5,
+       "detected": 3,
+       "recall": 0.6
+      },
+      "far": {
+       "n": 30,
+       "detected": 27,
+       "recall": 0.9
+      }
+     },
+     "64-96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 23,
+       "detected": 21,
+       "recall": 0.9130434782608695
+      }
+     },
+     ">96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 3,
+       "detected": 2,
+       "recall": 0.6666666666666666
+      }
+     }
+    },
+    "pairs_by_far_offset_bin": {
+     "0-32": {
+      "n": 9,
+      "both": 8,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 1
+     },
+     "32-64": {
+      "n": 30,
+      "both": 27,
+      "near_only": 1,
+      "far_only": 0,
+      "neither": 2
+     },
+     "64-96": {
+      "n": 23,
+      "both": 21,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 2
+     },
+     ">96": {
+      "n": 3,
+      "both": 2,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 1
+     }
+    }
+   },
+   "all": {
+    "objects_by_offset_bin": {
+     "0-32": {
+      "near": {
+       "n": 126,
+       "detected": 100,
+       "recall": 0.7936507936507936
+      },
+      "far": {
+       "n": 39,
+       "detected": 30,
+       "recall": 0.7692307692307693
+      }
+     },
+     "32-64": {
+      "near": {
+       "n": 7,
+       "detected": 4,
+       "recall": 0.5714285714285714
+      },
+      "far": {
+       "n": 43,
+       "detected": 31,
+       "recall": 0.7209302325581395
+      }
+     },
+     "64-96": {
+      "near": {
+       "n": 4,
+       "detected": 0,
+       "recall": 0.0
+      },
+      "far": {
+       "n": 50,
+       "detected": 27,
+       "recall": 0.54
+      }
+     },
+     ">96": {
+      "near": {
+       "n": 0,
+       "detected": 0,
+       "recall": null
+      },
+      "far": {
+       "n": 5,
+       "detected": 3,
+       "recall": 0.6
+      }
+     }
+    },
+    "pairs_by_far_offset_bin": {
+     "0-32": {
+      "n": 39,
+      "both": 29,
+      "near_only": 3,
+      "far_only": 1,
+      "neither": 6
+     },
+     "32-64": {
+      "n": 43,
+      "both": 31,
+      "near_only": 6,
+      "far_only": 0,
+      "neither": 6
+     },
+     "64-96": {
+      "n": 50,
+      "both": 25,
+      "near_only": 7,
+      "far_only": 2,
+      "neither": 16
+     },
+     ">96": {
+      "n": 5,
+      "both": 3,
+      "near_only": 0,
+      "far_only": 0,
+      "neither": 2
+     }
+    }
+   }
+  }
+ }
+}
