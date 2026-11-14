@@ -29,6 +29,7 @@ Import rule 8 (architecture README section 2-2): stdlib, numpy, scipy,
 """
 
 import csv
+import dataclasses
 import hashlib
 import math
 import zlib
@@ -144,9 +145,34 @@ AIHUB_HEIGHT_PERIODS = (5.22, 8.35)
 """p5-p95 of AIHub ``pipe_hyperbola`` box sizes in periods ([CVR] 2-1).
 
 The AIHub period constant ``P_A`` is 4.06 px; the ranges are already in P.
+Since plan v0.2.3 (amendment 5) only the width decides the stratum; the
+height range is reported (four-way reasons) and never filters.
 """
 
+AIHUB_WIDTH_MEDIAN_PERIODS = 11.36
+"""Median AIHub ``pipe_hyperbola`` label width in P (choice of ``l_W``)."""
+
+LEVEL_AMPLITUDES: dict[float, float] = {
+    -6.0: 0.5,
+    -10.0: 0.316,
+    -12.0: 0.251,
+    -20.0: 0.1,
+}
+"""Envelope levels (dB -> amplitude ratio) of the stratum boxes (plan 3-2)."""
+
+VISIBLE_FLOOR_AMPLITUDE = 0.1
+VISIBLE_ZERO_DB_AMPLITUDE = 0.5
+"""IoU-report box: ``max(10^(-s/20), 0.1)`` x apex envelope; -6 dB at 0 dB."""
+
+CLIPPED_INJECTION_RATIO_MAX = 0.05
+"""int16 rule (ii): a clipped cell may carry at most 5 % of the apex injection."""
+
 BOTTOM_STRATUM_PERIODS = 3.0
+BOTTOM_PRIORITY_PER_LINE = 1
+"""Bottom-stratum candidates placed first per line (amendment 6)."""
+
+FIRST_REFLECTION_LEAD_PERIODS = 2.0
+"""The period check region starts 2 ``P_line`` before the apex (amendment 6)."""
 PLAN_SEED = 20261114
 MAX_INJECTIONS_PER_LINE = 15
 """Per line and SNR step; positions are shared by all SNR steps."""
@@ -189,10 +215,30 @@ class RejectReason(StrEnum):
     BAND_ZONE = "band_zone"
     STRONG_LAYER_ZONE = "strong_layer_zone"
     UNINJECTED_BOX_ZONE = "uninjected_box_zone"
-    CANDIDATE_APEX_ZONE = "candidate_apex_zone"
+    CANDIDATE_APEX_ZONE_K = "candidate_apex_zone_k"
+    CANDIDATE_APEX_ZONE_AUTO = "candidate_apex_zone_auto"
     SPACING = "spacing_below_width_plus_1p"
     ZERO_NOISE = "zero_noise"
     INT16_OVERFLOW = "int16_overflow"
+    """Only for clipped cells in the truth box / SNR window or above 5 %."""
+
+
+class WidthClass(StrEnum):
+    """Stratum of the ``l_W`` box width (plan 3-2 "분포 층", amendment 5)."""
+
+    IN = "in"
+    WIDTH_OVER = "width_over"
+    WIDTH_UNDER = "width_under"
+    WIDTH_OVER_LOWER_BOUND = "width_over_lower_bound"
+    """The box touches the aperture taper, so its width is a lower bound."""
+
+
+class HeightClass(StrEnum):
+    """Report-only height reason against the AIHub range 5.22-8.35 P."""
+
+    IN = "in"
+    HEIGHT_OVER = "height_over"
+    HEIGHT_UNDER = "height_under"
 
 
 # ---------------------------------------------------------------- data types
@@ -318,12 +364,15 @@ class LineExclusions:
     Attributes:
         uninjected_boxes: Union of the un-injected run boxes (all candidate
             recipes x 5 folds, any class), zone (c').
-        candidate_apex_traces: K-set and ``fourtu_apex_candidates_v1.csv``
-            apex traces, zone (d).
+        k_apex_traces: The 41 K-bundle apexes (M6 guard), zone (d) within the
+            -20 dB half width.
+        auto_candidate_apex_traces: ``fourtu_apex_candidates_v1.csv`` apexes,
+            zone (d) within the -6 dB half width + 1 P (amendment 5).
     """
 
     uninjected_boxes: tuple[GridBox, ...] = ()
-    candidate_apex_traces: tuple[float, ...] = ()
+    k_apex_traces: tuple[float, ...] = ()
+    auto_candidate_apex_traces: tuple[float, ...] = ()
 
 
 NO_EXCLUSIONS = LineExclusions()
@@ -385,6 +434,24 @@ class LineContext:
         return period_l1_px * self.grid_map.traces_per_px
 
 
+@dataclass(frozen=True)
+class LevelBox:
+    """Apex-seeded envelope component of the untapered unit field at one level.
+
+    Attributes:
+        bbox: ``(col0, col1, row0, row1)`` in patch cells.
+        width_periods: L1 width in L1 periods (forward ``ImageGridMap``).
+        height_periods: L1 height in L1 periods.
+        aperture_limited: The component touches an aperture-taper column, so
+            the width is a lower bound ([EMR] appendix B-1 (a)).
+    """
+
+    bbox: tuple[int, int, int, int]
+    width_periods: float
+    height_periods: float
+    aperture_limited: bool
+
+
 @dataclass(frozen=True, eq=False)
 class ResponsePatch:
     """Unit pipe response of one model on one line's time axis.
@@ -405,12 +472,18 @@ class ResponsePatch:
         wing_bbox: ``(col0, col1, row0, row1)`` of the -20 dB component before
             any taper (distribution stratum).
         truth_bbox: The same component without the taper cells (truth box).
-        period_samples: ``measure_period_samples`` of ``field``.
+        period_samples: ``measure_period_samples`` of ``field`` inside the
+            first-reflection region (plan 3-2, amendment 5).
         effective_eps_r: ``eps_r`` after re-labelling the trace spacing. The
             re-labelling is exact for kinematics only: the Tx-Rx offset and the
             wing amplitude-angle relation scale too, and an air gap does not,
             so air-coupled lines with ``dx`` ratio != 1 need a new check
             ([EMR] appendix A, L3).
+        period_ringing: The period check failed on a water-filled PVC pipe;
+            the patch is kept and flagged (in-pipe water resonance).
+        level_boxes: ``LEVEL_AMPLITUDES`` level (dB) -> ``LevelBox``.
+        envelope: Envelope of ``field`` after (1)-(3) (IoU-report box).
+        n_aperture_taper: Aperture-taper columns at each end.
     """
 
     response: PipeResponse
@@ -425,6 +498,11 @@ class ResponsePatch:
     truth_bbox: tuple[int, int, int, int]
     period_samples: float
     effective_eps_r: float
+    period_ringing: bool = False
+    # ``field`` is an attribute name here, so the factory is spelled in full.
+    level_boxes: Mapping[float, LevelBox] = dataclasses.field(default_factory=dict)
+    envelope: np.ndarray | None = None
+    n_aperture_taper: int = 0
 
     @property
     def expected_width(self) -> float:
@@ -450,7 +528,6 @@ class InjectionTruth:
         apex_sample: Apex sample (L0, fractional).
         width_periods: L1 width of ``wing_box`` in L1 periods.
         height_periods: L1 height of ``wing_box`` in L1 periods.
-        in_distribution: Both sizes inside the AIHub p5-p95 ranges.
         bottom_stratum: Apex within 3 ``P_line`` of the record end.
         gain: Factor applied to the unit field (polarity included).
         signal_amplitude: ``A`` of the unit field.
@@ -459,6 +536,16 @@ class InjectionTruth:
         box_clipped: True when ``box`` was cut at the record end.
         in_horizontal_box_zone: The apex would have been blocked by the old
             horizontal-only zone (c); reported separately ([CVR] B-1).
+        period_ringing: See ``ResponsePatch``.
+        n_clipped_cells: Cells of the sum cut to the int16 range.
+        max_clipped_injection_ratio: Largest ``|injection| / (|gain| A)`` of a
+            clipped cell (0 when nothing was cut).
+        width_periods_by_level: Level (dB) -> L1 width in P of the stratum box.
+        height_periods_by_level: Level (dB) -> L1 height in P.
+        aperture_limited_by_level: Level (dB) -> the width is a lower bound.
+        visible_box: IoU-report box at ``max(10^(-s/20), 0.1)`` of the apex
+            envelope (-6 dB at 0 dB), clipped to the record; not a truth,
+            stratum or zone box.
     """
 
     injection_id: str
@@ -473,7 +560,6 @@ class InjectionTruth:
     apex_sample: float
     width_periods: float
     height_periods: float
-    in_distribution: bool
     bottom_stratum: bool
     gain: float
     signal_amplitude: float
@@ -481,6 +567,30 @@ class InjectionTruth:
     effective_eps_r: float
     box_clipped: bool
     in_horizontal_box_zone: bool
+    visible_box: GridBox
+    period_ringing: bool = False
+    n_clipped_cells: int = 0
+    max_clipped_injection_ratio: float = 0.0
+    width_periods_by_level: Mapping[float, float] = field(
+        default_factory=dict, hash=False
+    )
+    height_periods_by_level: Mapping[float, float] = field(
+        default_factory=dict, hash=False
+    )
+    aperture_limited_by_level: Mapping[float, bool] = field(
+        default_factory=dict, hash=False
+    )
+
+    def width_class(self, level_w_db: float) -> "WidthClass":
+        """Stratum reason of the ``level_w_db`` box (no default level)."""
+        return width_class(
+            self.width_periods_by_level[level_w_db],
+            self.aperture_limited_by_level[level_w_db],
+        )
+
+    def in_distribution(self, level_w_db: float) -> bool:
+        """Width stratum of plan 3-2 at the fixed level ``l_W``."""
+        return self.width_class(level_w_db) is WidthClass.IN
 
 
 @dataclass(frozen=True, eq=False)
@@ -522,12 +632,17 @@ class LinePlan:
         n_candidates: Allowed (model, apex trace) pairs before spacing.
         n_dropped: Candidates that kept the line spacing ``W_-20 / 2`` but fit
             in no realization (``[CVR]`` B-4: dropped and counted).
+        candidates_by_response: ``response_id -> (bottom, all)`` allowed
+            candidates before any priority (natural bottom share, [CVR] D-3).
     """
 
     line_id: str
     positions: tuple[PlannedPosition, ...]
     n_candidates: int
     n_dropped: int
+    candidates_by_response: Mapping[str, tuple[int, int]] = field(
+        default_factory=dict, hash=False
+    )
 
     @property
     def n_realizations(self) -> int:
@@ -855,10 +970,14 @@ def build_response_patch(
 ) -> ResponsePatch | RejectReason:
     """Unit response of ``response`` on the time axis of ``context`` (plan 3-2).
 
+    The period check runs on the first-reflection region only (amendment 5,
+    [EMR] appendix B-2); a water-filled PVC pipe that fails it is kept with
+    ``period_ringing`` set.
+
     Returns:
         The patch, or the reason the model cannot be used on this line
-        (quality gate, coupling, failed zero, period check, apex outside the
-        record, wing past the synthetic window - 1 P).
+        (quality gate, coupling, failed zero, apex outside the record, wing
+        past the synthetic window - 1 P, period check).
     """
     failure = _patch_failure(response, context)
     if failure is not None:
@@ -866,33 +985,29 @@ def build_response_patch(
     tapered, untapered, n_aperture_taper = _filtered_fields(
         response, context, k, apply_2p5d_weight
     )
-    measured = measure_period_samples(
-        tapered,
-        pad_factor=context.image_config.period_pad_factor,
-        min_period=context.image_config.period_min_samples,
-    )
-    if not period_check_passes(measured, context.period_samples):
-        return RejectReason.PERIOD_CHECK
-    assert measured is not None
     shift_ns = _alignment_shift_ns(response, context)
     apex_sample = (response.apex_time_ns + shift_ns) / context.dt_ns
     if not 0 <= apex_sample <= context.background.n_samples - 1:
         return RejectReason.APEX_OUTSIDE_RECORD
     # Synthetic window end - 1 P on the line axis: wings must end before it.
     window_end_row = (response.window_ns - context.period_ns + shift_ns) / context.dt_ns
-    geometry = _patch_geometry(
-        _envelope(_linear_steps(tapered, context.background)),
-        _envelope(_linear_steps(untapered, context.background)),
-        _PatchFrame(
-            round(response.apex_trace),
-            apex_sample,
-            context.period_samples,
-            n_aperture_taper,
-            window_end_row,
-        ),
+    frame = _PatchFrame(
+        round(response.apex_trace),
+        apex_sample,
+        context.period_samples,
+        n_aperture_taper,
+        window_end_row,
     )
+    envelope = _envelope(_linear_steps(tapered, context.background))
+    wing_envelope = _envelope(_linear_steps(untapered, context.background))
+    geometry = _patch_geometry(envelope, wing_envelope, frame)
     if isinstance(geometry, RejectReason):
         return geometry
+    measured, period_ringing = _first_reflection_period(
+        tapered, geometry.wing_mask, response, context, apex_sample
+    )
+    if measured is None:
+        return RejectReason.PERIOD_CHECK
     dx_ratio = context.dx_m / response.dx_m
     return ResponsePatch(
         response=response,
@@ -907,7 +1022,90 @@ def build_response_patch(
         truth_bbox=geometry.truth_bbox,
         period_samples=measured,
         effective_eps_r=response.eps_r / dx_ratio**2,
+        period_ringing=period_ringing,
+        level_boxes=_level_boxes(wing_envelope, geometry.wing_seed, frame, context),
+        envelope=envelope,
+        n_aperture_taper=n_aperture_taper,
     )
+
+
+def is_water_filled_pvc(material: str) -> bool:
+    """PVC pipe filled with water, read from the json material field."""
+    name = material.lower()
+    return "pvc" in name and "water" in name
+
+
+def first_reflection_mask(
+    wing_mask: np.ndarray,
+    response: PipeResponse,
+    context: LineContext,
+    apex_sample: float,
+) -> np.ndarray:
+    """Cells of the -20 dB component with apex - 2 P <= row <= apex + tau_m - 1 P.
+
+    ``tau_m`` = apex time - transmit peak (pipe-surface two-way time): later
+    cells hold pipe-surface multiples, 2-D tails and the window end, which
+    pull the averaged spectrum ([EMR] appendix B-2). The lower bound
+    (amendment 6) leaves out weak precursors more than 2 P before the apex.
+    """
+    tau_m_ns = response.apex_time_ns - response.time_origin_ns
+    first_row = apex_sample - FIRST_REFLECTION_LEAD_PERIODS * context.period_samples
+    last_row = apex_sample + (tau_m_ns - context.period_ns) / context.dt_ns
+    rows = np.arange(wing_mask.shape[0])[:, None]
+    return wing_mask & (rows >= first_row) & (rows <= last_row)
+
+
+def _first_reflection_period(
+    tapered: np.ndarray,
+    wing_mask: np.ndarray,
+    response: PipeResponse,
+    context: LineContext,
+    apex_sample: float,
+) -> tuple[float | None, bool]:
+    """Period of the first reflection; ``(None, False)`` means rejected.
+
+    Returns:
+        ``(period, period_ringing)``; a failing water-filled PVC pipe keeps
+        its measured period and gets ``period_ringing`` True.
+    """
+    region = first_reflection_mask(wing_mask, response, context, apex_sample)
+    measured = measure_period_samples(
+        np.where(region, tapered, 0.0),
+        pad_factor=context.image_config.period_pad_factor,
+        min_period=context.image_config.period_min_samples,
+    )
+    if period_check_passes(measured, context.period_samples):
+        return measured, False
+    if measured is not None and is_water_filled_pvc(response.material):
+        return measured, True
+    return None, False
+
+
+def _level_boxes(
+    wing_envelope: np.ndarray,
+    seed: tuple[int, int],
+    frame: "_PatchFrame",
+    context: LineContext,
+) -> dict[float, LevelBox]:
+    """Stratum boxes at every level of ``LEVEL_AMPLITUDES`` (untapered field)."""
+    peak = float(wing_envelope[seed])
+    n_columns = wing_envelope.shape[1]
+    boxes = {}
+    for level_db, amplitude in LEVEL_AMPLITUDES.items():
+        bbox = _bbox(_seed_component(wing_envelope >= amplitude * peak, seed))
+        if bbox is None:  # cannot happen: the seed is the peak itself
+            continue
+        col0, col1, row0, row1 = bbox
+        width, height = box_size_in_periods(
+            GridBox(0, col1 - col0, row0, row1),
+            context.grid_map,
+            context.period_samples,
+        )
+        touches_taper = (
+            col0 < frame.n_aperture_taper or col1 >= n_columns - frame.n_aperture_taper
+        )
+        boxes[level_db] = LevelBox(bbox, width, height, touches_taper)
+    return boxes
 
 
 @dataclass(frozen=True)
@@ -927,6 +1125,8 @@ class _PatchGeometry:
     half_bbox: tuple[int, int, int, int]
     wing_bbox: tuple[int, int, int, int]
     truth_bbox: tuple[int, int, int, int]
+    wing_mask: np.ndarray
+    wing_seed: tuple[int, int]
 
 
 def _patch_geometry(
@@ -959,7 +1159,9 @@ def _patch_geometry(
     truth_bbox = _bbox(wing_mask & core)
     if truth_bbox is None:
         return RejectReason.NO_TRUTH_CELLS
-    return _PatchGeometry(peak.amplitude, half_bbox, wing_bbox, truth_bbox)
+    return _PatchGeometry(
+        peak.amplitude, half_bbox, wing_bbox, truth_bbox, wing_mask, wing_peak.seed
+    )
 
 
 # ------------------------------------------------------------ line context
@@ -1062,7 +1264,9 @@ def long_strong_layer_runs(
     band + 2 P count when their half-height width is over 2 P.
 
     Limit: a layer longer than about +-10 P lifts this baseline too and is
-    not counted. Default traces: the whole line.
+    not counted. Default traces: the whole line; because the mean trace
+    spans the whole line, a layer under only part of it is diluted and not
+    counted, so 0 means "no long layer across the line" (amendment 5).
     """
     first = 0 if trace0 is None else trace0
     last = context.background.n_traces - 1 if trace1 is None else trace1
@@ -1217,12 +1421,22 @@ def in_horizontal_box_zone(context: LineContext, apex_trace: float) -> bool:
 def _lateral_zone_failure(
     context: LineContext, patch: ResponsePatch, apex_trace: float
 ) -> RejectReason | None:
-    """Zones (c') and (d)."""
+    """Zones (c') and (d).
+
+    Zone (d) keeps the -20 dB half width around the 41 K apexes (M6 guard
+    independence) and only the core, -6 dB half width + 1 P, around the
+    automatic candidates (amendment 5, [CVR] appendix C-2).
+    """
     if _box_zone_hit(context, patch, apex_trace):
         return RejectReason.UNINJECTED_BOX_ZONE
-    for candidate in context.exclusions.candidate_apex_traces:
+    exclusions = context.exclusions
+    for candidate in exclusions.k_apex_traces:
         if abs(apex_trace - candidate) <= patch.half_width_20db:
-            return RejectReason.CANDIDATE_APEX_ZONE
+            return RejectReason.CANDIDATE_APEX_ZONE_K
+    auto_radius = patch.half_width_6db + context.period_traces
+    for candidate in exclusions.auto_candidate_apex_traces:
+        if abs(apex_trace - candidate) <= auto_radius:
+            return RejectReason.CANDIDATE_APEX_ZONE_AUTO
     return None
 
 
@@ -1299,18 +1513,51 @@ def box_size_in_periods(
     return width_px / period_l1_px, height_px / period_l1_px
 
 
-def is_in_distribution(width_periods: float, height_periods: float) -> bool:
-    """Both sizes inside the AIHub ``pipe_hyperbola`` p5-p95 ranges."""
+def width_class(width_periods: float, aperture_limited: bool) -> WidthClass:
+    """Width stratum against the AIHub p5-p95 range 7.79-14.67 P.
+
+    An aperture-limited width is a lower bound and counts as too wide.
+    """
+    if aperture_limited:
+        return WidthClass.WIDTH_OVER_LOWER_BOUND
     width_lo, width_hi = AIHUB_WIDTH_PERIODS
+    if width_periods < width_lo:
+        return WidthClass.WIDTH_UNDER
+    if width_periods > width_hi:
+        return WidthClass.WIDTH_OVER
+    return WidthClass.IN
+
+
+def height_class(height_periods: float) -> HeightClass:
+    """Report-only height reason against 5.22-8.35 P (never filters)."""
     height_lo, height_hi = AIHUB_HEIGHT_PERIODS
+    if height_periods < height_lo:
+        return HeightClass.HEIGHT_UNDER
+    if height_periods > height_hi:
+        return HeightClass.HEIGHT_OVER
+    return HeightClass.IN
+
+
+def is_in_distribution(
+    widths_by_level: Mapping[float, float],
+    aperture_limited_by_level: Mapping[float, bool],
+    level_w_db: float,
+) -> bool:
+    """Width-only stratum (user decision (B), amendment 5) at level ``l_W``.
+
+    ``level_w_db`` has no default: it is chosen once from the position table
+    and fixed at F2.
+    """
     return (
-        width_lo <= width_periods <= width_hi
-        and height_lo <= height_periods <= height_hi
+        width_class(widths_by_level[level_w_db], aperture_limited_by_level[level_w_db])
+        is WidthClass.IN
     )
 
 
-def _noise_rms(context: LineContext, patch: ResponsePatch, apex_trace: float) -> float:
-    """``sigma``: RMS of the (1)-(4) background in apex +- 1 P, -6 dB traces."""
+def snr_window(
+    context: LineContext, patch: ResponsePatch, apex_trace: float
+) -> GridBox:
+    """SNR window in L0: apex +- 1 P samples x -6 dB half-width traces."""
     period = context.period_samples
     trace0 = max(0, math.floor(apex_trace - patch.half_width_6db))
     trace1 = min(
@@ -1318,8 +1565,14 @@ def _noise_rms(context: LineContext, patch: ResponsePatch, apex_trace: float) ->
     )
     row0 = max(0, math.floor(patch.apex_sample - period))
     row1 = min(context.background.n_samples - 1, math.ceil(patch.apex_sample + period))
-    window = context.background_removed[row0 : row1 + 1, trace0 : trace1 + 1]
-    return float(np.sqrt(np.mean(window**2)))
+    return GridBox(i0=trace0, i1=trace1, k0=row0, k1=row1)
+
+
+def _noise_rms(context: LineContext, patch: ResponsePatch, apex_trace: float) -> float:
+    """``sigma``: RMS of the (1)-(4) background in the SNR window."""
+    window = snr_window(context, patch, apex_trace)
+    values = context.background_removed[window.sample_slice, window.trace_slice]
+    return float(np.sqrt(np.mean(values**2)))
 
 
 @dataclass(frozen=True)
@@ -1358,6 +1611,7 @@ def _make_truth(
     patch: ResponsePatch,
     gain: float,
     noise_rms: float,
+    clip: "ClipOutcome",
 ) -> InjectionTruth:
     offset = round(spec.apex_trace - patch.response.apex_trace)
     boxes = _truth_boxes(patch, offset, context.background.n_samples)
@@ -1380,7 +1634,6 @@ def _make_truth(
         apex_sample=patch.apex_sample,
         width_periods=width_periods,
         height_periods=height_periods,
-        in_distribution=is_in_distribution(width_periods, height_periods),
         bottom_stratum=patch.apex_sample >= bottom_limit,
         gain=gain,
         signal_amplitude=patch.signal_amplitude,
@@ -1388,26 +1641,108 @@ def _make_truth(
         effective_eps_r=patch.effective_eps_r,
         box_clipped=boxes.box_clipped,
         in_horizontal_box_zone=in_horizontal_box_zone(context, spec.apex_trace),
+        visible_box=visible_box(
+            patch, offset, spec.snr_db, context.background.n_samples
+        ),
+        period_ringing=patch.period_ringing,
+        n_clipped_cells=clip.n_clipped_cells,
+        max_clipped_injection_ratio=clip.max_ratio,
+        width_periods_by_level={
+            level: box.width_periods for level, box in patch.level_boxes.items()
+        },
+        height_periods_by_level={
+            level: box.height_periods for level, box in patch.level_boxes.items()
+        },
+        aperture_limited_by_level={
+            level: box.aperture_limited for level, box in patch.level_boxes.items()
+        },
     )
 
 
-def _add_scaled_patch(
-    data: np.ndarray, patch: ResponsePatch, offset: int, gain: float
-) -> bool:
-    """Add ``gain * field`` in place; False (data untouched) on int16 overflow.
+def visible_amplitude(snr_db: float) -> float:
+    """IoU-report threshold ``max(10^(-s/20), 0.1)``; -6 dB (0.5) at 0 dB."""
+    if snr_db <= 0:
+        return VISIBLE_ZERO_DB_AMPLITUDE
+    return max(10.0 ** (-snr_db / 20.0), VISIBLE_FLOOR_AMPLITUDE)
 
-    A sum counts as overflowing when it would not survive int16 storage
-    (``rint`` outside ``[-32768, 32767]``), so float noise on a saturated
-    sample does not reject the injection.
+
+def visible_box(
+    patch: ResponsePatch, offset: int, snr_db: float, n_samples: int
+) -> GridBox:
+    """Apex-seeded component of the injected envelope above the visible level.
+
+    Report only ([EMR] appendix B-1 (b)): not a truth, stratum or zone box.
+    """
+    envelope = patch.envelope
+    assert envelope is not None  # set by build_response_patch
+    peak = _apex_peak(
+        envelope,
+        round(patch.response.apex_trace),
+        patch.apex_sample,
+        patch.period_samples,
+    )
+    mask = envelope >= visible_amplitude(snr_db) * peak.amplitude
+    bbox = _bbox(_seed_component(mask, peak.seed))
+    assert bbox is not None  # the seed is the peak cell
+    return _placed_box(bbox, offset, n_samples - 1)
+
+
+@dataclass(frozen=True)
+class ClipOutcome:
+    """int16 clipping of one injection (amendment 5, [EMR] appendix B-3).
+
+    Attributes:
+        n_clipped_cells: Cells of the sum outside ``[-32768, 32767]``.
+        max_ratio: Largest ``|field| / A`` of a clipped cell, i.e. the
+            injected value over the apex injection amplitude (0 if none).
+        protected_hit: A clipped cell lies in the truth box or SNR window.
+    """
+
+    n_clipped_cells: int
+    max_ratio: float
+    protected_hit: bool
+
+    @property
+    def rejects(self) -> bool:
+        """Rules (i) and (ii): the only two int16 rejections."""
+        return self.protected_hit or self.max_ratio > CLIPPED_INJECTION_RATIO_MAX
+
+
+def _any_inside(rows: np.ndarray, columns: np.ndarray, box: GridBox) -> bool:
+    inside = (
+        (rows >= box.k0) & (rows <= box.k1) & (columns >= box.i0) & (columns <= box.i1)
+    )
+    return bool(inside.any())
+
+
+def _clip_sum(
+    data: np.ndarray,
+    patch: ResponsePatch,
+    offset: int,
+    gain: float,
+    protected: Sequence[GridBox],
+) -> tuple[np.ndarray, ClipOutcome]:
+    """``data + gain * field`` on the patch columns, clipped to int16.
+
+    A clipped cell on an already saturated sample keeps the recorded value,
+    the best physical guess when the injection is small there.
     """
     n_samples = data.shape[0]
     columns = slice(offset, offset + patch.response.n_traces)
-    summed = data[:, columns] + gain * patch.field[:n_samples]
-    rounded = np.rint(summed)
-    if rounded.min() < INT16_MIN or rounded.max() > INT16_MAX:
-        return False
-    data[:, columns] = summed
-    return True
+    field_rows = patch.field[:n_samples]
+    summed = data[:, columns] + gain * field_rows
+    clipped = (summed < INT16_MIN) | (summed > INT16_MAX)
+    rows, patch_columns = np.nonzero(clipped)
+    max_ratio = 0.0
+    if rows.size:
+        max_ratio = float(np.abs(field_rows[clipped]).max() / patch.signal_amplitude)
+    line_columns = patch_columns + offset
+    outcome = ClipOutcome(
+        n_clipped_cells=int(rows.size),
+        max_ratio=max_ratio,
+        protected_hit=any(_any_inside(rows, line_columns, box) for box in protected),
+    )
+    return np.clip(summed, INT16_MIN, INT16_MAX), outcome
 
 
 @dataclass
@@ -1456,10 +1791,16 @@ def _inject_one(
         / patch.signal_amplitude
     )
     offset = round(spec.apex_trace - response.apex_trace)
-    if not _add_scaled_patch(state.data, patch, offset, gain):
+    protected = (
+        _truth_boxes(patch, offset, context.background.n_samples).box,
+        snr_window(context, patch, spec.apex_trace),
+    )
+    summed, clip = _clip_sum(state.data, patch, offset, gain, protected)
+    if clip.rejects:
         return RejectReason.INT16_OVERFLOW
+    state.data[:, offset : offset + response.n_traces] = summed
     state.placed.append((spec.apex_trace, patch.half_width_20db))
-    return _make_truth(spec, context, patch, gain, noise_rms)
+    return _make_truth(spec, context, patch, gain, noise_rms, clip)
 
 
 def _check_one_realization(specs: Sequence[InjectionSpec], line_id: str) -> str:
@@ -1544,9 +1885,11 @@ def plan_line_positions(
 ) -> LinePlan:
     """Seeded apex positions of one line in at most two realizations ([CVR] B-4).
 
-    Allowed (model, apex trace) pairs are visited in a seeded random order. A
-    candidate is skipped when it is closer than ``W_-20 / 2`` to any chosen
-    position of the line; otherwise it joins the first of the
+    Allowed (model, apex trace) pairs are visited in a seeded random order;
+    the first bottom-stratum candidate of that order (apex >= ``n_s - 3
+    P_line``) goes first, one per line (amendment 6). A candidate is skipped when
+    it is closer than ``W_-20 / 2`` to any chosen position of the line;
+    otherwise it joins the first of the
     ``MAX_REALIZATIONS_PER_LINE`` groups where the realization spacing
     ``W_-20 + 1 P`` holds, or is dropped and counted. The plan stops at
     ``max_injections`` positions.
@@ -1562,7 +1905,8 @@ def plan_line_positions(
         for patch in patches
         for apex_trace in _allowed_apex_traces(context, patch)
     ]
-    order = _line_seed(seed, context.background.line_id).permutation(len(candidates))
+    is_bottom = [is_bottom_stratum(context, patch) for patch, _ in candidates]
+    order = _bottom_first_order(is_bottom, _line_seed(seed, context.background.line_id))
     groups: list[list[PlacedApex]] = [[] for _ in range(MAX_REALIZATIONS_PER_LINE)]
     chosen: list[PlannedPosition] = []
     n_dropped = 0
@@ -1587,7 +1931,38 @@ def plan_line_positions(
         positions=tuple(positions),
         n_candidates=len(candidates),
         n_dropped=n_dropped,
+        candidates_by_response=_candidate_counts(candidates, is_bottom),
     )
+
+
+def _candidate_counts(
+    candidates: Sequence[tuple[ResponsePatch, float]], is_bottom: Sequence[bool]
+) -> dict[str, tuple[int, int]]:
+    counts: dict[str, list[int]] = {}
+    for (patch, _), bottom in zip(candidates, is_bottom, strict=True):
+        tally = counts.setdefault(patch.response.response_id, [0, 0])
+        tally[0] += int(bottom)
+        tally[1] += 1
+    return {key: (value[0], value[1]) for key, value in counts.items()}
+
+
+def is_bottom_stratum(context: LineContext, patch: ResponsePatch) -> bool:
+    """Apex within 3 ``P_line`` of the record end (plan 3-2 "아래 끝 층")."""
+    bottom_limit = (
+        context.background.n_samples - BOTTOM_STRATUM_PERIODS * context.period_samples
+    )
+    return patch.apex_sample >= bottom_limit
+
+
+def _bottom_first_order(
+    is_bottom: Sequence[bool], rng: np.random.Generator
+) -> list[int]:
+    """One seeded permutation; its first ``BOTTOM_PRIORITY_PER_LINE`` bottom
+    candidates move to the front, everything else keeps the permutation order.
+    """
+    order = [int(index) for index in rng.permutation(len(is_bottom))]
+    first = [index for index in order if is_bottom[index]][:BOTTOM_PRIORITY_PER_LINE]
+    return first + [index for index in order if index not in first]
 
 
 def _fitting_group(

@@ -14,6 +14,7 @@ gprMax-like grid. No dataset files are read.
 """
 
 import hashlib
+import math
 from dataclasses import replace
 from pathlib import Path
 
@@ -407,7 +408,8 @@ def test_strong_flat_layer_near_the_apex_is_excluded(patch):
     assert reason == RejectReason.STRONG_LAYER_ZONE
 
 
-def test_int16_overflow_rejects_without_clipping(patch):
+def test_int16_clipping_inside_the_truth_box_rejects(patch):
+    """Rule (i): a clipped cell in the truth box rejects the injection."""
     data = _background_data()
     offset = round(APEX_TRACE - SYN_APEX_TRACE)
     wing_column = offset + round(SYN_APEX_TRACE + patch.half_width_6db) + 3
@@ -417,6 +419,53 @@ def test_int16_overflow_rejects_without_clipping(patch):
     spec = _spec(snr_db=18.0)
     reason = _single_rejection(near_limit, [spec], {"M12": _response()})
     assert reason == RejectReason.INT16_OVERFLOW
+
+
+def _saturated_above_apex(patch, periods_above: float) -> np.ndarray:
+    """Background with a saturated row ``periods_above`` P above the apex."""
+    data = _background_data()
+    row = round(patch.apex_sample - periods_above * patch.period_samples)
+    data[row, :] = 32767.0
+    data[row + 1, :] = -32768.0
+    return data
+
+
+@pytest.mark.parametrize("snr_db", [0.0, 18.0])
+def test_int16_clipping_far_above_the_apex_is_kept_at_every_snr(patch, snr_db):
+    """Small clipped cells outside the truth box and SNR window do not reject."""
+    clipped_context = prepare_line_context(
+        _radargram(_saturated_above_apex(patch, 2.5))
+    )
+    responses = {"M12": _response()}
+    result = inject_realization(clipped_context, [_spec(snr_db=snr_db)], responses)
+    (truth,) = result.truths
+    assert truth.n_clipped_cells > 0
+    assert 0 < truth.max_clipped_injection_ratio <= 0.05
+    assert result.data.max() <= 32767 and result.data.min() >= -32768
+
+
+def test_clip_rules_protected_box_and_ratio(patch):
+    from gpr_detection.eval import inject
+
+    offset = 10
+    n_rows = LINE_SAMPLES
+    data = np.zeros((n_rows, LINE_TRACES))
+    apex_row = round(patch.apex_sample)
+    column = round(SYN_APEX_TRACE)
+    gain = 1.0 / abs(patch.field[apex_row, column])
+    data[apex_row, offset + column] = 32767.0 * np.sign(patch.field[apex_row, column])
+    summed, outcome = inject._clip_sum(data, patch, offset, gain, ())
+    assert outcome.n_clipped_cells == 1
+    assert outcome.max_ratio == pytest.approx(
+        abs(patch.field[apex_row, column]) / patch.signal_amplitude
+    )
+    assert outcome.rejects  # the apex carries far more than 5 %
+    assert np.abs(summed).max() <= 32768
+    box = GridBox(offset + column, offset + column, apex_row, apex_row)
+    _, protected = inject._clip_sum(data, patch, offset, gain, (box,))
+    assert protected.protected_hit
+    small = inject.ClipOutcome(n_clipped_cells=3, max_ratio=0.05, protected_hit=False)
+    assert not small.rejects
 
 
 def _box_context(background, box: GridBox):
@@ -460,15 +509,35 @@ def test_zone_c_grows_boxes_by_one_period_in_samples(background, response, patch
     assert len(result.truths) == 1
 
 
-def test_candidate_zone(background, response, patch):
+def test_candidate_zone_keeps_the_k_radius(background, response, patch):
     near = APEX_TRACE + patch.half_width_20db - 1.0
     candidate_context = prepare_line_context(
-        background, LineExclusions(candidate_apex_traces=(near,))
+        background, LineExclusions(k_apex_traces=(near,))
     )
     assert (
         _single_rejection(candidate_context, [_spec()], {"M12": response})
-        == RejectReason.CANDIDATE_APEX_ZONE
+        == RejectReason.CANDIDATE_APEX_ZONE_K
     )
+
+
+def test_auto_candidates_block_only_the_core_plus_one_period(
+    background, response, patch, context
+):
+    radius = patch.half_width_6db + context.period_traces
+    assert radius < patch.half_width_20db
+    inside = APEX_TRACE + radius - 0.5
+    blocked = prepare_line_context(
+        background, LineExclusions(auto_candidate_apex_traces=(inside,))
+    )
+    assert (
+        _single_rejection(blocked, [_spec()], {"M12": response})
+        == RejectReason.CANDIDATE_APEX_ZONE_AUTO
+    )
+    outside = APEX_TRACE + radius + 0.5  # still inside the -20 dB half width
+    allowed = prepare_line_context(
+        background, LineExclusions(auto_candidate_apex_traces=(outside,))
+    )
+    assert len(inject_realization(allowed, [_spec()], {"M12": response}).truths) == 1
 
 
 def test_realization_spacing_is_width_plus_one_period(context, response, patch):
@@ -570,16 +639,144 @@ def test_rows_of_other_realizations_or_lines_are_refused(context, response):
         inject_realization(context, [replace(_spec(), line_id="x")], {"M12": response})
 
 
-def test_distribution_and_bottom_stratum_flags(context, injected):
-    (truth,) = injected.truths
-    assert truth.in_distribution == is_in_distribution(
-        truth.width_periods, truth.height_periods
+def test_distribution_is_width_only_at_the_given_level(context, injected):
+    from gpr_detection.eval.inject import (
+        HeightClass,
+        WidthClass,
+        height_class,
+        width_class,
     )
+
+    (truth,) = injected.truths
+    for level in (-6.0, -10.0, -12.0, -20.0):
+        assert truth.in_distribution(level) == is_in_distribution(
+            truth.width_periods_by_level, truth.aperture_limited_by_level, level
+        )
     assert not truth.bottom_stratum
-    assert is_in_distribution(7.79, 5.22)
-    assert is_in_distribution(14.67, 8.35)
-    assert not is_in_distribution(7.78, 6.0)
-    assert not is_in_distribution(10.0, 8.36)
+    assert width_class(7.79, False) is WidthClass.IN
+    assert width_class(14.67, False) is WidthClass.IN
+    assert width_class(7.78, False) is WidthClass.WIDTH_UNDER
+    assert width_class(14.68, False) is WidthClass.WIDTH_OVER
+    assert width_class(10.0, True) is WidthClass.WIDTH_OVER_LOWER_BOUND
+    # The height never filters; it is a report-only reason.
+    assert is_in_distribution({-20.0: 10.0}, {-20.0: False}, -20.0)
+    assert height_class(5.21) is HeightClass.HEIGHT_UNDER
+    assert height_class(8.36) is HeightClass.HEIGHT_OVER
+    assert height_class(6.0) is HeightClass.IN
+    with pytest.raises(TypeError):
+        is_in_distribution({-20.0: 10.0}, {-20.0: False})  # type: ignore[call-arg]
+
+
+def test_level_boxes_grow_towards_lower_levels(patch):
+    levels = patch.level_boxes
+    assert list(levels) == [-6.0, -10.0, -12.0, -20.0]
+    assert levels[-20.0].bbox == patch.wing_bbox
+    widths = [levels[level].width_periods for level in levels]
+    assert widths == sorted(widths)
+    assert not levels[-6.0].aperture_limited
+
+
+def test_aperture_limited_when_the_component_reaches_the_taper(context):
+    wide = _response(beam_width_m=10.0)  # no lateral decay inside the aperture
+    patch = build_response_patch(wide, context)
+    assert isinstance(patch, ResponsePatch), patch
+    assert patch.level_boxes[-20.0].aperture_limited
+
+
+def test_visible_box_follows_the_snr(context, response):
+    low = inject_realization(context, [_spec(snr_db=0.0)], {"M12": response})
+    high = inject_realization(context, [_spec(snr_db=18.0)], {"M12": response})
+    (low_truth,), (high_truth,) = low.truths, high.truths
+    assert low_truth.visible_box.n_traces <= high_truth.visible_box.n_traces
+    assert high_truth.visible_box.n_traces <= high_truth.wing_box.n_traces
+    from gpr_detection.eval.inject import visible_amplitude
+
+    assert visible_amplitude(0.0) == 0.5
+    assert visible_amplitude(6.0) == pytest.approx(10 ** (-6 / 20))
+    assert visible_amplitude(30.0) == 0.1
+
+
+def test_first_reflection_mask_ends_one_period_before_the_multiple(response, context):
+    from gpr_detection.eval.inject import first_reflection_mask
+
+    apex_sample = 150.0
+    mask = first_reflection_mask(
+        np.ones((400, 5), bool), response, context, apex_sample
+    )
+    tau_m_ns = response.apex_time_ns - response.time_origin_ns
+    last_row = apex_sample + (tau_m_ns - context.period_ns) / context.dt_ns
+    first_row = apex_sample - 2.0 * context.period_samples
+    rows = np.flatnonzero(mask[:, 0])
+    assert rows[-1] == int(np.floor(last_row))
+    assert rows[0] == int(np.ceil(first_row))
+    partial = np.zeros((400, 5), bool)
+    partial[140:150, 2] = True
+    assert first_reflection_mask(partial, response, context, apex_sample).sum() == 10
+
+
+@pytest.mark.parametrize(("material", "ringing"), [("pvc_water", True), ("pec", None)])
+def test_water_filled_pvc_is_kept_with_a_ringing_flag(
+    monkeypatch, context, material, ringing
+):
+    from gpr_detection.eval import inject
+
+    monkeypatch.setattr(inject, "period_check_passes", lambda *_: False)
+    patch = build_response_patch(_response(material=material), context)
+    if ringing is None:
+        assert patch == RejectReason.PERIOD_CHECK
+        return
+    assert isinstance(patch, ResponsePatch) and patch.period_ringing
+    result = inject_realization(
+        context, [_spec()], {"M12": _response(material=material)}
+    )
+    assert result.truths[0].period_ringing
+    assert inject.is_water_filled_pvc("PVC_water") and not inject.is_water_filled_pvc(
+        "pvc"
+    )
+
+
+def test_one_bottom_candidate_comes_first_then_the_seeded_order():
+    from gpr_detection.eval import inject
+
+    flags = [False, True, False, True, False, True]
+    first = inject._bottom_first_order(flags, np.random.default_rng(1))
+    again = inject._bottom_first_order(flags, np.random.default_rng(1))
+    permutation = [int(i) for i in np.random.default_rng(1).permutation(6)]
+    assert first == again
+    leader = next(index for index in permutation if flags[index])
+    assert first[0] == leader and inject.BOTTOM_PRIORITY_PER_LINE == 1
+    assert first[1:] == [index for index in permutation if index != leader]
+
+
+def test_plan_counts_the_natural_bottom_share_of_candidates(context, patch):
+    plan = plan_line_positions(context, [patch])
+    bottom, total = plan.candidates_by_response["M12"]
+    assert total == plan.n_candidates and bottom in (0, total)
+
+
+def test_period_check_ignores_components_more_than_2p_before_the_apex(
+    response, context, patch
+):
+    from gpr_detection.eval import inject
+
+    wing = np.ones(patch.field.shape, dtype=bool)
+    reference, _ = inject._first_reflection_period(
+        patch.field, wing, response, context, patch.apex_sample
+    )
+    first_row = math.floor(patch.apex_sample - 2.0 * context.period_samples) - 1
+    rows = np.arange(first_row)[:, None]
+    precursor = patch.field.copy()
+    precursor[:first_row] += (
+        5.0
+        * np.abs(patch.field).max()
+        * np.sin(2 * np.pi * rows / (0.5 * context.period_samples))
+    )
+    measured, _ = inject._first_reflection_period(
+        precursor, wing, response, context, patch.apex_sample
+    )
+    assert measured == reference
+    mask = inject.first_reflection_mask(wing, response, context, patch.apex_sample)
+    assert not mask[: first_row + 1].any()
 
 
 # ---------------------------------------------------------- plan and table

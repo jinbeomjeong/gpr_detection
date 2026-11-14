@@ -2,7 +2,7 @@
 
 Compares, on 8 4TU + 4 Guangzhou IDS lines of the stage A lists (seed 20261114), apex windows of
 +-0.3 m (a typical -6 dB half-width) every 0.6 m:
-  current  (inject.strong_layer_samples, plan v0.2.2 (b')): envelope of the mean (1)-(3) trace over the
+  current  (v0.2.2 정의(탐색 당시)): envelope of the mean (1)-(3) trace over the
            window > 3 x its median over the rows deeper than band + 2 P;
   proposed coherent fraction R_k = env(mean trace)_k^2 / mean_traces env(trace)_k^2, both smoothed over
            1 P; flagged where R_k >= R_MIN (scale- and decay-free; pure noise gives ~1/N).

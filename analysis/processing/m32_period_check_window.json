@@ -1,0 +1,97 @@
+{
+ "note": "exploration only, inconclusive; the apex window here is not the adopted first-reflection region (m32_image_quality_plan.md v0.2.3 continuations 5-6, [EMR] B-2)",
+ "summary": {
+  "4tu/A1/k1.3": {
+   "n": 28,
+   "whole_pass": 19,
+   "apex_pass": 7
+  },
+  "4tu/A1/k0.8": {
+   "n": 28,
+   "whole_pass": 6,
+   "apex_pass": 3
+  },
+  "4tu/A0/k1.3": {
+   "n": 60,
+   "whole_pass": 40,
+   "apex_pass": 15
+  },
+  "4tu/A0/k0.8": {
+   "n": 60,
+   "whole_pass": 35,
+   "apex_pass": 4
+  },
+  "gz_ids/A0/k1.3": {
+   "n": 30,
+   "whole_pass": 26,
+   "apex_pass": 10
+  },
+  "gz_ids/A0/k0.8": {
+   "n": 30,
+   "whole_pass": 21,
+   "apex_pass": 7
+  }
+ },
+ "ratio_min_med_max": {
+  "4tu/A1/k1.3/whole": [
+   0.968,
+   1.023,
+   1.133
+  ],
+  "4tu/A1/k0.8/whole": [
+   0.968,
+   1.073,
+   1.167
+  ],
+  "4tu/A0/k1.3/whole": [
+   0.91,
+   0.997,
+   1.09
+  ],
+  "4tu/A0/k1.3/apex": [
+   0.904,
+   0.982,
+   0.988
+  ],
+  "4tu/A0/k0.8/whole": [
+   0.905,
+   0.994,
+   1.104
+  ],
+  "4tu/A0/k0.8/apex": [
+   0.856,
+   0.936,
+   0.988
+  ],
+  "4tu/A1/k1.3/apex": [
+   0.971,
+   0.982,
+   0.988
+  ],
+  "4tu/A1/k0.8/apex": [
+   0.971,
+   0.982,
+   0.988
+  ],
+  "gz_ids/A0/k1.3/whole": [
+   0.917,
+   0.995,
+   1.173
+  ],
+  "gz_ids/A0/k1.3/apex": [
+   0.81,
+   0.991,
+   0.991
+  ],
+  "gz_ids/A0/k0.8/whole": [
+   0.902,
+   0.997,
+   1.173
+  ],
+  "gz_ids/A0/k0.8/apex": [
+   0.81,
+   0.975,
+   0.991
+  ]
+ }
+}

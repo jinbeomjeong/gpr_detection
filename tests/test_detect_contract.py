@@ -276,6 +276,54 @@ def test_yolo_detector_returns_l2_boxes_and_letterbox_transform() -> None:
     assert first.box == PixelBox(10.0, 20.0, 30.0, 40.0)
 
 
+class _FakeBatchYolo(_FakeYolo):
+    """Returns one result per image; the box x1 encodes the image index."""
+
+    def predict(self, source, **kwargs):
+        self.calls.append({"source": source, **kwargs})
+        results = []
+        for index in range(source.shape[0]):
+            boxes = SimpleNamespace(
+                xyxy=np.array([[float(index), 20.0, 30.0, 40.0]]),
+                conf=np.array([0.5 + 0.1 * index]),
+                cls=np.array([0.0]),
+            )
+            results.append(SimpleNamespace(boxes=boxes))
+        return results
+
+
+def test_predict_batch_sends_one_tensor_and_keeps_the_image_order() -> None:
+    model = _FakeBatchYolo()
+    detector = YoloDetector(model, input_channels=1, device="cpu")
+    images = [np.full((256, 256), value, dtype=np.uint8) for value in (0, 128, 255)]
+
+    outputs = detector.predict_batch(images)
+
+    assert len(model.calls) == 1
+    source = model.calls[0]["source"]
+    assert tuple(source.shape) == (3, 1, INPUT_SIZE_PX, INPUT_SIZE_PX)
+    maxima = [float(source[i].max()) for i in range(3)]
+    assert maxima == pytest.approx([0, 128 / 255, 1])
+    assert [output.detections[0].box.x1 for output in outputs] == [0.0, 1.0, 2.0]
+    assert all(
+        output.transform == InputTransform(1.0, 1.0, 0.0, 0.0, 256, 256)
+        for output in outputs
+    )
+
+
+def test_predict_batch_of_one_equals_predict() -> None:
+    image = np.arange(256 * 128, dtype=np.uint32).reshape(128, 256).astype(np.uint8)
+    single_model, batch_model = _FakeYolo(), _FakeYolo()
+    single = YoloDetector(single_model, input_channels=1).predict(image)
+    batched = YoloDetector(batch_model, input_channels=1).predict_batch([image])
+
+    assert batched == [single]
+    assert np.array_equal(
+        single_model.calls[0]["source"].numpy(), batch_model.calls[0]["source"].numpy()
+    )
+    assert YoloDetector(_FakeYolo(), input_channels=1).predict_batch([]) == []
+
+
 def test_yolo_detector_replicates_gray_for_three_channel_weights() -> None:
     model = _FakeYolo()
     detector = YoloDetector(model, input_channels=3)

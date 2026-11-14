@@ -195,6 +195,10 @@ class Detector(Protocol):
     class_names: tuple[str, ...]          # ("pipe_hyperbola", "pipe_band", "cavity", "manhole")
     def predict(self, image: np.ndarray) -> DetectorOutput: ...   # image: L1, uint8 [H, W] 또는 [H, W, 3]
 
+# 선택 기능(프로토콜 밖, 2026-11-14 M3-2 S5). 구현: YoloDetector. RF-DETR(M4)은 미구현
+#   def predict_batch(self, images: Sequence[np.ndarray]) -> list[DetectorOutput]: ...
+#   입력 순서대로 한 장에 DetectorOutput 1개. 전처리·conf·iou·device는 predict와 같다
+
 @dataclass(frozen=True)
 class InputTransform:     # detect/base.py — 백엔드가 L1 → L2에 적용한 변환
     scale_x: float; scale_y: float   # L2 px / L1 px, 축별(정사각 늘림이면 서로 다름)
@@ -239,6 +243,10 @@ class GridBox:            # io/radargram.py
 
 계약 규칙:
 - `Detector.predict`는 박스를 **L2(모델 입력) 좌표 그대로** 돌려주고, 자기가 적용한 L1 → L2 변환을 `InputTransform`으로 함께 낸다. letterbox(Ultralytics)든 정사각 리사이즈(RF-DETR `square_resize_div_64`)든 역변환은 백엔드가 하지 않는다.
+- 선택 기능 `predict_batch(images)`(2026-11-14, M3-2 S5, ADR-001 결정 3 보충): 여러 L1 영상을 모델 호출 한 번으로 처리한다. `Detector` 프로토콜에는 넣지 않는다. 프로토콜은 `class_names`·`predict`만 요구한다.
+  - 결과가 `predict`와 **마지막 자리까지 같지는 않을 수 있다.** letterbox·conf·iou·device는 같지만 GPU 커널의 반올림이 배치 크기에 따라 달라진다. YOLO11m 실측 점수 차는 최대 6.9e-4였다. 그래서 비트 단위 재현이 필요한 게이트는 batch 1(`predict` 경로)로 돌린다. 레시피 사이의 비교는 모든 레시피를 같은 배치 경로로 돌려서 한다(계획 [`m32_image_quality_plan.md`](../processing/m32_image_quality_plan.md) §4-3 C-8: 정체 게이트 `--batch-size 1`, 측정 batch 64).
+  - 없으면 `predict`로 폴백한다. 호출자는 `getattr(detector, "predict_batch", None)`로 찾고, 없거나 batch ≤ 1이면 타일마다 `predict`를 부른다(`analysis/detection/m32_recipe_eval.py` `predict_tiles`). `pipeline`은 `predict`만 쓴다.
+  - 위험: RF-DETR(M4) 래퍼가 `predict_batch`를 구현하지 않으면 러너가 **오류 없이 다른 경로(타일별 `predict`)로 돈다.** 기록에는 요청한 `batch_size`만 남는다. 그러면 YOLO11m(batch 64)과 RF-DETR(batch 1)이 다른 경로로 비교된다. 대응: M4-4에서 RF-DETR 래퍼에 `predict_batch`를 구현하고, "batch 1 결과 = `predict` 결과" 시험(`tests/test_detect_contract.py::test_predict_batch_of_one_equals_predict`와 같은 형태)을 둔다. 러너는 실제로 쓴 경로를 기록한다(ADR-001 후속 과제 M4-4, python-expert).
 - `pipeline`은 L2 → L1(`InputTransform`) → L0(`ImageGridMap`)를 한 함수에서 처리한다. 좌표 변환 코드가 한 곳뿐이라 QA-8 왕복 시험도 이 함수 하나만 보면 된다.
 - 트레이드오프:
   - 얻는 것: 역변환이 한 곳에 있어 백엔드마다 따로 구현하다 생기는 오차가 없다. 백엔드 래퍼가 얇아진다.
@@ -255,7 +263,7 @@ class GridBox:            # io/radargram.py
 
 | ADR | 결정 | 드라이버 | 상태 |
 |---|---|---|---|
-| [ADR-001](ADR-001-detector-migration.md) | YOLO11m 초안 → RF-DETR S/M 이전, `Detector` 프로토콜 뒤로 격리. 이전 판정 기준선 N2-a′ 79.59 %(경계 74.59 %), RF-DETR도 N2-a′ 증강으로 학습한 뒤 판정 | QA-1, QA-7, QA-6, CON-1, CON-3 | Accepted 2026-10-29, 결정 4 개정 2026-11-14(N6-a) |
+| [ADR-001](ADR-001-detector-migration.md) | YOLO11m 초안 → RF-DETR S/M 이전, `Detector` 프로토콜 뒤로 격리. 이전 판정 기준선 N2-a′ 79.59 %(경계 74.59 %), RF-DETR도 N2-a′ 증강으로 학습한 뒤 판정 | QA-1, QA-7, QA-6, CON-1, CON-3 | Accepted 2026-10-29, 결정 4 개정 2026-11-14(N6-a), 결정 3 보충 2026-11-14(`predict_batch` 선택 기능) |
 | [ADR-002](ADR-002-physics-based-depth.md) | 물리 기반 쌍곡선 피팅, 공기결합은 지표 반사 영점·v 고정, R 고정, 스케일 없으면 m 금지. `pipe_band`는 띠 상단 시각(꼭짓점 시각 규칙), v는 이웃 쌍곡선 → 메타 εr → 조사 단위 중앙값 → `no_velocity`(가정 v 금지) | QA-2, QA-3, QA-4, FR-2, FR-3 | Accepted 2026-10-29, 결정 8 개정 2026-10-30 |
 | [ADR-003](ADR-003-data-split-and-classes.md) | 클래스 4개, 그룹 키 단위 분할(AIHub 세션·크롭 키, 모로코 그룹, 4TU 현장), 기준점 두 가정 보고 | QA-5, QA-6, QA-3, FR-1 | Accepted 2026-10-29 |
 | [ADR-004](ADR-004-coordinate-contract.md) | 3층 좌표 계약(L0·L1·L2), 역변환은 pipeline 공통, 바깥쪽 반올림. 깊이 호출은 측선 단위 영점(띠 제외) → 쌍곡선 → 속도 풀 → 띠. M3-1: 측선 L1(C′) + 256 겹침 타일(정수 `x0`), 측선 연속 좌표 병합 뒤 반올림 1회 | QA-8, QA-1, FR-2, FR-3, QA-4, CRN-2, CRN-4 | Accepted 2026-10-30(결정 2026-10-29), 결정 7 개정 2026-10-30, M3-1 반영 2026-11-14 |
@@ -322,3 +330,4 @@ class GridBox:            # io/radargram.py
 | 2026-11-11 | §6 백로그 QA-3 행 사실 갱신(상태 "부분 해결" 유지, 결정 불변): 4TU 재평가 "미실행" → 실행·판정 완료, U-3 불합격(기준선) 140/388·판정률 B 0.361·p = 1.0, 후속 M2-10 | `docs/processing/depth_4tu_v2.md` 수기 판정 절, `docs/CHECKLIST.md` M2-9·M2-10(사용자 결정 2026-11-11) |
 | 2026-11-14 | M3-1·기준선 교체 반영: §2-2 모듈 뷰에 `augment_geometry` 노드, 모듈 표 `augment_geometry` 행(numpy + cv2, `detect` 쪽 학습 증강)·`preprocess`·`pipeline` 행 갱신, 의존 규칙 7. §2-3 데이터 흐름 뷰(측선 L1·타일·병합·반올림 1회), 층 표 L1 행, `ImageGridMap.trace_offset` 의미(측선 L1 기준 0, 타일 원점은 `LineTile.x0_px`)와 `LineTile` 스케치, 계약 규칙(결정 7 구현됨). §3 ADR-001·ADR-004 요약, §4 QA-1·QA-8(해결) 행과 R-G, §6 백로그·반복 로드맵 | 사용자 결정 N6-a(2026-11-14), `m31_qa8_roundtrip.md`, D1 r4·A1 판정서, spec_detection_image_v1, 코드 `abbe8dc`·`augment_geometry.py` |
 | 2026-11-14 | M3-2 선행(S4 구현 전): §2-2 모듈 뷰에 `eval`·`analysis/` 노드와 화살표 3개, 모듈 표 `eval` 행(평가 전용 합성 주입, 좌표는 L0 직접 출력·L1 순변환만, 대안 2개와 트레이드오프), 의존 규칙 8(`eval` import 허용 목록)·9(역방향 금지). ADR은 만들지 않았다 — 스키마·좌표 계약(ADR-004)·검출기 경계(ADR-001)를 바꾸지 않는 모듈 추가이고 `band_metrics`·`augment_geometry` 추가 때와 같은 방식이다. 점검: `adr_lint.py` 오류 0·경고 0(정보 5건은 이전부터 있던 고아 드라이버), `mermaid_extract.py --validate` 정적 오류 0·mmdc 렌더 2/2 통과(Mermaid Chart 검증 도구는 자동 모드에서 거부되어 쓰지 못함) | `docs/processing/m32_image_quality_plan.md` v0.2.1 §5-3 S4·§8(커밋 `a1a9895`) |
+| 2026-11-14 | §2-3 인터페이스 스케치·계약 규칙에 선택 기능 `predict_batch` 추가: 프로토콜 밖, `predict`와 비트 동일 아님, 없으면 `predict` 폴백, RF-DETR 미구현 시 러너가 조용히 다른 경로로 도는 위험과 M4-4 대응. §3 ADR-001 상태 칸. 다이어그램 변경 없음 | M3-2 S5 `YoloDetector.predict_batch`(미커밋), 실측 점수 차 최대 6.9e-4, 계획 §4-3 C-8, ADR-001 결정 3 보충 |

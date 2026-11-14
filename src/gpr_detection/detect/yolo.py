@@ -10,7 +10,7 @@ model input coordinates (L2). So the ``InputTransform`` returned here is the
 exact transform behind the boxes, with no hidden ``ratio_pad`` to recover.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -122,12 +122,44 @@ class YoloDetector:
         detections = self._parse_result(results[0])
         return DetectorOutput(detections=detections, transform=transform)
 
+    def predict_batch(self, images: Sequence[np.ndarray]) -> list[DetectorOutput]:
+        """Detect objects in several L1 images with one model call.
+
+        Same letterbox, thresholds and parsing as :meth:`predict`; the images
+        go to Ultralytics as one ``[N, C, S, S]`` tensor. GPU kernels may
+        round differently for another batch size, so scores can differ from
+        :meth:`predict` in the last bits.
+
+        Args:
+            images: uint8 images as accepted by :meth:`predict`.
+
+        Returns:
+            One output per image, in input order.
+        """
+        if not images:
+            return []
+        letterboxed = [letterbox(_to_gray(image), self._input_size) for image in images]
+        model_input = self._to_tensor(np.stack([padded for padded, _ in letterboxed]))
+        results = self._model.predict(
+            source=model_input,
+            imgsz=self._input_size,
+            conf=self._confidence_threshold,
+            iou=self._iou_threshold,
+            device=self._device,
+            verbose=False,
+        )
+        return [
+            DetectorOutput(detections=self._parse_result(result), transform=transform)
+            for result, (_, transform) in zip(results, letterboxed, strict=True)
+        ]
+
     def _to_tensor(self, padded_gray: np.ndarray) -> Any:
-        """``[S, S]`` uint8 -> float tensor ``[1, C, S, S]`` scaled to 0-1."""
+        """``[S, S]`` or ``[N, S, S]`` uint8 -> float ``[N, C, S, S]`` in 0-1."""
         import torch  # lazy: keeps torch out of package import time
 
-        planes = np.repeat(padded_gray[np.newaxis], self._input_channels, axis=0)
-        return torch.from_numpy(planes[np.newaxis].astype(np.float32) / 255.0)
+        stacked = padded_gray if padded_gray.ndim == 3 else padded_gray[np.newaxis]
+        planes = np.repeat(stacked[:, np.newaxis], self._input_channels, axis=1)
+        return torch.from_numpy(planes.astype(np.float32) / 255.0)
 
     def _parse_result(self, result: Any) -> tuple[Detection, ...]:
         boxes = result.boxes
