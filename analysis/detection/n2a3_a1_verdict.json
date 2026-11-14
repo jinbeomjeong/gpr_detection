@@ -1,0 +1,356 @@
+{
+ "schema": "n2a_a1_verdict/1",
+ "rules": "m31_n2a_retrain_plan.md v0.3.3 §3-1 (A1, gates), §5-5; m31_n2a2_retrain_plan.md v1.0 §5 (A1 + gpr_context gate), §7-3",
+ "run_identity": {
+  "run_id": "5f3dec28-56e3-4013-96bd-3ee4598a7482",
+  "started_at": "2026-11-14T13:06:45+09:00",
+  "finished_at": "2026-11-14T13:06:47+09:00",
+  "argv": [
+   "analysis/detection/n2a_a1_judge.py",
+   "--config",
+   "configs/train_yolo11m_n2a3.yaml",
+   "--run-prefix",
+   "yolo11m_aihubv1n2a3_20261114_fold",
+   "--seal-commit",
+   "c80825e",
+   "--out",
+   "analysis/detection/n2a3_a1_verdict.json",
+   "--blind"
+  ],
+  "git": {
+   "head": "c80825e28b8a7af354c5bf2296e707ffba02ccb4",
+   "dirty": false,
+   "status": [],
+   "error": null
+  },
+  "versions": {
+   "python": "3.13.18",
+   "numpy": "2.5.4",
+   "opencv": "4.14.0",
+   "torch": "2.14.1+cu130",
+   "torch_cuda": "13.0",
+   "ultralytics": "8.4.192",
+   "gpr_detection": "0.1.0"
+  },
+  "gpu": "cpu",
+  "weights_sha256": {
+   "0": "9479b910ba78d0fb951481a89aaab52d69f43b464f655ef1ae6e8cb601bf9823",
+   "1": "7103444de39ecd26e4803bf0a050f5506677bc90e765ce3120dc935596e33910",
+   "2": "6571322f7b73be816d1eba9fc9ec1b0d979fae2c97f7c544a49db4255462843c",
+   "3": "2fb70fd20c54a7515107c8717d936d01ee932245587a3bbe2637b263963378e5",
+   "4": "91405a2cc9e6c38bd52a9b646f9d61f3b6368ecad2ac711c53521c308b0bde86"
+  },
+  "eval_list_sha256": {
+   "0": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+   "1": "4ef169c95d1a6f8ad8fc797ba3e0a191d34e9575f2503ed7eb95a8f4f9454f13",
+   "2": "69a61b9a49cbaa1d94f5b63149cab364dadb0619188af0a88e062d82d8f5070f",
+   "3": "3f917aa72b0e7c472004dfb05388d0cb2b6528ee4fede78de00b08e9435c6b78",
+   "4": "06c10d22b90e887bc42c82fe968819ed166023af6293736a70bc3c2502b4a42e"
+  },
+  "g1_inputs_sha256": {},
+  "config_sha256": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+  "seal_commit": "c80825e",
+  "sealed_config_sha256": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+  "sealed_gpr_context_sha256": "5e194378a96fe9ef18ed1d605f39a82f646aa08bfb0749878fa33b7f1e8a96fa",
+  "gpr_context_index_sha256": {
+   "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+   "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+  }
+ },
+ "inputs": {
+  "run_root": "C:\\workspace\\gpr_detection\\runs\\detect",
+  "run_prefix": "yolo11m_aihubv1n2a3_20261114_fold",
+  "m110_prefix": "yolo11m_aihubv1_20261101_fold",
+  "config": "configs\\train_yolo11m_n2a3.yaml"
+ },
+ "gates": {
+  "per_fold": [
+   {
+    "fold": 0,
+    "pass": true,
+    "checks": {
+     "eval_list_equals_m110": true,
+     "eval_list_file_matches_record": true,
+     "weights_match_eval_record": true,
+     "weights_match_train_record": true,
+     "config_matches_seal": true,
+     "evaluated_last_pt": true,
+     "evaluated_crop_unit": true,
+     "evaluated_fold_k": true,
+     "trained_fold_k": true,
+     "args_scale_is_0": true,
+     "args_translate_is_0.1": true,
+     "args_flipud_is_0": true,
+     "args_epochs_is_50": true,
+     "args_seed_is_0": true,
+     "gpr_context_matches_seal": true
+    },
+    "run_dir": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1n2a3_20261114_fold0",
+    "weights_sha256": "9479b910ba78d0fb951481a89aaab52d69f43b464f655ef1ae6e8cb601bf9823",
+    "eval_list_sha256": "5350a569d80f33767fcb15a0a05c4348746931f79483d686d1ab8b50afced7f1",
+    "config_sha256_recorded": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+    "args": {
+     "scale": 0.0,
+     "translate": 0.1,
+     "flipud": 0.0,
+     "epochs": 50,
+     "seed": 0
+    },
+    "gpr_context_sha256_recorded": "5e194378a96fe9ef18ed1d605f39a82f646aa08bfb0749878fa33b7f1e8a96fa",
+    "gpr_context_index_sha256_recorded": {
+     "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+     "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+    }
+   },
+   {
+    "fold": 1,
+    "pass": true,
+    "checks": {
+     "eval_list_equals_m110": true,
+     "eval_list_file_matches_record": true,
+     "weights_match_eval_record": true,
+     "weights_match_train_record": true,
+     "config_matches_seal": true,
+     "evaluated_last_pt": true,
+     "evaluated_crop_unit": true,
+     "evaluated_fold_k": true,
+     "trained_fold_k": true,
+     "args_scale_is_0": true,
+     "args_translate_is_0.1": true,
+     "args_flipud_is_0": true,
+     "args_epochs_is_50": true,
+     "args_seed_is_0": true,
+     "gpr_context_matches_seal": true
+    },
+    "run_dir": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1n2a3_20261114_fold1",
+    "weights_sha256": "7103444de39ecd26e4803bf0a050f5506677bc90e765ce3120dc935596e33910",
+    "eval_list_sha256": "4ef169c95d1a6f8ad8fc797ba3e0a191d34e9575f2503ed7eb95a8f4f9454f13",
+    "config_sha256_recorded": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+    "args": {
+     "scale": 0.0,
+     "translate": 0.1,
+     "flipud": 0.0,
+     "epochs": 50,
+     "seed": 0
+    },
+    "gpr_context_sha256_recorded": "5e194378a96fe9ef18ed1d605f39a82f646aa08bfb0749878fa33b7f1e8a96fa",
+    "gpr_context_index_sha256_recorded": {
+     "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+     "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+    }
+   },
+   {
+    "fold": 2,
+    "pass": true,
+    "checks": {
+     "eval_list_equals_m110": true,
+     "eval_list_file_matches_record": true,
+     "weights_match_eval_record": true,
+     "weights_match_train_record": true,
+     "config_matches_seal": true,
+     "evaluated_last_pt": true,
+     "evaluated_crop_unit": true,
+     "evaluated_fold_k": true,
+     "trained_fold_k": true,
+     "args_scale_is_0": true,
+     "args_translate_is_0.1": true,
+     "args_flipud_is_0": true,
+     "args_epochs_is_50": true,
+     "args_seed_is_0": true,
+     "gpr_context_matches_seal": true
+    },
+    "run_dir": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1n2a3_20261114_fold2",
+    "weights_sha256": "6571322f7b73be816d1eba9fc9ec1b0d979fae2c97f7c544a49db4255462843c",
+    "eval_list_sha256": "69a61b9a49cbaa1d94f5b63149cab364dadb0619188af0a88e062d82d8f5070f",
+    "config_sha256_recorded": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+    "args": {
+     "scale": 0.0,
+     "translate": 0.1,
+     "flipud": 0.0,
+     "epochs": 50,
+     "seed": 0
+    },
+    "gpr_context_sha256_recorded": "5e194378a96fe9ef18ed1d605f39a82f646aa08bfb0749878fa33b7f1e8a96fa",
+    "gpr_context_index_sha256_recorded": {
+     "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+     "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+    }
+   },
+   {
+    "fold": 3,
+    "pass": true,
+    "checks": {
+     "eval_list_equals_m110": true,
+     "eval_list_file_matches_record": true,
+     "weights_match_eval_record": true,
+     "weights_match_train_record": true,
+     "config_matches_seal": true,
+     "evaluated_last_pt": true,
+     "evaluated_crop_unit": true,
+     "evaluated_fold_k": true,
+     "trained_fold_k": true,
+     "args_scale_is_0": true,
+     "args_translate_is_0.1": true,
+     "args_flipud_is_0": true,
+     "args_epochs_is_50": true,
+     "args_seed_is_0": true,
+     "gpr_context_matches_seal": true
+    },
+    "run_dir": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1n2a3_20261114_fold3",
+    "weights_sha256": "2fb70fd20c54a7515107c8717d936d01ee932245587a3bbe2637b263963378e5",
+    "eval_list_sha256": "3f917aa72b0e7c472004dfb05388d0cb2b6528ee4fede78de00b08e9435c6b78",
+    "config_sha256_recorded": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+    "args": {
+     "scale": 0.0,
+     "translate": 0.1,
+     "flipud": 0.0,
+     "epochs": 50,
+     "seed": 0
+    },
+    "gpr_context_sha256_recorded": "5e194378a96fe9ef18ed1d605f39a82f646aa08bfb0749878fa33b7f1e8a96fa",
+    "gpr_context_index_sha256_recorded": {
+     "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+     "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+    }
+   },
+   {
+    "fold": 4,
+    "pass": true,
+    "checks": {
+     "eval_list_equals_m110": true,
+     "eval_list_file_matches_record": true,
+     "weights_match_eval_record": true,
+     "weights_match_train_record": true,
+     "config_matches_seal": true,
+     "evaluated_last_pt": true,
+     "evaluated_crop_unit": true,
+     "evaluated_fold_k": true,
+     "trained_fold_k": true,
+     "args_scale_is_0": true,
+     "args_translate_is_0.1": true,
+     "args_flipud_is_0": true,
+     "args_epochs_is_50": true,
+     "args_seed_is_0": true,
+     "gpr_context_matches_seal": true
+    },
+    "run_dir": "C:\\workspace\\gpr_detection\\runs\\detect\\yolo11m_aihubv1n2a3_20261114_fold4",
+    "weights_sha256": "91405a2cc9e6c38bd52a9b646f9d61f3b6368ecad2ac711c53521c308b0bde86",
+    "eval_list_sha256": "06c10d22b90e887bc42c82fe968819ed166023af6293736a70bc3c2502b4a42e",
+    "config_sha256_recorded": "14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1",
+    "args": {
+     "scale": 0.0,
+     "translate": 0.1,
+     "flipud": 0.0,
+     "epochs": 50,
+     "seed": 0
+    },
+    "gpr_context_sha256_recorded": "5e194378a96fe9ef18ed1d605f39a82f646aa08bfb0749878fa33b7f1e8a96fa",
+    "gpr_context_index_sha256_recorded": {
+     "crops.csv": "e10192bfc42c8781769acb81556225996f0b069744b91179a787cc5fe923bbbf",
+     "groups.csv": "f1fc261d18eb91d0bfdc6fdbf252a97d0e80aa2ece4ac2a8764c9296a9a38570"
+    }
+   }
+  ],
+  "config": {
+   "config_file_matches_seal": true,
+   "context_index_same_in_all_folds": true
+  }
+ },
+ "gates_pass": true,
+ "failures": [],
+ "a1": {
+  "map50": {
+   "per_fold_pp": [
+    82.08213706490326,
+    77.49083114219692,
+    76.88312794112908,
+    83.10308274988351,
+    82.55451012638
+   ],
+   "mean_pp": 80.42273780489855,
+   "mean_pp_exact": "80.422737804898552",
+   "threshold_pp": 76.8,
+   "pass": true
+  },
+  "pipe_hyperbola_ap50": {
+   "per_fold_pp": [
+    90.99902939224904,
+    91.2086548160494,
+    95.44437047970457,
+    93.43295998727987,
+    86.93930697698787
+   ],
+   "mean_pp": 91.60486433045415,
+   "mean_pp_exact": "91.604864330454152",
+   "threshold_pp": 90.9,
+   "pass": true
+  },
+  "pass": true
+ },
+ "verdict": "A1 met",
+ "report_only": {
+  "per_fold": [
+   {
+    "fold": 0,
+    "ap50_by_class": {
+     "pipe_hyperbola": 0.9099902939224904,
+     "pipe_band": 0.5607083637018688,
+     "cavity": 0.873876586304873,
+     "manhole": 0.9387102386668981
+    },
+    "map50_95": 0.39727965246379277,
+    "map50_minus_m110_pp": -0.4969464979998284,
+    "pipe_hyperbola_ap50_minus_m110_pp": -5.499504423295942
+   },
+   {
+    "fold": 1,
+    "ap50_by_class": {
+     "pipe_hyperbola": 0.912086548160494,
+     "pipe_band": 0.4104142630002034,
+     "cavity": 0.9067997884865895,
+     "manhole": 0.8703326460405902
+    },
+    "map50_95": 0.3595987170637536,
+    "map50_minus_m110_pp": 1.0468702480911252,
+    "pipe_hyperbola_ap50_minus_m110_pp": -0.3876830450610824
+   },
+   {
+    "fold": 2,
+    "ap50_by_class": {
+     "pipe_hyperbola": 0.9544437047970458,
+     "pipe_band": 0.37007773248203457,
+     "cavity": 0.8878630861966768,
+     "manhole": 0.8629405941694057
+    },
+    "map50_95": 0.370215985036895,
+    "map50_minus_m110_pp": -0.1665030378896981,
+    "pipe_hyperbola_ap50_minus_m110_pp": -1.4573703429724194
+   },
+   {
+    "fold": 3,
+    "ap50_by_class": {
+     "pipe_hyperbola": 0.9343295998727987,
+     "pipe_band": 0.6369089043303574,
+     "cavity": 0.8381127520696523,
+     "manhole": 0.9147720537225319
+    },
+    "map50_95": 0.3882652433119266,
+    "map50_minus_m110_pp": 0.20940901196232486,
+    "pipe_hyperbola_ap50_minus_m110_pp": -1.3111077049859254
+   },
+   {
+    "fold": 4,
+    "ap50_by_class": {
+     "pipe_hyperbola": 0.8693930697698787,
+     "pipe_band": 0.6442211445497296,
+     "cavity": 0.9046353968526792,
+     "manhole": 0.8839307938829122
+    },
+    "map50_95": 0.35991388676207725,
+    "map50_minus_m110_pp": 2.6068636168884995,
+    "pipe_hyperbola_ap50_minus_m110_pp": -3.0739005793406826
+   }
+  ],
+  "values_are": "fractions unless named _pp"
+ }
+}
