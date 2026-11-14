@@ -1,0 +1,16 @@
+{
+ "level_w_db": -6.0,
+ "pi_bottom": {
+  "4tu/A0": 0.0,
+  "4tu/A1": 0.1805467666820719,
+  "gz_ids/A0": 0.03685530448880332
+ },
+ "primary_stratum": "in_or_out",
+ "bottom_rule": "point",
+ "injection_table_sha256": "f8f25c73ca1c7dad5fd01c6a3c9a636924e02e722ed51af6a524362125ac5bd6",
+ "exclusions_sha256": "241cf2605b34f0e6312cfba533a7fa2c118e6a7f5056bd73dcdd9c9fed1e2440",
+ "cost_table_sha256": "a58eac8941634aa3f17c72999175b5cb6795ac5be2b43a9c2de95357c17e388c",
+ "positions_sha256": "f29a20bcfdd8824e5d93a50158e106c85e8274bd296f1dc565d43253319bc2cd",
+ "seed": 20261114,
+ "provisional": false
+}
