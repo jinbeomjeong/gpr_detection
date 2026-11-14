@@ -216,8 +216,77 @@
 - AGPL 경계: `rg -n "import ultralytics|from ultralytics" src scripts` 결과 `src/gpr_detection/detect/` 밖에는 없다. 정의 범위 밖인 `analysis/`에 직접 import가 2곳 있다. `analysis/detection/export_val_predictions.py:124–126`과 `analysis/processing/band_convention_predict.py:65`다. 둘 다 배포물이 아니므로 위반은 아니다. S3·S5는 `Detector` 경로를 쓰도록 권고했다(§4).
 - 이번 검토에서 실행한 것은 depcheck 2회(gpr-dev, gpr-detr)와 `known_apexes.csv` 집계(awk)뿐이다. Python·GPU 작업은 없다.
 
+## 부록 A. S3 구현 검토 (2026-11-14, 커밋 전)
+
+- 대상: `analysis/detection/m32_aihub_perturb.py`(1,296줄), `tests/test_m32_aihub_perturb.py`(586줄). 둘 다 python-expert가 구현했고 미추적 상태다.
+- 검토만 했다. 실행·GPU는 쓰지 않았다. 집계는 awk와 sha256sum으로 했다.
+- **결론: 수정 필요 3건(A-3 (1)–(3)). 정체 게이트 변경(A-1)은 승인한다. M2 참조 CDF(A-2)는 공개만 하면 된다.**
+- **반영 확인(2026-11-14, 메인):** A-3 (1)–(3)과 A-1 조건 2(같은 GPU), 권고(라벨 폴더 sha·`disclosure`)가 반영됐다(스크립트 1,502줄, 시험 744줄·54개, 관련 207개 통과). gpr-processing 흉내 규칙 수정(gain만 거는 두 조건의 트레이스 평균 제거)도 함께 반영. 위 줄 수는 검토 시점 값이다.
+
+### A-1. 정체 게이트 기준 변경 — 승인
+
+- 판단: **받아들인다.** §4-1의 "last_crop metrics와 0.01 %p 이내"는 잘못 쓴 요구였다.
+  - validator(`model.val`)와 predict 경로는 구조상 다르다. 레터박스·배치·NMS 경로가 다르다.
+  - D1 r4 판정서 §4 "경로 차"에 이미 클래스별로 −2.52 – +2.05 %p가 기록돼 있다.
+  - 이 차를 0.01 %p로 묶으면 정체 조건이 원천적으로 실패한다.
+- 새 기준은 같은 가중치·같은 predict 경로(`gpr_detection.detect.yolo`, conf 0.001, NMS 0.7, 한 장씩)인 D1 r4 `g1.00_dx+0`이다. 비교 항목은 다음과 같다.
+  - n_gt 일치와 무시 객체 0
+  - AP50 차 ≤ 0.01 %p
+  - 쌍곡선 재현율 차 ≤ 1e-12
+- 이 기준은 §4-1이 원래 두 번째로 요구한 조건("쌍곡선 재현율은 D1 r4와 같아야")을 모든 클래스의 AP50까지 넓힌 것이라 더 엄격하다. last_crop과의 차를 `validator_ap50_diff_pp`로 보고만 하는 것도 맞다.
+- 승인 조건 두 가지(A-3 (3)에 포함)
+  1. 기준 파일을 고정한다. 기준 파일 `eval/m31_d1_r4/metrics.json`은 git 밖(`runs/`)에 있다. 지금은 sha를 기록만 한다. 아래 값을 상수로 두고 실행 시작 때 단언한다. 파일 수정 시각은 D1 r4 실행 종료 시각(2026-11-14 04:34:46)과 같아서, 그 뒤 바뀌지 않았다.
+
+     | fold | `m31_d1_r4/metrics.json` sha256 |
+     |---|---|
+     | 0 | 1c0d070852bfa7adb4c27740889228d2d0852083e4ff13a91de973b52d435767 |
+     | 1 | a9ed73ecad1437eddb278426401f5780fafbe4fecfb3de5d2507eabbaddc85a1 |
+     | 2 | 98b637b1ee8f2fab78072da9c366f0a235d47af46c80929244cdde45f86b8e58 |
+     | 3 | d205d8e178bb4fd070dbeb78978697cec8d26047293cf59d322a4057f80e7546 |
+     | 4 | 960d4021393a6e76ded3e7d7086bdf3289e54ce9fe9af42bf6a5fe5403b06fd2 |
+
+     같은 이유로 fold별 `eval_images.txt` sha를 커밋된 `analysis/detection/m31_d1_r4_verdict.json`의 `eval_list_sha256`과 대조한다(fold 0 5350a569…, fold 1 4ef169c9… 등).
+  2. 장치를 맞춘다. 재현율 허용 오차 1e-12는 같은 장치 종류에서만 성립한다. D1 r4는 GPU(RTX 4070 SUPER)로 돌았다. `--device cpu`로 게이트를 돌리면 cuDNN과 CPU의 수치 차로 실패할 수 있다. 실패 자체는 안전하지만 원인을 잘못 읽을 수 있다. 게이트 실행은 GPU로 하고, `run_identity.gpu`가 D1 r4와 같은 GPU인지 기록·확인한다.
+
+### A-2. M2 참조 CDF(`m32_aihub_nm_cdf.json`)의 출처 — 공개만 하면 된다
+
+- 사실: 참조 600장(NM, `pipe_hyperbola`·`pipe_band` 각 300장, gain 1.0, 목록 sha 03519f33…6202)을 매니페스트와 대조했다.
+  - test는 0장이고 모두 train_pool이다.
+  - fold별로는 0: 170, 1: 110, 2: 112, 3: 104, 4: 104장이다.
+  - 따라서 fold k 검증 목록의 일부(fold 0이면 1,298장 중 최대 170장)가 자기 fold M2 변환의 참조 분포에 들어 있다. 참조에서 자기 fold가 차지하는 비중은 17–28 %다.
+- 판단: **라벨 누수가 아니다.**
+  - CDF는 라벨 없는 화소 통계이고, 검출기 학습·선택에 쓰이지 않는다.
+  - 영향은 한 방향으로만 작게 나타난다. 자기 화소가 참조에 섞이면 M2 변환이 그 crop을 덜 바꾼다. 그래서 M2 조건의 재현율 하락이 **약간 작게** 나올 수 있다(보수적이지 않은 쪽).
+  - M2(r7)는 단계 A에서 탈락해 단계 C 후보가 아니다. 단계 B의 M2 조건은 보고 전용이고, 극성 문턱(§3-1 B)과도 무관하다.
+  - 단계 A의 $D_r$ 기준 집합도 같은 600장이지만, 검출기를 쓰지 않으므로 누수 개념이 해당하지 않는다.
+- 요구
+  - `summary.json` 또는 판정서에 다음을 적는다. "M2 참조 CDF는 train_pool NM gain 1.0 600장(5 fold 검증 crop 포함, fold별 170/110/112/104/104, test 0, 라벨 미사용)이다. M2 조건의 하락은 약간 작게 추정될 수 있다."
+  - **M2가 나중에 단계 C 후보나 학습 쪽 일치(Q2)로 다시 들어오면**, 단계 B 재측정에는 fold별로 자기 검증 crop을 뺀 CDF를 쓴다. 운용 기본값용 CDF는 train_pool 전체여도 된다. AIHub 평가 경로에는 레시피가 걸리지 않기 때문이다.
+
+### A-3. 그 밖의 대조 ([CVR] §4-1 표)
+
+| 항목 | 구현 | 판단 |
+|---|---|---|
+| 가중치·앙상블 | sha256 5개 상수 단언, fold별 독립 | 맞음 |
+| 분할·누수·test 봉인 | `check_fold_split`이 6가지를 단언한다: 전원 매니페스트, 중복 없음, test 0, 전원 fold k, 세션이 학습 쪽에 없음, gain 사본 같은 쪽. 시험 `test_split_checks_pass_and_catch_each_leak` | 맞음 |
+| 조건 12 + 4 | (1)–(12)가 §4-1 목록과 같다. 단계 A 후보 r0·r5·r6을 넣으면 15조건(≤ 16)이다. r0 = B0G0P0M0(현재안 흉내), r5 = B0G2P1M0, r6 = B2(0.8)G1P0M0으로 [PL] 레시피 표와 같다. r3(B3)·r4(G3)는 AIHub에서 흉내 낼 수 없어 거부한다(사유가 코드에 있음) | 맞음 |
+| 축척 단위 | 채움 높이는 실측 타일 px($P^*$ 6, 14,749타일 가중), 감쇠·AGC 창은 $P_A$ 4.06 px 단위다 | 받아들인다. 채움은 "타일에서 차지하는 비율"을, 감쇠·AGC는 파형 주기를 흉내 내므로 단위가 다른 것이 맞다. 판정서 설정 칸에 이 두 단위를 적는다 |
+| 무시 박스 | 중심이 채움 안인 정답은 무시한다. 무시 박스와 IoU ≥ 0.5 또는 IoA ≥ 0.5인 예측은 버린다(D1 규칙). 중심이 내용 안이고 일부만 채움에 걸친 정답은 원래 박스로 남긴다 | 맞음(D1 F 계열과 같다) |
+| ScoreAccumulator | D1 `m31_d1_common`을 그대로 쓴다(AP50: conf 0.001 전체 예측, 재현율: conf > 0.25 예측의 IoU 0.5 일치, `hit_score` −1 = 놓침). `hit_conf025 = score ≥ 0` 변환이 맞다 | 맞음 |
+| **(1) 짝지은 재현율 집합** | `paired_common_recall`은 **모든 조건의 교집합**을 쓴다. 채움 조건(pad_p0·p1, r0·r5·r6)이 채움 안 정답을 빼므로 채움 없는 조건(극성, B0, G0 등)의 짝지은 차도 "채움 위에 남은 객체"로만 계산된다. 극성 문턱(§3-1 B, 5·10 %p)이 이 값으로 읽히면 아래쪽 객체가 빠진 부분 집합으로 판단하게 된다 | **수정 필요.** 조건마다 "그 조건 ∩ 정체" 교집합으로 짝지은 차를 계산한다(주 값). 전체 교집합 값은 `paired_recall_all_common`으로 보고만 남긴다. 극성 문턱은 주 값(채움 없는 조건이면 전체 객체)으로 읽는다고 summary 설정에 적는다 |
+| **(2) gain별 `n_ignored`** | `by_gain`의 `n_ignored`가 항상 0으로 채워진다(`np.zeros_like`) | **수정 필요.** gain별 실제 값을 세거나 `null`로 둔다. 0은 "무시 없음"으로 잘못 읽힌다 |
+| **(3) 게이트 기준 고정** | 기준 파일 sha를 기록만 한다 | **수정 필요.** A-1의 sha 5개와 `eval_list_sha256` 대조를 단언으로 넣고, 불일치는 종료 2로 한다. 시험 1개를 추가한다 |
+| 블라인드 출력 | stdout에는 fold·조건 이름, 장수, 초, 가중치 sha만 찍는다. 마지막 줄은 `{status, out_dir, n_conditions, n_images, elapsed_s}`다. 게이트 실패는 stderr에 "fold k"만 찍고 값은 파일에만 쓴다. Ultralytics 로거를 끈다. `--list-conditions`는 이름만 찍는다 | 맞음 |
+| 출력 형식 | `runs/eval/m32_aihub_perturb/fold<k>/metrics.json`·`objects.csv`, `summary.json`(fold 평균 ± SD ddof 1, gain별, 짝지은 차, 게이트, VRAM 정점) | 맞음. 위치가 §4-1의 `eval/…`이 아니라 `runs/eval/…`인 것은 받아들인다(git 밖, 같은 뜻) |
+| 깨끗한 트리 | 추적 파일 변경 0과 필수 입력(스크립트, common, 채움 표, CDF)이 추적되는지를 요구한다. 다른 작업의 미추적 파일은 허용한다 | 받아들인다(D1 r4 선례: `dirty`는 미추적 결과 파일 때문이었다). 매니페스트·라벨은 `data/`(git 밖)라 sha로 남긴다. 라벨 폴더 sha(파일 목록 + 내용 해시)도 `run_identity`에 넣기를 권고한다(필수 아님) |
+| `--limit`·`--smoke` | 게이트를 건너뛰고 `settings.gated` false로 기록한다 | 맞음. 판정서에는 `gated` true이고 `n_images_total` 5,473인 실행만 쓴다고 적는다 |
+| AGPL | `ultralytics`를 직접 import하지 않고 `gpr_detection.detect.yolo`를 지연 로드한다 | 맞음 |
+
+- 수정 (1)–(3)은 모두 작다. 반영 뒤 시험 3개(조건별 쌍 교집합, gain별 n_ignored, 기준 sha 불일치 → 종료 2)를 추가하고 커밋한다. 그 뒤에는 다시 검토하지 않아도 된다. 시험 통과만 확인하면 된다.
+
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-11-14 | 최초 작성([PL] v0.1 검토, 사용자 결정 Q1–Q4 (a) 반영) |
+| 2026-11-14 | 부록 A: S3 구현 검토. 게이트 기준 변경 승인(조건: 기준 sha 고정, GPU), M2 CDF는 공개만, 수정 필요 3건 |
