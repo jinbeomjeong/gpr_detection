@@ -212,6 +212,12 @@ fold별 띠 보조 재현율(%, fold 0–4)과 짝지은 차
 - 실행 정보: HEAD a24ab98, dirty true(구현 미커밋). 스크립트 sha256 60fd9a6a…d489, N2-a″ 설정 sha256 14327dab…0dc1. seed 0 / seed 1 순서로 적는다.
 - **보관 위치**: 이 dirty 실행의 json은 작업 트리 밖 scratchpad `n2a3_dirty_diag\n2a3_band_label_diag.json`(메인 세션 scratchpad)으로 옮겼다. 커밋하지 않는 참고값이다.
 - 그 뒤 진단 스크립트 sha256이 60fd9a6a…d489 → 32e35c5c…로 바뀌었다. `counts_raw` 정의 필드를 더한 것이고 S 판정 로직은 그대로다. 봉인 C1 HEAD에서 다시 돌린 S 값은 아래 표의 dirty 값과 대조한다(§7-2 3).
+- **C1 HEAD 재실행 확정 (2026-11-14, 판정자 cv)**: `analysis/detection/n2a3_band_label_diag.json`(C2에 커밋)이 확정값이다. 확인 내용은 다음과 같다.
+  - 실행 정체성: head 2e6526dc25662769a0310dd8f2402054779abff3, dirty false, 종료 0. 스크립트 sha256 32e35c5cb15a1dc7b91e1bd4e950506f2d5defb7293ff5064638d2d7d65a0bcb, N2-a″ 설정 14327dabfa8288234f0576fc8e2a0628c7172f03068ed7ac223259ca51a30dc1, N2-a′ 설정 b9416b57…42ef, 인덱스 sha는 §2 고정값이다. 앞의 두 sha는 C1 작업 트리 파일의 재해시와 같다.
+  - `s_checks` 전체(정확 분수 포함)와 `seeds` 세부값이 dirty 실행과 **완전히 같다**. 예: S-0 56/573 · 11/115, S-3 0/1 · 1/396. 같은 seed·같은 2,000장·같은 판정 로직이므로 기대대로다.
+  - dirty 실행과 다른 최상위 필드는 `plan`·`run_identity`·`original_crop_band_widths`뿐이다. 마지막은 정의 필드를 더한 차이다(`definitions`, `width_64_counted_below_64_in_raw`).
+  - 정의 필드 값: `counts_plan_convention` 155 / 687(`matches_plan_1_2` true), `counts_raw` 164 / 271, `width_64_counted_below_64_in_raw` 9. 모두 §1-2와 같다.
+  - **S-0–S-4 확정 통과.**
 
 | ID | 값 (seed 0 / 1) | 문턱 | 결과 |
 |---|---|---|---|
@@ -352,7 +358,7 @@ $py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
    - 그다음 **C1 HEAD, 깨끗한 트리에서** §7-1 진단 명령을 다시 돌린다. 판정자(cv)가 S-0–S-4를 확정한다. **위반이 있으면 멈춘다.**
    - 확인할 것: 새 json의 `run_identity.git.head` = C1, `dirty` false, `script_sha256`·`config_sha256`이 C1 blob과 같다. S 값은 dirty 실행(§5-3)과 같아야 한다(같은 seed·같은 코드). 다르면 멈추고 원인을 본다.
 4. **봉인 C2**: 진단 json 하나만 더해 커밋한다. `<SEAL>` = C2다.
-   - 확인: `git diff --name-only C1 C2` = `analysis/detection/n2a3_band_label_diag.json` 하나뿐. 설정 blob이 C1과 같으므로 `n2a_a1_judge.py --seal-commit C2`의 설정 봉인 비교는 C1 내용과 같다.
+   - 확인: `git diff --name-only C1 C2` = `analysis/detection/n2a3_band_label_diag.json`과 이 문서(§5-3 확정 기록·변경 이력만) 두 개뿐. 설정·코드·시험은 바뀌지 않는다. 설정 blob이 C1과 같으므로 `n2a_a1_judge.py --seal-commit C2`의 설정 봉인 비교는 C1 내용과 같다.
    - 감사 ①(실행 전)을 C2에서 받는다. **차단이면 멈춘다.**
 5. 러너 A: 스모크(판정자는 `aug_stats.band_k32`가 0이 아닌지만 본다) → 5 fold 학습·평가·내보내기 → A1 판정 → 띠 지표 → B 판정.
 6. 판정자가 A1·B 판정서(`m31_n2a3_a1b_judgment.md`)를 쓴다. **A1·B·B-p 중 하나라도 미충족이거나 게이트가 실패하면, 판정서를 쓰고 감사 ②를 거쳐 커밋한 뒤 멈춘다.**
@@ -427,3 +433,4 @@ $py = "C:\ProgramData\miniforge3\Scripts\conda.exe"
 | 2026-11-14 | v0.2 | 사용자 결정 반영(K32, B 4/5 fold + B-p, 90.9 유지, 규칙 O 75·50 %, S 권고값, 자동 진행 정지 조건). 구현 명세(§3: "잘림" = 원 라벨 폭 대비, 맥락 모드만, 코드 위치, 시험 K-1–K-10), 진단 스크립트 명세와 S-0–S-4 판정(§5), 판정 경로(A1은 `n2a_a1_judge.py` 무수정 재사용, 띠 지표 래퍼 `n2a3_band_aux.py`, B 판정 `n2a3_band_judge.py`, N2-a′ 기준 `n2a2_band_aux.json` sha256 bf42403e… 고정), D1 r5 부록 자리, 러너·감사 순서. **정정**(§1-3): `band_length_px_entering_window`는 창 단계 입력 전부(창 밖 포함)의 띠 좌표 폭이라 "남은 라벨의 30.5 %"가 아니다 → S-0 신설(사용자 확인 필요). v0.1의 후보 비교 표(§2-1)는 v0.2에서 뺐고 위험 4번에 다음 후보만 남겼다 |
 | 2026-11-14 | v1.0 | 봉인 판. 구현 결과 §7-0(구현 차이 8건 승인, 확인 필요 5건 결정): (1) B 판정 verdict를 "B and B-p met"으로 바꾸고 `failed` 추가(명세 §6-3), (2) 띠 지표 ↔ run 결속은 G-b3 + 판정서 손 확인 (h1)–(h3), (3) §1-2 폭·가장자리 정의 명시(반올림 없음, [32, 64) 155개, 가장자리 2 px 687개), (4) 진단을 봉인 C1 HEAD에서 다시 돌려 C2로 커밋, `<SEAL>` = C2, (5) 진단 명령에 `-B`. 사전 확인 결과 §5-3(S-0–S-4 두 seed 통과, dirty 실행 참고값, 버림은 모두 이웃 출처, KS 0.148 → 0.156). 위험 7(효과 크기: 맥락 모드 band 라벨의 약 10 %, 전체 약 5 % 이하)·8(KS) 추가. 판정 문턱·규칙은 v0.2와 같다 |
 | 2026-11-14 | v1.0(봉인 전 점검 반영) | integrity-checker C1 봉인 전 점검(차단 0) 반영, 뜻 불변: verdict 수정·`counts_raw` 정의 기록을 "구현 완료"로(§6-3, §7-0, §7-2 1, §10), 시험 수 갱신(1,410 passed, 14 skipped, 26 deselected, 2 xfailed, 판정 네 조합 포함, `--dry-run` fold 0–4 종료 0·누수 단언 0·K32 = 32), §5-3 dirty 진단 json 보관 위치(scratchpad `n2a3_dirty_diag`, 미커밋)와 진단 스크립트 sha 60fd9a6a… → 32e35c5c…(정의 필드 추가, 판정 로직 불변), 약칭 [SP] 정의, K-7·K-8에 §7-0 참조 |
+| 2026-11-14 | v1.0(C1 재실행 확정) | §5-3에 C1(2e6526d) HEAD 깨끗한 트리 진단 재실행 확정 기록을 넣었다. dirty 0, sha 일치, `s_checks`가 dirty 실행과 정확히 같음, 정의 필드 155 / 687 / 164 / 271 / 9. S-0–S-4 확정 통과. C2에 진단 json과 함께 커밋한다. 규칙·문턱 불변 |
