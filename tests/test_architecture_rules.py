@@ -5,6 +5,10 @@
 3. ``ultralytics`` / ``rfdetr`` are imported only under ``detect/`` and only
    inside functions (lazy), never at module level (ADR-001, CRN-4).
 4. ``src`` never imports ``scripts``.
+8. ``eval`` imports only the standard library, numpy, scipy,
+   ``gpr_detection.io``, ``gpr_detection.preprocess`` and itself (no
+   ``detect``, ``pipeline``, ``depth``, detector libraries or torch).
+9. No module of ``gpr_detection`` outside ``eval/`` imports ``gpr_detection.eval``.
 
 Imports are read with ``ast`` so that imports nested in functions count too.
 """
@@ -215,6 +219,90 @@ def test_augment_geometry_allow_list_rejects_detector_imports() -> None:
     assert names & AUGMENT_GEOMETRY_FORBIDDEN == {"torch", "ultralytics", "rfdetr"}
 
 
+EVAL_ALLOWED_THIRD_PARTY = frozenset({"numpy", "scipy"})
+EVAL_ALLOWED_PACKAGE_PREFIXES = (
+    "gpr_detection.io",
+    "gpr_detection.preprocess",
+    "gpr_detection.eval",
+)
+EVAL_FORBIDDEN = frozenset({*DETECTOR_LIBRARIES, "torch"})
+
+
+def _is_within(module: str, package: str) -> bool:
+    """True for ``package`` itself and its submodules (not ``package_x``)."""
+    return module == package or module.startswith(f"{package}.")
+
+
+def _violates_eval_allow_list(record: ImportRecord) -> bool:
+    """Rule 8 for one import of an ``eval/`` module.
+
+    The bare package ``gpr_detection`` (``from gpr_detection import io``) is
+    allowed: its ``__init__`` imports nothing, and the submodule it binds is a
+    separate record that must pass the prefix check.
+    """
+    top_level = record.top_level_name
+    if top_level in EVAL_FORBIDDEN:
+        return True
+    if top_level == "gpr_detection":
+        return record.module != "gpr_detection" and not any(
+            _is_within(record.module, prefix)
+            for prefix in EVAL_ALLOWED_PACKAGE_PREFIXES
+        )
+    allowed = {*sys.stdlib_module_names, *EVAL_ALLOWED_THIRD_PARTY}
+    return top_level not in allowed
+
+
+def test_eval_imports_only_the_allow_list() -> None:
+    """Rule 8: ``eval/`` stays on stdlib, numpy, scipy, io and preprocess."""
+    if not (PACKAGE_ROOT / "eval").is_dir():
+        pytest.skip("eval/ not present")
+    offenders = [
+        f"{record.relative_path}:{record.line} {record.module}"
+        for record in ALL_IMPORTS
+        if _in_subpackage(record, "eval") and _violates_eval_allow_list(record)
+    ]
+    assert offenders == []
+
+
+@pytest.mark.parametrize(
+    ("source", "is_violation"),
+    [
+        ("from gpr_detection import depth", True),
+        ("from ..pipeline import x", True),
+        ("import gpr_detection.detect", True),
+        ("import ultralytics", True),
+        ("import torch", True),
+        ("import h5py", True),
+        ("from ..preprocess.to_image import make_detection_image", False),
+        ("from gpr_detection.io.radargram import GridBox", False),
+        ("from . import inject", False),
+        ("import scipy.signal", False),
+        ("import csv", False),
+    ],
+)
+def test_eval_allow_list_rejects_forbidden_imports(source, is_violation) -> None:
+    records = _imports_in_source(source, PACKAGE_ROOT / "eval" / "fake.py")
+    assert any(_violates_eval_allow_list(record) for record in records) is is_violation
+
+
+def test_package_never_imports_eval() -> None:
+    """Rule 9: ``eval`` is evaluation-only; the rest of ``src`` never imports it."""
+    offenders = [
+        f"{record.relative_path}:{record.line} {record.module}"
+        for record in ALL_IMPORTS
+        if not _in_subpackage(record, "eval")
+        and _is_within(record.module, "gpr_detection.eval")
+    ]
+    assert offenders == []
+
+
+def test_eval_collector_sees_relative_imports_from_outside() -> None:
+    records = _imports_in_source(
+        "from ..eval import inject", PACKAGE_ROOT / "detect" / "fake.py"
+    )
+    assert "gpr_detection.eval.inject" in {record.module for record in records}
+
+
 def test_package_never_imports_scripts() -> None:
     offenders = [
         f"{record.relative_path}:{record.line} {record.module}"
@@ -230,6 +318,7 @@ def test_importing_contract_modules_does_not_load_detector_libraries() -> None:
         "import gpr_detection.detect, gpr_detection.detect.yolo\n"
         "import gpr_detection.detect.yolo_train, gpr_detection.pipeline\n"
         "import gpr_detection.augment, gpr_detection.detect.band_metrics\n"
+        "import gpr_detection.eval.inject\n"
         "loaded = [n for n in ('ultralytics', 'rfdetr', 'torch') if n in sys.modules]\n"
         "print(','.join(loaded))\n"
     )
