@@ -1,0 +1,33 @@
+{
+ "part_a": {
+  "n_lines": 85,
+  "n_stored": 85,
+  "n_diff": 0,
+  "diffs": []
+ },
+ "content_height": {
+  "n_lines": 1168,
+  "n_diff": 0,
+  "examples": []
+ },
+ "aihub_hyperbola_box_P": {
+  "P_A_px": 4.06,
+  "width_P": {
+   "p5": 7.792,
+   "p10": 8.836,
+   "p50": 11.355,
+   "p90": 14.002,
+   "p95": 14.669,
+   "n": 451
+  },
+  "height_P": {
+   "p5": 5.217,
+   "p10": 5.515,
+   "p50": 6.559,
+   "p90": 8.049,
+   "p95": 8.348,
+   "n": 451
+  },
+  "note": "train_pool gain 1.0 copies, class 0 pipe_hyperbola, YOLO normalised box x 256 / P_A"
+ }
+}
