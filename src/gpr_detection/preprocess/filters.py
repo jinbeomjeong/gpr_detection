@@ -244,7 +244,42 @@ def remove_background(
     return values - background
 
 
-def agc(data: np.ndarray, dt_ns: float, f_c_hz: float | None) -> np.ndarray:
+def agc_rms(
+    data: np.ndarray,
+    dt_ns: float,
+    f_c_hz: float | None,
+    *,
+    window_periods: float = AGC_WINDOW_PERIODS,
+) -> np.ndarray:
+    """Moving RMS along time that :func:`agc` divides by (with its tiny floor).
+
+    Args:
+        data: ``[n_samples, n_traces]`` amplitudes.
+        dt_ns: Sample interval in ns.
+        f_c_hz: Centre frequency; the window is ``window_periods / f_c``.
+            Unknown ``f_c`` scales the 16 ns default window (8 / 500 MHz) by
+            ``window_periods / 8``.
+        window_periods: Window length in periods ``1 / f_c`` (default 8).
+    """
+    values = np.asarray(data, dtype=np.float64)
+    if f_c_hz is None:
+        window_ns = AGC_DEFAULT_WINDOW_NS * window_periods / AGC_WINDOW_PERIODS
+    else:
+        window_ns = window_periods * _period_ns(f_c_hz)
+    window = _odd_window(window_ns, dt_ns)
+    mean_power = uniform_filter1d(values**2, size=window, axis=0, mode="reflect")
+    peak_power = float(mean_power.max())
+    floor = peak_power * 1e-12 if peak_power > 0 else 1.0
+    return np.sqrt(mean_power + floor)
+
+
+def agc(
+    data: np.ndarray,
+    dt_ns: float,
+    f_c_hz: float | None,
+    *,
+    window_periods: float = AGC_WINDOW_PERIODS,
+) -> np.ndarray:
     """Step (5), detection branch only: divide by a moving RMS along time.
 
     Never use the result for time zero, picks or fits: a time-varying gain
@@ -253,18 +288,13 @@ def agc(data: np.ndarray, dt_ns: float, f_c_hz: float | None) -> np.ndarray:
     Args:
         data: ``[n_samples, n_traces]`` amplitudes.
         dt_ns: Sample interval in ns.
-        f_c_hz: Centre frequency; the window is ``8 / f_c`` (16 ns if unknown).
+        f_c_hz: Centre frequency; the window is ``window_periods / f_c``
+            (unknown ``f_c``: ``16 ns * window_periods / 8``, see :func:`agc_rms`).
+        window_periods: Window length in periods ``1 / f_c`` (default 8; M3-2
+            G1 uses 32).
     """
     values = np.asarray(data, dtype=np.float64)
-    if f_c_hz is None:
-        window_ns = AGC_DEFAULT_WINDOW_NS
-    else:
-        window_ns = AGC_WINDOW_PERIODS * _period_ns(f_c_hz)
-    window = _odd_window(window_ns, dt_ns)
-    mean_power = uniform_filter1d(values**2, size=window, axis=0, mode="reflect")
-    peak_power = float(mean_power.max())
-    floor = peak_power * 1e-12 if peak_power > 0 else 1.0
-    return values / np.sqrt(mean_power + floor)
+    return values / agc_rms(values, dt_ns, f_c_hz, window_periods=window_periods)
 
 
 def prepare_fitting_branch(

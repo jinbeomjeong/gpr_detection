@@ -90,8 +90,10 @@ flowchart LR
     depthMod["depth<br/>picks, hyperbola, refraction, estimate"]
     pipeMod["pipeline<br/>검출→좌표 변환→깊이"]
     cliMod["cli<br/>gpr-detect infer"]
+    evalMod["eval<br/>평가용 합성 주입 inject(M3-2)"]
   end
   scriptsMod["scripts/<br/>build_yolo_dataset, eval_depth_*"]
+  analysisMod["analysis/<br/>m32_* 평가 스크립트"]
   ultra["ultralytics (AGPL)"]
   rfdetr["rfdetr (Apache-2.0)"]
   prepMod --> ioMod
@@ -107,9 +109,12 @@ flowchart LR
   pipeMod --> ioMod
   cliMod --> pipeMod
   scriptsMod --> pipeMod
+  evalMod --> ioMod
+  evalMod --> prepMod
+  analysisMod -->|"평가 전용, src 안 역방향 금지"| evalMod
 ```
 
-화살표는 "import한다"이다. 검증: Mermaid Chart 검증 도구 통과(2026-10-29). `augment_geometry` 노드 추가 뒤 Mermaid Chart 검증 도구·mmdc 렌더 다시 통과(2026-11-14). `scripts/train_detector.py`도 `augment_geometry`를 직접 import하지만 `scripts/` 화살표는 대표만 그렸다.
+화살표는 "import한다"이다. 검증: Mermaid Chart 검증 도구 통과(2026-10-29). `augment_geometry` 노드 추가 뒤 Mermaid Chart 검증 도구·mmdc 렌더 다시 통과(2026-11-14). `scripts/train_detector.py`도 `augment_geometry`를 직접 import하지만 `scripts/` 화살표는 대표만 그렸다. `eval` 노드·`analysis/` 노드 추가(2026-11-14, M3-2 선행) 뒤 점검 결과는 §7 변경 이력에 적는다. `tests/`는 그리지 않았다(시험은 모든 모듈을 import할 수 있다).
 
 | 모듈 | 책임 | 드라이버 |
 |---|---|---|
@@ -120,6 +125,7 @@ flowchart LR
 | `augment_geometry` | 검출(`detect`) 쪽 **학습 증강**의 기하 부분(M3-1 N2-a·N2-a′, 2026-11-13–14): 등방 축척(축소 AREA·확대 LINEAR), 정수 열 가로 이동, 가장자리 채움 띠, N2-a′ 문맥 모드(같은 line·gain·fold의 겹친 train crop 이어 붙이기 `ContextIndex`·`assemble_context_strip`·`place_window`·`augment_context_scale`), 박스 유지 규칙. 표준 라이브러리 + **numpy + cv2**만 import하고 검출 라이브러리·torch는 import하지 않는다. cv2를 쓰므로 `augment`(규칙 5)와 분리한 모듈이다. 사용처는 `detect/yolo_train.py`(Ultralytics 어댑터)와 `scripts/train_detector.py`이고, M4-2에 RF-DETR 어댑터도 같은 모듈을 쓴다(ADR-001 결정 4, 같은 증강으로 비교) | QA-1, FR-1, ADR-001 |
 | `depth` | 점 추출·RANSAC·least_squares(R 고정)·굴절 모델·v 결정표·불확도 → `DepthResult`. M2-6b: `band.py`(띠 상단 픽·masked median·flat/sloped/curved)·`velocity.py` 속도 풀(`VelocityEstimate`, `select_band_velocity`) | FR-2, QA-2, QA-3 |
 | `pipeline` | 두 갈래를 조립하고 클래스 필터(깊이는 `pipe_hyperbola`·`pipe_band`, `cavity`·`manhole` 제외)와 좌표 변환을 적용. M3-1(2026-11-13, `abbe8dc`): 타일 박스를 측선 L1 연속 좌표에서 병합(R2 + 물리 거부권 V1·V2, 띠 구간 중재, `merge_line_boxes`)한 뒤 L0로 한 번 반올림하고(`line_boxes_to_grid`, 묶음 `detect_line`), 측선 단위 깊이 호출 순서(ADR-004 결정 7)를 `estimate_line_depths`·`estimate_survey_depths`로 구현. CLI 연결은 M5-1 | FR-2, FR-4, QA-8 |
+| `eval` | **평가 전용** 합성 주입(M3-2 S4, `eval/inject.py`, [`m32_image_quality_plan.md`](../processing/m32_image_quality_plan.md) §3-2·§5-3·§8): 실측 배경 측선에 gprMax 관 단독 응답을 넣고 의사 띠를 만들어, 정답 L0 박스(`GridBox`)와 주입 집합 표(시드 고정, sha)를 낸다. `select_zero`·`make_detection_image` 등 `io`·`preprocess`의 공개 함수만 쓴다. **학습·추론 경로에 들어가지 않는다**(`detect`·`pipeline`·`depth`·`cli`는 `eval`을 import하지 않음, 규칙 9). 좌표: 정답 박스는 주입한 원본 격자 위치에서 바로 L0 정수로 내고, L1 표현이 필요하면 `ImageGridMap` 순변환(L0 → L1)만 쓴다. L1 → L0 역변환·반올림은 하지 않는다(ADR-004: 역변환은 `pipeline` 한 곳) — 왕복 확인은 시험(S6 (g))에서 `pipeline`과 맞춰 본다. gprMax 출력 파일 읽기는 `eval` 밖(호출하는 분석 스크립트)에서 하고 배열로 넘긴다 `[가정]`. 대안: (a) `analysis/` 스크립트 안에 두기 — 패키지 시험(`tests/test_inject.py`)·재사용이 어렵다, (b) `preprocess` 안에 두기 — 평가 코드가 학습·추론 경로와 섞이고 역방향 금지를 정적으로 강제할 수 없다. 새 최상위 패키지로 얻는 것은 경계 강제와 시험 가능성, 잃는 것은 패키지 하나와 규칙 두 개의 유지 비용 | FR-5, QA-8, QA-6, CRN-2, CRN-4 |
 | `cli` | `gpr-detect infer` | FR-4 |
 | `scripts/` | 데이터 빌드·평가 진입점. 패키지를 import하고 **패키지는 `scripts/`를 import하지 않는다** | QA-5, FR-5 |
 
@@ -131,6 +137,8 @@ flowchart LR
 5. `augment`는 torch·cv2·ultralytics·rfdetr를 import하지 않는다(시험: `tests/test_architecture_rules.py`). `detect` → `augment` 의존은 허용(어댑터).
 6. `detect/band_metrics.py`는 표준 라이브러리(`collections`, `dataclasses`)와 numpy만 import한다(시험: `tests/test_band_metrics.py::test_module_imports_numpy_only`, AST 허용 목록). 다만 `gpr_detection.detect.band_metrics`를 import하면 `detect/__init__.py` → `base.py`를 거쳐 cv2도 올라온다 — 두 env 모두 opencv가 있어(`gpr-dev` opencv-python, `gpr-detr` opencv-python-headless) 문제가 없다.
 7. `augment_geometry`는 표준 라이브러리·numpy·cv2(와 `gpr_detection`)만 import하고 torch·ultralytics·rfdetr는 import하지 않는다(시험: `tests/test_architecture_rules.py`의 `test_augment_geometry_imports_only_the_allow_list`(허용 목록 numpy·cv2·stdlib·`gpr_detection`)와 `test_augment_geometry_allow_list_rejects_detector_imports`. ultralytics·rfdetr는 규칙 3의 패키지 전역 시험 `test_detector_libraries_only_in_detect_backends`도 잡는다). 두 env 모두 opencv가 있어 같은 코드를 YOLO·RF-DETR 학습에 쓴다.
+8. `eval`(`src/gpr_detection/eval/` 아래 전부)은 표준 라이브러리·numpy·scipy와 `gpr_detection.io`·`gpr_detection.preprocess`(와 `gpr_detection.eval` 자신)만 import한다. `gpr_detection.detect`·`gpr_detection.pipeline`·`gpr_detection.depth`와 `ultralytics`(그리고 `rfdetr`·torch)는 import하지 않는다(시험: `tests/test_architecture_rules.py`에 허용 목록 시험을 추가한다 — M3-2 S4 구현과 같은 커밋). 직접 import만 제한한다 — `io/_common.py`를 거쳐 cv2가 올라오지만 두 env 모두 opencv가 있어 문제가 없다(규칙 6과 같은 사정). 그래서 `eval`은 `gpr-dev`·`gpr-detr` 양쪽에서 import된다(CRN-4).
+9. `src/gpr_detection/` 안에서 `eval` 밖의 모듈(`gpr_detection/__init__.py` 포함)은 `gpr_detection.eval`을 import하지 않는다(평가 전용, 역방향 금지). `analysis/`·`scripts/`·`tests/`의 import는 허용한다(시험: 규칙 8과 같은 파일).
 
 ### 2-3. 두 갈래 데이터 흐름과 좌표 계약
 
@@ -313,3 +321,4 @@ class GridBox:            # io/radargram.py
 | 2026-11-01 | AP50 독자 구현 교체 반영: 의존 규칙 3의 `NEUTRAL_DETECT_MODULES`·런타임 probe에 `band_metrics.py` 포함, §4 R-F를 사실 중심으로 정리(표준 정의 기반 교체, 분석 스크립트 매칭 `greedy_assignment` 교체, 동등성은 시험으로만, M5-4 사람 최종 확인, LICENSE·git 이력은 U-4 연결) | python-expert 교체·시험 분류 변경(2026-11-01), 사용자 결정 Q1·R-F 문구 완화(2026-11-01) |
 | 2026-11-11 | §6 백로그 QA-3 행 사실 갱신(상태 "부분 해결" 유지, 결정 불변): 4TU 재평가 "미실행" → 실행·판정 완료, U-3 불합격(기준선) 140/388·판정률 B 0.361·p = 1.0, 후속 M2-10 | `docs/processing/depth_4tu_v2.md` 수기 판정 절, `docs/CHECKLIST.md` M2-9·M2-10(사용자 결정 2026-11-11) |
 | 2026-11-14 | M3-1·기준선 교체 반영: §2-2 모듈 뷰에 `augment_geometry` 노드, 모듈 표 `augment_geometry` 행(numpy + cv2, `detect` 쪽 학습 증강)·`preprocess`·`pipeline` 행 갱신, 의존 규칙 7. §2-3 데이터 흐름 뷰(측선 L1·타일·병합·반올림 1회), 층 표 L1 행, `ImageGridMap.trace_offset` 의미(측선 L1 기준 0, 타일 원점은 `LineTile.x0_px`)와 `LineTile` 스케치, 계약 규칙(결정 7 구현됨). §3 ADR-001·ADR-004 요약, §4 QA-1·QA-8(해결) 행과 R-G, §6 백로그·반복 로드맵 | 사용자 결정 N6-a(2026-11-14), `m31_qa8_roundtrip.md`, D1 r4·A1 판정서, spec_detection_image_v1, 코드 `abbe8dc`·`augment_geometry.py` |
+| 2026-11-14 | M3-2 선행(S4 구현 전): §2-2 모듈 뷰에 `eval`·`analysis/` 노드와 화살표 3개, 모듈 표 `eval` 행(평가 전용 합성 주입, 좌표는 L0 직접 출력·L1 순변환만, 대안 2개와 트레이드오프), 의존 규칙 8(`eval` import 허용 목록)·9(역방향 금지). ADR은 만들지 않았다 — 스키마·좌표 계약(ADR-004)·검출기 경계(ADR-001)를 바꾸지 않는 모듈 추가이고 `band_metrics`·`augment_geometry` 추가 때와 같은 방식이다. 점검: `adr_lint.py` 오류 0·경고 0(정보 5건은 이전부터 있던 고아 드라이버), `mermaid_extract.py --validate` 정적 오류 0·mmdc 렌더 2/2 통과(Mermaid Chart 검증 도구는 자동 모드에서 거부되어 쓰지 못함) | `docs/processing/m32_image_quality_plan.md` v0.2.1 §5-3 S4·§8(커밋 `a1a9895`) |

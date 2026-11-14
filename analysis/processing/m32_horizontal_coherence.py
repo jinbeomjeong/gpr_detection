@@ -92,7 +92,16 @@ def real(paths) -> dict[str, object]:
     lines = [r for r in rows(D3_LINES) if "S" in r["bundles"]]
     out: dict[str, object] = {}
     for window in WINDOWS:
-        cfg = dataclasses.replace(DEFAULT_DETECTION_IMAGE_CONFIG, detection_bg_window=window)
+        # Since M3-2 S1 detection_bg_window changes only the detection-image
+        # section; the period (and so the scale) is measured with the fixed
+        # period_bg_window 301. Before S1 it changed the period section too.
+        # A non-default window is not recipe r0, so it needs its own label.
+        recipe_id = "r0" if window == 301 else f"bgwin_{window}"
+        cfg = dataclasses.replace(
+            DEFAULT_DETECTION_IMAGE_CONFIG,
+            detection_bg_window=window,
+            recipe_id=recipe_id,
+        )
         whole, top = [], []
         for r in lines:
             img = make_detection_image(load_fourtu_radargram(root, r["activity_id"], r["path"]), cfg)

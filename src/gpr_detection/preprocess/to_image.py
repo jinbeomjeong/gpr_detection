@@ -19,21 +19,34 @@ Two ways to get an L1 image:
   depth-isotropic horizontal scale, cut into overlapping 256 x 256 tiles at
   integer pixel origins. The line has a single :class:`ImageGridMap`.
 
-State (spec v0.4, M3-1): the line image, tiling and overlap rules are
+State (spec v0.4, M3-1; M3-2 S1): the line image, tiling and overlap rules are
 implemented here; the defaults are ``P*`` 6.0 px and overlap 192 px. The
-padding grey, the grey mapping and the background window are M3-2
-assumptions, listed in ``DetectionImage.assumed_params``.
+detection-branch recipe options of M3-2 (``m32_image_quality_plan.md`` v0.2.1
+section 2: background B0-B4, gain G0-G4, padding P0-P1, grey mapping M0-M3)
+are :class:`DetectionImageConfig` fields whose defaults are recipe r0, i.e.
+the M3-1 image. Their names are ``DetectionImage.assumed_params`` and their
+values ``DetectionImage.assumed_values``.
 """
 
 import itertools
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from enum import StrEnum
 
 import numpy as np
 
 from gpr_detection.io.radargram import Radargram, velocity_from_eps
-from gpr_detection.preprocess.filters import agc, prepare_fitting_branch, remove_dc
+from gpr_detection.preprocess.filters import (
+    AGC_WINDOW_PERIODS,
+    BACKGROUND_WINDOW_TRACES,
+    FittingBranch,
+    agc,
+    agc_rms,
+    prepare_fitting_branch,
+    remove_background,
+    remove_dc,
+)
+from gpr_detection.preprocess.timezero import find_time_zero
 
 CEIL_TOLERANCE_PX = 1e-9
 """Float noise ignored when rounding a pixel width up (e.g. 65.0000000001 -> 65)."""
@@ -45,7 +58,14 @@ DEPTH_PER_SAMPLE_KEY = "depth_per_sample_m_rough"
 GRAY_CENTER = 127.5
 """Grey level of zero amplitude before rounding (``rint`` gives 128)."""
 
-SYMMETRIC_GRAY_MAPPING = "symmetric"
+GRAY_LEVELS = 256
+GRAY_MAX = GRAY_LEVELS - 1
+
+CDF_END_TOLERANCE = 1e-6
+"""``hist_reference_cdf`` must end within this of 1 (float sums of a histogram)."""
+
+R0_RECIPE_ID = "r0"
+"""Label of the current recipe (B0, G0, P0, M0), i.e. of the config defaults."""
 
 
 @dataclass(frozen=True)
@@ -106,12 +126,130 @@ class ImageGridMap:
         )
 
 
+# --------------------------------------------------------------- recipe options
+
+
+class DetectionBackgroundMode(StrEnum):
+    """Background removal of the detection branch, step (4) (M3-2 Q5).
+
+    Plan symbols (``m32_image_quality_plan.md`` section 2-1): ``median`` is B0
+    (B4 with a longer ``detection_bg_window``), ``none`` B1 (steps (1)-(3)
+    only), ``partial`` B2 and ``gated`` B3.
+    """
+
+    MEDIAN = "median"
+    NONE = "none"
+    PARTIAL = "partial"
+    GATED = "gated"
+
+
+class GainMode(StrEnum):
+    """Gain of the detection branch, step (5) (M3-2 R2, plan section 2-3).
+
+    ``agc`` is G0 (G1 with ``agc_window_periods`` 32), ``agc_capped`` G2,
+    ``tpow`` G3 and ``none`` G4.
+    """
+
+    AGC = "agc"
+    AGC_CAPPED = "agc_capped"
+    TPOW = "tpow"
+    NONE = "none"
+
+
+class PadMode(StrEnum):
+    """Shape of the content end above the bottom padding (M3-2 Q3 (ii)).
+
+    ``flat`` is P0 and ``taper`` P1. P2 (noise padding) is not implemented:
+    it is report-only in the plan and has no specified noise model yet.
+    """
+
+    FLAT = "flat"
+    TAPER = "taper"
+
+
+class GrayMapping(StrEnum):
+    """Amplitude -> grey rule (M3-2 Q3 (iii)).
+
+    ``symmetric`` is M0 (M1 with ``clip_percentile`` 98 or 99.5) and
+    ``hist_aihub`` M2. M3 (polarity inversion) is ``invert_polarity``.
+    """
+
+    SYMMETRIC = "symmetric"
+    HIST_AIHUB = "hist_aihub"
+
+
+SYMMETRIC_GRAY_MAPPING = GrayMapping.SYMMETRIC.value
+
+MODE_FIELDS: dict[str, type[StrEnum]] = {
+    "detection_bg_mode": DetectionBackgroundMode,
+    "gain_mode": GainMode,
+    "pad_mode": PadMode,
+    "gray_mapping": GrayMapping,
+}
+"""Config fields holding an option enum (strings are converted on creation)."""
+
+RECIPE_FIELDS = (
+    "pad_gray",
+    "gray_mapping",
+    "detection_bg_window",
+    "detection_bg_mode",
+    "detection_bg_alpha",
+    "detection_bg_gate_periods",
+    "gain_mode",
+    "agc_window_periods",
+    "agc_floor_beta",
+    "tpow_exponent",
+    "pad_mode",
+    "pad_taper_periods",
+    "clip_percentile",
+    "invert_polarity",
+    "hist_reference_cdf",
+)
+"""Config fields that make up an M3-2 recipe (B, G, P, M; plan section 2)."""
+
+M3_2_ASSUMED = (*RECIPE_FIELDS, "recipe_id")
+"""Config fields that are assumptions until M3-2 (Q3, Q5, R2), plus the label.
+
+``period_bg_window`` is fixed (plan section 2-1) and therefore not listed.
+"""
+
+
 # --------------------------------------------------------------- configuration
+
+
+def _as_mode(value: str, enum_type: type[StrEnum], name: str) -> StrEnum:
+    try:
+        return enum_type(value)
+    except ValueError:
+        choices = ", ".join(member.value for member in enum_type)
+        raise ValueError(f"unknown {name} {value!r} (choices: {choices})") from None
+
+
+def _check_reference_cdf(reference: tuple[float, ...] | None) -> None:
+    if reference is None:
+        raise ValueError("gray_mapping 'hist_aihub' needs hist_reference_cdf")
+    values = np.asarray(reference, dtype=np.float64)
+    if values.shape != (GRAY_LEVELS,):
+        raise ValueError(
+            f"hist_reference_cdf needs {GRAY_LEVELS} values, got {values.size}"
+        )
+    if values[0] < 0 or np.any(np.diff(values) < 0):
+        raise ValueError("hist_reference_cdf must be non-decreasing from >= 0")
+    if not math.isclose(values[-1], 1.0, abs_tol=CDF_END_TOLERANCE):
+        raise ValueError(f"hist_reference_cdf must end at 1, got {values[-1]}")
 
 
 @dataclass(frozen=True)
 class DetectionImageConfig:
     """Settings of the line L1 image (spec_detection_image_v1 section 4-2).
+
+    The M3-2 recipe options (``m32_image_quality_plan.md`` v0.2.1 section 2,
+    implementation item S1) change only the detection branch: background
+    (B), gain (G), padding shape (P) and grey mapping (M). The defaults are
+    recipe r0, the M3-1 image bit for bit. The period is always measured on
+    the fitting-branch section with ``period_bg_window``, so ``P_line``, the
+    scale, the ``ImageGridMap`` and the tiles do not depend on these options.
+    Mode fields also accept their string values.
 
     Attributes:
         p_target_px: Target period ``P*`` in L1 px (D1 r4, N2-a' baseline,
@@ -127,14 +265,44 @@ class DetectionImageConfig:
             N2-a' scale curve, spec section 11-2 item 5).
         period_pad_factor: Zero padding of the period spectrum.
         period_min_samples: Shortest valid period; the longest is ``n_s / 4``.
-        clip_percentile: ``|a|`` percentile used as the grey clip level.
+        clip_percentile: ``|a|`` percentile used as the grey clip level
+            (M0 99; M1 98 or 99.5). With ``hist_aihub`` it only decides the
+            ``flat_line`` check (clip level 0); the greys come from the ranks.
         v_assumed_m_per_ns: Horizontal-scale velocity without metadata
             (Guangzhou, Q7).
-        pad_gray: Grey of the padding (M3-2 assumption, Q3).
-        gray_mapping: Amplitude -> grey rule; only ``"symmetric"`` exists
-            (M3-2 assumption, Q3).
+        pad_gray: Grey of the padding (M3-2 assumption, Q3 (i)).
+        gray_mapping: :class:`GrayMapping` (M0 / M2, Q3 (iii)).
         detection_bg_window: Background median window of the detection image
-            in traces (M3-2 assumption, Q5).
+            in traces (Q5; B4 is a longer window, e.g. 1501 = 30 m at 0.02 m).
+        period_bg_window: Median window in traces of the section the period
+            is measured on. Fixed at the fitting-branch value, not a recipe
+            option (plan section 2-1, coupling condition).
+        detection_bg_mode: :class:`DetectionBackgroundMode` (B0-B3).
+        detection_bg_alpha: ``alpha`` of ``partial`` (B2), in [0, 1]:
+            ``a - alpha med_W(a)``.
+        detection_bg_gate_periods: ``n_g`` of ``gated`` (B3): the background
+            is removed fully before ``t_z + n_g P_line`` and fades out over
+            one more period.
+        gain_mode: :class:`GainMode` (G0-G4).
+        agc_window_periods: AGC RMS window in periods ``1 / f_c`` (G0 8,
+            G1 32), for ``agc`` and ``agc_capped``.
+        agc_floor_beta: ``beta`` of ``agc_capped`` (G2): the RMS divisor is at
+            least ``beta`` times the trace's median RMS.
+        tpow_exponent: ``n`` of ``tpow`` (G3, gain ``t^n`` with ``t`` the
+            record time in ns); required for that mode, finite and >= 0.
+        pad_mode: :class:`PadMode` (P0 / P1).
+        pad_taper_periods: ``n_tau`` of ``taper`` (P1) in line periods
+            (``DetectionImage.period_l1_px``).
+        invert_polarity: M3 diagnostic: content grey ``q`` becomes ``255 - q``
+            (the padding stays ``pad_gray``). Inversion runs after the P1
+            taper, so with ``taper`` the content end tends to
+            ``255 - pad_gray`` (127 for 128): a one-level step at the padding,
+            accepted because M3 is diagnostic only.
+        hist_reference_cdf: Cumulative share of the grey levels 0-255 of the
+            reference (256 values, non-decreasing, last 1) for ``hist_aihub``
+            (M2: AIHub gain 1.0 NM crops, supplied by the M3-2 analysis).
+        recipe_id: Recipe label recorded in ``DetectionImage.assumed_values``.
+            ``"r0"`` (the default) is only allowed with the r0 option values.
     """
 
     p_target_px: float = 6.0
@@ -150,8 +318,21 @@ class DetectionImageConfig:
     clip_percentile: float = 99.0
     v_assumed_m_per_ns: float = 0.10
     pad_gray: int = 128
-    gray_mapping: str = SYMMETRIC_GRAY_MAPPING
-    detection_bg_window: int = 301
+    gray_mapping: GrayMapping = GrayMapping.SYMMETRIC
+    detection_bg_window: int = BACKGROUND_WINDOW_TRACES
+    period_bg_window: int = BACKGROUND_WINDOW_TRACES
+    detection_bg_mode: DetectionBackgroundMode = DetectionBackgroundMode.MEDIAN
+    detection_bg_alpha: float = 0.5
+    detection_bg_gate_periods: float = 2.0
+    gain_mode: GainMode = GainMode.AGC
+    agc_window_periods: float = AGC_WINDOW_PERIODS
+    agc_floor_beta: float = 0.5
+    tpow_exponent: float | None = None
+    pad_mode: PadMode = PadMode.FLAT
+    pad_taper_periods: float = 1.0
+    invert_polarity: bool = False
+    hist_reference_cdf: tuple[float, ...] | None = None
+    recipe_id: str = R0_RECIPE_ID
 
     def __post_init__(self) -> None:
         if not self.p_target_px > 0:
@@ -160,10 +341,58 @@ class DetectionImageConfig:
             raise ValueError(f"need 0 <= overlap_px < tile_px, got {self}")
         if not 0 <= self.overlap_max_px < self.tile_px:
             raise ValueError(f"need 0 <= overlap_max_px < tile_px, got {self}")
-        if self.gray_mapping != SYMMETRIC_GRAY_MAPPING:
-            raise ValueError(f"unknown gray_mapping {self.gray_mapping!r}")
-        if not 0 <= self.pad_gray <= 255:
+        if not 0 <= self.pad_gray <= GRAY_MAX:
             raise ValueError(f"pad_gray must be a uint8 grey, got {self.pad_gray}")
+        for name, enum_type in MODE_FIELDS.items():
+            # Frozen dataclass: store "none" etc. as the enum member.
+            mode = _as_mode(getattr(self, name), enum_type, name)
+            object.__setattr__(self, name, mode)
+        self._check_recipe_values()
+        self._check_recipe_label()
+
+    def _check_recipe_values(self) -> None:
+        for name in ("period_bg_window", "detection_bg_window"):
+            if getattr(self, name) < 1:
+                raise ValueError(f"{name} must be >= 1, got {getattr(self, name)}")
+        if not 0.0 <= self.detection_bg_alpha <= 1.0:
+            raise ValueError(
+                f"detection_bg_alpha must be in [0, 1], got {self.detection_bg_alpha}"
+            )
+        for name in (
+            "detection_bg_gate_periods",
+            "agc_window_periods",
+            "pad_taper_periods",
+        ):
+            if not getattr(self, name) > 0:
+                raise ValueError(f"{name} must be positive, got {getattr(self, name)}")
+        if not self.agc_floor_beta >= 0:
+            raise ValueError(f"agc_floor_beta must be >= 0, got {self.agc_floor_beta}")
+        if self.gain_mode == GainMode.TPOW and self.tpow_exponent is None:
+            raise ValueError("gain_mode 'tpow' needs tpow_exponent")
+        if self.tpow_exponent is not None and not (
+            math.isfinite(self.tpow_exponent) and self.tpow_exponent >= 0
+        ):
+            raise ValueError(
+                f"tpow_exponent must be finite and >= 0, got {self.tpow_exponent}"
+            )
+        if self.gray_mapping == GrayMapping.HIST_AIHUB:
+            _check_reference_cdf(self.hist_reference_cdf)
+
+    def _check_recipe_label(self) -> None:
+        """Guard against an r0 label on a changed recipe (mislabelled results)."""
+        if not self.recipe_id:
+            raise ValueError("recipe_id must not be empty")
+        if self.recipe_id != R0_RECIPE_ID:
+            return
+        defaults = {field.name: field.default for field in fields(self)}
+        changed = [
+            name for name in RECIPE_FIELDS if getattr(self, name) != defaults[name]
+        ]
+        if changed:
+            raise ValueError(
+                f"recipe_id 'r0' with non-r0 values of {changed}; give the recipe "
+                f"its own recipe_id"
+            )
 
 
 DEFAULT_DETECTION_IMAGE_CONFIG = DetectionImageConfig()
@@ -174,9 +403,6 @@ DATASET_DEFAULT_PERIOD: dict[str, tuple[float, str]] = {
     "gprsd": (51.2, "samples"),
 }
 """Fallback period per dataset when the measurement fails (spec section 2-2)."""
-
-M3_2_ASSUMED = ("pad_gray", "gray_mapping", "detection_bg_window")
-"""Config fields that are assumptions until M3-2 (Q3, Q5)."""
 
 
 class ImageFlag(StrEnum):
@@ -191,6 +417,8 @@ class ImageFlag(StrEnum):
     OVERLAP_PERIOD_CAPPED = "overlap_period_capped"
     SINGLE_TILE = "single_tile"
     SHORT_LINE_PADDED = "short_line_padded"
+    DETECTION_BG_GATE_FALLBACK = "detection_bg_gate_fallback"
+    """``gated`` found no line zero and removed the full median background."""
 
 
 class PeriodSource(StrEnum):
@@ -292,8 +520,14 @@ class DetectionImage:
         overlap_phys_px: Physical lower bound ``O_phys``.
         compression: ``c`` (1.0 when not compressed).
         flags: :class:`ImageFlag` values.
-        assumed_params: Config fields that are M3-2 assumptions.
+        assumed_params: Config fields that are M3-2 assumptions
+            (``M3_2_ASSUMED``).
         pad_gray: Grey of the padding (used by :meth:`tile_image`).
+        recipe_id: ``DetectionImageConfig.recipe_id`` of the image.
+        assumed_values: ``(name, value)`` of every ``assumed_params`` field, in
+            the same order (diagnostic record of the recipe).
+        background_gate_k_zero: Line zero ``t_z`` in samples that ``gated``
+            (B3) used; ``None`` for other modes and the gate fallback.
     """
 
     line_image: np.ndarray
@@ -313,6 +547,9 @@ class DetectionImage:
     flags: tuple[str, ...]
     assumed_params: tuple[str, ...]
     pad_gray: int = 128
+    recipe_id: str = R0_RECIPE_ID
+    assumed_values: tuple[tuple[str, object], ...] = ()
+    background_gate_k_zero: float | None = None
 
     @property
     def tile_px(self) -> int:
@@ -346,6 +583,26 @@ class _VelocityScale:
     depth_m_per_sample: float
     v_m_per_ns: float
     source: VelocityScaleSource
+
+
+@dataclass(frozen=True)
+class _LineAmplitudes:
+    """Steps (1)-(5) of one line: its period and detection-branch amplitudes.
+
+    Attributes:
+        amplitudes: L0 amplitudes after background removal and gain.
+        period_samples: ``P_line``, measured on the fixed period section.
+        period_source: Where ``period_samples`` came from.
+        gate_k_zero: Line zero ``t_z`` in samples used by ``gated``; ``None``
+            for other modes, processed amplitudes and the gate fallback.
+        flags: :class:`ImageFlag` values, in the M3-1 order.
+    """
+
+    amplitudes: np.ndarray
+    period_samples: float
+    period_source: PeriodSource
+    gate_k_zero: float | None
+    flags: tuple[str, ...]
 
 
 # ------------------------------------------------------------- private helpers
@@ -382,16 +639,6 @@ def _resample_axis0(values: np.ndarray, out_length: int) -> np.ndarray:
     return _resample_axis0_linear(values, out_length)
 
 
-def _detection_section(
-    radargram: Radargram, config: DetectionImageConfig
-) -> tuple[np.ndarray, list[str]]:
-    """Step 1: background-removed section (or DC-removed processed amplitudes)."""
-    if radargram.amplitude_processed:
-        return remove_dc(radargram.data), [ImageFlag.AMPLITUDE_PROCESSED]
-    branch = prepare_fitting_branch(radargram, config.detection_bg_window)
-    return branch.background_removed, []
-
-
 def _line_period(
     radargram: Radargram, section: np.ndarray, config: DetectionImageConfig
 ) -> tuple[float, PeriodSource]:
@@ -418,6 +665,143 @@ def _line_period(
     )
 
 
+def _median_removed(branch: FittingBranch, config: DetectionImageConfig) -> np.ndarray:
+    """B0 / B4 section; reuses the period section when the windows agree."""
+    if config.detection_bg_window == config.period_bg_window:
+        return branch.background_removed
+    return remove_background(branch.filtered, config.detection_bg_window)
+
+
+def _blend_background_removal(
+    filtered: np.ndarray, removed: np.ndarray, weight: np.ndarray | float
+) -> np.ndarray:
+    """``a - w med_W(a)`` written as ``(1 - w) a + w (a - med_W(a))``.
+
+    The second form gives the values of ``a`` at ``w = 0`` and of the median
+    section at ``w = 1`` without float error (only the sign of a zero may
+    differ), so B2 with alpha 0 / 1 equals B1 / B0.
+    """
+    return (1.0 - weight) * filtered + weight * removed
+
+
+def _detection_background(
+    radargram: Radargram,
+    branch: FittingBranch,
+    period_samples: float,
+    config: DetectionImageConfig,
+) -> tuple[np.ndarray, float | None, list[str]]:
+    """Step (4) of the detection branch (B0-B4).
+
+    Returns:
+        ``(section, gate_k_zero, flags)``; ``gate_k_zero`` is ``t_z`` in
+        samples for ``gated`` and ``None`` otherwise.
+    """
+    mode = config.detection_bg_mode
+    if mode == DetectionBackgroundMode.NONE:
+        return branch.filtered, None, []
+    removed = _median_removed(branch, config)
+    if mode == DetectionBackgroundMode.MEDIAN:
+        return removed, None, []
+    if mode == DetectionBackgroundMode.PARTIAL:
+        partial = _blend_background_removal(
+            branch.filtered, removed, config.detection_bg_alpha
+        )
+        return partial, None, []
+
+    # Default zero rule on the section before background removal, as in the
+    # depth branch (spec_depth_v1 section 4).
+    k_zero = find_time_zero(radargram, branch.filtered).k_zero
+    if k_zero is None:
+        return removed, None, [ImageFlag.DETECTION_BG_GATE_FALLBACK]
+    weights = background_gate_weights(
+        radargram.n_samples, k_zero, config.detection_bg_gate_periods, period_samples
+    )
+    gated = _blend_background_removal(branch.filtered, removed, weights[:, None])
+    return gated, k_zero, []
+
+
+def _capped_agc(
+    section: np.ndarray,
+    dt_ns: float,
+    f_c_hz: float | None,
+    window_periods: float,
+    floor_beta: float,
+) -> np.ndarray:
+    """G2: ``a / max(RMS_k, beta median_k RMS_k)`` per trace.
+
+    ``beta = 0`` divides by the AGC RMS itself, i.e. gives :func:`agc`.
+    """
+    rms = agc_rms(section, dt_ns, f_c_hz, window_periods=window_periods)
+    floor = floor_beta * np.median(rms, axis=0, keepdims=True)
+    return section / np.maximum(rms, floor)
+
+
+def _tpow_gain(section: np.ndarray, dt_ns: float, exponent: float) -> np.ndarray:
+    """G3: multiply sample ``k`` by ``(k dt)^n`` (record time in ns)."""
+    record_time_ns = np.arange(section.shape[0]) * dt_ns
+    return section * (record_time_ns**exponent)[:, None]
+
+
+def _detection_gain(
+    section: np.ndarray, radargram: Radargram, config: DetectionImageConfig
+) -> np.ndarray:
+    """Step (5) of the detection branch (G0-G4)."""
+    dt_ns = radargram.dt_ns
+    assert dt_ns is not None  # checked by make_detection_image
+    mode = config.gain_mode
+    if mode == GainMode.AGC:
+        return agc(
+            section, dt_ns, radargram.f_c_hz, window_periods=config.agc_window_periods
+        )
+    if mode == GainMode.AGC_CAPPED:
+        return _capped_agc(
+            section,
+            dt_ns,
+            radargram.f_c_hz,
+            config.agc_window_periods,
+            config.agc_floor_beta,
+        )
+    if mode == GainMode.TPOW:
+        assert config.tpow_exponent is not None  # checked by the config
+        return _tpow_gain(section, dt_ns, config.tpow_exponent)
+    return section
+
+
+def _line_amplitudes(
+    radargram: Radargram, config: DetectionImageConfig
+) -> _LineAmplitudes:
+    """Steps 1, 2 and 4: period section, ``P_line`` and detection amplitudes.
+
+    Processed amplitudes only lose their DC; that section is both the period
+    section and the detection amplitudes (no background removal, no gain).
+    """
+    if radargram.amplitude_processed:
+        section = remove_dc(radargram.data)
+        period_samples, period_source = _line_period(radargram, section, config)
+        flags: list[str] = [ImageFlag.AMPLITUDE_PROCESSED]
+        if period_source != PeriodSource.MEASURED:
+            flags.append(ImageFlag.PERIOD_FALLBACK)
+        return _LineAmplitudes(
+            section, period_samples, period_source, None, tuple(flags)
+        )
+
+    branch = prepare_fitting_branch(radargram, config.period_bg_window)
+    period_samples, period_source = _line_period(
+        radargram, branch.background_removed, config
+    )
+    flags = []
+    if period_source != PeriodSource.MEASURED:
+        flags.append(ImageFlag.PERIOD_FALLBACK)
+    section, gate_k_zero, background_flags = _detection_background(
+        radargram, branch, period_samples, config
+    )
+    flags.extend(background_flags)
+    amplitudes = _detection_gain(section, radargram, config)
+    return _LineAmplitudes(
+        amplitudes, period_samples, period_source, gate_k_zero, tuple(flags)
+    )
+
+
 def _velocity_scale(
     radargram: Radargram, config: DetectionImageConfig
 ) -> _VelocityScale:
@@ -438,8 +822,61 @@ def _velocity_scale(
     return _VelocityScale(v * dt_ns / 2.0, v, VelocityScaleSource.ASSUMED)
 
 
+def _symmetric_gray_levels(a: np.ndarray, clip_level: float) -> np.ndarray:
+    """``127.5 + 127.5 clip(a / c, -1, 1)`` before rounding (M0 / M1)."""
+    scaled = np.clip(np.asarray(a, dtype=np.float64) / clip_level, -1.0, 1.0)
+    return GRAY_CENTER + GRAY_CENTER * scaled
+
+
+def _hist_matched_gray_levels(
+    values: np.ndarray, reference_cdf: tuple[float, ...]
+) -> np.ndarray:
+    """M2: the grey level whose reference CDF first reaches each value's quantile.
+
+    The quantile is the mid-rank ``(below + up_to) / (2 n)``, so equal values
+    get the same grey and the mapping keeps the amplitude order.
+    """
+    flat = values.ravel()
+    ordered = np.sort(flat)
+    below = np.searchsorted(ordered, flat, side="left")
+    up_to = np.searchsorted(ordered, flat, side="right")
+    quantile = (below + up_to) / (2.0 * flat.size)
+    levels = np.searchsorted(np.asarray(reference_cdf), quantile, side="left")
+    return np.minimum(levels, GRAY_MAX).astype(np.float64).reshape(values.shape)
+
+
+def _content_gray(
+    resampled: np.ndarray,
+    clip_level: float,
+    period_l1_px: float,
+    config: DetectionImageConfig,
+) -> np.ndarray:
+    """Steps 7 and 8 for the content rows: grey mapping, taper, polarity."""
+    if config.gray_mapping == GrayMapping.HIST_AIHUB:
+        assert config.hist_reference_cdf is not None  # checked by the config
+        levels = _hist_matched_gray_levels(resampled, config.hist_reference_cdf)
+    else:
+        levels = _symmetric_gray_levels(resampled, clip_level)
+    if config.pad_mode == PadMode.TAPER:
+        weights = content_taper_weights(
+            levels.shape[0], config.pad_taper_periods * period_l1_px
+        )
+        # Rows above the taper keep their exact levels (no float round trip).
+        rows = weights < 1.0
+        levels[rows] = config.pad_gray + weights[rows, None] * (
+            levels[rows] - config.pad_gray
+        )
+    gray = np.rint(levels).astype(np.uint8)
+    if config.invert_polarity:
+        gray = GRAY_MAX - gray
+    return gray
+
+
 def _line_gray_image(
-    amplitudes: np.ndarray, scale: LineScale, config: DetectionImageConfig
+    amplitudes: np.ndarray,
+    scale: LineScale,
+    period_samples: float,
+    config: DetectionImageConfig,
 ) -> tuple[np.ndarray, bool]:
     """Steps 5-8: clip level, area resample, grey mapping, bottom padding.
 
@@ -453,11 +890,59 @@ def _line_gray_image(
     if clip_level == 0:
         return line_image, True
     resampled = resample_area(amplitudes, (scale.content_height_px, scale.width_px))
-    line_image[: scale.content_height_px, :] = to_gray(resampled, clip_level)
+    period_l1_px = period_samples / scale.samples_per_px
+    line_image[: scale.content_height_px, :] = _content_gray(
+        resampled, clip_level, period_l1_px, config
+    )
     return line_image, False
 
 
+def _assumed_values(config: DetectionImageConfig) -> tuple[tuple[str, object], ...]:
+    return tuple((name, getattr(config, name)) for name in M3_2_ASSUMED)
+
+
 # ------------------------------------------------------------------ public API
+
+
+def background_gate_weights(
+    n_samples: int, k_zero: float, gate_periods: float, period_samples: float
+) -> np.ndarray:
+    """B3 weight ``w(t_k)`` of the background removal per sample.
+
+    ``w = 1`` before ``k_g = k_zero + n_g P``, then a half cosine falls to 0
+    over one period ``P`` and stays 0 (plan section 2-1).
+
+    Args:
+        n_samples: Samples per trace.
+        k_zero: Line zero ``t_z`` in samples.
+        gate_periods: ``n_g``.
+        period_samples: ``P_line`` in samples.
+    """
+    gate_end = k_zero + gate_periods * period_samples
+    phase = (np.arange(n_samples) - gate_end) / period_samples
+    weights = 0.5 * (1.0 + np.cos(np.pi * np.clip(phase, 0.0, 1.0)))
+    weights[phase < 0] = 1.0
+    weights[phase >= 1] = 0.0
+    return weights
+
+
+def content_taper_weights(height_px: int, taper_px: float) -> np.ndarray:
+    """P1 weight per content row: ``sin^2`` rising from 0 at the content end.
+
+    Row ``v`` covers ``[v, v + 1)``; its centre lies ``d = H_c - v - 0.5`` px
+    above the content end. Rows with ``d < taper_px`` get
+    ``sin^2(pi d / (2 taper_px))``, the others 1, so the grey reaches
+    ``pad_gray`` continuously at the padding.
+
+    Args:
+        height_px: ``H_c``.
+        taper_px: Taper length ``n_tau P_L1`` in L1 px (positive).
+    """
+    distance_px = height_px - (np.arange(height_px) + 0.5)
+    weights = np.ones(height_px)
+    inside = distance_px < taper_px
+    weights[inside] = np.sin(0.5 * np.pi * distance_px[inside] / taper_px) ** 2
+    return weights
 
 
 def measure_period_samples(
@@ -648,8 +1133,7 @@ def to_gray(a: np.ndarray, clip_level: float) -> np.ndarray:
     """
     if not clip_level > 0:
         raise ValueError(f"clip_level must be positive, got {clip_level}")
-    scaled = np.clip(np.asarray(a, dtype=np.float64) / clip_level, -1.0, 1.0)
-    return np.rint(GRAY_CENTER + GRAY_CENTER * scaled).astype(np.uint8)
+    return np.rint(_symmetric_gray_levels(a, clip_level)).astype(np.uint8)
 
 
 def make_detection_image(
@@ -659,7 +1143,9 @@ def make_detection_image(
     """Line L1 image and tiles of one radargram (spec section 4-4).
 
     Steps (1)-(6) run once on the whole line (L0), so a reflection in an
-    overlap has the same pixels in both tiles.
+    overlap has the same pixels in both tiles. The period is measured on the
+    fitting-branch section (``period_bg_window``); the recipe options of
+    ``config`` change only the amplitudes and greys, never the geometry.
 
     Raises:
         ValueError: If the radargram has no physical scale, or no period can
@@ -669,10 +1155,8 @@ def make_detection_image(
         raise ValueError(
             "DetectionImage needs a physical scale; use ImageGridMap.identity"
         )
-    section, flags = _detection_section(radargram, config)
-    period_samples, period_source = _line_period(radargram, section, config)
-    if period_source != PeriodSource.MEASURED:
-        flags.append(ImageFlag.PERIOD_FALLBACK)
+    line = _line_amplitudes(radargram, config)
+    flags = list(line.flags)
     velocity = _velocity_scale(radargram, config)
     if velocity.source == VelocityScaleSource.ASSUMED:
         flags.append(ImageFlag.V_SCALE_ASSUMED)
@@ -681,7 +1165,7 @@ def make_detection_image(
         radargram.n_samples,
         radargram.n_traces,
         radargram.dx_m,
-        period_samples,
+        line.period_samples,
         velocity.depth_m_per_sample,
         config.p_target_px,
         config.tile_px,
@@ -691,11 +1175,9 @@ def make_detection_image(
         if scale.compression > config.compress_max:
             flags.append(ImageFlag.SCALE_OUT_OF_RANGE)
 
-    if radargram.amplitude_processed:
-        amplitudes = section
-    else:
-        amplitudes = agc(section, radargram.dt_ns, radargram.f_c_hz)
-    line_image, is_flat = _line_gray_image(amplitudes, scale, config)
+    line_image, is_flat = _line_gray_image(
+        line.amplitudes, scale, line.period_samples, config
+    )
     if is_flat:
         flags.append(ImageFlag.FLAT_LINE)
 
@@ -722,8 +1204,8 @@ def make_detection_image(
         ),
         tiles=tiles,
         content_height_px=scale.content_height_px,
-        period_samples=period_samples,
-        period_source=period_source,
+        period_samples=line.period_samples,
+        period_source=line.period_source,
         depth_m_per_sample=velocity.depth_m_per_sample,
         dx_m=radargram.dx_m,
         v_scale_m_per_ns=velocity.v_m_per_ns,
@@ -735,4 +1217,7 @@ def make_detection_image(
         flags=tuple(flags),
         assumed_params=M3_2_ASSUMED,
         pad_gray=config.pad_gray,
+        recipe_id=config.recipe_id,
+        assumed_values=_assumed_values(config),
+        background_gate_k_zero=line.gate_k_zero,
     )
