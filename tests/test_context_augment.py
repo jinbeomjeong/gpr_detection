@@ -1,7 +1,8 @@
-"""N2-a' context scale: tests C-1..C-25 and R-1.
+"""N2-a' context scale: tests C-1..C-25 and R-1; N2-a″ rule K32: K-1..K-10.
 
 Expected values are those of docs/experiments/m31_n2a2_retrain_plan.md v1.0
-section 7-2 (C-22..C-25 and the C-21 definition from section 7-5).
+section 7-2 (C-22..C-25 and the C-21 definition from section 7-5) and of
+docs/experiments/m31_n2a3_retrain_plan.md v1.0 §3·§7-0 (K-1..K-10).
 Synthetic crops are vertical stripes whose value is the original column
 ``x mod 251``, so a strip column tells which original column it shows.
 CPU only; C-20 pushes a few synthetic crops through the real Ultralytics
@@ -10,6 +11,7 @@ CPU only; C-20 pushes a few synthetic crops through the real Ultralytics
 """
 
 import csv
+import dataclasses
 import importlib.util
 import json
 import pickle
@@ -43,6 +45,7 @@ from gpr_detection.augment_geometry import (
     check_neighbor_admissible,
     context_config_from_dict,
     crop_only_strip,
+    drop_short_clipped_bands,
     fit_brightness,
     geometric_config_from_dict,
     merge_strip_labels,
@@ -61,6 +64,7 @@ from gpr_detection.detect.yolo_train import (
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 N2A_CONFIG = PROJECT_ROOT / "configs" / "train_yolo11m_n2a.yaml"
 N2A2_CONFIG = PROJECT_ROOT / "configs" / "train_yolo11m_n2a2.yaml"
+N2A3_CONFIG = PROJECT_ROOT / "configs" / "train_yolo11m_n2a3.yaml"
 R1_SCRIPT = PROJECT_ROOT / "analysis" / "detection" / "m31_r1_overlap_shift.py"
 REAL_INDEX_DIR = PROJECT_ROOT / "data" / "aihub_context_index"
 REAL_DATASET_DIR = PROJECT_ROOT / "data" / "aihub_yolo_v1"
@@ -620,8 +624,17 @@ def _write_crops_csv(path: Path, crops: list[ContextCrop]) -> None:
             )
 
 
-def _write_context_dataset(root: Path) -> tuple[Path, Path]:
-    """Three overlapping crops of one line (train) and one other line (val)."""
+DEFAULT_LABEL_TEXT = "0 0.5 0.3125 0.15625 0.15625\n1 0.5 0.6 0.8 0.0625\n"
+"""One centred hyperbola and one band per crop (normalised xywh)."""
+
+
+def _write_context_dataset(
+    root: Path, label_text_by_x1: dict[int, str] | None = None
+) -> tuple[Path, Path]:
+    """Three overlapping crops of one line (train) and one other line (val).
+
+    ``label_text_by_x1`` replaces the label txt of the crops starting there.
+    """
     images, labels, index_dir = root / "images", root / "labels", root / "index"
     for folder in (images, labels, index_dir):
         folder.mkdir(parents=True)
@@ -629,13 +642,12 @@ def _write_context_dataset(root: Path) -> tuple[Path, Path]:
     for x1_px in CHAIN_STARTS:
         rows.append(_crop(x1_px, fold=1))
     rows.append(_crop(VAL_START, fold=0, line=LINE.replace("B1", "B2")))
+    special_labels = label_text_by_x1 or {}
     for crop in rows:
         cv2.imwrite(str(images / crop.file_name), _stripes(crop.x1_px))
         stem = Path(crop.file_name).stem
-        # One centred hyperbola and one band per crop (normalised xywh).
-        (labels / f"{stem}.txt").write_text(
-            "0 0.5 0.3125 0.15625 0.15625\n1 0.5 0.6 0.8 0.0625\n", encoding="utf-8"
-        )
+        label_text = special_labels.get(crop.x1_px, DEFAULT_LABEL_TEXT)
+        (labels / f"{stem}.txt").write_text(label_text, encoding="utf-8")
     _write_crops_csv(index_dir / "crops.csv", rows)
     (index_dir / "groups.csv").write_text("group_id\n0\n", encoding="utf-8")
     (root / "train.txt").write_text(
@@ -1211,3 +1223,265 @@ def test_a1_judge_index_sha_must_match_in_all_folds(
     assert verdict["rules"].endswith("v1.0 §5 (A1 + gpr_context gate), §7-3")
     if odd_index_fold is not None:
         assert verdict["verdict"] == "no verdict: gate failed"
+
+
+# ----------------------------------------- N2-a″ rule K32: K-1..K-10
+
+K32_WIDTH_PX = 32.0
+K32_IMAGES = 1000
+K32_OFF = ContextScaleConfig()
+K32_ON = ContextScaleConfig(band_min_clipped_width_px=K32_WIDTH_PX)
+# C-1 layout: centre (1000, 1256), neighbour (1104, 1360), strip width 360.
+K32_CENTRE_LABELS = (
+    [(108, 50, 148, 90), (50, 70, 200, 86), (200, 100, 256, 116), (230, 140, 256, 156)],
+    [HYPERBOLA, BAND, BAND, BAND],
+)
+# Neighbour crop px: the band 46-166 is original 1150-1270, cut to the 14 px
+# piece [1256, 1270) by column ownership (C-13, K-8); 150-256 gives 104 px.
+K32_NEIGHBOUR_LABELS = (
+    [(6, 50, 46, 90), (46, 72, 166, 88), (150, 120, 256, 136), (200, 30, 240, 60)],
+    [HYPERBOLA, BAND, BAND, CAVITY],
+)
+
+
+def _k32_inputs(
+    centre_labels=K32_CENTRE_LABELS, neighbour_labels=K32_NEIGHBOUR_LABELS
+) -> tuple[str, CropContent, ContextIndex, _MemoryLoader]:
+    center, neighbor = _crop(1000), _crop(1104)
+    loader = _MemoryLoader()
+    loader.add(neighbor, _stripes(1104), *neighbour_labels)
+    content = _content(center, boxes=centre_labels[0], classes=centre_labels[1])
+    return center.file_name, content, _index([center, neighbor]), loader
+
+
+def _run_stage(config: ContextScaleConfig, rng, inputs=None):
+    center_file, content, index, loader = inputs or _k32_inputs()
+    return augment_context_scale(
+        center_file, content, index, loader, config, BoxKeepRule(), rng
+    )
+
+
+def _rows(boxes: np.ndarray, classes: np.ndarray, mask: np.ndarray) -> set:
+    return {
+        (int(class_id), *map(float, box))
+        for box, class_id, is_kept in zip(boxes, classes, mask, strict=True)
+        if is_kept
+    }
+
+
+def test_k1_k2_k32_keeps_pixels_non_band_labels_and_draws() -> None:
+    """K-1 (image and label identity, band subset) and K-2 (rng state)."""
+    k32_drops = 0
+    for i in range(K32_IMAGES):
+        rng_off = np.random.default_rng([SEED, i])
+        rng_on = np.random.default_rng([SEED, i])
+        image_off, boxes_off, classes_off, keep_off, _ = _run_stage(K32_OFF, rng_off)
+        image_on, boxes_on, classes_on, keep_on, record_on = _run_stage(K32_ON, rng_on)
+        assert image_on.tobytes() == image_off.tobytes(), i
+        assert rng_on.bit_generator.state == rng_off.bit_generator.state, i
+        is_band_off, is_band_on = classes_off == BAND, classes_on == BAND
+        assert _rows(boxes_on, classes_on, keep_on & ~is_band_on) == _rows(
+            boxes_off, classes_off, keep_off & ~is_band_off
+        ), i
+        bands_on = _rows(boxes_on, classes_on, keep_on & is_band_on)
+        assert bands_on <= _rows(boxes_off, classes_off, keep_off & is_band_off), i
+        assert len(record_on.band_k32_dropped) == int((keep_off & ~keep_on).sum())
+        k32_drops += len(record_on.band_k32_dropped)
+    assert k32_drops >= 1  # the inputs really reach the rule
+
+
+def test_k3_threshold_is_strictly_below_32() -> None:
+    boxes = np.array([[10.0, 0, 41.9, 10], [100.0, 0, 132.0, 10]])
+    keep, dropped = drop_short_clipped_bands(
+        boxes, np.array([BAND, BAND]), np.array([True, True]), [100.0, 100.0], 32.0
+    )
+    assert keep.tolist() == [False, True] and dropped.tolist() == [0]
+
+
+def test_k4_unclipped_short_band_stays() -> None:
+    boxes = np.array([[10.0, 0, 30.0, 10], [50.0, 0, 69.2, 10]])
+    masks = np.array([True, True])
+    keep, dropped = drop_short_clipped_bands(
+        boxes, np.array([BAND, BAND]), masks, [20.0, 20.0], 32.0
+    )
+    assert keep.tolist() == [True, True] and len(dropped) == 0
+    assert masks.tolist() == [True, True]  # the input mask is not modified
+    # Rule off (min width <= 0): a copy of the mask, nothing dropped.
+    clipped = np.array([[0.0, 0, 10, 10]])
+    keep, dropped = drop_short_clipped_bands(clipped, [BAND], [True], [100.0], 0.0)
+    assert keep.tolist() == [True] and len(dropped) == 0
+
+
+def test_k5_plain_mode_is_untouched() -> None:
+    # Bands touching both crop ends; the 26 px one at the right end is clipped
+    # below 32 px with >= 50 % visible for s in (1, 1.113], so K32 would drop it.
+    centre_labels = ([(0, 70, 256, 86), (230, 100, 256, 116)], [BAND, BAND])
+    inputs = _k32_inputs(centre_labels=centre_labels)
+    plain_off = dataclasses.replace(K32_OFF, p_context=0.0)
+    plain_on = dataclasses.replace(K32_ON, p_context=0.0)
+    has_short_clipped_kept = False
+    for i in range(K32_IMAGES):
+        off = _run_stage(plain_off, np.random.default_rng([SEED, i]), inputs)
+        on = _run_stage(plain_on, np.random.default_rng([SEED, i]), inputs)
+        assert on[0].tobytes() == off[0].tobytes()
+        assert on[1].tobytes() == off[1].tobytes()
+        assert on[3].tobytes() == off[3].tobytes()
+        assert on[4].window.mode is ContextMode.PLAIN and on[4].band_k32_dropped == ()
+        visible_width = on[1][1, 2] - on[1][1, 0]
+        has_short_clipped_kept |= bool(on[3][1] and visible_width < K32_WIDTH_PX)
+    assert has_short_clipped_kept  # the test reaches boxes K32 would drop
+
+
+def test_k6_missing_or_zero_key_is_n2a2_behaviour() -> None:
+    n2a2_block = _yaml(N2A2_CONFIG)["gpr_context"]
+    assert context_config_from_dict(n2a2_block).band_min_clipped_width_px == 0.0
+    zero = context_config_from_dict({**n2a2_block, "band_min_clipped_width_px": 0})
+    assert zero.band_min_clipped_width_px == 0.0
+    missing = context_config_from_dict(n2a2_block)
+    for i in range(K32_IMAGES):
+        rng_missing = np.random.default_rng([SEED, i])
+        rng_zero = np.random.default_rng([SEED, i])
+        first = _run_stage(missing, rng_missing)
+        second = _run_stage(zero, rng_zero)
+        for left, right in zip(first[:4], second[:4], strict=True):
+            assert left.tobytes() == right.tobytes()
+        assert first[4] == second[4] and first[4].band_k32_dropped == ()
+        assert rng_missing.bit_generator.state == rng_zero.bit_generator.state
+
+
+def test_k7_k32_does_not_touch_other_classes() -> None:
+    # Plan K-7 values on the function itself: hyperbola, visible 20 of 60 px.
+    keep, dropped = drop_short_clipped_bands(
+        np.array([[0.0, 0, 20, 40]]), np.array([HYPERBOLA]), [True], [60.0], 32.0
+    )
+    assert keep.tolist() == [True] and len(dropped) == 0
+    # Through the stage: a 36 px hyperbola and band cut to 20 px at the window's
+    # left edge (dx = -40 shows strip columns 40-296); 20 / 36 >= 50 % visible.
+    centre_labels = ([(24, 50, 60, 90), (24, 100, 60, 116)], [HYPERBOLA, BAND])
+    inputs = _k32_inputs(centre_labels=centre_labels, neighbour_labels=((), ()))
+    draw = _FixedDraw(mode_draw=0.0, s=1.0, dx=-40)
+    _, boxes_off, _, keep_off, _ = _run_stage(K32_OFF, draw, inputs)
+    _, boxes_on, classes_on, keep_on, record = _run_stage(K32_ON, draw, inputs)
+    np.testing.assert_array_equal(boxes_on[:2], [[0, 50, 20, 90], [0, 100, 20, 116]])
+    np.testing.assert_array_equal(boxes_on, boxes_off)  # K32 only changes the mask
+    assert classes_on[:2].tolist() == [HYPERBOLA, BAND]
+    assert keep_off[:2].tolist() == [True, True]
+    assert keep_on[:2].tolist() == [True, False]
+    assert record.band_k32_dropped == ((20.0, augment_geometry.ORIGIN_CENTRE),)
+
+
+def test_k8_column_ownership_cut_counts_as_clipped() -> None:
+    # C-13 layout. The plan's dx = 0 would leave the piece at strip 256-270
+    # outside the window; dx = -40 shows strip 40-296, so it is fully inside.
+    centre_labels = ([(50, 70, 200, 86)], [BAND])
+    neighbour_labels = ([(46, 72, 166, 88)], [BAND])
+    inputs = _k32_inputs(centre_labels, neighbour_labels)
+    draw = _FixedDraw(mode_draw=0.0, s=1.0, dx=-40)
+    _, boxes_off, classes_off, keep_off, record_off = _run_stage(K32_OFF, draw, inputs)
+    _, boxes_on, _, keep_on, record_on = _run_stage(K32_ON, draw, inputs)
+    np.testing.assert_array_equal(boxes_off, [[10, 70, 160, 86], [216, 72, 230, 88]])
+    np.testing.assert_array_equal(boxes_on, boxes_off)
+    assert classes_off.tolist() == [BAND, BAND]
+    assert keep_off.tolist() == [True, True] and record_off.band_k32_dropped == ()
+    assert keep_on.tolist() == [True, False]
+    assert record_on.band_k32_dropped == ((14.0, augment_geometry.ORIGIN_NEIGHBOUR),)
+    strip = assemble_context_strip(*inputs[:3], inputs[3], K32_ON)
+    assert strip.source_widths_px.tolist() == [150.0, 120.0]
+    assert strip.origins.tolist() == [0, 1]
+
+
+@pytest.mark.parametrize("value", [-1, float("nan"), float("inf"), "32", True])
+def test_k9_bad_k32_value_is_refused(value) -> None:
+    with pytest.raises(ValueError, match="band_min_clipped_width_px"):
+        ContextScaleConfig(band_min_clipped_width_px=value)
+    with pytest.raises(ValueError, match="band_min_clipped_width_px"):
+        context_config_from_dict({"band_min_clipped_width_px": value})
+
+
+def _k10_neighbour_band_text() -> str:
+    """Hyperbola plus a band at crop px 46-166 (original 1150-1270) for 1104."""
+    return "0 0.5 0.3125 0.15625 0.15625\n1 0.4140625 0.3125 0.46875 0.0625\n"
+
+
+def test_k10_pickled_step_same_result_and_band_k32_stats(tmp_path) -> None:
+    root = tmp_path / "ctx"
+    source_yaml, index_dir = _write_context_dataset(
+        root, {1104: _k10_neighbour_band_text()}
+    )
+    index = context_index_for_data_yaml(index_dir, source_yaml)
+    config = ContextScaleConfig(p_context=1.0, band_min_clipped_width_px=32)
+    fresh = YoloContextScale(config, index, SEED)
+    restored = pickle.loads(pickle.dumps(YoloContextScale(config, index, SEED)))
+    outputs = {"fresh": [], "restored": []}
+    for name, step in (("fresh", fresh), ("restored", restored)):
+        for _ in range(40):
+            labels = step(_context_labels(root, 1000))
+            outputs[name].append(
+                (
+                    labels["img"].tobytes(),
+                    labels["instances"].bboxes.tobytes(),
+                    labels["cls"].tobytes(),
+                )
+            )
+    assert outputs["fresh"] == outputs["restored"]
+    block = restored._stats_document()[aug_stats.BAND_K32_KEY]
+    assert block["dropped"] >= 1
+    assert block["dropped"] == sum(block["by_origin"].values())
+    assert block["dropped"] == sum(block["width_bins"].values())
+    assert set(block["width_bins"]) == {"0-8", "8-16", "16-24", "24-32"}
+    stage = restored._stats_document()["stages"]["context_scale"]
+    assert stage["boxes_dropped_by_class"]["1"] >= block["dropped"]
+
+    restored.stats_dir = tmp_path / "workers"
+    restored.stats_dir.mkdir()
+    restored.flush_stats()
+    aggregated = aug_stats.aggregate_worker_stats(restored.stats_dir)
+    assert aggregated[aug_stats.BAND_K32_KEY] == block
+    # N2-a' (rule off): the stats document keeps exactly its old keys.
+    off_step = YoloContextScale(ContextScaleConfig(p_context=1.0), index, SEED)
+    off_step(_context_labels(root, 1000))
+    assert aug_stats.BAND_K32_KEY not in off_step._stats_document()
+
+
+def test_n2a3_config_differs_from_n2a2_only_by_k32() -> None:
+    n2a2, n2a3 = _yaml(N2A2_CONFIG), _yaml(N2A3_CONFIG)
+    k32 = n2a3["gpr_context"].pop("band_min_clipped_width_px")
+    assert k32 == 32
+    assert n2a3 == n2a2
+    assert context_config_from_dict(_yaml(N2A3_CONFIG)["gpr_context"]) == K32_ON
+
+
+def test_n2a3_training_record_carries_k32_for_the_a1_judge(
+    load_script, monkeypatch, tmp_path
+) -> None:
+    """Plan §6-1: the recorded block has the key and matches the judge's sha."""
+    module = load_script("train_detector")
+    runs_dir = tmp_path / "runs" / "detect"
+    module.RUNS_DIR = runs_dir
+    module.DATA_YAML_DIR = runs_dir / "_data"
+
+    class _Trainer:
+        def __init__(self, save_dir: Path) -> None:
+            self.save_dir = save_dir
+
+        def train(self) -> None:
+            return None
+
+    module.build_gpr_trainer = lambda overrides, *args, **kwargs: _Trainer(
+        Path(overrides["project"]) / overrides["name"]
+    )
+    source_yaml, index_dir = _write_context_dataset(tmp_path / "ctx")
+    config = _yaml(N2A3_CONFIG)
+    config["gpr_context"]["index_dir"] = str(index_dir)
+    config_path = tmp_path / "n2a3.yaml"
+    config_path.write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
+    arguments = ["--config", str(config_path), "--data", str(source_yaml)]
+    assert module.main([*arguments, "--name", "ctx"]) == 0
+    settings = _yaml(runs_dir / "ctx" / "gpr_train_settings.yaml")
+    assert settings["gpr_context"]["band_min_clipped_width_px"] == 32
+    judge = _load_judge(monkeypatch)
+    sealed = judge.sealed_context_sha256(config_path.read_bytes())
+    assert settings["gpr_context_sha256"] == sealed
+    n2a2_like = dict(config["gpr_context"])
+    del n2a2_like["band_min_clipped_width_px"]
+    assert sealed != augment_geometry.settings_block_sha256(n2a2_like)

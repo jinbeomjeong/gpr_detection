@@ -6,7 +6,9 @@ and, per class, how many boxes a stage kept or dropped. These are augmentation
 counts, not detection metrics, so the smoke run may open them. The N2-a'
 ``context_scale`` step (``docs/experiments/m31_n2a2_retrain_plan.md`` section
 2-2 step 6) adds named ``counters`` (mode, context source, neighbour count,
-chain stops) and ``histograms`` (s per mode, dx, allowed dx span).
+chain stops) and ``histograms`` (s per mode, dx, allowed dx span). With the
+N2-a″ rule K32 on (``docs/experiments/m31_n2a3_retrain_plan.md`` §3-2) it also
+writes ``band_k32``: band boxes K32 dropped, by origin and visible width.
 
 DataLoader workers are separate processes, so every process keeps its own
 counts and writes them to ``<run>/aug_stats_workers/<step>_pid<pid>.json``
@@ -19,6 +21,7 @@ so ``workers=0`` counts are exact.
 No Ultralytics import here.
 """
 
+import itertools
 import json
 import logging
 import os
@@ -38,6 +41,15 @@ AUG_STATS_SCHEMA = "gpr_aug_stats/1"
 FLUSH_EVERY_CALLS = 64
 FLUSH_EVERY_S = 10.0
 SCALE_HISTOGRAM_BINS = 10
+BAND_K32_KEY = "band_k32"
+BAND_K32_ORIGIN_NAMES = ("centre", "neighbour")
+"""Indexed by the origin code of ``augment_geometry`` (0 centre, 1 neighbour)."""
+BAND_K32_WIDTH_EDGES_PX = (0, 8, 16, 24, 32)
+BAND_K32_WIDTH_BIN_NAMES = tuple(
+    f"{low}-{high}" for low, high in itertools.pairwise(BAND_K32_WIDTH_EDGES_PX)
+)
+BAND_K32_WIDTH_OVERFLOW = f">={BAND_K32_WIDTH_EDGES_PX[-1]}"
+"""Only used when a threshold above 32 px drops wider boxes."""
 NOT_A_METRIC_NOTE = (
     "augmentation label counts (not a detection metric); worker counts lag by "
     f"< {FLUSH_EVERY_CALLS} images per worker process"
@@ -116,6 +128,18 @@ def histogram_bin(value: float, edges: list[float]) -> int:
     return min(max(index, 0), len(edges) - 2)
 
 
+def band_k32_width_bin(width_px: float) -> str:
+    """Name of the ``band_k32.width_bins`` bin of a visible width ``[low, high)``."""
+    for name, (low, high) in zip(
+        BAND_K32_WIDTH_BIN_NAMES,
+        itertools.pairwise(BAND_K32_WIDTH_EDGES_PX),
+        strict=True,
+    ):
+        if low <= width_px < high:
+            return name
+    return BAND_K32_WIDTH_OVERFLOW
+
+
 def write_json_atomically(path: Path, document: Mapping[str, Any]) -> None:
     """Write JSON through a temporary file so readers never see half a file."""
     temporary = path.with_name(f"{path.name}.tmp{os.getpid()}")
@@ -180,6 +204,24 @@ def _sum_histograms(documents: list[dict[str, Any]]) -> dict[str, dict[str, Any]
     return dict(sorted(totals.items()))
 
 
+def _sum_band_k32(documents: list[dict[str, Any]]) -> dict[str, Any]:
+    by_origin: Counter[str] = Counter({name: 0 for name in BAND_K32_ORIGIN_NAMES})
+    width_bins: Counter[str] = Counter({name: 0 for name in BAND_K32_WIDTH_BIN_NAMES})
+    dropped = 0
+    for document in documents:
+        block = document.get(BAND_K32_KEY)
+        if block is None:
+            continue
+        dropped += int(block["dropped"])
+        by_origin.update(block["by_origin"])
+        width_bins.update(block["width_bins"])
+    return {
+        "dropped": dropped,
+        "by_origin": dict(by_origin),
+        "width_bins": dict(width_bins),
+    }
+
+
 def aggregate_worker_stats(worker_dir: Path) -> dict[str, Any]:
     """Sum every per-process stats file under ``worker_dir``.
 
@@ -217,6 +259,8 @@ def aggregate_worker_stats(worker_dir: Path) -> dict[str, Any]:
         aggregated["counters"] = _sum_counters(documents)
     if any("histograms" in document for document in documents):
         aggregated["histograms"] = _sum_histograms(documents)
+    if any(BAND_K32_KEY in document for document in documents):
+        aggregated[BAND_K32_KEY] = _sum_band_k32(documents)
     return aggregated
 
 

@@ -27,6 +27,12 @@ crop alone, scale ``U[0.55, 1.5]``, centred window). See
 :class:`ContextIndex`, :func:`assemble_context_strip`, :func:`place_window`
 and :func:`augment_context_scale`.
 
+N2-a″ rule K32 (``docs/experiments/m31_n2a3_retrain_plan.md`` v1.0 §3·§7-0): in the
+context mode, after the keep rule, a ``pipe_band`` box the stage clipped
+(column ownership or the window) is dropped when its visible output width is
+below ``band_min_clipped_width_px`` (:func:`drop_short_clipped_bands`). It
+draws no random numbers, so pixels and the generator state stay those of N2-a'.
+
 This module lives next to :mod:`gpr_detection.augment` instead of inside it
 because the architecture rule 5 keeps ``augment`` free of cv2
 (``docs/architecture/README.md``).
@@ -35,8 +41,9 @@ because the architecture rule 5 keeps ``augment`` free of cv2
 import csv
 import hashlib
 import json
+import math
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, NamedTuple, Protocol
@@ -670,6 +677,17 @@ def _float_pair(name: str, values: Sequence[float]) -> tuple[float, float]:
     return (pair[0], pair[1])
 
 
+def _non_negative_finite(name: str, value: Any) -> float:
+    """``value`` as a float; ``ValueError`` unless it is a finite real >= 0."""
+    is_real = isinstance(value, (int, float, np.integer, np.floating))
+    if not is_real or isinstance(value, bool):
+        raise ValueError(f"{name} must be a real number, got {value!r}")
+    number = float(value)
+    if not math.isfinite(number) or number < 0.0:
+        raise ValueError(f"{name} must be finite and >= 0, got {value!r}")
+    return number
+
+
 @dataclass(frozen=True)
 class ContextScaleConfig:
     """The ``gpr_context`` YAML block (§7-1).
@@ -687,6 +705,11 @@ class ContextScaleConfig:
         corr_min: Smallest overlap correlation before brightness correction.
         alpha_range: Allowed ``[low, high]`` of the brightness gain alpha.
         fill: Gray value of the area a shrunk window does not cover.
+        band_min_clipped_width_px: N2-a″ rule K32
+            (``docs/experiments/m31_n2a3_retrain_plan.md`` §3-1): in the
+            context mode a ``pipe_band`` box this stage clipped is dropped
+            when its visible output width is below this value. 0 (default)
+            turns the rule off (N2-a' behaviour).
     """
 
     index_dir: str = "data/aihub_context_index"
@@ -699,9 +722,17 @@ class ContextScaleConfig:
     corr_min: float = 0.98
     alpha_range: tuple[float, float] = (0.8, 1.25)
     fill: int = 128
+    band_min_clipped_width_px: float = 0.0
 
     def __post_init__(self) -> None:
         _check_probability(self.p_context)
+        object.__setattr__(
+            self,
+            "band_min_clipped_width_px",
+            _non_negative_finite(
+                "band_min_clipped_width_px", self.band_min_clipped_width_px
+            ),
+        )
         # YAML gives lists; tuples keep the config hashable and comparable.
         for name in ("context_scale", "plain_scale", "alpha_range"):
             object.__setattr__(self, name, _float_pair(name, getattr(self, name)))
@@ -1187,10 +1218,40 @@ def _neighbor_box_is_owned(
     return bool(cell_low <= center_x < cell_high)
 
 
-def _entry_box(entry: tuple[np.ndarray, int] | None) -> np.ndarray:
+ORIGIN_CENTRE = 0
+ORIGIN_NEIGHBOUR = 1
+"""Crop a merged box came from (N2-a″ §3-2): the centre crop or a neighbour."""
+
+
+class _MergedBox(NamedTuple):
+    box: np.ndarray
+    class_id: int
+    source_width_px: float
+    """Width in the crop's own label (frame-clipped), before any column cut."""
+    origin: int
+
+
+class MergedLabels(NamedTuple):
+    """:func:`merge_strip_labels` output with per-box provenance (N2-a″ §3-2).
+
+    Attributes:
+        boxes: ``[M, 4]`` merged boxes in original x.
+        classes: ``[M]`` class ids.
+        source_widths_px: ``[M]`` width of each box in the label of the crop it
+            came from, before the column-ownership and strip-end cuts.
+        origins: ``[M]`` :data:`ORIGIN_CENTRE` or :data:`ORIGIN_NEIGHBOUR`.
+    """
+
+    boxes: np.ndarray
+    classes: np.ndarray
+    source_widths_px: np.ndarray
+    origins: np.ndarray
+
+
+def _entry_box(entry: _MergedBox | None) -> np.ndarray:
     if entry is None:
         raise AssertionError("a removed box is still listed as kept")
-    return entry[0]
+    return entry.box
 
 
 def _band_piece(box: np.ndarray, piece: StripPiece) -> np.ndarray | None:
@@ -1199,11 +1260,44 @@ def _band_piece(box: np.ndarray, piece: StripPiece) -> np.ndarray | None:
     return cut if cut[2] > cut[0] else None
 
 
+def _box_width_px(box: np.ndarray) -> float:
+    return float(box[2] - box[0])
+
+
+def _merged_labels(entries: Sequence[_MergedBox]) -> MergedLabels:
+    if not entries:
+        return MergedLabels(
+            np.zeros((0, 4), dtype=np.float64),
+            np.zeros(0, dtype=np.int64),
+            np.zeros(0, dtype=np.float64),
+            np.zeros(0, dtype=np.int64),
+        )
+    return MergedLabels(
+        np.array([entry.box for entry in entries], dtype=np.float64),
+        np.array([entry.class_id for entry in entries], dtype=np.int64),
+        np.array([entry.source_width_px for entry in entries], dtype=np.float64),
+        np.array([entry.origin for entry in entries], dtype=np.int64),
+    )
+
+
 def merge_strip_labels(
     pieces: Sequence[StripPiece],
     center_index: int,
     band_class_id: int = PIPE_BAND_CLASS_ID,
 ) -> tuple[np.ndarray, np.ndarray]:
+    """Merge the label boxes of a strip's crops (§3-2 v0.3), in original x.
+
+    The boxes and classes of :func:`merge_strip_labels_with_meta`; see there.
+    """
+    merged = merge_strip_labels_with_meta(pieces, center_index, band_class_id)
+    return merged.boxes, merged.classes
+
+
+def merge_strip_labels_with_meta(
+    pieces: Sequence[StripPiece],
+    center_index: int,
+    band_class_id: int = PIPE_BAND_CLASS_ID,
+) -> MergedLabels:
     """Merge the label boxes of a strip's crops (§3-2 v0.3), in original x.
 
     * ``pipe_band``: every crop keeps its band boxes cut to the columns it owns
@@ -1221,27 +1315,31 @@ def merge_strip_labels(
         band_class_id: Class id of ``pipe_band``.
 
     Returns:
-        ``(boxes [M, 4], classes [M])``: centre crop first, then the other
-        crops by distance to the centre, each in label order (a box that
-        replaces an earlier one by rule (가) takes its place).
+        Boxes and classes: centre crop first, then the other crops by distance
+        to the centre, each in label order (a box that replaces an earlier one
+        by rule (가) takes its place). Per box also the width in its source
+        crop's label (before column cuts) and its origin; a rule (가)
+        replacement carries the width and origin of the replacing box.
     """
     center = pieces[center_index]
     neighbor_indices = [index for index in range(len(pieces)) if index != center_index]
     neighbor_cells = _voronoi_cells([pieces[index] for index in neighbor_indices])
     cell_of = dict(zip(neighbor_indices, neighbor_cells, strict=True))
-    merged: list[tuple[np.ndarray, int] | None] = []
+    merged: list[_MergedBox | None] = []
     # Class id -> positions in ``merged`` of the kept non-band boxes.
     kept_by_class: dict[int, list[int]] = {}
     for index in _priority_order(pieces, center_index):
         piece = pieces[index]
+        is_center = index == center_index
+        origin = ORIGIN_CENTRE if is_center else ORIGIN_NEIGHBOUR
         for box, class_value in zip(piece.boxes, piece.classes, strict=True):
             class_id = int(class_value)
+            entry = _MergedBox(box, class_id, _box_width_px(box), origin)
             if class_id == band_class_id:
                 cut = _band_piece(box, piece)
                 if cut is not None:
-                    merged.append((cut, class_id))
+                    merged.append(entry._replace(box=cut))
                 continue
-            is_center = index == center_index
             if not is_center and not _neighbor_box_is_owned(
                 box, center, cell_of[index]
             ):
@@ -1253,19 +1351,14 @@ def merge_strip_labels(
                 continue
             if replaced:
                 first, *others = (positions[position] for position in replaced)
-                merged[first] = (box, class_id)
+                merged[first] = entry
                 for position in others:
                     merged[position] = None
                     positions.remove(position)
                 continue
             positions.append(len(merged))
-            merged.append((box, class_id))
-    entries = [entry for entry in merged if entry is not None]
-    if not entries:
-        return np.zeros((0, 4), dtype=np.float64), np.zeros(0, dtype=np.int64)
-    boxes = np.array([box for box, _ in entries], dtype=np.float64)
-    classes = np.array([class_id for _, class_id in entries], dtype=np.int64)
-    return boxes, classes
+            merged.append(entry)
+    return _merged_labels([entry for entry in merged if entry is not None])
 
 
 # ---------------------------------------------------------- strip (§3-1)
@@ -1310,6 +1403,10 @@ class ContextStrip:
         classes: ``[M]`` class ids.
         neighbor_files: Stitched neighbour files, left chain then right chain.
         rejections: Why each chain stopped, if it stopped at a neighbour.
+        source_widths_px: ``[M]`` width of each box in its source crop's label
+            (crop px, before column cuts; N2-a″ K32), or ``None``.
+        origins: ``[M]`` :data:`ORIGIN_CENTRE` / :data:`ORIGIN_NEIGHBOUR` per
+            box, or ``None``.
     """
 
     image: np.ndarray
@@ -1319,6 +1416,8 @@ class ContextStrip:
     classes: np.ndarray
     neighbor_files: tuple[str, ...] = ()
     rejections: tuple[RejectReason, ...] = ()
+    source_widths_px: np.ndarray | None = None
+    origins: np.ndarray | None = None
 
     @property
     def used_neighbors(self) -> int:
@@ -1330,7 +1429,15 @@ def crop_only_strip(content: CropContent) -> ContextStrip:
     _check_gray_image(content.image)
     boxes = _clip_to_image(_as_box_array(content.boxes), content.image)
     classes = np.asarray(content.classes).reshape(-1)
-    return ContextStrip(content.image, 0, 0, boxes, classes)
+    return ContextStrip(
+        content.image,
+        0,
+        0,
+        boxes,
+        classes,
+        source_widths_px=boxes[:, 2] - boxes[:, 0],
+        origins=np.full(len(boxes), ORIGIN_CENTRE, dtype=np.int64),
+    )
 
 
 @dataclass
@@ -1466,9 +1573,7 @@ def assemble_context_strip(
     if not left_links and not right_links:
         strip = crop_only_strip(content)
         rejections = tuple(stop for stop in (left_stop, right_stop) if stop)
-        return ContextStrip(
-            strip.image, center.x1_px, 0, strip.boxes, strip.classes, (), rejections
-        )
+        return replace(strip, x0_px=center.x1_px, rejections=rejections)
 
     links = [center_link, *left_links, *right_links]
     x0_px = min(link.owned_x1_px for link in links)
@@ -1483,18 +1588,21 @@ def assemble_context_strip(
     for link in [*left_links, *right_links]:
         boxes, classes = loader.labels(link.crop.file_name)
         pieces.append(_piece(link, boxes, classes))
-    boxes, classes = merge_strip_labels(pieces, center_index=0)
+    merged = merge_strip_labels_with_meta(pieces, center_index=0)
+    boxes = merged.boxes
     boxes[:, [0, 2]] -= x0_px
     return ContextStrip(
         image=image,
         x0_px=x0_px,
         crop_left_px=center.x1_px - x0_px,
         boxes=boxes,
-        classes=classes,
+        classes=merged.classes,
         neighbor_files=tuple(
             link.crop.file_name for link in [*left_links, *right_links]
         ),
         rejections=tuple(stop for stop in (left_stop, right_stop) if stop),
+        source_widths_px=merged.source_widths_px,
+        origins=merged.origins,
     )
 
 
@@ -1640,6 +1748,85 @@ def place_window(
     return result, clipped, keep_mask, record
 
 
+# --------------------------------------------------- N2-a″ K32 (plan §3-1)
+
+CLIPPED_WIDTH_TOLERANCE_PX = 1.0
+"""A box counts as clipped when it is this much narrower than its full width."""
+
+
+def drop_short_clipped_bands(
+    boxes_out: np.ndarray,
+    classes: np.ndarray,
+    keep_mask: np.ndarray,
+    full_widths_out: np.ndarray,
+    min_width_px: float,
+    band_class_id: int = PIPE_BAND_CLASS_ID,
+    tolerance_px: float = CLIPPED_WIDTH_TOLERANCE_PX,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Rule K32: drop kept, clipped band boxes narrower than ``min_width_px``.
+
+    A box is clipped when its visible width ``x2 - x1`` is below its full width
+    minus ``tolerance_px``. A visible width equal to ``min_width_px`` stays.
+    The inputs are not modified.
+
+    Args:
+        boxes_out: ``[M, 4]`` boxes clipped to the output window (output px).
+        classes: ``[M]`` class ids.
+        keep_mask: ``[M]`` keep mask after the existing keep rule.
+        full_widths_out: ``[M]`` width of each box's source label in output px.
+        min_width_px: Narrowest visible width kept; ``<= 0`` turns the rule off.
+        band_class_id: Class id of ``pipe_band``.
+        tolerance_px: Allowed shortfall before a box counts as clipped.
+
+    Returns:
+        ``(new keep mask, indices of the boxes this rule dropped)``.
+    """
+    new_mask = np.array(keep_mask, dtype=bool).reshape(-1)
+    if min_width_px <= 0:
+        return new_mask, np.zeros(0, dtype=np.int64)
+    box_array = _as_box_array(boxes_out)
+    visible_widths = box_array[:, 2] - box_array[:, 0]
+    full_widths = np.asarray(full_widths_out, dtype=np.float64).reshape(-1)
+    is_band = np.asarray(classes).reshape(-1) == band_class_id
+    is_clipped = visible_widths < full_widths - tolerance_px
+    is_short = visible_widths < min_width_px
+    dropped = new_mask & is_band & is_clipped & is_short
+    new_mask[dropped] = False
+    return new_mask, np.flatnonzero(dropped).astype(np.int64)
+
+
+def _window_factor_x(strip_width_px: int, s: float) -> float:
+    """Horizontal factor of :func:`place_window` (round of the scaled width)."""
+    if s == 1.0:
+        return 1.0
+    return round(strip_width_px * s) / strip_width_px
+
+
+def _apply_k32(
+    strip: ContextStrip,
+    boxes_out: np.ndarray,
+    keep_mask: np.ndarray,
+    s: float,
+    min_width_px: float,
+) -> tuple[np.ndarray, tuple[tuple[float, int], ...]]:
+    """K32 on one context-mode window; returns the mask and the dropped boxes."""
+    if strip.source_widths_px is None or strip.origins is None:
+        raise ValueError("K32 needs a strip with source widths and origins")
+    factor_x = _window_factor_x(strip.image.shape[1], s)
+    new_mask, dropped = drop_short_clipped_bands(
+        boxes_out,
+        strip.classes,
+        keep_mask,
+        strip.source_widths_px * factor_x,
+        min_width_px,
+    )
+    dropped_boxes = tuple(
+        (float(boxes_out[i, 2] - boxes_out[i, 0]), int(strip.origins[i]))
+        for i in dropped
+    )
+    return new_mask, dropped_boxes
+
+
 # ------------------------------------------------------------ stage (§2-2)
 
 
@@ -1652,12 +1839,15 @@ class ContextRecord:
         source: Origin of the context (none / c1 / a).
         used_neighbors: Number of stitched neighbour crops.
         rejections: Why a chain stopped at a neighbour.
+        band_k32_dropped: ``(visible width px, origin)`` of every band box
+            rule K32 dropped (empty when the rule is off or in plain mode).
     """
 
     window: WindowRecord
     source: ContextSource
     used_neighbors: int
     rejections: tuple[RejectReason, ...]
+    band_k32_dropped: tuple[tuple[float, int], ...] = ()
 
 
 def augment_context_scale(
@@ -1685,7 +1875,8 @@ def augment_context_scale(
     Returns:
         ``(image, boxes, classes, keep_mask, record)``. ``boxes`` and
         ``classes`` are the merged labels (more than the input when
-        neighbours add objects), clipped; ``keep_mask`` marks those to keep.
+        neighbours add objects), clipped; ``keep_mask`` marks those to keep
+        (keep rule, then K32 in the context mode when it is on).
     """
     is_context = bool(rng.random() < config.p_context)
     if is_context:
@@ -1708,11 +1899,18 @@ def augment_context_scale(
         fill=config.fill,
         keep_rule=keep_rule,
     )
+    band_k32_dropped: tuple[tuple[float, int], ...] = ()
+    if is_context and config.band_min_clipped_width_px > 0:
+        keep_mask, band_k32_dropped = _apply_k32(
+            strip, boxes, keep_mask, s, config.band_min_clipped_width_px
+        )
     if not is_context:
         source = ContextSource.NONE
     elif strip.used_neighbors:
         source = ContextSource.A
     else:
         source = ContextSource.C1
-    record = ContextRecord(window, source, strip.used_neighbors, strip.rejections)
+    record = ContextRecord(
+        window, source, strip.used_neighbors, strip.rejections, band_k32_dropped
+    )
     return image, boxes, strip.classes, keep_mask, record

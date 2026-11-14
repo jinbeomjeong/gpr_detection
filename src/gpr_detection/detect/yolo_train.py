@@ -594,8 +594,28 @@ def _count_in(histogram: dict[str, Any], value: float) -> None:
     histogram["counts"][aug_stats.histogram_bin(value, histogram["edges"])] += 1
 
 
+def _new_band_k32_stats() -> dict[str, Any]:
+    """Counts of the N2-a″ rule K32 (plan m31_n2a3 §3-2), one process."""
+    return {
+        "dropped": 0,
+        "by_origin": {name: 0 for name in aug_stats.BAND_K32_ORIGIN_NAMES},
+        "width_bins": {name: 0 for name in aug_stats.BAND_K32_WIDTH_BIN_NAMES},
+    }
+
+
+def _count_band_k32(stats: dict[str, Any], record: ContextRecord) -> None:
+    for width_px, origin in record.band_k32_dropped:
+        stats["dropped"] += 1
+        stats["by_origin"][aug_stats.BAND_K32_ORIGIN_NAMES[origin]] += 1
+        width_bin = aug_stats.band_k32_width_bin(width_px)
+        stats["width_bins"][width_bin] = stats["width_bins"].get(width_bin, 0) + 1
+
+
 class YoloContextScale(_GeometricStep):
     """Ultralytics step: N2-a' context scale (``augment_context_scale``), index 1.
+
+    With the N2-a″ rule K32 on (``band_min_clipped_width_px > 0``) the stats
+    file also has a ``band_k32`` block (dropped boxes by origin and width).
 
     Args:
         config: The ``gpr_context`` settings.
@@ -618,10 +638,14 @@ class YoloContextScale(_GeometricStep):
         self.keep_rule = keep_rule if keep_rule is not None else BoxKeepRule()
         super().__init__(config, seed)  # type: ignore[arg-type]
 
+    @property
+    def _is_k32_on(self) -> bool:
+        return self.config.band_min_clipped_width_px > 0
+
     def _new_stats(self) -> dict[str, Any]:
         config = self.config
         max_shift_px = config.max_shift_px
-        return {
+        stats: dict[str, Any] = {
             "calls": 0,
             "context_scale": aug_stats.StageStats(),
             "counters": {
@@ -637,10 +661,13 @@ class YoloContextScale(_GeometricStep):
                 "dx_span_px": _histogram(0, 2 * max_shift_px, DX_SPAN_HISTOGRAM_BINS),
             },
         }
+        if self._is_k32_on:
+            stats[aug_stats.BAND_K32_KEY] = _new_band_k32_stats()
+        return stats
 
     def _stats_document(self) -> dict[str, Any]:
         stats = self._stats
-        return {
+        document = {
             "step": self.stats_name,
             "pid": self._process_id,
             "calls": stats["calls"],
@@ -651,6 +678,12 @@ class YoloContextScale(_GeometricStep):
             },
             "histograms": copy.deepcopy(stats["histograms"]),
         }
+        # Only with K32 on, so N2-a' stats files keep exactly their old keys.
+        if self._is_k32_on:
+            document[aug_stats.BAND_K32_KEY] = copy.deepcopy(
+                stats[aug_stats.BAND_K32_KEY]
+            )
+        return document
 
     def _record(
         self, classes: np.ndarray, keep_mask: np.ndarray, record: ContextRecord
@@ -672,6 +705,8 @@ class YoloContextScale(_GeometricStep):
             _count_in(histograms["dx_span_px"], window.dx_max_px - window.dx_min_px)
         else:
             _count_in(histograms["s_plain"], window.s)
+        if self._is_k32_on:
+            _count_band_k32(stats[aug_stats.BAND_K32_KEY], record)
 
     def __call__(self, labels: dict[str, Any]) -> dict[str, Any]:
         """Scale ``labels["img"]`` with context; merge and filter its labels.
