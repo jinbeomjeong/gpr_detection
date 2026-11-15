@@ -20,11 +20,19 @@ M3-1 (spec_detection_image_v1 sections 5-6) adds the scaled-input path:
   (:func:`line_boxes_to_grid`); :func:`detect_line` runs all of it;
 * the per-line depth call order of ADR-004 decision 7
   (:func:`estimate_line_depths`, :func:`estimate_survey_depths`).
+
+M3-3 X1 (``docs/experiments/m33_pp_spec.md`` v0.2.3 sections 1-3) adds the
+boundary false-positive post-processing (PP) between the merge and the L0
+rounding: :func:`apply_pp` on merged line boxes, off by default
+(``detect_line(pp_mode=PPSetId.S0)``).
 """
 
+import hashlib
+import json
 import math
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, field, replace
+from enum import StrEnum
 
 import numpy as np
 
@@ -52,6 +60,8 @@ from gpr_detection.detect.base import (
 )
 from gpr_detection.io.classes import DetectionClass
 from gpr_detection.io.radargram import GridBox, Radargram
+from gpr_detection.preprocess.filters import prepare_fitting_branch
+from gpr_detection.preprocess.timezero import ZeroResult, find_time_zero
 from gpr_detection.preprocess.to_image import (
     DEFAULT_DETECTION_IMAGE_CONFIG,
     DetectionImage,
@@ -225,13 +235,19 @@ class LineDetections:
 
     Attributes:
         image: The line L1 image the detector saw.
-        boxes: Merged boxes with their L0 box, in merge output order.
+        boxes: Merged boxes with their L0 box, in merge output order (after
+            PP when ``pp_mode`` is on).
         tile_seam_box: Output boxes still ``tile_truncated`` after the merge.
+        pp_outcomes: Every merged box with its ``pp_action``; empty when
+            ``pp_mode`` is off.
+        pp_config: The PP set used; ``None`` when off.
     """
 
     image: DetectionImage
     boxes: tuple[tuple[LineBox, GridBox], ...]
     tile_seam_box: int
+    pp_outcomes: tuple["PPOutcome", ...] = field(default=())
+    pp_config: "PPConfig | None" = None
 
 
 def _area(box: PixelBox) -> float:
@@ -298,6 +314,31 @@ def is_tile_truncated(box: PixelBox, tile: LineTile, edge_px: float) -> bool:
     return is_left_cut or is_right_cut
 
 
+def tile_output_line_boxes(
+    output: DetectorOutput, tile: LineTile, edge_px: float = 2.0
+) -> list[LineBox]:
+    """Line L1 boxes with truncation marks of one tile's detector output.
+
+    Lets a caller that batches the tiles build the same boxes as
+    :func:`detect_tiles`.
+    """
+    line_boxes = []
+    for detection in output.detections:
+        tile_box = model_box_to_image_box(detection.box, output.transform)
+        line_box = tile_box_to_line_box(tile_box, tile)
+        line_boxes.append(
+            LineBox(
+                class_id=detection.class_id,
+                class_name=detection.class_name,
+                score=detection.score,
+                box=line_box,
+                tile_index=tile.index,
+                tile_truncated=is_tile_truncated(line_box, tile, edge_px),
+            )
+        )
+    return line_boxes
+
+
 def detect_tiles(
     image: DetectionImage, detector: Detector, edge_px: float = 2.0
 ) -> list[LineBox]:
@@ -305,19 +346,7 @@ def detect_tiles(
     line_boxes = []
     for tile in image.tiles:
         output = detector.predict(image.tile_image(tile.index))
-        for detection in output.detections:
-            tile_box = model_box_to_image_box(detection.box, output.transform)
-            line_box = tile_box_to_line_box(tile_box, tile)
-            line_boxes.append(
-                LineBox(
-                    class_id=detection.class_id,
-                    class_name=detection.class_name,
-                    score=detection.score,
-                    box=line_box,
-                    tile_index=tile.index,
-                    tile_truncated=is_tile_truncated(line_box, tile, edge_px),
-                )
-            )
+        line_boxes.extend(tile_output_line_boxes(output, tile, edge_px))
     return line_boxes
 
 
@@ -547,6 +576,318 @@ def merge_line_boxes(
     return tuple(sorted(merged, key=_output_order))
 
 
+# ========================================== boundary post-processing (M3-3 X1)
+
+PP_EDGE_PX = 2.0
+"""``e``: PP-b straddle margin, the M3-2 ``EDGE_PX`` (= ``MergeConfig.edge_px``)."""
+PP_BAND_WINDOW_PX = 18.0
+"""``w_c``: PP-c window above the content bottom, M3-2 ``M4C_WINDOW_PX`` (3 P*)."""
+PP_ZERO_MARGIN_PERIODS = 0.5
+"""PP-d: a box centre above ``y_z + 0.5 P_ell`` is removed."""
+PP_MIN_CLIPPED_HEIGHT_PERIODS = 1.0
+"""PP-b: a clipped box lower than ``1 P_ell`` is removed."""
+
+
+class PPSetId(StrEnum):
+    """Nested PP sets of spec section 3 (``S0`` = PP off)."""
+
+    S0 = "S0"
+    S1 = "S1"
+    S2 = "S2"
+    S3 = "S3"
+    S4 = "S4"
+    S5 = "S5"
+
+
+class PPRule(StrEnum):
+    """The four PP rules (spec section 2)."""
+
+    A = "a"
+    B = "b"
+    D = "d"
+    C = "c"
+
+
+class PPCategory(StrEnum):
+    """Primary category of the original box, order a > b > d (= M3-2 M4a/b/d)."""
+
+    A = "a"
+    B = "b"
+    D = "d"
+
+
+class PPAction(StrEnum):
+    """What PP did to one merged box (``pp_action`` output field)."""
+
+    NONE = "none"
+    REMOVED_A = "removed_a"
+    CLIPPED_B = "clipped_b"
+    REMOVED_B = "removed_b"
+    REMOVED_D = "removed_d"
+    REMOVED_C = "removed_c"
+
+    @property
+    def is_processed(self) -> bool:
+        """The box was removed or clipped (gate G4 counts these)."""
+        return self is not PPAction.NONE
+
+    @property
+    def is_removed(self) -> bool:
+        """The box is gone from the output."""
+        return self not in (PPAction.NONE, PPAction.CLIPPED_B)
+
+
+@dataclass(frozen=True)
+class PPConfig:
+    """Constants and active rules of one PP set; hashed for its identity.
+
+    Attributes:
+        set_id: ``S0``-``S5``.
+        rules: Active rules, sorted (``S0``: none).
+        band_score_cut: ``s_c`` of PP-c, ``None`` when c is not active.
+        edge_px: ``e``.
+        band_window_px: ``w_c``.
+        zero_margin_periods: PP-d margin in ``P_ell``.
+        min_clipped_height_periods: PP-b minimum clipped height in ``P_ell``.
+    """
+
+    set_id: PPSetId
+    rules: tuple[PPRule, ...] = ()
+    band_score_cut: float | None = None
+    edge_px: float = PP_EDGE_PX
+    band_window_px: float = PP_BAND_WINDOW_PX
+    zero_margin_periods: float = PP_ZERO_MARGIN_PERIODS
+    min_clipped_height_periods: float = PP_MIN_CLIPPED_HEIGHT_PERIODS
+
+    def __post_init__(self) -> None:
+        if tuple(sorted(self.rules)) != self.rules or len(set(self.rules)) != len(
+            self.rules
+        ):
+            raise ValueError(f"{self.set_id}: rules must be sorted and unique")
+        has_c = PPRule.C in self.rules
+        if has_c != (self.band_score_cut is not None):
+            raise ValueError(f"{self.set_id}: band_score_cut goes with rule c only")
+
+    @property
+    def is_off(self) -> bool:
+        """No rule is active (``pp_mode`` off)."""
+        return not self.rules
+
+    def canonical_json(self) -> str:
+        """Sorted-key JSON of every field: the input of :meth:`sha256`."""
+        return json.dumps(asdict(self), sort_keys=True, ensure_ascii=True)
+
+    def sha256(self) -> str:
+        """Identity hash of the set (C0b seals the selected one)."""
+        return hashlib.sha256(self.canonical_json().encode("utf-8")).hexdigest()
+
+
+def _pp_set(
+    set_id: PPSetId, rules: Iterable[PPRule], band_score_cut: float | None = None
+) -> PPConfig:
+    return PPConfig(set_id, tuple(sorted(rules)), band_score_cut)
+
+
+_A, _B, _C, _D = PPRule.A, PPRule.B, PPRule.C, PPRule.D
+PP_SETS: dict[PPSetId, PPConfig] = {
+    PPSetId.S0: _pp_set(PPSetId.S0, ()),
+    PPSetId.S1: _pp_set(PPSetId.S1, (_A,)),
+    PPSetId.S2: _pp_set(PPSetId.S2, (_A, _D)),
+    PPSetId.S3: _pp_set(PPSetId.S3, (_A, _B, _D)),
+    PPSetId.S4: _pp_set(PPSetId.S4, (_A, _B, _D, _C), 0.35),
+    PPSetId.S5: _pp_set(PPSetId.S5, (_A, _B, _D, _C), 0.50),
+}
+"""S0 (off) and the nested sequence S1 ⊂ ... ⊂ S5 of spec section 3."""
+
+
+def pp_sets_sha256() -> str:
+    """One hash over the ``sha256`` of every set S0-S5, in order."""
+    joined = "\n".join(f"{key}\t{PP_SETS[key].sha256()}" for key in PPSetId)
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class ContentRows:
+    """Rows PP looks at, from the ``ImageGridMap`` (never pixel values).
+
+    Attributes:
+        y_bot_px: ``y_bot``: content bottom; rows below are padding.
+        period_px: ``P_ell`` (line L1 period; ``P_A`` on AIHub crops).
+        zero_px: ``y_z = k_zero / samples_per_px``; ``None`` when the zero
+            failed (PP-d is then not applied).
+    """
+
+    y_bot_px: float
+    period_px: float
+    zero_px: float | None
+
+
+def content_rows_for(image: DetectionImage, zero: ZeroResult) -> ContentRows:
+    """``ContentRows`` of one line image, as M3-2 ``content_range`` builds them.
+
+    Raises:
+        RuntimeError: If the grid-map bottom differs from ``H_c``.
+    """
+    grid = image.grid_map
+    y_bot = grid.n_samples / grid.samples_per_px
+    if abs(y_bot - image.content_height_px) > 1e-6:
+        raise RuntimeError(f"content bottom {y_bot} != H_c {image.content_height_px}")
+    zero_px = None if zero.k_zero is None else zero.k_zero / grid.samples_per_px
+    return ContentRows(y_bot, image.period_l1_px, zero_px)
+
+
+def pp_category(
+    y1: float,
+    y2: float,
+    content: ContentRows,
+    edge_px: float = PP_EDGE_PX,
+    zero_margin_periods: float = PP_ZERO_MARGIN_PERIODS,
+) -> PPCategory | None:
+    """Primary category of an original box (any class), order a > b > d.
+
+    The same rule as M3-2 ``m32_recipe_match.m4_category`` (test 2).
+    """
+    centre = 0.5 * (y1 + y2)
+    if centre > content.y_bot_px:
+        return PPCategory.A
+    if y1 < content.y_bot_px - edge_px and y2 > content.y_bot_px + edge_px:
+        return PPCategory.B
+    if content.zero_px is not None:
+        zero_limit = content.zero_px + zero_margin_periods * content.period_px
+        if centre < zero_limit:
+            return PPCategory.D
+    return None
+
+
+@dataclass(frozen=True)
+class PPDecision:
+    """PP result of one box: its category, the action and the new bottom.
+
+    Attributes:
+        category: Category of the original box.
+        action: ``pp_action``.
+        y2_px: Output bottom (``y_bot`` after a PP-b clip, else the input).
+    """
+
+    category: PPCategory | None
+    action: PPAction
+    y2_px: float
+
+
+def _bottom_straddle_decision(
+    y1: float, y2: float, content: ContentRows, config: PPConfig
+) -> PPDecision:
+    """PP-b: clip ``y2`` to ``y_bot``; remove when the rest is below 1 ``P_ell``."""
+    min_height = config.min_clipped_height_periods * content.period_px
+    if content.y_bot_px - y1 < min_height:
+        return PPDecision(PPCategory.B, PPAction.REMOVED_B, y2)
+    return PPDecision(PPCategory.B, PPAction.CLIPPED_B, content.y_bot_px)
+
+
+def _is_low_score_bottom_band(
+    class_id: int, score: float, y2: float, content: ContentRows, config: PPConfig
+) -> bool:
+    """PP-c: ``pipe_band``, ``y2 >= y_bot - w_c`` and ``score < s_c``."""
+    if PPRule.C not in config.rules or config.band_score_cut is None:
+        return False
+    return (
+        class_id == DetectionClass.PIPE_BAND
+        and y2 >= content.y_bot_px - config.band_window_px
+        and score < config.band_score_cut
+    )
+
+
+def pp_decision(
+    class_id: int,
+    score: float,
+    y1: float,
+    y2: float,
+    content: ContentRows,
+    config: PPConfig,
+) -> PPDecision:
+    """PP of one merged box (spec section 2), independent of the other boxes.
+
+    The category is fixed once on the original box; an inactive rule leaves a
+    box of its category untouched, and PP-c only looks at boxes without a
+    category.
+    """
+    category = pp_category(y1, y2, content, config.edge_px, config.zero_margin_periods)
+    if category is PPCategory.A:
+        action = PPAction.REMOVED_A if PPRule.A in config.rules else PPAction.NONE
+        return PPDecision(category, action, y2)
+    if category is PPCategory.B:
+        if PPRule.B in config.rules:
+            return _bottom_straddle_decision(y1, y2, content, config)
+        return PPDecision(category, PPAction.NONE, y2)
+    if category is PPCategory.D:
+        action = PPAction.REMOVED_D if PPRule.D in config.rules else PPAction.NONE
+        return PPDecision(category, action, y2)
+    if _is_low_score_bottom_band(class_id, score, y2, content, config):
+        return PPDecision(None, PPAction.REMOVED_C, y2)
+    return PPDecision(None, PPAction.NONE, y2)
+
+
+@dataclass(frozen=True)
+class PPOutcome:
+    """One merged box through PP.
+
+    Attributes:
+        original: The merged box.
+        decision: Category, action and new bottom.
+        output: The box handed on (``y2`` clipped by PP-b), ``None`` if removed.
+    """
+
+    original: LineBox
+    decision: PPDecision
+    output: LineBox | None
+
+    @property
+    def action(self) -> PPAction:
+        """``pp_action`` of the box."""
+        return self.decision.action
+
+
+def apply_pp(
+    boxes: Sequence[LineBox], content: ContentRows, config: PPConfig
+) -> tuple[PPOutcome, ...]:
+    """Apply one PP set to merged line boxes, before the L0 rounding.
+
+    A PP-b clip changes ``y2`` only; ``x``, score, class, ``n_tiles_seen`` and
+    flags are kept. With an off set every output is the input object itself.
+
+    Returns:
+        One outcome per input box, in input order.
+    """
+    outcomes = []
+    for box in boxes:
+        decision = pp_decision(
+            box.class_id, box.score, box.box.y1, box.box.y2, content, config
+        )
+        output: LineBox | None = box
+        if decision.action.is_removed:
+            output = None
+        elif decision.action is PPAction.CLIPPED_B:
+            output = replace(box, box=replace(box.box, y2=decision.y2_px))
+        outcomes.append(PPOutcome(box, decision, output))
+    return tuple(outcomes)
+
+
+def kept_after_pp(outcomes: Iterable[PPOutcome]) -> tuple[LineBox, ...]:
+    """Output boxes of :func:`apply_pp` (removed boxes dropped), input order."""
+    return tuple(outcome.output for outcome in outcomes if outcome.output is not None)
+
+
+def is_removed_inside_content(
+    y1: float, action: PPAction, content: ContentRows
+) -> bool:
+    """PP-a diagnostic: a PP-a removal whose top lies inside the content.
+
+    ``y1 < y_bot - P_ell``: "a removal that may be a cut real pipe"
+    (spec section 4-4, report only).
+    """
+    return action is PPAction.REMOVED_A and y1 < content.y_bot_px - content.period_px
+
+
 def line_boxes_to_grid(
     boxes: Sequence[LineBox], image: DetectionImage
 ) -> list[tuple[LineBox, GridBox]]:
@@ -559,19 +900,51 @@ def line_boxes_to_grid(
     return pairs
 
 
+def line_zero(radargram: Radargram) -> ZeroResult:
+    """``select_zero`` default-rule zero of a line (``ZeroConfig()`` defaults).
+
+    Same call as the M3-2 runner: ``find_time_zero`` on the fitting-branch
+    section before background removal.
+    """
+    return find_time_zero(radargram, prepare_fitting_branch(radargram).filtered)
+
+
 def detect_line(
     radargram: Radargram,
     detector: Detector,
     image_config: DetectionImageConfig = DEFAULT_DETECTION_IMAGE_CONFIG,
     merge_config: MergeConfig = DEFAULT_MERGE_CONFIG,
+    *,
+    pp_mode: PPSetId = PPSetId.S0,
 ) -> LineDetections:
-    """Detect on one scaled radargram: image -> tiles -> merge -> L0."""
+    """Detect on one scaled radargram: image -> tiles -> merge -> (PP) -> L0.
+
+    Args:
+        radargram: The line.
+        detector: Detection backend.
+        image_config: Detection-image recipe.
+        merge_config: Tile-merge settings.
+        pp_mode: PP set applied to the merged boxes (spec m33_pp_spec section
+            1); ``S0`` (default) is off and leaves the output unchanged.
+    """
     image = make_detection_image(radargram, image_config)
     tile_boxes = detect_tiles(image, detector, merge_config.edge_px)
     merged = merge_line_boxes(tile_boxes, image, merge_config)
-    pairs = tuple(line_boxes_to_grid(merged, image))
+    config = PP_SETS[PPSetId(pp_mode)]
+    if config.is_off:
+        pairs = tuple(line_boxes_to_grid(merged, image))
+        tile_seam_box = sum(1 for line_box, _ in pairs if line_box.tile_truncated)
+        return LineDetections(image=image, boxes=pairs, tile_seam_box=tile_seam_box)
+    outcomes = apply_pp(merged, content_rows_for(image, line_zero(radargram)), config)
+    pairs = tuple(line_boxes_to_grid(kept_after_pp(outcomes), image))
     tile_seam_box = sum(1 for line_box, _ in pairs if line_box.tile_truncated)
-    return LineDetections(image=image, boxes=pairs, tile_seam_box=tile_seam_box)
+    return LineDetections(
+        image=image,
+        boxes=pairs,
+        tile_seam_box=tile_seam_box,
+        pp_outcomes=outcomes,
+        pp_config=config,
+    )
 
 
 # ================================================= per-line depth (section 6)

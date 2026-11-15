@@ -234,6 +234,30 @@ def band_coverage(
     return BandCoverage(gt_length, covered_gt, pred_length, matched_pred)
 
 
+def gt_covered_lengths(
+    gt_boxes: np.ndarray | Sequence[Sequence[float]],
+    pred_boxes: np.ndarray | Sequence[Sequence[float]],
+    min_vertical_fraction: float = DEFAULT_MIN_VERTICAL_FRACTION,
+) -> np.ndarray:
+    """Per GT box: covered x length, before the layers are joined.
+
+    The part of the box's x-interval covered by the union of the x-intervals
+    of its vertically matched predictions (the per-box piece of
+    :func:`band_coverage`). Lets two prediction sets be compared GT by GT,
+    e.g. the total coverage loss of M3-3 PP gate G2.
+
+    Returns:
+        float ``(n_gt,)`` lengths in pixels.
+    """
+    gt_boxes, pred_boxes = _as_boxes(gt_boxes), _as_boxes(pred_boxes)
+    is_match = vertical_match(gt_boxes, pred_boxes, min_vertical_fraction)
+    covered = np.zeros(len(gt_boxes))
+    for index, (x1, _, x2, _) in enumerate(gt_boxes):
+        partner_intervals = merge_intervals(pred_boxes[is_match[index]][:, [0, 2]])
+        covered[index] = total_length(clip_intervals(partner_intervals, x1, x2))
+    return covered
+
+
 def fragment_counts(
     gt_boxes: np.ndarray | Sequence[Sequence[float]],
     pred_boxes: np.ndarray | Sequence[Sequence[float]],

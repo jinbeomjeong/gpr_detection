@@ -427,6 +427,8 @@ class PeriodSource(StrEnum):
     MEASURED = "measured"
     DATASET_DEFAULT = "dataset_default"
     F_C = "f_c"
+    OVERRIDE = "override"
+    """Given by the caller (``make_detection_image(period_samples_override=)``)."""
 
 
 class VelocityScaleSource(StrEnum):
@@ -767,8 +769,30 @@ def _detection_gain(
     return section
 
 
+def _period_or_override(
+    radargram: Radargram,
+    section: np.ndarray,
+    config: DetectionImageConfig,
+    period_samples_override: float | None,
+) -> tuple[float, PeriodSource]:
+    """``_line_period`` unless the caller fixed ``P_line``."""
+    if period_samples_override is None:
+        return _line_period(radargram, section, config)
+    if not period_samples_override > 0:
+        raise ValueError(
+            f"period_samples_override must be positive, got {period_samples_override}"
+        )
+    return float(period_samples_override), PeriodSource.OVERRIDE
+
+
+def _is_period_fallback(period_source: PeriodSource) -> bool:
+    return period_source not in (PeriodSource.MEASURED, PeriodSource.OVERRIDE)
+
+
 def _line_amplitudes(
-    radargram: Radargram, config: DetectionImageConfig
+    radargram: Radargram,
+    config: DetectionImageConfig,
+    period_samples_override: float | None = None,
 ) -> _LineAmplitudes:
     """Steps 1, 2 and 4: period section, ``P_line`` and detection amplitudes.
 
@@ -777,20 +801,22 @@ def _line_amplitudes(
     """
     if radargram.amplitude_processed:
         section = remove_dc(radargram.data)
-        period_samples, period_source = _line_period(radargram, section, config)
+        period_samples, period_source = _period_or_override(
+            radargram, section, config, period_samples_override
+        )
         flags: list[str] = [ImageFlag.AMPLITUDE_PROCESSED]
-        if period_source != PeriodSource.MEASURED:
+        if _is_period_fallback(period_source):
             flags.append(ImageFlag.PERIOD_FALLBACK)
         return _LineAmplitudes(
             section, period_samples, period_source, None, tuple(flags)
         )
 
     branch = prepare_fitting_branch(radargram, config.period_bg_window)
-    period_samples, period_source = _line_period(
-        radargram, branch.background_removed, config
+    period_samples, period_source = _period_or_override(
+        radargram, branch.background_removed, config, period_samples_override
     )
     flags = []
-    if period_source != PeriodSource.MEASURED:
+    if _is_period_fallback(period_source):
         flags.append(ImageFlag.PERIOD_FALLBACK)
     section, gate_k_zero, background_flags = _detection_background(
         radargram, branch, period_samples, config
@@ -1139,6 +1165,7 @@ def to_gray(a: np.ndarray, clip_level: float) -> np.ndarray:
 def make_detection_image(
     radargram: Radargram,
     config: DetectionImageConfig = DEFAULT_DETECTION_IMAGE_CONFIG,
+    period_samples_override: float | None = None,
 ) -> DetectionImage:
     """Line L1 image and tiles of one radargram (spec section 4-4).
 
@@ -1147,15 +1174,24 @@ def make_detection_image(
     fitting-branch section (``period_bg_window``); the recipe options of
     ``config`` change only the amplitudes and greys, never the geometry.
 
+    Args:
+        radargram: The line.
+        config: Recipe and scale settings.
+        period_samples_override: Use this ``P_line`` (samples) instead of the
+            measured one (``period_source`` ``override``); everything else
+            (zero, content range, gain, greys) is still built from the
+            record. ``None`` (default) measures it as before (M3-3 D0 Y1 fixes
+            the period of a cut record to that of the full one).
+
     Raises:
-        ValueError: If the radargram has no physical scale, or no period can
-            be found.
+        ValueError: If the radargram has no physical scale, no period can be
+            found, or the override is not positive.
     """
     if radargram.dt_ns is None or radargram.dx_m is None:
         raise ValueError(
             "DetectionImage needs a physical scale; use ImageGridMap.identity"
         )
-    line = _line_amplitudes(radargram, config)
+    line = _line_amplitudes(radargram, config, period_samples_override)
     flags = list(line.flags)
     velocity = _velocity_scale(radargram, config)
     if velocity.source == VelocityScaleSource.ASSUMED:
