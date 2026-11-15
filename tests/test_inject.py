@@ -1,5 +1,7 @@
 """Real-background injection generator (M3-2 S4; S6 tests (g), (h) and (j)).
 
+Band mode (M3-3 R3, [EMR] D-5 tests (a)-(f)) is at the end of the file.
+
 (g) truth boxes are L0 cells that survive L0 -> L1 -> L0 through the
 ``pipeline`` coordinate functions exactly (QA-8, ADR-004 decision 8).
 (h) the waveform replacement filter passes the period check (+-5 %) and keeps
@@ -25,20 +27,33 @@ from scipy.signal import hilbert
 
 from gpr_detection.eval.inject import (
     EARLY_ENERGY_KEY,
+    EXTENDED_INJECTION_TABLE_COLUMNS,
+    INJECTION_TABLE_COLUMNS,
     K_MAIN,
     K_REPORT,
     MAX_REALIZATIONS_PER_LINE,
     MIRROR_DIFF_KEY,
+    BandInjectionResult,
+    BandPatch,
+    BandSurvivalSpan,
+    InjectionMode,
     InjectionSpec,
     InjectionTruth,
     LineExclusions,
     PipeResponse,
     RejectReason,
     ResponsePatch,
+    band_spacing_ok,
+    band_survival_from_sections,
+    band_survival_ratio,
+    band_taper_traces,
     box_size_in_periods,
+    build_band_patch,
     build_injection_specs,
     build_response_patch,
     default_conditions,
+    edge_taper_weights,
+    inject_band_realization,
     inject_realization,
     is_in_distribution,
     line_cost,
@@ -986,3 +1001,439 @@ def test_pseudo_band_repeats_the_apex_trace_with_tapered_ends():
         apex_values == 0, 1, apex_values
     )
     assert np.all(np.abs(edge_ratio) < 0.05)
+
+
+# ------------------------------------------ band mode (M3-3 R3, [EMR] D-5)
+#
+# (a) flat columns = hyperbola apex column bit for bit, (b) flat columns equal
+# each other, (c) no ``_bg`` is added, (d) Monte Carlo survival references of
+# [EMR] D-3, (e) QA-8 box round trip, (f) the hyperbola tests above.
+
+BAND_LENGTH = 40
+BAND_CENTER = 117.5
+"""40 + 14 taper columns: an even column count needs a half-trace centre."""
+
+
+def _band_spec(
+    center: float = BAND_CENTER,
+    *,
+    length: int = BAND_LENGTH,
+    index: int = 0,
+    realization_id: str = "b",
+    polarity: int = 1,
+    snr_db: float = 12.0,
+) -> InjectionSpec:
+    return InjectionSpec(
+        injection_id=f"{realization_id}:{index:02d}",
+        realization_id=realization_id,
+        line_id=LINE_ID,
+        apex_trace=center,
+        response_id="M12",
+        snr_db=snr_db,
+        polarity=polarity,
+        k=K_MAIN,
+        seed=0,
+        mode=InjectionMode.BAND,
+        band_length_traces=length,
+        band_center_trace=center,
+    )
+
+
+@pytest.fixture(scope="module")
+def band(patch, context) -> BandPatch:
+    built = build_band_patch(patch, context, BAND_LENGTH)
+    assert isinstance(built, BandPatch), built
+    return built
+
+
+@pytest.fixture(scope="module")
+def band_injected(context, response) -> BandInjectionResult:
+    return inject_band_realization(context, [_band_spec()], {"M12": response})
+
+
+def test_band_a_flat_columns_are_the_hyperbola_apex_column_bitwise(patch, band):
+    apex_column = patch.field[:, round(SYN_APEX_TRACE)]
+    flat_first, flat_last = band.flat_columns
+    for column in range(flat_first, flat_last + 1):
+        assert np.array_equal(band.field[:, column], apex_column)
+    assert band.signal_amplitude == patch.signal_amplitude
+    assert band.apex_sample == patch.apex_sample
+
+
+def test_band_b_flat_columns_equal_each_other_and_tapers_are_lower(band):
+    flat_first, flat_last = band.flat_columns
+    flat = band.field[:, flat_first : flat_last + 1]
+    assert np.array_equal(flat, np.repeat(flat[:, :1], flat.shape[1], axis=1))
+    peak_row = np.argmax(np.abs(band.field[:, flat_first]))
+    edges = np.abs(band.field[peak_row, :flat_first])
+    assert np.all(edges < np.abs(band.field[peak_row, flat_first]))
+
+
+def test_band_length_is_between_the_minus_6db_taper_points(band):
+    weights = edge_taper_weights(band.n_columns, band.taper_traces)
+    first, last = band.box_columns
+    assert last - first + 1 == BAND_LENGTH == band.length_traces
+    assert weights[first] > 0.5 > weights[first - 1]
+    assert weights[last] > 0.5 > weights[last + 1]
+    assert band.n_columns == BAND_LENGTH + band.taper_traces
+
+
+def test_band_c_background_trace_is_not_added(context, background, band_injected):
+    (truth,) = band_injected.truths
+    added = band_injected.data - background.data.astype(np.float64)
+    apex_amplitude = abs(truth.gain) * truth.signal_amplitude
+    band_limit = math.floor(context.zero.k_zero + 2.0 * context.period_samples)
+    assert np.abs(added[:band_limit]).max() <= 0.02 * apex_amplitude
+    assert np.abs(added[:5]).max() <= 1e-3 * apex_amplitude
+    outside = np.ones(added.shape[1], dtype=bool)
+    offset = round(BAND_CENTER - (BAND_LENGTH + truth.taper_traces - 1) / 2)
+    outside[offset : offset + BAND_LENGTH + truth.taper_traces] = False
+    assert not added[:, outside].any()
+
+
+def test_band_taper_is_the_fresnel_radius_rounded_to_even_traces(
+    context, response, band
+):
+    wavelength_m = 0.1 * context.period_ns  # no eps_r metadata: 0.1 m/ns
+    fresnel_m = math.sqrt(wavelength_m * response.top_depth_m / 2.0)
+    assert fresnel_m > 0.2
+    expected = 2 * round(fresnel_m / LINE_DX_M / 2.0)
+    assert band_taper_traces(response, context) == expected == band.taper_traces
+    shallow = _response(apex_ns=SYN_REFERENCE_NS + 4.0)  # d 0.2 m: r_F < 0.2 m
+    assert band_taper_traces(shallow, context) == round(0.2 / LINE_DX_M)
+
+
+def test_band_shorter_than_its_taper_is_rejected(patch, context, band):
+    short = build_band_patch(patch, context, band.taper_traces)
+    assert short == RejectReason.BAND_SHORTER_THAN_TAPER
+    with pytest.raises(ValueError, match="even"):
+        build_band_patch(patch, context, BAND_LENGTH, taper_traces=13)
+
+
+def test_band_snr_uses_sigma_over_the_flat_traces(context, background, band_injected):
+    (truth,) = band_injected.truths
+    ratio = abs(truth.gain) * truth.signal_amplitude / truth.noise_rms
+    assert ratio == pytest.approx(10.0 ** (12.0 / 20.0))
+    period = context.period_samples
+    rows = slice(
+        math.floor(truth.apex_sample - period),
+        math.ceil(truth.apex_sample + period) + 1,
+    )
+    flat = slice(
+        truth.box.i0 + truth.taper_traces // 2,
+        truth.box.i1 - truth.taper_traces // 2 + 1,
+    )
+    expected = np.sqrt(np.mean(context.background_removed[rows, flat] ** 2))
+    assert truth.noise_rms == pytest.approx(expected)
+    injected_only = band_injected.data - background.data.astype(np.float64)
+    envelope = _padded_envelope(_linear_steps(injected_only))
+    centre = round(truth.center_trace)
+    assert envelope[:, centre].max() == pytest.approx(
+        abs(truth.gain) * truth.signal_amplitude, rel=1e-6
+    )
+
+
+def test_band_polarity_pair_is_an_exact_negation(background, context, response):
+    responses = {"M12": response}
+    plus = inject_band_realization(context, [_band_spec(polarity=1)], responses)
+    minus = inject_band_realization(
+        context, [_band_spec(polarity=-1, realization_id="m")], responses
+    )
+    (plus_truth,), (minus_truth,) = plus.truths, minus.truths
+    assert plus_truth.gain == -minus_truth.gain
+    assert plus_truth.box == minus_truth.box
+    raw = background.data.astype(np.float64)
+    added = plus.data - raw
+    tolerance = 1e-12 * np.max(np.abs(added)) + 1e-9
+    np.testing.assert_allclose(added, -(minus.data - raw), rtol=0, atol=tolerance)
+
+
+def test_band_truth_records_lengths_and_windows(context, band, band_injected):
+    (truth,) = band_injected.truths
+    assert truth.length_traces == BAND_LENGTH
+    assert truth.box.n_traces == BAND_LENGTH
+    assert truth.center_trace == (truth.box.i0 + truth.box.i1) / 2.0 == BAND_CENTER
+    assert truth.length_px == BAND_LENGTH / context.grid_map.traces_per_px
+    assert truth.w_eff == LINE_TRACES  # the line is shorter than W = 301
+    assert truth.l_over_w_eff == truth.l_over_n == BAND_LENGTH / LINE_TRACES
+    assert (truth.box.k0, truth.box.k1) == (band.row0, band.row1)
+    assert truth.box.k0 <= truth.apex_sample <= truth.box.k1
+    assert truth.main_cell and not truth.bottom_stratum
+    assert truth.n_clipped_cells == 0 and truth.max_clipped_injection_ratio == 0.0
+
+
+def test_band_vertical_box_is_the_apex_column_minus_20db_run(patch, band):
+    envelope = _padded_envelope(_linear_steps(band.field))
+    column = envelope[:, band.flat_columns[0]]
+    peak = column.max()
+    assert column[band.row0] >= 0.1 * peak and column[band.row1] >= 0.1 * peak
+    assert column[band.row0 - 1] < 0.1 * peak and column[band.row1 + 1] < 0.1 * peak
+
+
+def test_band_e_truth_boxes_round_trip_exactly_through_pipeline(context, response):
+    responses = {"M12": response}
+    for center, length in ((BAND_CENTER, 40), (117.0, 41), (110.5, 64)):
+        spec = _band_spec(center, length=length, realization_id=f"e{length}")
+        (truth,) = inject_band_realization(context, [spec], responses).truths
+        line_box = grid_box_to_image_box(truth.box, context.grid_map)
+        assert image_box_to_grid_box(line_box, context.grid_map) == truth.box
+
+
+def test_band_centre_off_the_column_grid_is_rejected(context, response):
+    spec = _band_spec(BAND_CENTER + 0.5)
+    reason = _single_band_rejection(context, [spec], {"M12": response})
+    assert reason == RejectReason.OFF_GRID_APEX
+
+
+def _single_band_rejection(context, specs, responses) -> str:
+    result = inject_band_realization(context, specs, responses)
+    assert result.truths == ()
+    ((_, reason),) = result.rejected
+    return reason
+
+
+def test_band_zone_c_i_box_more_than_2p_above_does_not_block(
+    background, context, response, band_injected
+):
+    """(c') is 2-D: same traces, more than 2 P shallower -> not blocked."""
+    (truth,) = band_injected.truths
+    period = context.period_samples
+    last_row = math.floor(truth.box.k0 - 2.0 * period) - 1
+    above = GridBox(i0=truth.box.i0, i1=truth.box.i1, k0=0, k1=last_row)
+    result = inject_band_realization(
+        _box_context(background, above), [_band_spec()], {"M12": response}
+    )
+    (kept,) = result.truths
+    assert kept.box == truth.box
+    assert kept.in_horizontal_box_zone  # the old horizontal rule blocked it
+    assert not truth.in_horizontal_box_zone
+
+
+@pytest.mark.parametrize("where", ["inside", "beside"])
+def test_band_zone_c_ii_box_at_the_band_depth_blocks(
+    background, context, response, band_injected, where
+):
+    """(c') blocks a box whose depth overlaps the truth box (inside or +- 1 P)."""
+    (truth,) = band_injected.truths
+    rows = {"k0": round(truth.apex_sample), "k1": round(truth.apex_sample) + 3}
+    if where == "inside":
+        box = GridBox(i0=truth.box.i0 + 5, i1=truth.box.i0 + 7, **rows)
+    else:
+        start = truth.box.i1 + math.floor(context.period_traces)
+        box = GridBox(i0=start, i1=start + 2, **rows)
+    assert (
+        _single_band_rejection(
+            _box_context(background, box), [_band_spec()], {"M12": response}
+        )
+        == RejectReason.UNINJECTED_BOX_ZONE
+    )
+
+
+def test_band_zone_c_grows_boxes_by_one_period_in_samples(
+    background, context, response, band_injected
+):
+    (truth,) = band_injected.truths
+    period = context.period_samples
+    touching_k1 = math.ceil(truth.box.k0 - period)
+    touching = GridBox(i0=truth.box.i0, i1=truth.box.i1, k0=0, k1=touching_k1)
+    assert (
+        _single_band_rejection(
+            _box_context(background, touching), [_band_spec()], {"M12": response}
+        )
+        == RejectReason.UNINJECTED_BOX_ZONE
+    )
+    clear = replace(touching, k1=math.floor(truth.box.k0 - period) - 1)
+    result = inject_band_realization(
+        _box_context(background, clear), [_band_spec()], {"M12": response}
+    )
+    assert len(result.truths) == 1
+
+
+def test_band_zone_d_measures_the_k_radius_from_the_span_ends(
+    background, response, band, band_injected
+):
+    (truth,) = band_injected.truths
+    near = truth.box.i1 + band.patch.half_width_20db - 0.5
+    blocked = prepare_line_context(background, LineExclusions(k_apex_traces=(near,)))
+    assert (
+        _single_band_rejection(blocked, [_band_spec()], {"M12": response})
+        == RejectReason.CANDIDATE_APEX_ZONE_K
+    )
+    far = truth.box.i1 + band.patch.half_width_20db + 0.5
+    allowed = prepare_line_context(background, LineExclusions(k_apex_traces=(far,)))
+    result = inject_band_realization(allowed, [_band_spec()], {"M12": response})
+    assert len(result.truths) == 1
+
+
+def test_band_depth_zones_follow_the_hyperbola_rules(context, patch):
+    shallow = _response(apex_ns=SYN_REFERENCE_NS + 3.0)
+    spec = _band_spec()
+    assert (
+        _single_band_rejection(context, [spec], {"M12": shallow})
+        == RejectReason.BAND_ZONE
+    )
+    layer_data = _background_data()
+    layer_row = round(patch.apex_sample) + 10
+    times_ns = (np.arange(LINE_SAMPLES) - layer_row) * LINE_DT_NS
+    layer_data += 20.0 * TEXTURE_SCALE * _ricker(times_ns, F_C_HZ)[:, None]
+    layered = prepare_line_context(_radargram(layer_data))
+    assert (
+        _single_band_rejection(layered, [spec], {"M12": _response()})
+        == RejectReason.STRONG_LAYER_ZONE
+    )
+
+
+def test_band_spacing_is_half_lengths_plus_w_eff(context, response):
+    assert band_spacing_ok(400.0, 40, [(100.0, 60)], 250)  # 300 = 50 + 250
+    assert not band_spacing_ok(399.9, 40, [(100.0, 60)], 250)
+    assert band_spacing_ok(100.0, 40, [], 250)
+    specs = [_band_spec(80.5), _band_spec(BAND_CENTER + 40.0, index=1)]
+    result = inject_band_realization(context, specs, {"M12": response})
+    assert [truth.injection_id for truth in result.truths] == ["b:00"]
+    assert result.rejected == (("b:01", RejectReason.BAND_SPACING.value),)
+
+
+def test_band_taper_uses_the_line_eps_r_when_known(background, response):
+    eps_context = prepare_line_context(replace(background, eps_r_meta=4.0))
+    velocity = 0.299792458 / 2.0
+    fresnel_m = math.sqrt(velocity * eps_context.period_ns * response.top_depth_m / 2)
+    expected = 2 * round(fresnel_m / LINE_DX_M / 2.0)
+    assert band_taper_traces(response, eps_context) == expected
+
+
+def test_band_zone_d_auto_candidates_and_line_ends(
+    background, context, response, band, band_injected
+):
+    (truth,) = band_injected.truths
+    radius = band.patch.half_width_6db + context.period_traces
+    near = truth.box.i0 - radius + 0.5
+    blocked = prepare_line_context(
+        background, LineExclusions(auto_candidate_apex_traces=(near,))
+    )
+    assert (
+        _single_band_rejection(blocked, [_band_spec()], {"M12": response})
+        == RejectReason.CANDIDATE_APEX_ZONE_AUTO
+    )
+    past_end = LINE_TRACES - 10.5
+    assert (
+        _single_band_rejection(context, [_band_spec(past_end)], {"M12": response})
+        == RejectReason.APERTURE_OUTSIDE_LINE
+    )
+
+
+def test_band_int16_clipping_inside_the_truth_box_rejects():
+    data = _background_data()
+    data[:, round(BAND_CENTER) : round(BAND_CENTER) + 3] = 32766.6
+    near_limit = prepare_line_context(_radargram(data))
+    spec = _band_spec(snr_db=18.0)
+    reason = _single_band_rejection(near_limit, [spec], {"M12": _response()})
+    assert reason == RejectReason.INT16_OVERFLOW
+
+
+def test_band_int16_far_above_the_apex_is_kept(patch):
+    clipped_context = prepare_line_context(
+        _radargram(_saturated_above_apex(patch, 2.5))
+    )
+    result = inject_band_realization(
+        clipped_context, [_band_spec(snr_db=18.0)], {"M12": _response()}
+    )
+    (truth,) = result.truths
+    assert truth.n_clipped_cells > 0
+    assert 0 < truth.max_clipped_injection_ratio <= 0.05
+    assert result.data.max() <= 32767 and result.data.min() >= -32768
+
+
+def test_band_and_hyperbola_rows_never_share_a_realization(context, response):
+    responses = {"M12": response}
+    band_row = _band_spec(realization_id="r", index=1)
+    with pytest.raises(ValueError, match="hyperbola realization"):
+        inject_realization(context, [_spec(), band_row], responses)
+    with pytest.raises(ValueError, match="band realization"):
+        inject_band_realization(context, [band_row, _spec()], responses)
+
+
+def test_band_spec_fields_are_checked():
+    with pytest.raises(ValueError, match="length and centre"):
+        replace(_band_spec(), band_length_traces=None)
+    with pytest.raises(ValueError, match="must equal apex_trace"):
+        replace(_band_spec(), band_center_trace=BAND_CENTER + 1.0)
+    with pytest.raises(ValueError, match="hyperbola row"):
+        replace(_spec(), band_length_traces=40)
+    as_text = replace(_band_spec(), mode="band")  # type: ignore[arg-type]
+    assert as_text.mode is InjectionMode.BAND
+
+
+def test_band_table_round_trip_and_legacy_header(tmp_path: Path):
+    hyperbola_rows = [_spec(index=0), _spec(index=1, polarity=-1)]
+    legacy = tmp_path / "legacy.csv"
+    write_injection_table(legacy, hyperbola_rows)
+    header = legacy.read_text(encoding="utf-8").splitlines()[0]
+    assert tuple(header.split(",")) == INJECTION_TABLE_COLUMNS
+    assert read_injection_table(legacy)[0] == hyperbola_rows
+    mixed = [*hyperbola_rows, _band_spec(), _band_spec(117.0, length=41, index=1)]
+    table = tmp_path / "bands.csv"
+    sha = write_injection_table(table, mixed)
+    lines = table.read_text(encoding="utf-8").splitlines()
+    assert tuple(lines[0].split(",")) == EXTENDED_INJECTION_TABLE_COLUMNS
+    assert lines[1].endswith(",hyperbola,,")
+    assert lines[3].endswith(",band,40,117.5")
+    read_specs, read_sha = read_injection_table(table)
+    assert read_specs == mixed and read_sha == sha
+
+
+def test_band_survival_ratio_of_a_short_band_is_high(context, band_injected):
+    """L 40 on a 235-trace line (global median): [EMR] D-3 gives 0.93 at 12 dB."""
+    (truth,) = band_injected.truths
+    survival = band_survival_ratio(context, band_injected.data, truth)
+    assert 0.8 <= survival <= 1.05
+
+
+MC_TRACES = 3000
+MC_ROWS = 96
+MC_PERIOD = 25.0
+MC_TAPER = 14
+MC_SEEDS = 5
+
+
+def _mc_unit_column() -> np.ndarray:
+    """Gabor column (carrier 1 / P, FWHM 1.3 P) with envelope peak 1."""
+    rows = np.arange(MC_ROWS) - MC_ROWS / 2
+    sigma = 1.3 * MC_PERIOD / (2.0 * np.sqrt(2.0 * np.log(2.0)))
+    column = np.cos(2 * np.pi * rows / MC_PERIOD) * np.exp(-0.5 * (rows / sigma) ** 2)
+    return column / _padded_envelope(column[:, None]).max()
+
+
+def _mc_survival(length: int, snr_db: float) -> float:
+    """[EMR] D-3 Monte Carlo through ``band_survival_from_sections``.
+
+    White noise (sigma 1) on a 3,000-trace line, moving median W 301, band of
+    ``L`` traces between the -6 dB taper points, mean over 5 seeds.
+    """
+    amplitude = 10.0 ** (snr_db / 20.0)
+    n_columns = length + MC_TAPER
+    first = MC_TRACES // 2 - n_columns // 2
+    band_rows = amplitude * _mc_unit_column()[:, None]
+    band_field = band_rows * edge_taper_weights(n_columns, MC_TAPER)[None, :]
+    span = BandSurvivalSpan(
+        apex_sample=MC_ROWS / 2,
+        period_samples=MC_PERIOD,
+        trace0=first + MC_TAPER // 2,
+        trace1=first + MC_TAPER // 2 + length - 1,
+        reference_amplitude=amplitude,
+    )
+    ratios = []
+    for seed in range(MC_SEEDS):
+        noise = np.random.default_rng(seed).normal(size=(MC_ROWS, MC_TRACES))
+        injected = noise.copy()
+        injected[:, first : first + n_columns] += band_field
+        ratios.append(band_survival_from_sections(injected, noise, span, 301))
+    return float(np.mean(ratios))
+
+
+def test_band_d_monte_carlo_short_band_survives():
+    assert _mc_survival(40, 18.0) >= 0.85
+
+
+@pytest.mark.parametrize("snr_db", [0.0, 18.0])
+def test_band_d_monte_carlo_long_band_is_erased(snr_db):
+    assert _mc_survival(400, snr_db) <= 0.05

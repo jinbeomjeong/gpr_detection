@@ -442,7 +442,7 @@ r0, fold 0, k 1.3, 분포 안 행:
 | SNR | **같은 정의**: $A$ = 단위 띠 중앙 트레이스의 (1)–(3) 뒤 꼭짓점 포락선 피크(= 패치 `signal_amplitude`, 같은 열). $\sigma$ = 배경만의 (1)–(4) RMS, 창은 꼭짓점 ± 1 P, 트레이스는 띠 평탄 구간 전체(쌍곡선의 −6 dB 반폭 대신) | 신호는 (4) 앞, 잡음은 (4) 뒤라는 쌍곡선 정의 그대로다. 그래서 (4)가 띠를 지우는 효과는 $A$에 들어가지 않고 생존 진폭 비로 따로 측정된다 |
 | 극성 | ±1 짝, 같은 위치·길이로 둘 다 | 반사 부호 규약 미상(§1-2), 실제 종배관도 횡배관과 같은 부호 규칙 |
 | int16·포화 | 부록 B-3 수정안(합 자르기, 박스·SNR 창 안 잘림이나 5 % 초과일 때만 기각) | 띠는 가로로 길어서 포화 칸과 만날 기회가 많다 |
-| 구역 | (a) 포화 + 2 P, (b) 띠 + 2 P, (b′) 강반사층 ± 1 P(띠 구간 전체 평균 트레이스), (c′) 미주입 박스와 가로로 겹치지 않음(띠 구간 ± 1 P), (d) 후보 꼭짓점이 띠 구간 ± −20 dB 반폭 밖, 바닥: 부록 C3-6 | 쌍곡선 규칙을 가로 구간으로 넓힌 것 |
+| 구역 | (a) 포화 + 2 P, (b) 띠 + 2 P, (b′) 강반사층 ± 1 P(띠 구간 전체 평균 트레이스), (c′) 미주입 박스를 가로 ± 1 P·세로 ± 1 $P_\text{line}$으로 넓혀 띠 정답 박스와 겹치지 않음(2D, cv 결정, D-7 참고), (d) 후보 꼭짓점이 띠 구간 ± −20 dB 반폭 밖, 바닥: 부록 C3-6 | 쌍곡선 규칙을 가로 구간으로 넓힌 것 |
 | 간격 (e) | 한 실현 안의 두 띠는 $|c_1-c_2| \ge (L_1+L_2)/2 + W_\text{eff}$($W_\text{eff}=\min(W,N)$, W 301). 쌍곡선과 띠는 같은 실현에 섞지 않는다 | median 제거가 비선형이라 같은 창 안의 두 띠가 서로의 생존을 바꾼다(D-3) |
 
 ### D-3. 끝 테이퍼와 길이 층 — 생존이 W/2에서 갈리고, 그 위에서는 SNR이 높을수록 더 지워진다
@@ -489,11 +489,11 @@ r0, fold 0, k 1.3, 분포 안 행:
 
 1. `inject.py`에 띠 모드를 추가한다. 기존 쌍곡선 경로와 기본값은 비트 단위로 바뀌지 않아야 한다.
    - `BandSpec`(또는 `InjectionSpec`에 `mode: "hyperbola" | "band"`, `band_length_traces: int` 추가). 표 열에 `mode`, `band_length_traces`, `band_center_trace`를 더한다.
-   - `build_band_patch(response, context, k, length_traces, taper_traces) -> BandPatch | RejectReason`: `build_response_patch`로 패치를 만든 뒤 꼭짓점 열 `field[:, round(apex_trace)]`를 `length_traces + 2·taper_traces`열로 반복한다. `edge_taper_weights(n, taper_traces)`를 곱한다. `signal_amplitude`, `apex_sample`, 주기 확인 결과는 패치 값을 그대로 쓴다. `taper_traces = round(max(0.2, sqrt(v_line·P_line_ns·top_depth_m/2)) / dx_line)`, $v_\text{line}$은 메타 εr(없으면 가정 0.1 m/ns)에서 구한다.
+   - `build_band_patch(response, context, k, length_traces, taper_traces) -> BandPatch | RejectReason`: `build_response_patch`로 패치를 만든 뒤 꼭짓점 열 `field[:, round(apex_trace)]`를 `length_traces + taper_traces`열로 반복한다(`length_traces` = −6 dB 점 사이 L, 평탄 L − T, T 짝수. D-7에서 정정). `edge_taper_weights(n, taper_traces)`를 곱한다. `signal_amplitude`, `apex_sample`, 주기 확인 결과는 패치 값을 그대로 쓴다. `taper_traces = round(max(0.2, sqrt(v_line·P_line_ns·top_depth_m/2)) / dx_line)`, $v_\text{line}$은 메타 εr(없으면 가정 0.1 m/ns)에서 구한다.
    - 정답 `BandTruth`
      - `box`: 가로 = 테이퍼 −6 dB 점 사이. 세로 = 꼭짓점 열 (1)–(3) 포락선 −20 dB 연결 성분(씨앗 = 꼭짓점), 기록 끝에서 자름.
      - 함께 기록할 값: `length_traces`, `length_px`(`grid_map.traces_per_px`로 환산), `w_eff = min(301, n_traces)`, `l_over_w_eff`, `l_over_n`, `gain`, `noise_rms`, `signal_amplitude`, 잘린 칸 수·최대 주입 비율, 극성, SNR, k, `response_id`, `model_group`.
-   - 구역: D-2 표의 (a)·(b)·(b′)·(c′)·(d)·바닥을 띠 가로 구간 전체에 적용한다. 간격 (e)는 D-2 식이다.
+   - 구역: D-2 표의 (a)·(b)·(b′)·(d)·바닥을 띠 가로 구간 전체에 적용한다. (c′)는 2D 겹침이다(D-7). 간격 (e)는 D-2 식이다.
    - SNR: $\sigma$ = `background_removed[apex ± 1 P, 띠 평탄 구간]` RMS. 이득 = 극성 × $10^{\text{SNR}/20}$ × σ / `signal_amplitude`.
    - `make_pseudo_band`는 docstring에 "M2 합성 전용, 실측 배경 주입에 쓰지 않음"을 적고 그대로 둔다.
 2. 생존 진폭 비(검출기 없음, 러너 쪽): $s=\mathrm{median}_{j\in\text{중앙 50 \%}}\ \max_{|k-k_a|\le P}\ \mathrm{env}\big[(4)(\text{주입}) - (4)(\text{배경})\big]_{kj}\ /\ (|\text{gain}|\cdot A)$. r0의 (4) 단면(median 301 또는 전체 median)에서 잰다. SNR × 길이 층 × 배경별로 낸다.
@@ -542,10 +542,30 @@ r0, fold 0, k 1.3, 분포 안 행:
   - 2000 MHz 4측선은 **R3 주입에서 뺀다**(a). 미주입 추론(오검출 보고)에는 남겨도 된다.
   - 이 구분은 C1 봉인 전에 고정하고, 판정서에 "IDS 60 중 주입 56(주 53 + 보고 3), 2000 MHz 4 제외(합성 응답 대역 밖)"로 공개한다.
 
+### D-7. 띠 모드 구현 확인 (2026-11-15)
+
+- 대상: `src/gpr_detection/eval/inject.py` `build_band_patch` 외(미커밋). `pytest tests/test_inject.py`는 103개 통과했다(17.3 s, gpr-dev, E코어 16–27, BelowNormal, GPU 미사용). **판정: 물리 승인. 코드 수정은 없다.**
+
+| # | 구현자 해석 | 판단 |
+|---|---|---|
+| 1 | 열 수 = L + T, 평탄 = L − T, L ≤ T이면 기각(`band_shorter_than_taper`) | **맞음.** 기준은 D-3의 정의(L = −6 dB 점 사이)다. D-5의 "length + 2·taper열"은 length를 평탄 길이로 쓴 내 문구 오류이고, 아래처럼 정정했다. `edge_taper_weights`의 0.5 점은 각 끝에서 T/2 칸 경계이므로 −6 dB 점 사이 = (L + T) − T = L이다 |
+| 2 | T 짝수 반올림 `2·round(r_F/dx/2)` | **맞음.** T가 짝수면 −6 dB 점이 정확히 칸 경계(T/2)에 떨어져 L이 정수 트레이스로 정확해진다. 반올림 오차 ≤ 1트레이스(0.02–0.024 m)는 $r_F$ 0.15–0.45 m의 4–16 %다. 끝 회절을 흉내 내는 테이퍼로서는 무시할 수 있다. L이 짝수일 때 중심이 반 트레이스에 놓이는 것은 정답 박스가 정수 트레이스 경계로 정의되므로 문제가 없다 |
+| 3 | 세로 범위 = 꼭짓점 열 (1)–(3) 포락선 −20 dB 연속 구간, 씨앗 = 꼭짓점 ± 1 P 최대, `wing_past_record_end`도 이 구간 끝 | **맞음.** 띠의 모든 평탄 열이 꼭짓점 열과 같으므로, 쌍곡선 정답의 꼭짓점 열 세로 범위와 같은 정의다. 바닥 제외(C3-6)를 이 구간 끝으로 하는 것도 맞다 |
+| 4 | 몬테카를로: L 40 0.94–0.98(표 0.88–0.98), L 192 0.44–0.20(표 0.35–0.10) | **허용.** D-3 표는 평탄 행 모델이다(행마다 진폭 A, 띠 중앙 절반 평균). 구현은 파형을 넣고 ± 1 P 포락선 최대를 쓰는 D-5 항목 2의 정의다. 파형의 낮은 진폭 행은 국소 SNR이 낮다. 긴 띠에서는 그런 행이 덜 지워지므로(D-3: L > W/2에서는 낮은 SNR일수록 더 남음) 잔차 포락선 최대가 표보다 높게 나온다. 짧은 띠에서도 포락선 최대가 꼭짓점 행을 잡아 평균보다 높다. 성질 세 가지가 유지된다: (i) W/2 아래에서는 SNR과 함께 증가, (ii) 위에서는 SNR과 함께 감소, (iii) 갈림점 약 W/2. D-5 시험 (d) 문턱(L 40 ≥ 0.85, L 400 ≤ 0.05)도 통과한다. 지표의 정본은 구현 정의(D-5 항목 2)이고, D-3 표는 기전 설명용이다 |
+
+- 시그니처: 구현은 `build_band_patch(patch, context, length_traces, taper_traces=None)`이다. 호출자가 S4 패치(`build_response_patch`, k 포함)를 먼저 만들어 넘기고, `taper_traces`가 None이면 프레넬 반경에서 자동 계산한다(`band_taper_traces`). D-5 항목 1의 `(response, context, k, length_traces, taper_traces)`는 이 구현으로 읽는다. 물리 사슬은 같다(꼭짓점 열이 같은 패치에서 나온다).
+- (c′) 2D: cv 결정(러너 명세 v0.3.2 §3-1 4)으로, 미주입 박스를 가로 ± 1 P·세로 ± 1 $P_\text{line}$으로 넓혀 띠 정답 박스와 겹칠 때만 막는다. 구현도 2D다. **EM 물리 영향 없음, 이견 없다.**
+  - median 제거는 행마다 따로 계산되므로, 세로로 1 P 넘게 떨어진 실측 물체는 띠 행의 생존에 영향을 주지 않는다.
+  - 세로 ± 1 P 여유는 실측 물체가 주입 띠로 잘못 맞춰지는 것을 막는 데 충분하다. 띠 정답의 세로 범위는 꼭짓점 열 −20 dB이고, 일치 규칙은 ± 0.5 P다.
+  - 남는 결합은 AGC(창 8/$f_c$, 약 ± 3 P)다. 같은 트레이스에서 세로 3 P 안의 강한 실측 반사가 띠의 AGC 정규화를 바꾼다. 이것은 실측 배경에 주입하는 목적(실제 클러터 속 검출) 자체이므로 막을 대상이 아니다. 강한 수평층은 이미 (b′)가 ± 1 P로 막는다.
+- 문서 정정: D-5 항목 1의 "꼭짓점 열을 `length_traces + 2·taper_traces`열로 반복"은 "**−6 dB 길이 L에 대해 L + T열**(평탄 L − T, T 짝수)"로 읽는다. D-3 생존 표는 "평탄 행 모델(기전 설명용), 지표 값은 D-5 항목 2 정의를 따른다"로 읽는다.
+
 ## 변경 이력
 
 | 날짜 | 판 | 내용 |
 |---|---|---|
+| 2026-11-15 | v1.8 | 무결성 점검 보완: D-7에 `build_band_patch` 실제 시그니처(`patch, context, length_traces, taper_traces=None`)와 (c′) 2D 규칙(cv 결정, EM 물리 영향 없음)을 적고 D-2·D-5 (c′) 문구를 2D로 고침 |
+| 2026-11-15 | v1.7 | 부록 D-7 추가: 띠 모드 구현 확인(물리 승인, 해석 4건 맞음·허용), D-5 열 수 문구 정정(L + T) |
 | 2026-11-15 | v1.6 | 부록 D-6 추가: IDS 비400 MHz 7측선 판단 — 2000 MHz 4측선 주입 제외(합성 대역 밖), 200·600·900 MHz 3측선 측선별 H 맞춤 보고 층, P4 주 값은 400 MHz 53측선 |
 | 2026-11-15 | v1.5 | 부록 D 추가: M3-3 X5 R3 의사 띠 띠 모드 물리(`_bg` 미가산, `make_pseudo_band` 재사용 불가, SNR 같은 정의, 프레넬 끝 테이퍼, median 생존 W/2 갈림점과 $L/W_\text{eff}$ 층, 4TU·IDS 차이, 구현 명세) |
 | 2026-11-15 | v1.4 | 부록 C 추가: 단계 C 사전 점검 실패 진단(r0만), 4TU/A0 18 dB 하락 = r0 AGC 포화, 4TU/A1 바닥 = M15 바닥 배치 인공물 + h 0.1 납작한 호, 수정 명세 C3-1–C3-7 |

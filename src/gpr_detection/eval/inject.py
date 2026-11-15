@@ -24,6 +24,17 @@ the injected grid cells. The only L1 quantity, the box size in periods for the
 distribution stratum, uses the ``ImageGridMap`` forward factors on L0 lengths;
 nothing here maps L1 back to L0 or rounds L1 values.
 
+Band mode (M3-3 R3, [EMR] v1.5 appendix D-5): a pseudo band is the apex column
+of a ``ResponsePatch`` (the whole S4 chain above) repeated along the line with
+Fresnel-radius end tapers; ``_bg`` is never added::
+
+    ResponsePatch --apex column x edge taper--> BandPatch
+        + band InjectionSpec rows -> zones over the band span, spacing (e)
+        -> SNR scale (sigma over the flat traces) -> BandInjectionResult
+
+Band and hyperbola rows never share a realization (``inject_band_realization``
+and ``inject_realization`` refuse the other mode).
+
 Import rule 8 (architecture README section 2-2): stdlib, numpy, scipy,
 ``gpr_detection.io`` and ``gpr_detection.preprocess`` only.
 """
@@ -43,11 +54,13 @@ import numpy as np
 from scipy import ndimage
 from scipy.signal import find_peaks, hilbert, peak_widths
 
-from gpr_detection.io.radargram import GridBox, Radargram
+from gpr_detection.io.radargram import GridBox, Radargram, velocity_from_eps
 from gpr_detection.preprocess.filters import (
+    BACKGROUND_WINDOW_TRACES,
     bandpass,
     dewow,
     prepare_fitting_branch,
+    remove_background,
     remove_dc,
 )
 from gpr_detection.preprocess.timezero import ZeroResult, find_time_zero
@@ -193,6 +206,23 @@ INJECTION_TABLE_COLUMNS = (
     "k",
     "seed",
 )
+"""Header of a hyperbola-only table (unchanged since M3-2, same bytes and sha)."""
+
+BAND_TABLE_COLUMNS = ("mode", "band_length_traces", "band_center_trace")
+EXTENDED_INJECTION_TABLE_COLUMNS = INJECTION_TABLE_COLUMNS + BAND_TABLE_COLUMNS
+"""Header of a table that holds at least one band row."""
+
+BAND_TAPER_MIN_M = 0.2
+"""Minimum end taper of a pseudo band ([EMR] D-3, same floor as E-6)."""
+
+ASSUMED_LINE_VELOCITY_M_PER_NS = 0.1
+"""Line velocity for the Fresnel radius when the line has no ``eps_r`` metadata."""
+
+MEDIAN_WINDOW_TRACES = BACKGROUND_WINDOW_TRACES
+"""r0 step (4) window ``W`` (301); ``W_eff = min(W, n_traces)``."""
+
+SURVIVAL_CENTRE_FRACTION = 0.5
+"""The survival ratio uses the central 50 % of the band traces ([EMR] D-5 2)."""
 
 Coupling = Literal["air", "ground"]
 _COUPLINGS: tuple[str, ...] = ("air", "ground")
@@ -223,6 +253,17 @@ class RejectReason(StrEnum):
     ZERO_NOISE = "zero_noise"
     INT16_OVERFLOW = "int16_overflow"
     """Only for clipped cells in the truth box / SNR window or above 5 %."""
+    BAND_SHORTER_THAN_TAPER = "band_shorter_than_taper"
+    """Band mode: ``L <= taper`` leaves no flat trace for the SNR window."""
+    BAND_SPACING = "band_spacing_below_half_lengths_plus_w_eff"
+    """Band mode (e): ``|c1 - c2| < (L1 + L2) / 2 + W_eff``."""
+
+
+class InjectionMode(StrEnum):
+    """What one injection table row injects."""
+
+    HYPERBOLA = "hyperbola"
+    BAND = "band"
 
 
 class WidthClass(StrEnum):
@@ -331,7 +372,16 @@ class PipeResponse:
 
 @dataclass(frozen=True)
 class InjectionSpec:
-    """One row of the injection table (plan 3-2, pairing)."""
+    """One row of the injection table (plan 3-2, pairing).
+
+    Attributes:
+        mode: ``hyperbola`` (default, M3-2) or ``band`` (M3-3 R3).
+        band_length_traces: Band mode only: length ``L`` between the -6 dB
+            points of the end tapers, in line traces.
+        band_center_trace: Band mode only: L0 centre trace of the band. It
+            must equal ``apex_trace`` so code that reads ``apex_trace`` (match
+            ranges, reports) sees the band centre.
+    """
 
     injection_id: str
     realization_id: str
@@ -342,12 +392,31 @@ class InjectionSpec:
     polarity: int
     k: float
     seed: int
+    mode: InjectionMode = InjectionMode.HYPERBOLA
+    band_length_traces: int | None = None
+    band_center_trace: float | None = None
 
     def __post_init__(self) -> None:
         if self.polarity not in POLARITIES:
             raise ValueError(f"{self.injection_id}: polarity must be +1 or -1")
         if not self.k > 0:
             raise ValueError(f"{self.injection_id}: k must be positive")
+        # Accept the plain table string ("band") as well as the enum member.
+        object.__setattr__(self, "mode", InjectionMode(self.mode))
+        if self.mode is InjectionMode.BAND:
+            self._check_band_fields()
+        elif not (self.band_length_traces is None and self.band_center_trace is None):
+            raise ValueError(f"{self.injection_id}: band fields on a hyperbola row")
+
+    def _check_band_fields(self) -> None:
+        if self.band_length_traces is None or self.band_center_trace is None:
+            raise ValueError(f"{self.injection_id}: band rows need length and centre")
+        if self.band_length_traces < 1:
+            raise ValueError(f"{self.injection_id}: band length must be >= 1")
+        if self.band_center_trace != self.apex_trace:
+            raise ValueError(
+                f"{self.injection_id}: band_center_trace must equal apex_trace"
+            )
 
 
 @dataclass(frozen=True)
@@ -619,6 +688,145 @@ class InjectionResult:
     line_id: str
     data: np.ndarray
     truths: tuple[InjectionTruth, ...]
+    rejected: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, eq=False)
+class BandPatch:
+    """Unit pseudo band of one model on one line ([EMR] D-5).
+
+    Band column ``j`` is line trace ``offset + j``; rows are line samples as
+    in ``ResponsePatch``. There are ``length_traces + taper_traces`` columns;
+    ``taper_traces`` is even, so the -6 dB points of the two cosine tapers
+    fall on column boundaries and exactly ``length_traces`` columns lie
+    between them.
+
+    Attributes:
+        patch: Hyperbola patch whose apex column is repeated.
+        field: ``apex column x edge_taper_weights``; ``_bg`` is not added.
+        length_traces: ``L``: columns between the -6 dB taper points.
+        taper_traces: Columns of each cosine end taper (Fresnel radius).
+        row0: First row of the apex-column -20 dB envelope run.
+        row1: Last row of that run (may lie past the record end).
+    """
+
+    patch: ResponsePatch
+    field: np.ndarray
+    length_traces: int
+    taper_traces: int
+    row0: int
+    row1: int
+
+    @property
+    def n_columns(self) -> int:
+        """Injected columns, tapers included."""
+        return self.field.shape[1]
+
+    @property
+    def box_columns(self) -> tuple[int, int]:
+        """First and last band column between the -6 dB taper points."""
+        first = self.taper_traces // 2
+        return first, first + self.length_traces - 1
+
+    @property
+    def flat_columns(self) -> tuple[int, int]:
+        """First and last column outside both tapers (weight 1)."""
+        return self.taper_traces, self.n_columns - 1 - self.taper_traces
+
+    @property
+    def signal_amplitude(self) -> float:
+        """``A`` of the hyperbola patch: the band repeats its apex column."""
+        return self.patch.signal_amplitude
+
+    @property
+    def apex_sample(self) -> float:
+        """Truth apex row of the repeated column."""
+        return self.patch.apex_sample
+
+
+@dataclass(frozen=True)
+class BandTruth:
+    """Truth of one accepted band injection, all in L0 ([EMR] D-5).
+
+    Attributes:
+        injection_id: Table id.
+        response_id: Model id (the runner adds the model group, as in M3-2).
+        snr_db: SNR step.
+        polarity: +1 or -1.
+        k: Gabor FWHM in periods.
+        box: Traces between the -6 dB taper points x the apex-column -20 dB
+            envelope run, clipped to the record.
+        center_trace: Band centre (L0, may be a half trace).
+        apex_sample: Apex row of the repeated column (L0, fractional).
+        length_traces: ``L``.
+        length_px: ``L`` in line L1 px (forward ``ImageGridMap``).
+        taper_traces: Columns of each end taper (outside ``box`` by half).
+        w_eff: ``min(301, n_traces)``: the r0 step (4) window on this line.
+        l_over_w_eff: ``L / W_eff`` (main length stratum).
+        l_over_n: ``L / n_traces``.
+        gain: Factor applied to the unit band (polarity included).
+        signal_amplitude: ``A`` of the unit band.
+        noise_rms: ``sigma`` over apex +- 1 P x the flat traces.
+        effective_eps_r: See ``ResponsePatch``.
+        box_clipped: ``box`` was cut at the record end.
+        wing_past_record_end: The -20 dB run passes the record end - 1 P.
+        bottom_stratum: Apex within 3 ``P_line`` of the record end.
+        in_horizontal_box_zone: The band would have been blocked by the
+            horizontal-only zone (c') (span +- 1 P, any depth); report only.
+        period_ringing: See ``ResponsePatch``.
+        n_clipped_cells: Cells of the sum cut to the int16 range.
+        max_clipped_injection_ratio: Largest ``|injection| / (|gain| A)`` of a
+            clipped cell (0 when nothing was cut).
+    """
+
+    injection_id: str
+    response_id: str
+    snr_db: float
+    polarity: int
+    k: float
+    box: GridBox
+    center_trace: float
+    apex_sample: float
+    length_traces: int
+    length_px: float
+    taper_traces: int
+    w_eff: int
+    l_over_w_eff: float
+    l_over_n: float
+    gain: float
+    signal_amplitude: float
+    noise_rms: float
+    effective_eps_r: float
+    box_clipped: bool
+    wing_past_record_end: bool
+    bottom_stratum: bool
+    in_horizontal_box_zone: bool
+    period_ringing: bool = False
+    n_clipped_cells: int = 0
+    max_clipped_injection_ratio: float = 0.0
+
+    @property
+    def main_cell(self) -> bool:
+        """Counts in the main cells: not cut at the record end ([EMR] C3-6)."""
+        return not (self.box_clipped or self.wing_past_record_end)
+
+
+@dataclass(frozen=True, eq=False)
+class BandInjectionResult:
+    """One band realization: a copy of a background line plus pseudo bands.
+
+    Attributes:
+        realization_id: Shared by every spec of the call.
+        line_id: Background line.
+        data: float64 copy of the raw line plus the accepted bands.
+        truths: Accepted bands in table order.
+        rejected: ``(injection_id, reason)`` of the others.
+    """
+
+    realization_id: str
+    line_id: str
+    data: np.ndarray
+    truths: tuple[BandTruth, ...]
     rejected: tuple[tuple[str, str], ...]
 
 
@@ -1331,8 +1539,18 @@ def _depth_zone_failure(
     context: LineContext, patch: ResponsePatch, apex_trace: float
 ) -> RejectReason | None:
     """Zones (a), (b) and (b') on the apex sample."""
+    trace0 = max(0, math.floor(apex_trace - patch.half_width_6db))
+    trace1 = min(
+        context.background.n_traces - 1, math.ceil(apex_trace + patch.half_width_6db)
+    )
+    return _depth_zone_failure_on(context, patch.apex_sample, trace0, trace1)
+
+
+def _depth_zone_failure_on(
+    context: LineContext, apex_sample: float, trace0: int, trace1: int
+) -> RejectReason | None:
+    """Zones (a), (b) and (b'); (b') uses the mean trace of ``trace0..trace1``."""
     period = context.period_samples
-    apex_sample = patch.apex_sample
     saturated = context.last_saturated_sample
     if (
         saturated is not None
@@ -1343,10 +1561,6 @@ def _depth_zone_failure(
     assert k_zero is not None
     if apex_sample < k_zero + BAND_MARGIN_PERIODS * period:
         return RejectReason.BAND_ZONE
-    trace0 = max(0, math.floor(apex_trace - patch.half_width_6db))
-    trace1 = min(
-        context.background.n_traces - 1, math.ceil(apex_trace + patch.half_width_6db)
-    )
     layers = strong_layer_peaks(context, trace0, trace1)
     if np.any(np.abs(layers - apex_sample) <= STRONG_LAYER_MARGIN_PERIODS * period):
         return RejectReason.STRONG_LAYER_ZONE
@@ -1740,15 +1954,29 @@ def _clip_sum(
     A clipped cell on an already saturated sample keeps the recorded value,
     the best physical guess when the injection is small there.
     """
+    return _clip_field_sum(
+        data, patch.field, patch.signal_amplitude, offset, gain, protected
+    )
+
+
+def _clip_field_sum(
+    data: np.ndarray,
+    unit_field: np.ndarray,
+    signal_amplitude: float,
+    offset: int,
+    gain: float,
+    protected: Sequence[GridBox],
+) -> tuple[np.ndarray, ClipOutcome]:
+    """``_clip_sum`` for any unit field (hyperbola patch or pseudo band)."""
     n_samples = data.shape[0]
-    columns = slice(offset, offset + patch.response.n_traces)
-    field_rows = patch.field[:n_samples]
+    columns = slice(offset, offset + unit_field.shape[1])
+    field_rows = unit_field[:n_samples]
     summed = data[:, columns] + gain * field_rows
     clipped = (summed < INT16_MIN) | (summed > INT16_MAX)
     rows, patch_columns = np.nonzero(clipped)
     max_ratio = 0.0
     if rows.size:
-        max_ratio = float(np.abs(field_rows[clipped]).max() / patch.signal_amplitude)
+        max_ratio = float(np.abs(field_rows[clipped]).max() / signal_amplitude)
     line_columns = patch_columns + offset
     outcome = ClipOutcome(
         n_clipped_cells=int(rows.size),
@@ -1816,13 +2044,22 @@ def _inject_one(
     return _make_truth(spec, context, patch, gain, noise_rms, clip)
 
 
-def _check_one_realization(specs: Sequence[InjectionSpec], line_id: str) -> str:
+def _check_one_realization(
+    specs: Sequence[InjectionSpec],
+    line_id: str,
+    mode: InjectionMode = InjectionMode.HYPERBOLA,
+) -> str:
     realization_ids = {spec.realization_id for spec in specs}
     if len(realization_ids) != 1:
         raise ValueError(f"specs must share one realization_id, got {realization_ids}")
     wrong_lines = {spec.line_id for spec in specs} - {line_id}
     if wrong_lines:
         raise ValueError(f"specs name other lines {wrong_lines} than {line_id!r}")
+    # The step (4) median is non-linear, so a band changes the survival of a
+    # hyperbola in the same window ([EMR] D-2 (e)): one mode per realization.
+    other_modes = {spec.mode for spec in specs} - {mode}
+    if other_modes:
+        raise ValueError(f"{mode.value} realization holds {sorted(other_modes)} rows")
     return realization_ids.pop()
 
 
@@ -1866,6 +2103,520 @@ def inject_realization(
         data=state.data,
         truths=tuple(truths),
         rejected=tuple(rejected),
+    )
+
+
+# ------------------------------------------------------------- band mode
+
+
+def line_velocity_m_per_ns(background: Radargram) -> float:
+    """Line velocity from ``eps_r_meta``, else the assumed 0.1 m/ns ([EMR] D-5)."""
+    if background.eps_r_meta is None:
+        return ASSUMED_LINE_VELOCITY_M_PER_NS
+    return velocity_from_eps(background.eps_r_meta)
+
+
+def band_taper_traces(response: PipeResponse, context: LineContext) -> int:
+    """End taper of a pseudo band: Fresnel radius ``sqrt(lambda d / 2)`` in traces.
+
+    ``lambda = v_line P_line`` and ``d`` is the model top depth; the radius is
+    at least 0.2 m ([EMR] D-3) and is converted with the line ``dx``. The
+    count is rounded to an even number so the -6 dB point of the taper lies
+    on a column boundary and the band length is a whole number of traces.
+    """
+    wavelength_m = line_velocity_m_per_ns(context.background) * context.period_ns
+    fresnel_m = math.sqrt(wavelength_m * response.top_depth_m / 2.0)
+    taper_m = max(BAND_TAPER_MIN_M, fresnel_m)
+    return 2 * max(1, round(taper_m / context.dx_m / 2.0))
+
+
+def _apex_column_run(
+    patch: ResponsePatch, context: LineContext
+) -> tuple[int, int] | None:
+    """Rows of the apex-seeded -20 dB envelope run of the patch apex column."""
+    envelope = patch.envelope
+    assert envelope is not None  # set by build_response_patch
+    apex_column = round(patch.response.apex_trace)
+    peak = _apex_peak(envelope, apex_column, patch.apex_sample, context.period_samples)
+    if not peak.amplitude > 0:
+        return None
+    column = envelope[:, [apex_column]]
+    run = _seed_component(column >= WING_AMPLITUDE * peak.amplitude, (peak.seed[0], 0))
+    bbox = _bbox(run)
+    if bbox is None:
+        return None
+    _, _, row0, row1 = bbox
+    return row0, row1
+
+
+def build_band_patch(
+    patch: ResponsePatch,
+    context: LineContext,
+    length_traces: int,
+    taper_traces: int | None = None,
+) -> BandPatch | RejectReason:
+    """Pseudo band of length ``L`` from the apex column of a hyperbola patch.
+
+    The apex column already went through the whole S4 chain (2.5-D weight,
+    waveform replacement, low-pass, resample, time alignment, window-end
+    taper), so the flat columns equal it bit for bit. ``_bg`` is not added
+    ([EMR] D-1).
+
+    Args:
+        patch: ``build_response_patch`` result for this line and ``k``.
+        context: The background line.
+        length_traces: ``L`` between the -6 dB points of the end tapers.
+        taper_traces: Columns of each end taper; ``None`` uses
+            ``band_taper_traces``. Must be even.
+
+    Returns:
+        The band, or ``BAND_SHORTER_THAN_TAPER`` when ``L <= taper`` (no flat
+        trace for the SNR window), or ``NO_TRUTH_CELLS``.
+
+    Raises:
+        ValueError: If ``taper_traces`` is odd or below 2.
+    """
+    if taper_traces is None:
+        taper_traces = band_taper_traces(patch.response, context)
+    if taper_traces < 2 or taper_traces % 2:
+        raise ValueError(f"taper_traces must be even and >= 2, got {taper_traces}")
+    if length_traces <= taper_traces:
+        return RejectReason.BAND_SHORTER_THAN_TAPER
+    rows = _apex_column_run(patch, context)
+    if rows is None:
+        return RejectReason.NO_TRUTH_CELLS
+    n_columns = length_traces + taper_traces
+    apex_column = patch.field[:, round(patch.response.apex_trace)]
+    weights = edge_taper_weights(n_columns, taper_traces)
+    return BandPatch(
+        patch=patch,
+        field=apex_column[:, None] * weights[None, :],
+        length_traces=length_traces,
+        taper_traces=taper_traces,
+        row0=rows[0],
+        row1=rows[1],
+    )
+
+
+def band_offset(band: BandPatch, center_trace: float) -> int | None:
+    """Line trace of band column 0, ``None`` if the centre is off the grid."""
+    offset = center_trace - (band.n_columns - 1) / 2.0
+    if abs(offset - round(offset)) > GRID_TOLERANCE:
+        return None
+    return round(offset)
+
+
+def band_span(band: BandPatch, offset: int) -> tuple[int, int]:
+    """L0 traces of the band between the -6 dB taper points."""
+    first, last = band.box_columns
+    return offset + first, offset + last
+
+
+def effective_median_window(context: LineContext) -> int:
+    """``W_eff = min(301, n_traces)``: shorter lines use the global median."""
+    return min(MEDIAN_WINDOW_TRACES, context.background.n_traces)
+
+
+def _band_box_zone_hit(context: LineContext, truth_box: GridBox) -> bool:
+    """Zone (c') for bands: a grown un-injected box meets the band truth box.
+
+    Boxes (every class, bands included) grow by 1 P in traces and 1
+    ``P_line`` in samples as for hyperbolas (runner spec v0.3.2 section 3-1
+    item 4); the truth box is the band span x the apex-column -20 dB run.
+    """
+    truth = _Rectangle(truth_box.i0, truth_box.i1, truth_box.k0, truth_box.k1)
+    return any(
+        _grown_box(box, context).overlaps(truth)
+        for box in context.exclusions.uninjected_boxes
+    )
+
+
+def band_in_horizontal_box_zone(context: LineContext, span: tuple[int, int]) -> bool:
+    """Old horizontal-only band zone: an un-injected box within the span +- 1 P.
+
+    Not a rejection; kept so the report can show the bands it would have
+    blocked (the hyperbola ``in_horizontal_box_zone`` counterpart).
+    """
+    first, last = span
+    margin = BOX_MARGIN_PERIODS * context.period_traces
+    return any(
+        box.i0 <= last + margin and first - margin <= box.i1
+        for box in context.exclusions.uninjected_boxes
+    )
+
+
+def _band_lateral_zone_failure(
+    context: LineContext, band: BandPatch, truth_box: GridBox
+) -> RejectReason | None:
+    """Zones (c') and (d) widened from the apex to the band span.
+
+    (c'): see ``_band_box_zone_hit`` (two-dimensional). (d): the hyperbola
+    radii (K: -20 dB half width; automatic: -6 dB half width + 1 P) measured
+    from the span ends instead of the apex.
+    """
+    if _band_box_zone_hit(context, truth_box):
+        return RejectReason.UNINJECTED_BOX_ZONE
+    first, last = truth_box.i0, truth_box.i1
+    period_traces = context.period_traces
+    exclusions = context.exclusions
+    k_radius = band.patch.half_width_20db
+    for candidate in exclusions.k_apex_traces:
+        if first - k_radius <= candidate <= last + k_radius:
+            return RejectReason.CANDIDATE_APEX_ZONE_K
+    auto_radius = band.patch.half_width_6db + period_traces
+    for candidate in exclusions.auto_candidate_apex_traces:
+        if first - auto_radius <= candidate <= last + auto_radius:
+            return RejectReason.CANDIDATE_APEX_ZONE_AUTO
+    return None
+
+
+def band_placement_failure(
+    context: LineContext, band: BandPatch, center_trace: float
+) -> RejectReason | None:
+    """Why ``band`` may not be centred on L0 ``center_trace`` (zones (a)-(d)).
+
+    (a) and (b) use the apex row as for a hyperbola; (b') uses the mean trace
+    of the band span; (c') and (d) see ``_band_lateral_zone_failure``. Zone
+    (c') is two-dimensional: un-injected boxes grown by 1 P block a band only
+    when they meet its truth box.
+    """
+    offset = band_offset(band, center_trace)
+    if offset is None:
+        return RejectReason.OFF_GRID_APEX
+    if offset < 0 or offset + band.n_columns > context.background.n_traces:
+        return RejectReason.APERTURE_OUTSIDE_LINE
+    span = band_span(band, offset)
+    depth_failure = _depth_zone_failure_on(context, band.apex_sample, *span)
+    if depth_failure is not None:
+        return depth_failure
+    truth_box, _ = _band_truth_box(band, offset, context.background.n_samples)
+    return _band_lateral_zone_failure(context, band, truth_box)
+
+
+PlacedBand = tuple[float, int]
+"""``(center_trace, length_traces)`` of an already placed band."""
+
+
+def band_spacing_ok(
+    center_trace: float,
+    length_traces: int,
+    placed: Iterable[PlacedBand],
+    w_eff: int,
+) -> bool:
+    """(e) for bands: ``|c1 - c2| >= (L1 + L2) / 2 + W_eff`` ([EMR] D-2).
+
+    Two bands inside one median window change each other's survival.
+    """
+    return all(
+        abs(center_trace - other) >= (length_traces + other_length) / 2.0 + w_eff
+        for other, other_length in placed
+    )
+
+
+def band_snr_window(context: LineContext, band: BandPatch, offset: int) -> GridBox:
+    """SNR window in L0: apex +- 1 P samples x the flat (untapered) traces."""
+    period = context.period_samples
+    flat_first, flat_last = band.flat_columns
+    row0 = max(0, math.floor(band.apex_sample - period))
+    row1 = min(context.background.n_samples - 1, math.ceil(band.apex_sample + period))
+    return GridBox(i0=offset + flat_first, i1=offset + flat_last, k0=row0, k1=row1)
+
+
+def _band_truth_box(
+    band: BandPatch, offset: int, n_samples: int
+) -> tuple[GridBox, bool]:
+    """Truth box clipped to the record, and whether it was clipped."""
+    first, last = band_span(band, offset)
+    last_row = min(band.row1, n_samples - 1)
+    return GridBox(i0=first, i1=last, k0=band.row0, k1=last_row), band.row1 > last_row
+
+
+@dataclass(frozen=True)
+class _BandScale:
+    gain: float
+    noise_rms: float
+
+
+def _make_band_truth(
+    spec: InjectionSpec,
+    context: LineContext,
+    band: BandPatch,
+    scale: _BandScale,
+    clip: ClipOutcome,
+) -> BandTruth:
+    offset = band_offset(band, spec.apex_trace)
+    assert offset is not None  # checked by band_placement_failure
+    n_samples = context.background.n_samples
+    n_traces = context.background.n_traces
+    box, box_clipped = _band_truth_box(band, offset, n_samples)
+    w_eff = effective_median_window(context)
+    last_allowed_row = n_samples - 1 - RECORD_END_WING_PERIODS * context.period_samples
+    return BandTruth(
+        injection_id=spec.injection_id,
+        response_id=spec.response_id,
+        snr_db=spec.snr_db,
+        polarity=spec.polarity,
+        k=spec.k,
+        box=box,
+        center_trace=spec.apex_trace,
+        apex_sample=band.apex_sample,
+        length_traces=band.length_traces,
+        length_px=band.length_traces / context.grid_map.traces_per_px,
+        taper_traces=band.taper_traces,
+        w_eff=w_eff,
+        l_over_w_eff=band.length_traces / w_eff,
+        l_over_n=band.length_traces / n_traces,
+        gain=scale.gain,
+        signal_amplitude=band.signal_amplitude,
+        noise_rms=scale.noise_rms,
+        effective_eps_r=band.patch.effective_eps_r,
+        box_clipped=box_clipped,
+        wing_past_record_end=band.row1 > last_allowed_row,
+        bottom_stratum=is_bottom_stratum(context, band.patch),
+        in_horizontal_box_zone=band_in_horizontal_box_zone(context, (box.i0, box.i1)),
+        period_ringing=band.patch.period_ringing,
+        n_clipped_cells=clip.n_clipped_cells,
+        max_clipped_injection_ratio=clip.max_ratio,
+    )
+
+
+@dataclass
+class _BandRealizationState:
+    """Mutable bookkeeping of one ``inject_band_realization`` call."""
+
+    data: np.ndarray
+    patches: dict[tuple[str, float], ResponsePatch | RejectReason] = field(
+        default_factory=dict
+    )
+    bands: dict[tuple[str, float, int], BandPatch | RejectReason] = field(
+        default_factory=dict
+    )
+    placed: list[PlacedBand] = field(default_factory=list)
+
+
+def _band_for(
+    spec: InjectionSpec,
+    response: PipeResponse,
+    context: LineContext,
+    state: _BandRealizationState,
+    apply_2p5d_weight: bool,
+) -> BandPatch | RejectReason:
+    """Cached hyperbola patch -> cached band of the row's model, ``k`` and ``L``."""
+    patch_key = (spec.response_id, spec.k)
+    if patch_key not in state.patches:
+        state.patches[patch_key] = build_response_patch(
+            response, context, spec.k, apply_2p5d_weight=apply_2p5d_weight
+        )
+    patch = state.patches[patch_key]
+    if isinstance(patch, RejectReason):
+        return patch
+    length = spec.band_length_traces
+    assert length is not None  # InjectionSpec checks band rows
+    band_key = (spec.response_id, spec.k, length)
+    if band_key not in state.bands:
+        state.bands[band_key] = build_band_patch(patch, context, length)
+    return state.bands[band_key]
+
+
+def _band_scale(
+    spec: InjectionSpec, context: LineContext, band: BandPatch, offset: int
+) -> _BandScale | RejectReason:
+    """``sigma`` over apex +- 1 P x flat traces and ``gain = p 10^(s/20) sigma / A``."""
+    window = band_snr_window(context, band, offset)
+    values = context.background_removed[window.sample_slice, window.trace_slice]
+    noise_rms = float(np.sqrt(np.mean(values**2)))
+    if not noise_rms > 0:
+        return RejectReason.ZERO_NOISE
+    gain = (
+        spec.polarity * 10.0 ** (spec.snr_db / 20.0) * noise_rms / band.signal_amplitude
+    )
+    return _BandScale(gain, noise_rms)
+
+
+def _inject_one_band(
+    spec: InjectionSpec,
+    context: LineContext,
+    responses: Mapping[str, PipeResponse],
+    state: _BandRealizationState,
+    apply_2p5d_weight: bool,
+) -> BandTruth | RejectReason:
+    response = responses.get(spec.response_id)
+    if response is None:
+        return RejectReason.UNKNOWN_RESPONSE
+    band = _band_for(spec, response, context, state, apply_2p5d_weight)
+    if isinstance(band, RejectReason):
+        return band
+    failure = band_placement_failure(context, band, spec.apex_trace)
+    if failure is not None:
+        return failure
+    w_eff = effective_median_window(context)
+    if not band_spacing_ok(spec.apex_trace, band.length_traces, state.placed, w_eff):
+        return RejectReason.BAND_SPACING
+    offset = band_offset(band, spec.apex_trace)
+    assert offset is not None  # checked by band_placement_failure
+    scale = _band_scale(spec, context, band, offset)
+    if isinstance(scale, RejectReason):
+        return scale
+    n_samples = context.background.n_samples
+    protected = (
+        _band_truth_box(band, offset, n_samples)[0],
+        band_snr_window(context, band, offset),
+    )
+    summed, clip = _clip_field_sum(
+        state.data, band.field, band.signal_amplitude, offset, scale.gain, protected
+    )
+    if clip.rejects:
+        return RejectReason.INT16_OVERFLOW
+    state.data[:, offset : offset + band.n_columns] = summed
+    state.placed.append((spec.apex_trace, band.length_traces))
+    return _make_band_truth(spec, context, band, scale, clip)
+
+
+def inject_band_realization(
+    context: LineContext,
+    specs: Sequence[InjectionSpec],
+    responses: Mapping[str, PipeResponse],
+    *,
+    apply_2p5d_weight: bool = True,
+) -> BandInjectionResult:
+    """Inject the band rows of one realization into a float64 copy of the line.
+
+    Same order and rules as ``inject_realization``: a row that fails a zone,
+    the band spacing (e) to an earlier accepted band or the int16 rule is
+    rejected and leaves the data unchanged; ``sigma`` comes from the
+    background alone.
+
+    Args:
+        context: Background line (``prepare_line_context``).
+        specs: Band rows with one ``realization_id`` and this line's id.
+        responses: Pipe responses by ``response_id``.
+        apply_2p5d_weight: 2.5-D time weight (on by default, as for hyperbolas).
+
+    Raises:
+        ValueError: If the rows mix realizations, name another line or hold
+            hyperbola rows.
+    """
+    realization_id = _check_one_realization(
+        specs, context.background.line_id, InjectionMode.BAND
+    )
+    state = _BandRealizationState(
+        data=np.asarray(context.background.data, dtype=np.float64).copy()
+    )
+    truths: list[BandTruth] = []
+    rejected: list[tuple[str, str]] = []
+    for spec in specs:
+        outcome = _inject_one_band(spec, context, responses, state, apply_2p5d_weight)
+        if isinstance(outcome, RejectReason):
+            rejected.append((spec.injection_id, outcome.value))
+        else:
+            truths.append(outcome)
+    return BandInjectionResult(
+        realization_id=realization_id,
+        line_id=context.background.line_id,
+        data=state.data,
+        truths=tuple(truths),
+        rejected=tuple(rejected),
+    )
+
+
+# ------------------------------------------------------- band survival ratio
+
+
+@dataclass(frozen=True)
+class BandSurvivalSpan:
+    """Where and against what the survival ratio of one band is measured.
+
+    Attributes:
+        apex_sample: Apex row; the envelope maximum is taken over +- 1 P.
+        period_samples: ``P_line``.
+        trace0: First band trace (between the -6 dB taper points).
+        trace1: Last band trace.
+        reference_amplitude: ``|gain| A`` of the injected band.
+    """
+
+    apex_sample: float
+    period_samples: float
+    trace0: int
+    trace1: int
+    reference_amplitude: float
+
+
+def _central_traces(trace0: int, trace1: int) -> slice:
+    """The central ``SURVIVAL_CENTRE_FRACTION`` of ``trace0..trace1`` (>= 1 trace)."""
+    n_traces = trace1 - trace0 + 1
+    n_kept = max(1, round(SURVIVAL_CENTRE_FRACTION * n_traces))
+    first = trace0 + (n_traces - n_kept) // 2
+    return slice(first, first + n_kept)
+
+
+def band_survival_from_sections(
+    injected_filtered: np.ndarray,
+    background_filtered: np.ndarray,
+    span: BandSurvivalSpan,
+    window_traces: int = MEDIAN_WINDOW_TRACES,
+) -> float:
+    """Survival ratio ``s`` of a band through the step (4) median ([EMR] D-5 2).
+
+    ``s = median_j max_{|k - k_a| <= P} env[(4)(injected) - (4)(background)]_kj
+    / (|gain| A)`` over the central 50 % of the band traces ``j``. Step (4) is
+    non-linear, so it runs on both sections; the difference is what is left
+    of the band.
+
+    Args:
+        injected_filtered: Steps (1)-(3) of the injected line.
+        background_filtered: Steps (1)-(3) of the background line.
+        span: Apex row, band traces and the injected amplitude.
+        window_traces: Step (4) median window (r0: 301; a shorter line uses
+            its global median).
+    """
+    survived = remove_background(injected_filtered, window_traces) - remove_background(
+        background_filtered, window_traces
+    )
+    envelope = _envelope(survived)
+    period = span.period_samples
+    row0 = max(0, math.floor(span.apex_sample - period))
+    row1 = min(envelope.shape[0] - 1, math.ceil(span.apex_sample + period))
+    peaks = envelope[row0 : row1 + 1, _central_traces(span.trace0, span.trace1)]
+    return float(np.median(peaks.max(axis=0)) / span.reference_amplitude)
+
+
+def band_survival_ratio(
+    context: LineContext,
+    injected_data: np.ndarray,
+    truth: BandTruth,
+    window_traces: int = MEDIAN_WINDOW_TRACES,
+) -> float:
+    """Survival ratio of one accepted band in the r0 step (4) section.
+
+    Detector-free (analysis side). Steps (1)-(3) are the ones of the fitting
+    branch, run on the float64 injected data and on the raw background.
+
+    Args:
+        context: Background line of the realization.
+        injected_data: ``BandInjectionResult.data``.
+        truth: The band to measure (other bands of the realization are at
+            least ``W_eff`` away, spacing (e)).
+        window_traces: Step (4) median window (r0 default 301).
+
+    Raises:
+        ValueError: If the line is ``amplitude_processed`` (r0 does not rerun
+            step (4) there, so the ratio is not defined).
+    """
+    background = context.background
+    if background.amplitude_processed:
+        raise ValueError(f"{background.line_id}: amplitude_processed line, no (4)")
+    span = BandSurvivalSpan(
+        apex_sample=truth.apex_sample,
+        period_samples=context.period_samples,
+        trace0=truth.box.i0,
+        trace1=truth.box.i1,
+        reference_amplitude=abs(truth.gain) * truth.signal_amplitude,
+    )
+    return band_survival_from_sections(
+        _linear_steps(injected_data, background),
+        _linear_steps(background.data, background),
+        span,
+        window_traces,
     )
 
 
@@ -2173,7 +2924,11 @@ def file_sha256(path: Path) -> str:
 def write_injection_table(path: Path, specs: Sequence[InjectionSpec]) -> str:
     """Write the table as UTF-8 CSV and return its SHA-256.
 
-    Floats are written with ``repr`` so reading gives the same values.
+    Floats are written with ``repr`` so reading gives the same values. A
+    table of hyperbola rows only keeps the M3-2 header
+    (``INJECTION_TABLE_COLUMNS``, so its bytes and SHA-256 do not change);
+    a table with any band row uses ``EXTENDED_INJECTION_TABLE_COLUMNS`` and
+    leaves the band cells of hyperbola rows empty.
 
     Raises:
         ValueError: If an ``injection_id`` repeats.
@@ -2181,17 +2936,20 @@ def write_injection_table(path: Path, specs: Sequence[InjectionSpec]) -> str:
     ids = [spec.injection_id for spec in specs]
     if len(set(ids)) != len(ids):
         raise ValueError("injection_id values must be unique")
+    columns: tuple[str, ...] = INJECTION_TABLE_COLUMNS
+    if any(spec.mode is InjectionMode.BAND for spec in specs):
+        columns = EXTENDED_INJECTION_TABLE_COLUMNS
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle, lineterminator="\n")
-        writer.writerow(INJECTION_TABLE_COLUMNS)
+        writer.writerow(columns)
         for spec in specs:
-            writer.writerow(
-                [_table_cell(getattr(spec, name)) for name in INJECTION_TABLE_COLUMNS]
-            )
+            writer.writerow([_table_cell(getattr(spec, name)) for name in columns])
     return file_sha256(path)
 
 
 def _table_cell(value: object) -> str:
+    if value is None:
+        return ""
     if isinstance(value, float):
         return repr(value)
     return str(value)
@@ -2200,12 +2958,17 @@ def _table_cell(value: object) -> str:
 def read_injection_table(path: Path) -> tuple[list[InjectionSpec], str]:
     """Rows of an injection table and the file's SHA-256.
 
+    Reads both headers: the M3-2 one (all rows hyperbola) and the extended
+    one with the band columns.
+
     Raises:
-        ValueError: If the header differs from ``INJECTION_TABLE_COLUMNS``.
+        ValueError: If the header is neither ``INJECTION_TABLE_COLUMNS`` nor
+            ``EXTENDED_INJECTION_TABLE_COLUMNS``.
     """
+    known_headers = (INJECTION_TABLE_COLUMNS, EXTENDED_INJECTION_TABLE_COLUMNS)
     with path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
-        if tuple(reader.fieldnames or ()) != INJECTION_TABLE_COLUMNS:
+        if tuple(reader.fieldnames or ()) not in known_headers:
             raise ValueError(
                 f"{path}: header {reader.fieldnames} is not the table header"
             )
@@ -2213,7 +2976,16 @@ def read_injection_table(path: Path) -> tuple[list[InjectionSpec], str]:
     return specs, file_sha256(path)
 
 
+def _optional_cell(row: Mapping[str, str], name: str) -> str | None:
+    """Cell text, ``None`` when the column is missing (M3-2 table) or empty."""
+    cell = row.get(name, "")
+    return cell or None
+
+
 def _spec_from_row(row: Mapping[str, str]) -> InjectionSpec:
+    mode = _optional_cell(row, "mode")
+    length = _optional_cell(row, "band_length_traces")
+    center = _optional_cell(row, "band_center_trace")
     return InjectionSpec(
         injection_id=row["injection_id"],
         realization_id=row["realization_id"],
@@ -2224,6 +2996,9 @@ def _spec_from_row(row: Mapping[str, str]) -> InjectionSpec:
         polarity=int(row["polarity"]),
         k=float(row["k"]),
         seed=int(row["seed"]),
+        mode=InjectionMode.HYPERBOLA if mode is None else InjectionMode(mode),
+        band_length_traces=None if length is None else int(length),
+        band_center_trace=None if center is None else float(center),
     )
 
 
@@ -2238,6 +3013,10 @@ def make_pseudo_band(
     taper_m: float = APERTURE_TAPER_M,
 ) -> np.ndarray:
     """Synthetic pseudo band for M2: the apex trace repeated plus ``_bg``.
+
+    M2 synthetic use only; never use it for real-background injection
+    (M3-3 R3 uses ``build_band_patch``, which runs the S4 chain and adds no
+    ``_bg``, [EMR] D-1).
 
     The repeated apex trace is cosine-tapered over ``taper_m`` at both ends
     ([EMR] E-6, >= 0.2 m); the background trace is added untapered.
