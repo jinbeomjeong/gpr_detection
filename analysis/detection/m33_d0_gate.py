@@ -37,10 +37,28 @@ action and ``y2`` per set), ``synthetic_apex.csv`` and ``d0_gate.json``.
 Blind output: values go to ``<out>/d0_gate.json`` and the CSV files only.
 Stdout carries stages, counts, elapsed time and paths; the last line is
 ``{"status", "out_dir", "n_conditions", "n_images", "elapsed_s"}`` with
-``status`` ``ok``, ``s1_defect``, ``s1_no_effect``, ``input_error`` or
-``error``. Exit codes: 0 done, 1 S1 failed (either reason), 2 input refused
-(forbidden or unlisted path, sha mismatch, dirty tree, test crops), 3
+``status`` ``ok``, ``s1_defect``, ``s1_no_effect``, ``not_judgeable``,
+``input_error`` or ``error``. Exit codes: 0 done, 1 S1 failed (either
+reason) or not judgeable, 2 input refused (forbidden or unlisted path, sha
+mismatch, dirty tree, test crops) or the tree changed during the run, 3
 internal error (also a negative G4 increment).
+
+Judgment scope (verif audit 2026-11-15): only a run over exactly folds 0-4,
+every crop and all 20 models on a tree that was clean at the start can be
+judged. Any other run (``--smoke``, ``--folds`` subset, ``--limit``,
+``--synthetic-limit``, ``--allow-dirty`` on a dirty tree) still writes its
+gates, but ``d0_gate.json`` ``judgment.judgeable`` is false and the status
+is ``not_judgeable``. HEAD, the tracked-tree state and the code blobs are
+measured at the start and again before the outputs are written; a
+difference is recorded (``judgment.tree_changes``) and the status is
+``input_error``. Score and coordinate columns are written at full precision.
+
+Sealed PP ([PP] v0.2.4 A-1, the D0 re-run): before any inference the ``PPConfig``
+hashes of S0-S5 must equal the C0b record and the ``src`` tree id and the
+``pipeline.py`` blob must equal C0a (53c4e16); otherwise exit 2. The
+result is kept in ``run_identity.sealed_pp_assertion``. An existing output
+folder is refused (exit 2) unless ``--overwrite`` is given; the C0b result
+folder ``runs/eval/m33_d0`` (also the default) is refused even with it.
 """
 
 import argparse
@@ -49,6 +67,7 @@ import fnmatch
 import json
 import logging
 import math
+import os
 import shutil
 import subprocess
 import sys
@@ -102,6 +121,10 @@ REPO = common.REPO
 SCHEMA = "m33_d0_gate/1"
 DEFAULT_OUT_ROOT = REPO / "runs" / "eval" / "m33_d0"
 SMOKE_OUT_ROOT = REPO / "runs" / "eval" / "m33_d0_smoke"
+C0B_OUT_ROOT = REPO / "runs" / "eval" / "m33_d0"
+"""C0b D0 results (sealed by 0f11c34): never an output folder, even with
+``--overwrite``. It is also ``DEFAULT_OUT_ROOT``, so a run without
+``--out-root`` stops with exit 2 ([PP] A-1, user decision 2026-11-15)."""
 RUN_PREFIX = perturb.RUN_PREFIX
 RUN_ROOT = REPO / "runs" / "detect"
 LABEL_DIR = REPO / "data" / "aihub_yolo_v1" / "labels"
@@ -143,16 +166,44 @@ G2_MAX_LOSS_PP = 1.0
 HYPERBOLA_NAME = "pipe_hyperbola"
 
 PAD_P0 = perturb.Perturbation("pad_p0", pad=perturb.PadMimic.FLAT)
+EXPECTED_FOLDS = (0, 1, 2, 3, 4)
+"""Folds a judgeable run must cover: the gates are means over all five."""
+STATUS_NOT_JUDGEABLE = "not_judgeable"
+STATUS_INPUT_ERROR = "input_error"
 EXIT_CODES = {
     "ok": 0,
     "s1_defect": 1,
     "s1_no_effect": 1,
-    "input_error": 2,
+    STATUS_NOT_JUDGEABLE: 1,
+    STATUS_INPUT_ERROR: 2,
     "error": 3,
 }
-"""Final-line ``status`` -> exit code ([PP] §4-5); both S1 stops exit 1."""
+"""Final-line ``status`` -> exit code ([PP] §4-5); both S1 stops exit 1.
+
+``not_judgeable`` (smoke, partial folds, crop or model limits, dirty tree)
+also exits 1, so a partial run never ends with 0.
+"""
 SMOKE_CROPS = 8
 SMOKE_MODELS = 2
+
+C0B_PP_SET_SHA256 = {
+    PPSetId.S0: "fc9f0c8eab77e84f578f38e12fd4b7d401b6e18be3ec06187b00336acbfd2e4d",
+    PPSetId.S1: "78de0a20390e71922ebc0335030696b0519207525a9138a9c27169424bf7640a",
+    PPSetId.S2: "184c07e44c0c24742d6aa5ddc0e87901329b9543e96bb3ebf0a6886df7bb9d63",
+    PPSetId.S3: "eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f",
+    PPSetId.S4: "af29b47126e790abb05aa6a5644c74f316be6c810457e933004eed558b7a35e3",
+    PPSetId.S5: "b87bbc145e78061b4e8ada82fba93d7d481c065374dfaf9ecf09d72204a64a58",
+}
+"""``PPConfig.sha256()`` per set in the C0b ``d0_gate.json`` (0f11c34)."""
+C0B_PP_SETS_SHA256 = "1f2b0cf2379815ff5dc73571fb483848b16838e37b856c362c9f045d6fc9ec4d"
+"""``pp_sets_sha256()`` of S0-S5 in the C0b ``d0_gate.json``."""
+C0B_SELECTED_SET = PPSetId.S3
+C0A_SRC_TREE_ID = "164f09909ad51c1a8d26545cadb0417b1da3acc6"
+"""``git rev-parse 53c4e16:src`` (C0a)."""
+C0A_PIPELINE_BLOB = "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1"
+"""``git rev-parse 53c4e16:src/gpr_detection/pipeline.py`` (C0a)."""
+PIPELINE_PATH = "src/gpr_detection/pipeline.py"
+"""Repo-relative key of the PP implementation in ``code_blobs``."""
 
 PROCESSED = tuple(action for action in PPAction if action.is_processed)
 """Actions that count as processed (``removed_*``, ``clipped_b``)."""
@@ -223,6 +274,17 @@ SYNTHETIC_BOXES_HEADER = (
 """``fold<k>/synthetic_boxes.csv``: Y0 and Y1 merged boxes before PP ([PP] §4-5)."""
 
 logger = logging.getLogger("m33_d0_gate")
+
+
+def exact(value: float) -> float:
+    """A csv score, coordinate or row value at full precision.
+
+    ``csv`` writes a Python float as its ``repr``, which reads back to the
+    same double, so conf > 0.25 and the PP rows can be recounted from the
+    files (rounding wrote a 0.2500x score as 0.25, verif audit 2026-11-15).
+    ``float`` also turns numpy scalars into Python floats.
+    """
+    return float(value)
 
 
 # ------------------------------------------------------------ input guard
@@ -689,14 +751,14 @@ def synthetic_row(
         line.condition,
         line.model,
         line.apex_trace,
-        round(line.apex_sample, 3),
+        exact(line.apex_sample),
         line.n_samples_kept,
-        round(line.period_samples, 4),
+        exact(line.period_samples),
         line.period_source,
-        "" if line.p_over_p_y0 is None else round(line.p_over_p_y0, 4),
-        "" if zero_px is None else round(zero_px, 3),
-        round(line.content.y_bot_px, 3),
-        round(line.apex_bottom_periods, 3),
+        "" if line.p_over_p_y0 is None else exact(line.p_over_p_y0),
+        "" if zero_px is None else exact(zero_px),
+        exact(line.content.y_bot_px),
+        exact(line.apex_bottom_periods),
         len(merged),
         *(int(hits[key]) for key in PPSetId),
         *(_n_processed(processed[key]) for key in GATE_SETS),
@@ -727,19 +789,19 @@ def synthetic_box_rows(
                 fold,
                 line.condition,
                 line.model,
-                *(round(v, 4) for v in box.box.xyxy),
+                *(exact(v) for v in box.box.xyxy),
                 *(
                     ("", "", "", "")
                     if grid is None
                     else (grid.i0, grid.i1, grid.k0, grid.k1)
                 ),
-                round(box.score, 4),
+                exact(box.score),
                 common.CLASS_NAMES[box.class_id],
                 "" if category is None else category.value,
                 int(box.tile_truncated),
                 box.n_tiles_seen,
                 *(outcomes[key][index].action.value for key in GATE_SETS),
-                *("" if out is None else round(out.box.y2, 4) for out in after),
+                *("" if out is None else exact(out.box.y2) for out in after),
             ]
         )
     return rows
@@ -937,6 +999,54 @@ def run_status(stop_reason: str | None) -> str:
     return "ok"
 
 
+BLOCKER_SMOKE = "smoke"
+BLOCKER_PARTIAL_FOLDS = "partial_folds"
+BLOCKER_CROP_LIMIT = "crop_limit"
+BLOCKER_PARTIAL_MODELS = "partial_models"
+BLOCKER_DIRTY_TREE = "dirty_tree"
+"""``judgment.blockers`` values: why a finished run is not a D0 judgment."""
+
+
+def run_scope_blockers(
+    folds_run: Iterable[int],
+    models: Sequence[str],
+    crop_limit: int | None,
+    smoke: bool,
+) -> list[str]:
+    """Scope reasons a run cannot be judged; empty for a full run.
+
+    A full run covers exactly folds 0-4, every crop and the 20 models. The
+    gates of any other run are means over what ran, so they are reported
+    but never read as a selection.
+    """
+    blockers = []
+    if smoke:
+        blockers.append(BLOCKER_SMOKE)
+    if tuple(sorted(folds_run)) != EXPECTED_FOLDS:
+        blockers.append(BLOCKER_PARTIAL_FOLDS)
+    if crop_limit is not None:
+        blockers.append(BLOCKER_CROP_LIMIT)
+    if tuple(models) != SYNTHETIC_MODELS:
+        blockers.append(BLOCKER_PARTIAL_MODELS)
+    return blockers
+
+
+def final_status(
+    stop_reason: str | None, blockers: Sequence[str], tree_changes: Sequence[str]
+) -> str:
+    """Final-line ``status`` of a finished run.
+
+    A tree that changed during the run is ``input_error`` (the code that ran
+    is not the code recorded); any blocker makes it ``not_judgeable``;
+    otherwise the selection decides (:func:`run_status`).
+    """
+    if tree_changes:
+        return STATUS_INPUT_ERROR
+    if blockers:
+        return STATUS_NOT_JUDGEABLE
+    return run_status(stop_reason)
+
+
 def select_pp_set(gates: Mapping[PPSetId, GateResult]) -> Selection:
     """Walk S1 ⊂ ... ⊂ S5; keep the last passing set, stop at the first failure."""
     selected = None
@@ -1108,8 +1218,8 @@ def _prediction_rows(
                 view.condition,
                 sample.stem,
                 sample.gain,
-                *(round(float(v), 2) for v in box),
-                round(float(score), 4),
+                *(exact(v) for v in box),
+                exact(score),
                 common.CLASS_NAMES[int(class_id)],
                 "" if category is None else category.value,
                 *(actions[key][index].value for key in GATE_SETS),
@@ -1307,6 +1417,9 @@ def g4_increments(folds: Mapping[int, FoldOutput]) -> dict[PPSetId, int]:
 
 def compute_gates(folds: Mapping[int, FoldOutput]) -> dict[PPSetId, GateResult]:
     """G1-G4 of every set S1-S5 from the fold outputs ([PP] v0.2.3 §4-4).
+
+    The fold means run over the folds in ``folds``; whether those are the
+    five a judgment needs is :func:`run_scope_blockers`' call, not this one.
 
     Raises:
         GateDefectError: For a negative G4 increment or per-rule G4 counts
@@ -1566,6 +1679,77 @@ def git_blobs(paths: Iterable[Path]) -> dict[str, str]:
     return blobs
 
 
+TREE_KEYS = ("head", "dirty", "problems", "code_blobs", "src_tree_id")
+"""``tree_state`` fields compared at the start and the end of a run."""
+
+
+def tree_state() -> dict:
+    """HEAD, tracked-tree problems, code blobs and the ``src`` tree id now.
+
+    ``dirty`` counts modified tracked files anywhere in the repository and
+    untracked required code (:func:`perturb.tracked_tree_problems`).
+    """
+    problems = perturb.tracked_tree_problems(code_paths())
+    return {
+        "head": common.git_state()["head"],
+        "dirty": bool(problems),
+        "problems": problems,
+        "code_blobs": git_blobs(code_paths()),
+        "src_tree_id": _git("rev-parse", "HEAD:src").strip(),
+    }
+
+
+def tree_changes(start: Mapping[str, Any], end: Mapping[str, Any]) -> list[str]:
+    """``TREE_KEYS`` that differ between two snapshots (an unknown HEAD counts)."""
+    changed = [key for key in TREE_KEYS if start.get(key) != end.get(key)]
+    if "head" not in changed and start.get("head") is None:
+        changed.insert(0, "head")
+    return changed
+
+
+def assert_sealed_pp(start_tree: Mapping[str, Any]) -> dict:
+    """Assert the PP sets and the PP code are the sealed ones ([PP] A-1).
+
+    The ``PPConfig`` hashes must equal the C0b record (selected S3
+    included) and the ``src`` tree and ``pipeline.py`` blob of the start
+    snapshot must equal C0a (53c4e16): a re-run of D0 is only comparable
+    with C0b when the PP it applies is the same.
+
+    Returns:
+        ``run_identity.sealed_pp_assertion``: the checks, the expected and
+        the measured values, and ``"result": "pass"``.
+
+    Raises:
+        common.InputError: When any check fails (exit 2, before inference).
+    """
+    measured = {
+        "pp_set_sha256": {key.value: PP_SETS[key].sha256() for key in PPSetId},
+        "pp_sets_sha256": pp_sets_sha256(),
+        "src_tree_id": start_tree["src_tree_id"],
+        "pipeline_blob": start_tree["code_blobs"].get(PIPELINE_PATH),
+    }
+    expected = {
+        "pp_set_sha256": {key.value: sha for key, sha in C0B_PP_SET_SHA256.items()},
+        "pp_sets_sha256": C0B_PP_SETS_SHA256,
+        "src_tree_id": C0A_SRC_TREE_ID,
+        "pipeline_blob": C0A_PIPELINE_BLOB,
+    }
+    selected = C0B_SELECTED_SET.value
+    checks = {name: measured[name] == expected[name] for name in expected}
+    checks["selected_set_sha256"] = (
+        measured["pp_set_sha256"][selected] == expected["pp_set_sha256"][selected]
+    )
+    failed = [name for name, passed in checks.items() if not passed]
+    if failed:
+        raise common.InputError(f"PP differs from C0a/C0b: {failed}")
+    return {
+        "checks": checks,
+        "expected": expected | {"selected_set": selected},
+        "measured": measured,
+        "result": "pass",
+    }
+
+
 def _git(*args: str) -> str:
     completed = subprocess.run(
         ["git", "-C", str(REPO), *args],
@@ -1671,13 +1855,31 @@ class RunInputs:
     folds: tuple[int, ...]
 
 
+def parse_folds(text: str) -> tuple[int, ...]:
+    """``--folds`` as fold ids; duplicates and folds outside 0-4 are refused.
+
+    Raises:
+        common.InputError: For a non-integer, repeated or unknown fold.
+    """
+    try:
+        folds = tuple(int(part) for part in text.split(","))
+    except ValueError as error:
+        raise common.InputError(f"bad --folds {text!r}") from error
+    if len(set(folds)) != len(folds):
+        raise common.InputError(f"repeated fold in --folds {text!r}")
+    unknown = sorted(set(folds) - set(EXPECTED_FOLDS))
+    if unknown:
+        raise common.InputError(f"unknown folds {unknown} in --folds {text!r}")
+    return folds
+
+
 def _load_inputs(args: argparse.Namespace, guard: InputGuard) -> RunInputs:
     models = SYNTHETIC_MODELS[: args.synthetic_limit]
     return RunInputs(
         manifest=perturb.read_manifest(guard.check(MANIFEST)),
         pad_heights=perturb.load_pad_heights(guard.check(PAD_HEIGHTS_CSV)),
         models=tuple(models),
-        folds=tuple(int(f) for f in args.folds.split(",")),
+        folds=parse_folds(args.folds),
     )
 
 
@@ -1712,20 +1914,37 @@ def _check_fixed_inputs(
     run_identity["no_aihub_test"] = assert_no_test_crops(eval_lists, guard)
 
 
+TEXT_INPUTS = {
+    "manifest": MANIFEST,
+    "pad_heights": PAD_HEIGHTS_CSV,
+    "d1_r4_verdict": D1_R4_VERDICT,
+}
+"""Text tables whose sha is also recorded with CRLF read as LF."""
+
+
 def _new_run_identity(
-    args: argparse.Namespace, inputs: RunInputs, guard: InputGuard
+    args: argparse.Namespace,
+    inputs: RunInputs,
+    guard: InputGuard,
+    start_tree: Mapping[str, Any],
 ) -> dict:
     run_identity = common.new_run_identity()
+    # M3-1 D1 field; this runner reads no validator export.
+    del run_identity["g1_inputs_sha256"]
     run_identity["gpu"] = common.gpu_name(args.device)
-    run_identity["dirty"] = bool(perturb.tracked_tree_problems(code_paths()))
+    run_identity["dirty"] = start_tree["dirty"]
+    run_identity["tree_problems"] = start_tree["problems"]
     run_identity["allow_dirty"] = bool(args.allow_dirty or args.smoke)
-    run_identity["code_blobs"] = git_blobs(code_paths())
-    run_identity["src_tree_id"] = _git("rev-parse", "HEAD:src").strip()
+    run_identity["code_blobs"] = start_tree["code_blobs"]
+    run_identity["src_tree_id"] = start_tree["src_tree_id"]
     run_identity["inputs_sha256"] = {
-        "manifest": common.sha256_file(MANIFEST),
-        "pad_heights": common.sha256_file(PAD_HEIGHTS_CSV),
-        "d1_r4_verdict": common.sha256_file(D1_R4_VERDICT),
+        **{name: common.sha256_file(path) for name, path in TEXT_INPUTS.items()},
         "synthetic": synthetic_sha256(inputs.models, guard),
+    }
+    # The work tree may hold a tracked table with CRLF (checked out before
+    # .gitattributes set eol=lf); the LF sha matches the committed content.
+    run_identity["inputs_sha256_lf"] = {
+        name: common.sha256_file_lf(path) for name, path in TEXT_INPUTS.items()
     }
     run_identity["pp_sets"] = {
         key.value: {
@@ -1754,9 +1973,10 @@ def _settings(args: argparse.Namespace, inputs: RunInputs) -> dict:
         "models": list(inputs.models),
         "limit": args.limit,
         "smoke": args.smoke,
-        "full_run": args.limit is None
-        and args.synthetic_limit is None
-        and len(inputs.folds) == 5,
+        "expected_folds": list(EXPECTED_FOLDS),
+        "full_run": not run_scope_blockers(
+            inputs.folds, inputs.models, args.limit, args.smoke
+        ),
         "gate_conditions": list(GATE_CONDITIONS),
         "report_conditions": list(REPORT_CONDITIONS),
         "device": args.device,
@@ -1810,22 +2030,72 @@ def _write_outputs(
     common.write_json(out_root / "d0_gate.json", document)
 
 
+def judgment_record(
+    folds_run: Sequence[int],
+    scope_blockers: Sequence[str],
+    start_tree: Mapping[str, Any],
+    end_tree: Mapping[str, Any],
+) -> dict:
+    """``judgment`` block of ``d0_gate.json``: is this run a D0 judgment?
+
+    Blockers are the scope reasons plus a tree dirty at the start; a tree
+    that changed between the start and the end is listed apart
+    (``tree_changes``, status ``input_error``).
+    """
+    blockers = list(scope_blockers)
+    if start_tree["dirty"]:
+        blockers.append(BLOCKER_DIRTY_TREE)
+    changes = tree_changes(start_tree, end_tree)
+    return {
+        "judgeable": not blockers and not changes,
+        "blockers": blockers,
+        "expected_folds": list(EXPECTED_FOLDS),
+        "folds_run": list(folds_run),
+        "tree_stable": not changes,
+        "tree_changes": changes,
+    }
+
+
+def _folder_key(path: Path) -> str:
+    # normcase: Windows paths that differ only in case name the same folder.
+    return os.path.normcase(str(Path(path).resolve()))
+
+
+def is_c0b_out_root(out_root: Path) -> bool:
+    """``out_root`` names the C0b result folder ``runs/eval/m33_d0``.
+
+    Paths are resolved first (relative to the working directory), so
+    relative, absolute and differently cased spellings all match.
+    """
+    return _folder_key(out_root) == _folder_key(C0B_OUT_ROOT)
+
+
 def run(args: argparse.Namespace, guard: InputGuard) -> dict:
     """Assert the inputs, run every fold and write the outputs.
 
+    The C0b result folder is refused as the output folder whatever the
+    flags (exit 2); any other existing folder needs ``--overwrite``.
+
     Returns:
-        ``{"status", "n_conditions", "n_images"}`` for the closing line.
+        ``{"status", "n_conditions", "n_images"}`` for the closing line;
+        ``status`` comes from :func:`final_status`.
 
     Raises:
         common.InputError: For a refused input (exit 2).
     """
     started = time.time()
-    if not (args.allow_dirty or args.smoke):
-        problems = perturb.tracked_tree_problems(code_paths())
-        if problems:
-            raise common.InputError(f"tree not clean: {problems}")
+    if is_c0b_out_root(args.out_root):
+        raise common.InputError(
+            f"{args.out_root} is the sealed C0b result folder; "
+            "give another --out-root (--overwrite does not apply)"
+        )
+    start_tree = tree_state()
+    if not (args.allow_dirty or args.smoke) and start_tree["problems"]:
+        raise common.InputError(f"tree not clean: {start_tree['problems']}")
+    sealed_pp = assert_sealed_pp(start_tree)
     inputs = _load_inputs(args, guard)
-    run_identity = _new_run_identity(args, inputs, guard)
+    run_identity = _new_run_identity(args, inputs, guard, start_tree)
+    run_identity["sealed_pp_assertion"] = sealed_pp
     _check_fixed_inputs(inputs, guard, run_identity)
     if args.out_root.exists():
         if not args.overwrite:
@@ -1846,8 +2116,22 @@ def run(args: argparse.Namespace, guard: InputGuard) -> dict:
         "settings": _settings(args, inputs),
     }
     document |= gate_document(folds)
+    end_tree = tree_state()
+    run_identity["tree_end"] = end_tree
+    judgment = judgment_record(
+        sorted(folds),
+        run_scope_blockers(folds, inputs.models, args.limit, args.smoke),
+        start_tree,
+        end_tree,
+    )
+    if judgment["tree_changes"]:
+        logger.error("tree changed during the run: %s", judgment["tree_changes"])
+    document["judgment"] = judgment
     selection = document["selection"]
-    status = run_status(selection["stop_reason"])
+    selection["judgeable"] = judgment["judgeable"]
+    status = final_status(
+        selection["stop_reason"], judgment["blockers"], judgment["tree_changes"]
+    )
     document["status"] = status
     run_identity["opened_paths"] = list(guard.opened)
     run_identity["allow_list_assertion"] = "pass"
@@ -1880,7 +2164,8 @@ def print_final_line(
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry; returns the exit code (0 ok, 1 S1 failed, 2 refused, 3 error)."""
+    """CLI entry; returns the exit code (0 ok, 1 S1 failed or not judgeable,
+    2 refused or tree changed, 3 error)."""
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(message)s")
     started = time.time()
     args = _parse_args(argv)

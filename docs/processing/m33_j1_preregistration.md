@@ -1,9 +1,9 @@
-# M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.1)
+# M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.2)
 
-- 상태: **초안 v0.3.1**(2026-11-15). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
+- 상태: **초안 v0.3.2**(2026-11-15). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
   - 봉인 순서는 [PLAN] §4 표다: … → C0b → C1 → R1 → R2 → R3 → **C2** → J1 판정.
-  - `{C2}`·`{R2_J1_POST_SHA}`·`{R2_J1_PRE_SHA}` 자리는 **C2 커밋**에서 채운다. C1 실행 전 감사의 `placeholder_scan.py`는 이 자리들을 허용 자리(`--allow`)로 받는다. C2 뒤에는 허용 없이 종료 0이어야 한다.
-  - `{C0B}` 자리는 C0b 값으로 C1에서 채운다.
+  - 자리 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA는 **C2 커밋**에서 채운다. C1 실행 전 감사의 `placeholder_scan.py`는 이 세 이름을 허용 자리(`--allow`)로 받는다. C2 뒤에는 허용 없이 종료 0이어야 한다.
+  - 자리 C0B(C0b `PPConfig` 해시)와 C0B_D0_GATE_SHA(C0b `d0_gate.json` sha256)는 C0b 값으로 C1에서 채운다. 자리마다 64자리 16진 값 하나만 넣는다. C1 감사의 `placeholder_scan.py` 허용 목록에는 두 이름을 넣지 않는다. C1에서 자리 C0B는 §1-2 표와 §1-3 명령줄 두 곳에서, 자리 C0B_D0_GATE_SHA는 §1-2 표에서 채운다. 그래서 채운 뒤 스캔이 종료 0이 된다.
   - 실행 전 감사는 verif-protocol-auditor가 한다. `placeholder_scan.py`로 중괄호로 감싼 대문자 이름 형식의 자리표시가 남지 않았는지 확인한다.
 - 형식은 [U3] [`preregistration_4tu_reeval_v1.md`](preregistration_4tu_reeval_v1.md)를 따른다.
 - **J1에서 [U3]와 달라지는 것은 꼭짓점 후보 공급원 하나뿐이다.** [U3]의 신호처리 후보 `fourtu_apex_candidates_v1.csv` 대신, 검출기 fold 0의 PP 후 `pipe_hyperbola` 병합 박스에서 만든 후보를 쓴다([PLAN] [`m33_cross_domain_plan.md`](../experiments/m33_cross_domain_plan.md) §2-4).
@@ -44,7 +44,7 @@
   - 보고 실행은 prefix가 달라(`depth_4tu_j1_pre`, `_f1`–`_f4`, `_signal`) 판정 파일을 덮지 못한다.
   - 판정 래퍼는 판정 prefix 출력이 이미 있으면 거부한다(1회 실행).
 
-### 1-2. 고정할 코드·입력 (C2 커밋 때 채움)
+### 1-2. 고정할 코드·입력 (C2 커밋 때 채움, C0b 두 행은 C1)
 
 | 대상 | git blob/tree id | SHA-256(LF) | 쓰임 |
 |---|---|---|---|
@@ -54,14 +54,15 @@
 | `analysis/processing/m33_j1_judge.py` | `{C2}` | `{C2}` | 판정 문구·실질 지표 |
 | R2 fold 0 `j1_boxes_post.csv` | – | `{R2_J1_POST_SHA}`(R2 summary `j1_inputs.folds["0"].post_sha256`) | **판정 입력** |
 | R2 fold 0 `j1_boxes_pre.csv` | – | `{R2_J1_PRE_SHA}`(같은 곳의 `pre_sha256`) | 보고 |
-| C0b `PPConfig` 해시, `d0_gate.json` | – | `{C0B}` | PP 집합 정체 |
+| C0b `PPConfig` 해시 | – | `{C0B}`(C1에서 채움) | PP 집합 정체(판정 단언 대상) |
+| C0b `d0_gate.json` | – | `{C0B_D0_GATE_SHA}`(C1에서 채움, sha256) | PP 집합 선택 근거 |
 | `docs/processing/fourtu_lines_v1.csv` | `{C2}` | `{C2}` | 측선 메타 |
 | `docs/datasets/fourtu_duplicate_radargrams.csv` | `{C2}` | `{C2}` | 중복 규칙 |
 | `docs/processing/m29c_qc_constants.json` | `{C2}` | `{C2}` | QC 상수 |
 | 4TU 원본 메타 csv 4개 | – | `{C2}` | 정답·메타([U3] §1-2와 같은 대상) |
 | 후보 csv `depth_4tu_j1_candidates_input.csv` | – | 생성 직후 기록 | 1단계 산출 |
 
-- 판정 스크립트는 `j1_boxes_post.csv`의 sha와 `PPConfig` 해시를 C2 값과 단언한다. 다르면 종료 2다.
+- 판정 스크립트는 `j1_boxes_post.csv`의 sha를 C2 값(자리 R2_J1_POST_SHA)과, `PPConfig` 해시를 C0b 값(자리 C0B, C1에서 채움)과 단언한다. 다르면 종료 2다.
 - 후보 생성 직후 후보 csv의 sha를 기록하고, 깊이 계산은 그 sha를 단언한 뒤 시작한다.
 
 ### 1-3. 명령줄 (초안)
@@ -236,3 +237,4 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 | 2026-11-15 | v0.2 초안 | cv 공동 검토(cv-detection-expert). §3 입력을 "파일의 모든 행"으로 바꿨다(러너가 conf > 0.25·PP를 이미 적용, 문턱 경계 이중 정의 방지). 중복 제거에 동률 규칙과 처리 순서를 넣었다. [PLAN] 문구 차이는 사용자 결정으로 확정했다(`eval_depth_4tu.py` 경로, `estimate_line_depths` 미사용). §1-1에 판정 → 보고 실행 순서와 1회 실행 거부를 넣었다. J1-2 단언 목록 7개(트리·blob, 입력 sha 이중 대조, R2 정체성: fold 0 가중치·r0·설정·`PPConfig`·HEAD, 박스 내용, 후보 sha 재확인, prefix 부재, stdout·logging 이중 차단)를 넣었다. 박스 → 꼭짓점 규칙, 기준선 재계산, 실질 지표는 그대로 받아들였다 |
 | 2026-11-15 | v0.3 초안 | gpr-processing 재검토: 단계 1 탐색 창 위쪽 경계를 $\max(k_0-0.5P,\ k_z+0.5P)$로 묶고 $[0, n_s-1]$로 자르며, 창이 비면 `window_above_zero`로 기록한다. 시험 (e)를 추가했다. 무결성 반영: 제목 판 번호, 봉인 순서와 C2 자리 처리(`placeholder_scan` 허용 → C2 뒤 0), 단언 2의 `j1_inputs.folds["0"]` 키, 단언 4의 `line_id` 분해 규칙, 단언 6 시점(단계 1 이전). 판단 규칙은 바뀌지 않았다 |
 | 2026-11-15 | v0.3.1 초안 | stats-design-expert 통계 검토 반영(판정 기준 불변). §1-1 3: $n_\text{pass}$는 matches csv 주 조합 행에서 세고 round(`pass_b`×388)과 단언, $k$ = round(`baseline_p`×1000)과 1e-6 단언([U3] §2-2와 읽는 곳 통일, C3). §2-4: p 도달 가능성 보고($k_\text{perfect}$, $n_\text{req}$·$A_\text{req}$, 초과 추정 $E_+$ = `false_est`, C1), 현장 하나씩 빼기·현장 부트스트랩(2,000회, `default_rng(20261115)`, 기준선은 같은 시행 재집계, C2). §1-4 보고용 난수. §5 J1-2 보고 계산 7항과 시험 (f)–(i). §6 공개 6(목표 경계는 현장 군집 미반영). 같은 날 무결성 정정(규칙 불변): J1-2 보고 계산 2의 summary 열 이름을 실제 이름 `baseline_pass_b_mean`·`baseline_pass_b_p025`·`baseline_pass_b_p975`로 고쳤다 |
+| 2026-11-15 | v0.3.2 초안 | 문구 정리, 기준 불변(C1 봉인 전, cv-detection-expert의 `placeholder_scan` 대조 지적). 상태 절 설명 문장의 자리 이름(C2·R2_J1_POST_SHA·R2_J1_PRE_SHA·C0B)에서 중괄호를 뺐다(설명 문장이 스캔에 걸리지 않게). §1-2의 C0b 행을 `PPConfig` 해시(자리 C0B)와 `d0_gate.json` sha256(자리 C0B_D0_GATE_SHA) 두 행으로 나눠 자리마다 값 하나로 했고, 두 자리는 C1에서 채우며 C1 감사 허용 목록에 넣지 않는다고 적었다. §1-2 제목에 C0b 두 행은 C1에서 채운다고 적었다. §1-2 아래 단언 문장의 "`PPConfig` 해시를 C2 값과"를 "C0b 값(자리 C0B, C1에서 채움)과"로 고쳤다(J1-2 단언 3과 같은 뜻). 값은 채우지 않았다. 같은 날 무결성 점검 반영(문구만): 상태 절에 자리별로 채울 곳(C0B는 §1-2 표와 §1-3 명령줄, C0B_D0_GATE_SHA는 §1-2 표)을 적었다 |

@@ -1,7 +1,7 @@
 # M3-3 X4 — 평가 러너 명세 (R1 모로코, R2 4TU, R3 의사 띠, J1 입력)
 
-- 상태: **v0.3.4**(2026-11-15, cv-detection-expert). v0.3.4에서 [EMR] 부록 D-8(v1.9.1) P4 물리 검토를 반영했다(IDS 층 구성 정정, L 150 유지, 노출 기하 공개, 노출 부분집합 보고 열, 배치 순서 명시, 층 경계 시험). v0.3.3에서 stats-design 검토에 따른 사용자 결정(P5 구조상 0 단언, PP 후 유령 짝, P4 노출 위치 수·작은 층 처리, IDS 층 구성 공개)을 반영했다(C1 전). v0.3.2에서 띠 모드 (c′)·(d) 해석을 정했다. v0.2에서 R3를 [EMR] 부록 D에 맞췄고, v0.3에서 X6·사용자 결정을, v0.3.1에서 무결성 점검과 [EMR] 부록 D-6(v1.6)을 반영했다. [PLAN] [`m33_cross_domain_plan.md`](m33_cross_domain_plan.md) v0.2.6(S0 9b28694는 v0.2.2)와 [PP] [`m33_pp_spec.md`](m33_pp_spec.md) v0.2.3과 [EMR] 부록 D v1.9.1을 따른다. 구현은 python-expert가 한다.
-- 이 러너들은 C1 봉인 뒤에만 정식 실행한다. 봉인 순서는 [PLAN] §4 표다(… → C1 → R1 → R2 → R3 plan → **C1b** → R3 injected → **C2** → J1). C1 전에는 `--smoke`만 허용하고, smoke는 별도 폴더에 쓰며 판정에 쓰지 않는다.
+- 상태: **v0.3.6**(2026-11-15, cv-detection-expert). v0.3.6에서 stats-design 검토와 사용자 결정(D0 결과 뒤·C1 전·측정 전)에 따라 P4 상태 결정을 재현율 집합 R의 제거 작용으로 한정하고, `ghost_delta`를 보고 전용(유령 구현 단언)으로, 판정 기준을 ≥ −1.0 %p − 1e-9로 정했다. v0.3.5에서 D0 결과(C0b, S3) 뒤·C1 전·측정 전 사용자 결정에 따라 P4 PP 노출 위치를 선택 집합 규칙이 작동하는 위치로 한정하고 노출 0 처리(`p4_status` 네 상태)를 정했다. v0.3.4에서 [EMR] 부록 D-8(v1.9.1) P4 물리 검토를 반영했다(IDS 층 구성 정정, L 150 유지, 노출 기하 공개, 노출 부분집합 보고 열, 배치 순서 명시, 층 경계 시험). v0.3.3에서 stats-design 검토에 따른 사용자 결정(P5 구조상 0 단언, PP 후 유령 짝, P4 노출 위치 수·작은 층 처리, IDS 층 구성 공개)을 반영했다(C1 전). v0.3.2에서 띠 모드 (c′)·(d) 해석을 정했다. v0.2에서 R3를 [EMR] 부록 D에 맞췄고, v0.3에서 X6·사용자 결정을, v0.3.1에서 무결성 점검과 [EMR] 부록 D-6(v1.6)을 반영했다. [PLAN] [`m33_cross_domain_plan.md`](m33_cross_domain_plan.md) v0.2.8(S0 9b28694는 v0.2.2)와 [PP] [`m33_pp_spec.md`](m33_pp_spec.md) v0.2.4(규칙 본문은 C0a v0.2.3, 부록 A 실행기 개정)와 [EMR] 부록 D v1.9.1을 따른다. 구현은 python-expert가 한다.
+- 이 러너들은 C1 봉인 뒤에만 정식 실행한다. 봉인 순서는 [PLAN] §4 표다(… → C0b → 개정 실행기 커밋 → 실행 전 감사 → D0′ → 대조 → C1 → R1 → R2 → R3 plan → **C1b** → R3 injected → **C2** → J1). C1 전에는 `--smoke`만 허용하고, smoke는 별도 폴더에 쓰며 판정에 쓰지 않는다.
 
 ## 0. 재사용 판단
 
@@ -24,13 +24,24 @@
 | r0 정체 | [SP] §9 11측선 `line_image` sha256을 첫 단계에서 다시 만들어 단언한다 |
 | PP | 같은 병합 박스에 **PP 꺼짐(S0)과 C0b 선택 집합**을 둘 다 적용해 두 행으로 저장한다(`pp` 열 `pre`/`post`). `PPConfig` 해시 = C0b를 단언한다. 추론은 1회다 |
 | 입력 sha 단언(C1 표) | 가중치 5 · r0 11측선 · 설정 해시 · C0b(`PPConfig`, `d0_gate.json`) · 모로코 매니페스트·`eval_images.txt` · 4TU 754측선 목록·`keep_one` 표(720) · 중복 목록 `fourtu_duplicate_radargrams.csv` · K 꼭짓점(`known_apexes.csv`)·K 측선(`d3/lines.csv`) · IDS 목록(`m32_stageA_lines_ids.csv`) · `radargrams_index.csv` · S4 코드 blob · R3 주입 표(C1b). 하나라도 다르면 종료 2 |
-| 깨끗한 트리 | 정식 실행은 추적 파일 변경 0, 필수 입력 추적을 요구한다(`dirty` false). `--allow-dirty`는 smoke 전용 |
+| D0 실행기 blob(C1 표, v0.3.6) | C1 sha 표에 D0 실행기 `m33_d0_gate.py`(와 `m31_d1_common.py`) blob을 **두 개 나란히** 적는다: C0a 실행기 blob(53c4e16, C0b 결과의 출처)과 개정 실행기 blob(D0′ 결과의 출처). D0′ `d0_gate.json` sha와 대조 결과도 적는다([PP] 부록 A-1). R 러너는 실행기 blob을 단언하지 않고 `PPConfig` 해시·`pipeline.py` blob을 단언한다. D0′ 실행기는 같은 값을 모듈 상수(`assert_sealed_pp`)로 단언하고 `src/` tree id도 C0a 값과 대조하므로, R 러너 구현 중 `src/`를 바꾸는 작업은 D0′ 뒤에 한다([PP] 부록 A-1) |
+| 깨끗한 트리 | 정식 실행은 추적 파일 변경 0, 필수 입력 추적을 요구한다(`dirty` false). `--allow-dirty`는 smoke·진단 전용이고, 쓰면 판정 불가(`not_judgeable`)다(D0 실행기 `m33_d0_gate.py`와 같은 처리) |
+| 끝 시점 트리 재측정(v0.3.6) | git HEAD·`dirty`·코드 blob·src tree id를 시작할 때와 결과 파일을 쓰기 직전에 두 번 잰다. 다르면 `input_error`, 종료 2다. 두 값과 차이를 `run_identity.tree_end`·`tree_problems`에 남긴다(D0 실행기 개정과 같은 방식, [PP] 부록 A) |
+| 전체 정밀도(v0.3.6) | CSV·json에 쓰는 점수·좌표·시간·주기·IoU 등 모든 실수는 반올림하지 않고 `repr(float)`(왕복 가능한 전체 정밀도)로 쓴다. 표시용 반올림은 md 보고서에만 쓴다. 근거: D0 재집계에서 점수 소수 4자리 기록 때문에 conf > 0.25 경계 박스의 판정이 뒤집혔다([`m33_c0b_d0_judgment.md`](m33_c0b_d0_judgment.md) 주 1) |
+| 판정 가능성(v0.3.6) | 기대 fold는 0–4다. 중복되거나 범위 밖인 fold 인자는 종료 2로 거부한다. smoke, 일부 fold, 측선·영상·crop 수 제한, 일부 모델, 시작 시 dirty 가운데 하나라도 해당하면 `status` = `not_judgeable`, 종료 1이다. 결과 json에 `judgment` 블록(`judgeable`, `blockers`, `expected_folds`, `folds_run`, `tree_stable`, `tree_changes`)을 싣는다. P4·P5·J1 입력은 `judgeable` true인 실행에서만 쓴다 |
+| 텍스트 입력 sha(v0.3.6) | csv·json·txt 같은 텍스트 입력은 원시 sha와 **LF 정규화 sha를 함께** 기록한다(`run_identity.inputs_sha256_lf`). 단언과 C1 sha 표는 **LF sha를 기준**으로 한다(Windows 체크아웃의 CRLF 변환으로 원시 sha가 달라질 수 있음). 바이너리(가중치·npy)는 원시 sha 그대로다 |
 | 블라인드 | 지표(재현율·AP·포함률·M4 수·판정률)는 파일에만 쓴다. stdout에는 단계, 측선·타일·영상·주입 건수, 경과 시간, 경로, sha만 찍는다. 마지막 줄은 `{"status","out_dir","n_lines","n_tiles","n_images","n_injections","elapsed_s"}`(해당 키만)이다. Ultralytics 로거는 끈다 |
 | 종료 코드 | 0 완료, 1 게이트 실패, 2 입력 거부, 3 내부 오류 |
 | 정체성 기록 | `run_identity`: git HEAD·`dirty`·status, 코드 blob(러너·inputs·match·common·`pipeline.py`·`to_image.py`·`inject.py`·`yolo.py`), 패키지 버전, GPU, argv, 위 sha 전부, 배치 크기·타일 순서 규칙 |
 | 이어 돌리기 | (단계, 측선, fold) 부분 파일 + 설정 sha 검사(M3-2 S5 방식) |
 | 자원 | GPU 단일 프로세스, batch 64. CPU 전처리는 허용 코어 affinity·BelowNormal·BLAS 1스레드. 30분 넘는 실행은 메인 세션 러너·예약 |
 | AGPL | `ultralytics`는 `gpr_detection.detect` 안에서만 쓴다 |
+
+- **C1 구현 항목(v0.3.6, 남은 위험)**: D0 실행기 개정(python-expert, 2026-11-15) 뒤에도 아래가 남아 있다. R1–R3 러너가 C1 봉인 전에 고쳐야 하고, 시험으로 확인한다.
+  1. `m32_recipe_eval.py`(R2·R3 기반)는 아직 `period_samples`·`t_zero_ns`·`iou` 등을 4자리로 반올림해 쓴다. 전체 정밀도 요구에 맞게 바꾼다.
+  2. `m32_recipe_eval.py`에는 fold 완전성 검사(판정 가능성)와 끝 시점 트리 재측정이 없다. R2·R3로 확장할 때 위 두 행을 넣는다.
+  3. `m32_aihub_perturb._object_rows`는 값을 반올림한다. R1(`m33_morocco_eval.py`)은 이 함수를 그대로 가져다 쓰지 않는다.
+  4. C1 sha 표의 텍스트 입력은 LF sha로 적는다(원시 sha 병기).
 
 ## 2. R2 — 4TU 검출 보고 (`m32_recipe_eval.py --stage uninjected` 확장)
 
@@ -88,8 +99,33 @@
    - SNR 0/6/12/18 dB, 극성 ±1 짝(같은 위치·길이), 시드 20261115.
    - **층 최소 수**: 배경마다 $L/W_\text{eff}$ 층마다 위치 ≥ 30을 목표로 한다. 모자라면 수를 공개하고 멈추지 않는다.
    - plan 보고에는 층별 위치 수를 낸다. P4 두 층(< 0.33, 0.33–0.5)의 IDS 위치 수도 따로 낸다.
-   - **PP 노출 위치 수**: plan 보고에 P4 두 층의 PP 노출 위치 수를 낸다. 노출 위치는 띠 정답 박스가 다음 중 하나에 드는 위치다. (i) 아래 끝이 $y_\text{bot}-w_c$ 이상(PP-c 창), (ii) 중심이 $y_z+0.5P_\text{line}$ 위(PP-d), (iii) 내용 범위 밖에 걸침(PP-a·b). 검출 무관이고 C1b에 고정한다. 노출 위치가 0이면 P4는 "작용 없음(정보 없음)"이다.
-     - 공개([EMR] D-8-4, 기하 추정): 구역 (b)가 꼭짓점 ≥ 영점 + 2 P를, C3-6이 기록 밖 걸침을 막으므로 (ii)·(iii)은 구조상 0이다(0/695). 노출은 사실상 (i) PP-c 창뿐이고, 주 칸 695쌍 중 57쌍(약 8–11 %)이다. 이 가운데 24쌍이 20 ns 3측선에 몰려 있고 50 ns 이상에서는 0/233이다. 그래서 P4 전체가 −1.0 %p에 닿으려면 노출 위치 재현율이 약 −10 %p 떨어져야 한다. 층의 노출이 0일 확률은 위치 30에서 약 6 %, 50에서 약 1 %다(측선 군집으로 조금 더 높음).
+   - **PP 노출 위치 수**(v0.3.5 개정. 사용자 결정 2026-11-15: D0 결과(C0b, S3 선택)를 안 뒤, C1 전, R1–R3 측정 전에 정함)
+     - plan 보고에 P4 두 층의 PP 노출 위치 수 `pp_exposed_positions`(층별과 두 층 합)를 낸다.
+     - **노출 위치**는 **C0b 선택 집합 $S_\text{sel}$에 든 규칙만** 띠 정답 박스(주입 표의 정답 박스, L1 측선 px)에 [PP] §2 조건(원래 박스 기준, 범주 순서 a > b > d > c)대로 적용해서 하나 이상에 해당하는 위치다. C0b 봉인값은 `pp_set_id` = `S3` = {a, b, d}다.
+       - PP-a($\in S_\text{sel}$일 때): $y_m > y_\text{bot}$.
+       - PP-b($\in S_\text{sel}$일 때): a가 아니고 $y_1 < y_\text{bot}-e$이고 $y_2 > y_\text{bot}+e$.
+       - PP-d($\in S_\text{sel}$일 때): a·b가 아니고, 그 측선의 $y_z$가 있고, $y_m < y_z + 0.5P_\text{line}$.
+       - PP-c($\in S_\text{sel}$일 때만): a·b·d가 아니고 $y_2 \ge y_\text{bot}-w_c$. 점수 조건은 검출 쪽 값이라 노출 정의에서 뺀다.
+     - 러너는 `pp_set_id`와 `PPConfig` 해시가 C0b 값과 같은지 단언한다. 규칙 목록은 `pp_set_id`에서 읽고, S3를 코드에 박지 않는다. 노출은 검출과 무관하며 C1b에 고정한다. 규칙별 수 `pp_exposed_by_rule`도 낸다.
+     - 보고 전용: PP-c 창(아래 끝 ≥ $y_\text{bot}-w_c$)에 드는 위치 수 `pp_c_window_positions`를 함께 낸다. $S_\text{sel}$에 c가 없으면 이 수는 노출에 넣지 않는다.
+     - 공개(개정 이유): v0.3.3–v0.3.4 정의는 선택 집합과 상관없이 (i) PP-c 창, (ii) PP-d, (iii) PP-a·b 가운데 하나에 드는 위치였다. [EMR] D-8-4 기하 추정은 (ii)·(iii)을 구조상 0(0/695)으로 보았다. 그래서 옛 정의의 노출은 사실상 (i)뿐이었는데, S3에는 PP-c가 없다. 즉 작동하지 않는 규칙의 창이 노출로 세어져 `p4_status`가 `no_effect`로 갈 수 없었다. v0.3.5 개정은 이 불일치만 없앴고 문턱·범위·층·가중 규칙은 바꾸지 않았다. 유령 조건을 보고 전용으로 바꾸고 경계 비교를 정한 것은 v0.3.6이다(§3-2). 옛 정의에서 쓴 [EMR] D-8-4 수치(PP-c 창 57/695, 약 8–11 %, "−1.0 %p ≈ 노출 위치 −10 %p")는 PP-c가 든 집합(S4·S5)에만 해당하는 이력이다.
+   - **노출 0·작용 0 처리**(v0.3.5 신설, v0.3.6 개정: stats-design 검토와 사용자 결정 2026-11-15, D0 결과 뒤·C1 전·R1–R3 측정 전. 결과와 무관하게 미리 정함)
+     - **작용 집합**: P4 범위(`gz_ids`, `main_400`, A0, 두 층)에서 **PP 전 박스**를 기준으로 셋을 나눈다. 모두 검출 쪽 값이고 5 fold 합이다.
+       - (R) 재현율 집합: 주입 실현의 conf > 0.25 `pipe_band` 박스 중 정답과 시간 겹침 ≥ 정답 높이 50 %이고 [i0, i1]과 가로로 겹치는 박스. 곧 6의 재현율에 들어가는 박스다. 한 박스가 두 정답에 해당하면 각 정답에서 센다.
+       - (G) 유령 후보: 같은 시간 겹침 조건이고 일부가 [i0 − 테이퍼, i1 + 테이퍼] 밖에 있는 박스.
+       - (G′) G 박스와 PP 전 또는 PP 후 IoU ≥ 0.5인, 같은 측선·fold의 미주입 `pipe_band` 박스.
+       - 층: R·G는 그 박스가 시간 겹침 조건을 만족한 **정답 띠의** `lw_stratum`을 쓴다. 한 실현에 길이가 다른 띠가 여럿 들어 있으므로 실현 단위가 아니다. G′는 짝지어진 G 박스의 층을 따른다. 미주입 박스는 측선·fold마다 하나뿐이고 그 측선의 여러 실현(SNR × 극성 × 실현)과 짝지어질 수 있다. 그래서 G′는 (실현, G 박스, 미주입 박스) 짝 단위로 세고, 중복을 뺀 미주입 박스 수도 함께 낸다.
+     - **상태 결정용** `pp_acted_boxes`: R 박스 가운데 `pp_action` ∈ {`removed_a`, `removed_b`, `removed_d`}인 수다. 층별과 두 층 합으로 낸다. `pp_acted_by_rule`(규칙별)과 `pp_acted_lines`(작용이 있던 측선 수)를 함께 낸다.
+     - `pp_acted_clip_recall_set`: R 안의 `clipped_b` 수다. 러너는 해당 정답마다 덮인 길이가 PP 전·후로 같은지 단언한다(정수 트레이스 일치). 다르면 구현 결함으로 종료 1이다. 이 단언은 "PP-b 자르기는 재현율을 바꾸지 않는다"는 전제를 실행 중에 확인한다. 전제의 근거: C3-6 주 칸은 정답 마지막 행 ≤ $n_s - 1 - P_\text{line}$(L0)이다. 측선 영상($\text{sample\_offset}=0$)에서 $y_\text{bot} = n_s/\sigma_y$(PP, L1)이므로 정답 아래 끝은 L1에서 $y_\text{bot}-P_\ell$ 이하다. 자르기는 $y_2$를 $y_\text{bot}$까지만 줄이므로 정답과의 시간 겹침이 바뀌지 않는다. 같은 이유로 `removed_b`(자른 높이 < $P_\ell$)는 정답과 시간이 겹치지 않아 R에 들 수 없다. 그래도 R 작용 집합에는 넣어 둔다.
+     - `pp_acted_ghost_set`(보고 전용): G·G′의 작용 수(`pp_action` ≠ `none`)다. 유령 증가를 설명하는 대조에만 쓴다.
+     - `pp_acted_boxes_all`(보고 전용): P4 범위 모든 `pipe_band` 박스(주입·미주입)의 작용 수다.
+     - `p4_status`는 아래 순서로 정한다.
+       1. `not_evaluable`: 두 층의 IDS 위치가 모두 0이다(§3-2 작은 층 처리).
+       2. `no_effect`("작용 없음(정보 없음)"): `pp_exposed_positions`(두 층 합) = 0이고 `pp_acted_boxes` = 0이다. **R에 제거 작용이 없으므로 `recall_delta`는 구조상 정확히 0이다(단언). `ghost_delta`는 0이 아닐 수 있으며 보고하고 유령 구현 단언(6)을 따른다.** 러너는 `recall_delta` == 0(부동소수 완전 일치)을 단언하고 결과를 `p4_structural_zero`(bool)에 싣는다. 어기면 구현 결함으로 종료 1이다. P4는 채택 근거에서 빠진다. 다만 차가 0이므로 규칙을 적용해도 통과하며, 상태 분기는 권고 확률을 바꾸지 않는다([PLAN] §3-5).
+       3. `acted_unexposed`: `pp_exposed_positions` = 0이지만 `pp_acted_boxes` > 0이다. 정답 박스는 규칙 조건 밖이지만, 정답보다 길거나 어긋난 예측 박스를 PP가 지운 경우다. **P4 판정 규칙을 그대로 적용하고 채택 근거로 남긴다.** 작용 박스 목록 `p4_pp_acted.csv`(측선, fold, 실현, 박스, 집합 R·G·G′, `pp_action`)를 낸다. `recall_delta_exposed`는 `null`이다.
+       4. `evaluated`: `pp_exposed_positions` > 0이다. P4 판정 규칙을 그대로 적용한다.
+     - **S3에서 예상되는 경로(공개, [EMR] D-8-4 기하 추정)**: S3에서는 정답 띠 박스 노출이 구조상 0이다. 구역 (b)가 꼭짓점 ≥ 영점 + 2 P를, C3-6이 기록 끝 걸침을 막기 때문이다. 그래서 상태는 `no_effect`나 `acted_unexposed` 가운데 하나로 예상하고, `recall_delta_exposed`는 `null`이다. PP-b 자르기는 정답 시간 겹침을 바꾸지 않아 `recall_delta`에 영향이 없다. 재현율 손실은 a·d가 정답과 겹친 박스를 지울 때만 생긴다. 이 문단은 경로만 말하고 어느 상태가 나올지는 예측하지 않는다.
+     - 문턱 비교와 상태 결정은 R3 injected 결과가 나온 뒤 기계적으로 한다. 상태 이름과 순서는 C1에 고정한다.
    - **띠 배치 순서**: a0dc987 `inject.py` 띠 모드 구현 그대로 쌍곡선과 같은 바닥 우선 순서(`_bottom_first_order`, 꼭짓점 ≥ $n_s$ − 3 P 후보를 측선당 1개 먼저)를 쓴다. 바닥 우선 후보 36쌍 중 30쌍이 C3-6에 걸려 주 칸 밖(바닥 층 보고)으로 빠진다([EMR] D-8-4). 이 순서는 노출을 늘리는 장치가 아니며, 그 사실을 공개한다. 순서는 C1b 주입 표 sha로 고정된다.
    - **IDS 400 MHz 층 구성(공개)**: IDS 400 MHz 53측선은 89–6,665트레이스(중앙 426)이고 16측선이 301 미만이라 $W_\text{eff} = N$이다. 그래서 층은 L과 N으로 정해진다. N ≥ 301인 37측선에서는 `lt033` = {40, 64}, `033_05` = {100, 150}이고, 짧은 측선에서는 `033_05`에 L 40·64·100이 들어오고 L 100·150 일부는 긴 두 층으로 간다(길이별 들어갈 수 있는 층의 측선 수: L 40 — `lt033` 49 / `033_05` 4, L 64 — 45 / 3 / `05_067` 4 / `ge067` 1, L 100 — `033_05` 44 / 긴 두 층 6 / 불가 3, L 150 — `033_05` 37 / 긴 층 10 / 불가 6, [EMR] D-8-1). L = 100은 0.3322로 경계 바로 위다(경계 리터럴 0.33, 시험으로 단언). L = 150은 0.498로 생존 갈림점 W/2(0.5) 바로 아래(0.5트레이스 차)이고, 끝 테이퍼 때문에 생존 비가 SNR과 거의 무관한 약 0.56–0.62인 약한 띠다([EMR] D-8-2). **L = 150은 유지한다**(cv 결정 2026-11-15: median이 띠 값으로 넘어가지 않는 마지막 정수 길이라 배정이 타당하고, 약한 띠라 PP-c에 오히려 민감한 사례다. 대안 L 136은 쓰지 않는다). fold SD는 다섯 fold가 같은 위치를 공유하므로 표본 SE가 아니다.
 5. **정답 표 열**(위치 표·`inj_matches`): `mode`, `band_length_traces`, `band_center_trace`, `length_px`, `w_eff`, `l_over_w_eff`, `lw_stratum`(`lt033`·`033_05`·`05_067`·`ge067`), `px_stratum`, `l_over_n`, `taper_traces`, 정답 박스(L0), `gain`, `noise_rms`, `signal_amplitude`, 잘린 칸 수·최대 주입 비율, 극성, SNR, $k$, `response_id`, `model_group`.
@@ -101,7 +137,8 @@
      - 같은 측선·fold 미주입 박스(같은 클래스)와 IoU ≥ 0.5인 짝이 없다.
      - 정답 구간과 걸친 박스는 구간 밖 부분 길이를 유령 길이로 센다.
      - 출력: 실현별 `ghost_n_boxes`, `ghost_length_traces`.
-     - **PP 후 유령 판정의 짝**: PP 후 박스의 미주입 짝은 **같은 PP를 적용한** 미주입 박스에서 찾는다(PP 전은 PP 전끼리). PP는 박스를 만들지 않으므로 PP 후 − PP 전 유령 수가 > 0이면 짝 박스의 제거·자르기가 만든 인공물로만 생긴다. > 0이면 해당 실현·박스의 사례 목록(`ghost_pp_artifacts.csv`: 측선, fold, 실현, 박스, 짝이던 미주입 박스와 그 `pp_action`)을 낸다.
+     - **PP 후 유령 판정의 짝**: PP 후 박스의 미주입 짝은 **같은 PP를 적용한** 미주입 박스에서 찾는다(PP 전은 PP 전끼리). PP는 박스를 만들지 않으므로, PP 후에 새로 유령이 된 박스는 후보 자신의 자르기나 짝 박스의 제거·자르기로만 생긴다.
+     - **유령 구현 단언**(v0.3.6, 사용자 결정 2026-11-15): PP 후 유령이고 PP 전 유령이 아니던 박스를 모두 `ghost_pp_artifacts.csv`에 싣는다(측선, fold, 실현, 박스, 후보의 `pp_action`, 짝이던 미주입 박스와 그 `pp_action`). 러너는 이 박스마다 후보 또는 짝의 `pp_action` ≠ `none`인지 단언한다. 하나라도 그렇지 않으면(설명되지 않는 증가) 구현 결함으로 종료 1이다. 설명되는 증가는 보고만 한다.
    - 클래스 무시 덮임(다른 클래스로 읽은 비율)은 보고만 한다.
 7. **생존 진폭 비**: [EMR] D-5 2의 식 $s$를 r0 (4) 단면에서 잰다. 검출기와 무관하므로 fold와도 무관하고, 실현마다 1회 잰다.
 8. **주입 표 고정**: plan 단계 뒤 주입 표 sha를 **C1b** 커밋에 적고, 그 뒤 injected를 실행한다. 규칙 변경은 없다(M3-2 F2 방식).
@@ -113,17 +150,22 @@
   - 생존 진폭 비: SNR × `lw_stratum` × 배경.
   - px 층 보고.
 - **P4 값**(`p4_adoption_input`, 키 이름 고정)
-  - `recall_delta`: `gz_ids`, **`ids_freq_stratum` = `main_400`(53측선)**, A0, `lw_stratum` ∈ {`lt033`, `033_05`}. 층 같은 가중, 층 안에서 SNR 4 × 극성 2 균등, PP 후 − PP 전, 5 fold 평균. 판정 기준은 ≥ −1.0 %p다.
-  - `ghost_delta`: 같은 범위의 유령 띠 박스 수 5 fold 합, PP 후 − PP 전. 기준은 ≤ 0이다.
+  - `recall_delta`: `gz_ids`, **`ids_freq_stratum` = `main_400`(53측선)**, A0, `lw_stratum` ∈ {`lt033`, `033_05`}. 층 같은 가중, 층 안에서 SNR 4 × 극성 2 균등, PP 후 − PP 전, 5 fold 평균. **판정 기준은 `recall_delta` ≥ −1.0 %p − 1e-9다**(v0.3.6: 정확히 −1.0이면 통과, 부동소수 오차 허용 1e-9 %p). P4 판정은 이 재현율 조건 하나다.
+    - 개수 모형(공개, stats-design 검토): 두 층 위치가 n씩이면 층마다 실현-fold는 n × 8(SNR × 극성) × 5 fold = 40n개다. 한 실현-fold의 정답을 완전히 잃으면(덮임 1 → 0) −1.25/n %p이고, 문턱 −1.0 %p는 전체 실현-fold의 1 %, 곧 0.8n개에 해당한다.
+  - `ghost_delta`(v0.3.6부터 **보고 전용**): 같은 범위의 유령 띠 박스 수 5 fold 합, PP 후 − PP 전. 판정 기준이 아니다. 증가분은 §3-1 6 유령 구현 단언을 따른다(설명되면 보고, 설명되지 않으면 종료 1).
   - `n_positions_by_stratum`: 두 층의 위치 수.
   - `n_lines`: 53(`main_400`)을 단언한다.
   - **작은 층 처리**(사용자 결정 2026-11-15, C1b의 위치 수로 정해지고 결과와 무관)
     - 두 층 모두 IDS 위치 ≥ 30이면 위 정의(층 같은 가중) 그대로다(`stratum_mode` = `two_strata`).
     - 한 층이라도 위치 < 30이면 두 층을 합친 $L/W_\text{eff}$ < 0.5 한 층(위치 같은 가중)으로 낸다(`stratum_mode` = `pooled`). 한 층이 0이면 합친 층(= 남은 층)만 쓴다.
     - 둘 다 0이면 `recall_delta`·`ghost_delta`는 `null`이고 `stratum_mode` = `not_evaluable`이다.
-    - 합친 층을 쓰면 그 위치 수의 최소 검출 효과(MDE)를 `mde_pp`로 적는다. 참고: 위치 30이면 실제 −2 %p여도 약 10 % 확률로 통과하고, 위치 10이면 약 24 %로 통과한다.
-  - `pp_exposed_positions`: §3-1 4의 두 층별 노출 위치 수. 0이면 `p4_status` = `no_effect`("작용 없음(정보 없음)")다.
-  - `recall_delta_exposed`(보고 전용, 판정 기준 없음): 같은 범위·같은 가중 규칙에서 노출 위치만으로 낸 PP 후 − PP 전 가로 구간 재현율, 5 fold 평균. 노출 위치 수(`n_exposed_positions`)와 측선 수를 함께 싣는다. 노출 0이면 `null`이다.
+    - 합친 층을 쓰면 그 위치 수의 최소 검출 효과(MDE)를 `mde_pp`로 적는다. `mde_pp`는 위 개수 모형(실현-fold 단위 손실, 측선 군집 반영) 기준으로 계산한다. 참고: 실제 −2 %p여도 통과 확률은 약 0.1–0.6이다(손실이 소수 측선에 몰릴수록 높음, [추정]). 검정력 80 % 최소 효과는 1.5–7.25 %p다(stats-design 합성 시뮬레이션, 위치 30–100·합친 40).
+  - `pp_set_id`·`pp_config_sha256`: C0b 값(단언 결과 포함).
+  - `pp_exposed_positions`: §3-1 4(v0.3.5) 노출 위치 수(층별과 두 층 합). `pp_exposed_by_rule`(규칙별), `pp_c_window_positions`(보고 전용)를 함께 싣는다.
+  - `pp_acted_boxes`(상태 결정용, R 안 제거 수), `pp_acted_by_rule`, `pp_acted_lines`, `pp_acted_clip_recall_set`(R 안 `clipped_b` 수와 덮임 불변 단언 결과), `pp_acted_ghost_set`(보고 전용, G·G′ 작용 수, 짝 단위와 중복 뺀 미주입 박스 수), `pp_acted_boxes_all`(보고 전용): §3-1 4(v0.3.6), 5 fold 합, 층별과 두 층 합.
+  - `p4_status`: `evaluated`·`acted_unexposed`·`no_effect`·`not_evaluable`(정하는 순서는 §3-1 4). `no_effect`이면 R에 제거 작용이 없으므로 `recall_delta`는 구조상 정확히 0이다(단언, `p4_structural_zero`). `ghost_delta`는 0이 아닐 수 있으며 보고하고 유령 구현 단언을 따른다. `acted_unexposed`이면 `p4_pp_acted.csv` 경로와 sha를 싣는다.
+  - `ghost_pp_artifacts`: `ghost_pp_artifacts.csv` 경로·sha·행 수와 설명되지 않는 증가 0 단언 결과.
+  - `recall_delta_exposed`(보고 전용, 판정 기준 없음): 같은 범위·같은 가중 규칙에서 노출 위치(v0.3.5 정의)만으로 낸 PP 후 − PP 전 가로 구간 재현율, 5 fold 평균. 노출 위치 수(`n_exposed_positions`)와 측선 수를 함께 싣는다. 노출 0이면 `null`이다.
 - 긴 두 층(`05_067`, `ge067`), 4TU 배경, IDS `report_other` 3측선은 `report_only`에 둔다. `summary.json`에 IDS 측선 구분 `{"main_400": 53, "report_other": 3, "excluded_2ghz": 4}`를 싣는다.
 
 ## 4. R1 — 모로코 (`m33_morocco_eval.py`, 새로 작성)
@@ -191,7 +233,19 @@
 7. 모로코 출력 폴더가 있으면 거부한다.
 8. (v0.3.3) P5 구조상 0: `pipe_band` 박스만 다른 PP 전·후 예측에서 `pipe_hyperbola` AP50이 같고, 일부러 쌍곡선 박스를 바꾼 fixture에서는 종료 1이다.
 9. (v0.3.3) PP 후 유령 짝: 미주입 짝 박스를 PP가 지운 fixture에서 PP 후 유령 수가 1 늘고 `ghost_pp_artifacts.csv`에 실린다. 짝이 PP 후에도 남으면 늘지 않는다.
-10. (v0.3.3) P4 작은 층: 위치 수 (30, 30) → `two_strata`, (29, 40)·(0, 12) → `pooled`, (0, 0) → `not_evaluable`. 노출 위치 0 → `p4_status` = `no_effect`.
+10. (v0.3.3) P4 작은 층: 위치 수 (30, 30) → `two_strata`, (29, 40)·(0, 12) → `pooled`, (0, 0) → `not_evaluable`. (v0.3.5) `not_evaluable`은 노출·작용 값과 무관하게 먼저 정해진다.
+11. (v0.3.5) 노출 정의가 선택 집합을 따른다: 정답 아래 끝만 PP-c 창에 드는 fixture에서 `pp_set_id` = `S3`이면 노출 0·`pp_c_window_positions` 1이고, `S4`이면 노출 1이다. 중심이 $y_\text{bot}$ 아래(a), $y_\text{bot}$ 걸침(b), $y_z + 0.5P_\text{line}$ 위(d)인 정답은 S3에서 각각 노출 1이고 `pp_exposed_by_rule`이 맞다. `pp_set_id`·`PPConfig` 해시가 C0b 값과 다르면 종료 2다.
+12. (v0.3.6) `p4_status`와 단언(모두 노출 0인 fixture, 마지막 둘 제외)
+    - 아무 작용 없음 → `no_effect`, `p4_structural_zero` true, `recall_delta` 정확히 0.
+    - G 박스의 짝인 미주입 박스 하나만 `removed_d` → `no_effect`(`pp_acted_ghost_set` 1, `pp_acted_boxes_all` 1, `pp_acted_boxes` 0). 늘어난 유령은 `ghost_pp_artifacts.csv`에 실리고 종료 0이다.
+    - 짝이 아닌 미주입 박스 하나만 `removed_d` → `no_effect`(`pp_acted_boxes_all` 1, `pp_acted_ghost_set` 0, `pp_acted_boxes` 0).
+    - R 안에 `clipped_b`만 있음 → `no_effect`이고 자르기 단언 통과(`pp_acted_clip_recall_set` 1, 덮임 불변).
+    - R 안에 `removed_d` 1개 → `acted_unexposed`, `p4_pp_acted.csv`에 1행.
+    - 정답 덮인 길이가 줄어드는 자르기(정답 아래 끝을 $y_\text{bot}$ 아래로 둔 인공 fixture) → 종료 1.
+    - 짝과 후보 모두 `pp_action` = `none`인데 유령이 늘어난 fixture → 종료 1.
+    - `no_effect` 조건인데 PP 후 R 박스를 일부러 바꾼 fixture → 종료 1.
+    - 노출 > 0 → `evaluated`.
+    - 경계: 두 층 위치 50/50에서 한 위치의 실현-fold 40개를 모두 잃음(덮임 1 → 0) → `recall_delta` = −1.0 %p(−1.25/50 × 40)이고 통과한다. 41개를 잃으면 실패한다.
 
 ## 변경 이력
 
@@ -204,3 +258,5 @@
 | 2026-11-15 | v0.3.2 | 띠 모드 구현 해석 확인. (c′) 띠는 2D로 본다(넓힌 미주입 박스 ±1 P × ±1 $P_\text{line}$가 띠 정답 박스와 겹칠 때만 막음, 가로 전용 부분집합은 `in_horizontal_box_zone`으로 보고). (d)는 구현 해석을 받아들였다(띠 구간 양 끝 기준, K −20 dB 반폭, 자동 후보 −6 dB 반폭 + 1 P). `model_group`은 러너가 붙인다 |
 | 2026-11-15 | v0.3.3 | stats-design 검토에 따른 사용자 결정(C1 전, 측정 전). R1: P5는 구조상 0이라 러너가 `p5_adoption_input == 0`을 단언(어기면 종료 1, `p5_structural_zero`). R3: PP 후 유령 판정은 같은 PP를 적용한 미주입 박스와 짝짓고, PP 후 − PP 전 > 0이면 `ghost_pp_artifacts.csv` 사례 목록. plan 보고에 P4 두 층의 PP 노출 위치 수(검출 무관, C1b 고정, 0이면 `no_effect`). P4 작은 층 처리(한 층이라도 위치 < 30이면 합친 한 층·MDE, 둘 다 0이면 `not_evaluable`). IDS 400 MHz 층 구성과 fold SD 성질 공개. 시험 8–10 추가. 상위 판 번호를 계획 v0.2.5·PP v0.2.3으로 고쳤다 |
 | 2026-11-15 | v0.3.4 | [EMR] D-8(v1.9) 반영(C1 전, 측정 전). §3-1 4: IDS 400 MHz 층 구성 공개 문장을 정정했다(53측선 89–6,665트레이스, 16측선 $W_\text{eff}=N$, 층은 L과 N으로 정해짐, 길이별 층 측선 수). L = 150은 유지(cv 결정, 약한 띠·갈림점 공개, L 136 대안 미채택). PP 노출 기하(사실상 PP-c 창뿐, 약 8–11 %, 노출 0 확률)를 공개했다. 띠 배치 순서를 a0dc987 구현(바닥 우선) 그대로로 명시하고 C3-6 소비를 공개했다. §3-2에 `recall_delta_exposed`(보고 전용)를 넣었다. 시험 3a에 경계 리터럴 0.33과 (L, N) 단언 3건을 넣었다. P4 감도는 사용자 결정 (A) 2026-11-15(공개만, `recall_delta_exposed` 보고 전용, 판정 규칙 불변). C0a 전 무결성 보강: [EMR] 참조를 v1.9.1로 맞췄다 |
+| 2026-11-15 | v0.3.5 | 사용자 결정(2026-11-15, **D0 결과(C0b 0f11c34, S3 = {a, b, d})를 안 뒤·C1 전·R1–R3 측정 전**, [`m33_c0b_d0_judgment.md`](m33_c0b_d0_judgment.md) §9 2). §3-1 4 PP 노출 위치를 C0b 선택 집합의 규칙(S3: a·b·d)이 정답 띠 박스에 작용할 수 있는 위치로 한정했다(옛 정의: 집합과 무관한 PP-c 창 ∪ PP-d ∪ PP-a·b). PP-c 창 위치 수는 보고 전용 `pp_c_window_positions`로 남겼다. 노출 0일 때의 처리를 정했다: 검출 쪽 작용 수 `pp_acted_boxes`를 더해 `p4_status`를 `not_evaluable` → `no_effect`(노출 0·작용 0, 차 구조상 0 단언, 어기면 종료 1, P4는 채택 근거에서 빠짐) → `acted_unexposed`(노출 0·작용 > 0, 판정 규칙 적용·작용 목록) → `evaluated` 순서로 정한다. §3-2 키 추가(`pp_set_id`·`pp_config_sha256`·`pp_exposed_by_rule`·`pp_c_window_positions`·`pp_acted_boxes`·`p4_structural_zero`·`p4_pp_acted.csv`). 시험 10 보강, 11·12 추가. 문턱·범위·층·가중 규칙은 바꾸지 않았다. 상위 판 번호를 [PLAN] v0.2.7로 고쳤다 |
+| 2026-11-15 | v0.3.6 | stats-design-expert 검토(v0.3.5 개정안)와 사용자 결정 3건(2026-11-15, 모두 권고안, **D0 결과(C0b 0f11c34, S3)를 안 뒤·C1 전·R1–R3 측정 전**)과 후속 권고 4건. (1) 작용 집합을 R(재현율 박스)·G(유령 후보)·G′(G의 미주입 짝)로 나누고, 상태 결정용 `pp_acted_boxes`를 R 안 제거(`removed_a`·`removed_b`·`removed_d`)로 한정했다. 빈 통과를 막으려는 취지다. R 안 `clipped_b`는 `pp_acted_clip_recall_set`로 따로 내고 덮임 불변을 단언한다(어기면 종료 1). G·G′는 `pp_acted_ghost_set`, 전체는 `pp_acted_boxes_all`(둘 다 보고 전용)이다. `pp_acted_by_rule`·`pp_acted_lines`를 추가했다. 층은 정답 띠 단위이고 G′는 짝 G의 층을 따른다(짝 단위·중복 뺀 수). (2) `ghost_delta`는 보고 전용이다. 새 유령은 모두 `ghost_pp_artifacts.csv`(후보·짝 `pp_action`)에 싣고, 설명되지 않는 증가는 종료 1이다. P4 판정은 재현율 조건 하나다. (3) 기준은 `recall_delta` ≥ −1.0 %p − 1e-9(동률 통과)다. `no_effect` 단언 문구를 "R에 제거 작용이 없으므로 `recall_delta`는 구조상 0(단언), `ghost_delta`는 보고"로 고쳤다. S3 예상 경로(노출 구조상 0, PP-b 자르기 재현율 불변, 손실은 a·d 제거로만)를 공개했고, PP-b 전제를 확인했다(같은 기록 끝: L0 $n_s$ ↔ L1 $y_\text{bot}=n_s/\sigma_y$, sample_offset 0, 여유 1 $P_\ell$). 개수 모형(−1.25/n %p, 0.8n)과 작은 층 참고 문장(−2 %p 통과 0.1–0.6, MDE80 1.5–7.25 %p [추정], `mde_pp`도 같은 모형)을 고쳤다. 시험 12를 다시 썼다(짝/비짝 미주입 제거, R `clipped_b`, R `removed_d`, 덮임 감소 자르기, 설명 안 되는 유령, −1.0 동률 경계). 상위 판 번호를 [PLAN] v0.2.8로 고쳤다. (같은 판, 이어서) python-expert의 D0 실행기·`m32_recipe_eval.py` 결함 수정(2026-11-15, 미커밋)을 공통 요구로 옮겼다: §1에 끝 시점 트리 재측정(다르면 종료 2), 전체 정밀도(`repr(float)`), 판정 가능성(기대 fold 0–4, `not_judgeable` 종료 1, `judgment` 블록), 텍스트 입력 LF sha 기준(C1 sha 표 포함) 행을 넣고, 남은 위험 4건(`m32_recipe_eval.py` 4자리 반올림·fold 완전성·끝 시점 재측정 없음, `_object_rows` 반올림, LF sha 표)을 C1 구현 항목으로 적었다. 규칙·문턱은 바뀌지 않았다. (이어서) 사용자 결정(2026-11-15, C1 전 D0′)과 integrity 권고: §1에 D0 실행기 blob 두 개(C0a·개정)를 C1 표에 나란히 적는 행을 넣고, "깨끗한 트리" 행을 "`--allow-dirty`는 smoke·진단 전용(판정 불가, `not_judgeable`)"으로 고쳤다. (이어서) D0 실행기 blob 행에 D0′ 봉인 PP 단언(`assert_sealed_pp`)과 `src/` 변경은 D0′ 뒤라는 순서 제약을 적었다 |

@@ -393,6 +393,16 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_file_lf(path: Path) -> str:
+    """Hex sha256 of a text file with CRLF line ends read as LF.
+
+    The value does not depend on the checkout's line ends: a tracked file
+    under ``eol=lf`` gives the sha of its committed content whether the work
+    tree holds it with CRLF or LF. Only for text tables (read whole).
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
 def eval_list_stems(eval_list: Path) -> list[str]:
     """Image stems of an ``eval_images.txt`` list, in list order."""
     lines = eval_list.read_text(encoding="utf-8").splitlines()

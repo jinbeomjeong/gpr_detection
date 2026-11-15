@@ -481,11 +481,11 @@ def test_synthetic_row_carries_the_period_columns(d0, m04_lines):
         row, _ = d0.synthetic_row(0, line, ())
         assert len(row) == len(d0.SYNTHETIC_HEADER)
         assert row[column["period_source"]] == line.period_source
-        assert row[column["period_samples"]] == round(line.period_samples, 4)
-        assert row[column["y_bot_px"]] == round(line.content.y_bot_px, 3)
-        assert row[column["y_bot_minus_apex_over_p_ell"]] == round(
-            line.apex_bottom_periods, 3
-        )
+        # Full precision (verif audit 2026-11-15): no rounding of row values.
+        assert row[column["apex_sample"]] == line.apex_sample
+        assert row[column["period_samples"]] == line.period_samples
+        assert row[column["y_bot_px"]] == line.content.y_bot_px
+        assert row[column["y_bot_minus_apex_over_p_ell"]] == line.apex_bottom_periods
 
 
 @pytest.mark.data
@@ -708,3 +708,442 @@ def test_removing_the_only_hit_shows_as_a_g1_loss(d0):
     assert selection.s1_failed and selection.pp_set_id is None
     # No band GT also leaves G2 undefined, so S1 is a defect, not "no effect".
     assert selection.stop_reason == "s1_defect"
+
+
+# ---------------------------------------- full-precision csv (audit 1)
+
+JUST_ABOVE_CONF = float(np.nextafter(np.float32(0.25), np.float32(1.0)))
+"""The float32 score right above 0.25; four digits wrote it as 0.25."""
+
+
+def test_prediction_csv_keeps_scores_and_coordinates_exact(d0, tmp_path):
+    box = PixelBox(10.123456789, 40.000001, 60.5, 80.333333333)
+    _, rows = _fold_with(d0, [(0, JUST_ABOVE_CONF, box)])
+    path = tmp_path / "predictions.csv"
+    d0.common.write_csv(path, d0.PREDICTIONS_HEADER, rows)
+    written = _read_rows(path)
+    assert [row["condition"] for row in written] == list(d0.CROP_CONDITIONS)
+    for row in written:
+        assert float(row["score"]) == JUST_ABOVE_CONF
+        assert float(row["score"]) > d0.CONF_RECALL  # recountable from the csv
+        assert [float(row[key]) for key in ("x1", "y1", "x2", "y2")] == list(box.xyxy)
+
+
+@pytest.mark.data
+def test_synthetic_box_csv_keeps_scores_and_coordinates_exact(d0, m04_lines, tmp_path):
+    from dataclasses import replace
+
+    from gpr_detection.pipeline import apply_pp
+
+    line = m04_lines[0]
+    merged = tuple(
+        replace(box, score=JUST_ABOVE_CONF) for box in _rule_fixture_boxes(line)
+    )
+    path = tmp_path / "synthetic_boxes.csv"
+    rows = d0.synthetic_box_rows(0, line, merged)
+    d0.common.write_csv(path, d0.SYNTHETIC_BOXES_HEADER, rows)
+    written = _read_rows(path)
+    s1 = apply_pp(merged, line.content, PP_SETS[PPSetId.S1])
+    for box, row, outcome in zip(merged, written, s1, strict=True):
+        assert float(row["score"]) == box.score == JUST_ABOVE_CONF
+        coordinates = [float(row[key]) for key in ("x1", "y1", "x2", "y2")]
+        assert coordinates == list(box.box.xyxy)
+        if outcome.output is not None:
+            assert float(row["y2_after_S1"]) == outcome.output.box.y2
+
+
+# ------------------------------------- judgment scope (audit 2, 3, 4, 5)
+
+
+def test_only_folds_0_to_4_with_every_crop_and_model_are_a_full_run(d0):
+    models = d0.SYNTHETIC_MODELS
+    assert d0.run_scope_blockers([4, 3, 2, 1, 0], models, None, smoke=False) == []
+    assert d0.run_scope_blockers([0, 1, 2, 3], models, None, smoke=False) == [
+        "partial_folds"
+    ]
+    assert d0.run_scope_blockers(range(5), models, 100_000, smoke=False) == [
+        "crop_limit"
+    ]
+    assert d0.run_scope_blockers(range(5), models[:19], None, smoke=False) == [
+        "partial_models"
+    ]
+    assert d0.run_scope_blockers([0], models[:2], 8, smoke=True) == [
+        "smoke",
+        "partial_folds",
+        "crop_limit",
+        "partial_models",
+    ]
+
+
+@pytest.mark.parametrize("text", ["0,0,1,2,3", "0,1,2,3,5", "0;1", ""])
+def test_fold_argument_refuses_repeated_and_unknown_folds(d0, text):
+    with pytest.raises(d0.common.InputError):
+        d0.parse_folds(text)
+
+
+def test_fold_argument_keeps_the_given_order(d0):
+    assert d0.parse_folds("4,0,1,2,3") == (4, 0, 1, 2, 3)
+
+
+def test_final_status_is_never_ok_for_a_partial_or_changed_run(d0):
+    for reason in (None, "gate_failed", "s1_defect", "s1_no_effect"):
+        assert d0.final_status(reason, ["partial_folds"], []) == "not_judgeable"
+        assert d0.final_status(reason, [], ["head"]) == "input_error"
+        assert d0.final_status(reason, ["smoke"], ["code_blobs"]) == "input_error"
+        assert d0.final_status(reason, [], []) == d0.run_status(reason)
+    assert d0.EXIT_CODES["not_judgeable"] == 1
+    assert d0.EXIT_CODES["input_error"] == 2
+
+
+C0A_SRC_TREE_ID = "164f09909ad51c1a8d26545cadb0417b1da3acc6"
+C0A_PIPELINE_BLOB = "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1"
+"""``git rev-parse 53c4e16:src`` and ``53c4e16:src/gpr_detection/pipeline.py``."""
+
+
+def _tree(**changes):
+    """A ``tree_state`` snapshot whose PP code is the C0a one."""
+    state = {
+        "head": "a" * 40,
+        "dirty": False,
+        "problems": [],
+        "code_blobs": {
+            "analysis/detection/m33_d0_gate.py": "1" * 40,
+            "src/gpr_detection/pipeline.py": C0A_PIPELINE_BLOB,
+        },
+        "src_tree_id": C0A_SRC_TREE_ID,
+    }
+    return state | changes
+
+
+def test_tree_changes_name_every_field_that_moved(d0):
+    start = _tree()
+    assert d0.tree_changes(start, _tree()) == []
+    assert d0.tree_changes(start, _tree(head="c" * 40)) == ["head"]
+    dirty = _tree(dirty=True, problems=["modified:  M docs/a.md"])
+    assert d0.tree_changes(start, dirty) == ["dirty", "problems"]
+    edited = _tree(code_blobs={"analysis/detection/m33_d0_gate.py": "2" * 40})
+    assert d0.tree_changes(start, edited) == ["code_blobs"]
+    unknown = _tree(head=None)
+    assert d0.tree_changes(unknown, unknown) == ["head"]  # never "unchanged"
+
+
+def test_judgment_blocks_a_dirty_start_and_a_changed_tree(d0):
+    folds = list(d0.EXPECTED_FOLDS)
+    clean = d0.judgment_record(folds, [], _tree(), _tree())
+    assert clean["judgeable"] and clean["tree_stable"] and clean["blockers"] == []
+    dirty_tree = _tree(dirty=True, problems=["modified:  M docs/a.md"])
+    dirty = d0.judgment_record(folds, [], dirty_tree, dirty_tree)
+    assert dirty["blockers"] == ["dirty_tree"] and dirty["tree_stable"]
+    assert not dirty["judgeable"]
+    moved = d0.judgment_record(folds, [], _tree(), _tree(head="c" * 40))
+    assert moved["tree_changes"] == ["head"] and not moved["judgeable"]
+    assert moved["expected_folds"] == folds
+
+
+def test_tree_state_reads_head_blobs_and_problems(d0):
+    state = d0.tree_state()
+    assert tuple(state) == d0.TREE_KEYS
+    assert re.fullmatch(r"[0-9a-f]{40}", state["head"])
+    assert "analysis/detection/m33_d0_gate.py" in state["code_blobs"]
+    assert state["dirty"] == bool(state["problems"])
+
+
+def _patch_run(d0, monkeypatch, trees, documents):
+    """Replace inputs, inference and writing; ``trees`` are start and end."""
+    states = iter(trees)
+    monkeypatch.setattr(d0, "tree_state", lambda: next(states))
+
+    def load_inputs(args, guard):
+        n_models = args.synthetic_limit or len(d0.SYNTHETIC_MODELS)
+        return d0.RunInputs(
+            manifest=[],
+            pad_heights=np.zeros(1),
+            models=d0.SYNTHETIC_MODELS[:n_models],
+            folds=d0.parse_folds(args.folds),
+        )
+
+    def run_fold(args, inputs, fold, guard, lines, started):
+        output, _ = _fold_with(d0, [(0, 0.9, PixelBox(10, 40, 60, 80))])
+        return output
+
+    monkeypatch.setattr(d0, "_load_inputs", load_inputs)
+    monkeypatch.setattr(d0, "_new_run_identity", lambda *args: {})
+    monkeypatch.setattr(d0, "_check_fixed_inputs", lambda *args: None)
+    monkeypatch.setattr(d0, "synthetic_lines", lambda model, guard: [])
+
+    def write_outputs(out_root, folds, document):
+        documents.append(document)
+
+    monkeypatch.setattr(d0, "_run_fold", run_fold)
+    monkeypatch.setattr(d0, "_write_outputs", write_outputs)
+
+
+def _run_main(d0, capsys, tmp_path, *extra):
+    argv = ["--out-root", str(tmp_path / "out"), "--device", "cpu", *extra]
+    exit_code = d0.main(argv)
+    final = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    return exit_code, final
+
+
+def test_a_full_run_on_a_stable_tree_is_judged(d0, monkeypatch, capsys, tmp_path):
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree()], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path)
+    (document,) = documents
+    assert document["judgment"]["judgeable"] and document["settings"]["full_run"]
+    assert document["judgment"]["folds_run"] == list(d0.EXPECTED_FOLDS)
+    assert document["run_identity"]["sealed_pp_assertion"]["result"] == "pass"
+    assert document["selection"]["judgeable"]
+    expected = d0.run_status(document["selection"]["stop_reason"])
+    assert final["status"] == document["status"] == expected
+    assert exit_code == d0.EXIT_CODES[expected]
+
+
+@pytest.mark.parametrize(
+    ("extra", "blockers"),
+    [
+        (["--folds", "0,1"], ["partial_folds"]),
+        (["--folds", "0,1,2,3,4", "--limit", "5"], ["crop_limit"]),
+        (
+            ["--smoke"],
+            ["smoke", "partial_folds", "crop_limit", "partial_models"],
+        ),
+    ],
+)
+def test_a_partial_run_is_not_judgeable_and_exits_1(
+    d0, monkeypatch, capsys, tmp_path, extra, blockers
+):
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree()], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path, *extra)
+    (document,) = documents
+    assert final["status"] == document["status"] == "not_judgeable"
+    assert exit_code == 1
+    assert document["judgment"]["blockers"] == blockers
+    assert not document["judgment"]["judgeable"]
+    assert not document["selection"]["judgeable"]
+    assert not document["settings"]["full_run"]
+
+
+def test_a_tree_change_during_the_run_is_an_input_error(
+    d0, monkeypatch, capsys, tmp_path
+):
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree(head="c" * 40)], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path)
+    (document,) = documents
+    assert final["status"] == document["status"] == "input_error"
+    assert exit_code == 2
+    assert document["judgment"]["tree_changes"] == ["head"]
+    assert document["run_identity"]["tree_end"]["head"] == "c" * 40
+    assert not METRIC_WORDS.search(json.dumps(final))
+
+
+def test_repeated_folds_are_refused_before_any_fold_runs(
+    d0, monkeypatch, capsys, tmp_path
+):
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree()], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path, "--folds", "0,0,1,2,3")
+    assert (exit_code, final["status"]) == (2, "input_error")
+    assert documents == []
+
+
+def test_run_identity_has_lf_shas_and_no_g1_field(d0, monkeypatch, tmp_path):
+    """Audit 4 and 5: LF sha beside the raw sha; no empty M3-1 G1 field."""
+    crlf = tmp_path / "table.csv"
+    crlf.write_bytes(b"a,b\r\n1,2\r\n")
+    lf = tmp_path / "table_lf.csv"
+    lf.write_bytes(b"a,b\n1,2\n")
+    monkeypatch.setattr(d0, "TEXT_INPUTS", {"pad_heights": crlf})
+    monkeypatch.setattr(d0, "synthetic_sha256", lambda models, guard: {})
+    monkeypatch.setattr(d0.common, "gpu_name", lambda device: "cpu")
+    args = d0._parse_args(["--device", "cpu"])
+    inputs = d0.RunInputs([], np.zeros(1), (), d0.EXPECTED_FOLDS)
+    identity = d0._new_run_identity(args, inputs, d0.InputGuard(), _tree())
+    assert "g1_inputs_sha256" not in identity
+    raw = identity["inputs_sha256"]["pad_heights"]
+    assert raw == d0.common.sha256_file(crlf) != d0.common.sha256_file(lf)
+    assert identity["inputs_sha256_lf"]["pad_heights"] == d0.common.sha256_file(lf)
+    assert identity["code_blobs"] == _tree()["code_blobs"]
+
+
+# --------------------------------------- sealed PP for D0' ([PP] v0.2.4 A-1)
+
+C0B_PP_SET_PREFIXES = {
+    "S0": "fc9f0c8eab77",
+    "S1": "78de0a20390e",
+    "S2": "184c07e44c0c",
+    "S3": "eb2796ddfaa9",
+    "S4": "af29b47126e7",
+    "S5": "b87bbc145e78",
+}
+"""Prefixes of the C0b ``d0_gate.json`` ``pp_sets`` hashes (0f11c34)."""
+
+
+def test_sealed_constants_are_the_c0b_and_c0a_values(d0):
+    for key, prefix in C0B_PP_SET_PREFIXES.items():
+        assert d0.C0B_PP_SET_SHA256[PPSetId(key)].startswith(prefix)
+    assert d0.C0B_SELECTED_SET is PPSetId.S3
+    assert d0.C0B_PP_SET_SHA256[PPSetId.S3] == (
+        "eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f"
+    )
+    assert d0.C0B_PP_SETS_SHA256.startswith("1f2b0cf2")
+    assert (d0.C0A_SRC_TREE_ID, d0.C0A_PIPELINE_BLOB) == (
+        C0A_SRC_TREE_ID,
+        C0A_PIPELINE_BLOB,
+    )
+
+
+def test_sealed_constants_match_the_c0a_commit(d0):
+    import subprocess
+
+    def rev_parse(spec: str) -> str:
+        completed = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", spec],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+        if completed.returncode != 0:
+            pytest.skip("commit 53c4e16 not in this clone")
+        return completed.stdout.strip()
+
+    assert rev_parse("53c4e16:src") == d0.C0A_SRC_TREE_ID
+    assert rev_parse(f"53c4e16:{d0.PIPELINE_PATH}") == d0.C0A_PIPELINE_BLOB
+
+
+def test_sealed_pp_passes_on_the_c0a_tree(d0):
+    record = d0.assert_sealed_pp(_tree())
+    assert record["result"] == "pass" and all(record["checks"].values())
+    assert set(record["checks"]) == {
+        "pp_set_sha256",
+        "pp_sets_sha256",
+        "src_tree_id",
+        "pipeline_blob",
+        "selected_set_sha256",
+    }
+    assert record["expected"]["selected_set"] == "S3"
+    assert record["measured"]["pp_set_sha256"]["S3"] == PP_SETS[PPSetId.S3].sha256()
+
+
+@pytest.mark.parametrize(
+    ("tree", "failed"),
+    [
+        (_tree(src_tree_id="0" * 40), "src_tree_id"),
+        (
+            _tree(code_blobs={"src/gpr_detection/pipeline.py": "0" * 40}),
+            "pipeline_blob",
+        ),
+        (_tree(code_blobs={}), "pipeline_blob"),
+    ],
+)
+def test_sealed_pp_refuses_other_pp_code(d0, tree, failed):
+    with pytest.raises(d0.common.InputError, match=failed):
+        d0.assert_sealed_pp(tree)
+
+
+def test_sealed_pp_refuses_another_pp_config(d0, monkeypatch):
+    changed = dict(d0.PP_SETS)
+    changed[PPSetId.S3] = d0.PP_SETS[PPSetId.S2]
+    monkeypatch.setattr(d0, "PP_SETS", changed)
+    with pytest.raises(d0.common.InputError) as raised:
+        d0.assert_sealed_pp(_tree())
+    assert "pp_set_sha256" in str(raised.value)
+    assert "selected_set_sha256" in str(raised.value)
+
+
+def test_other_pp_code_stops_the_run_before_any_fold(d0, monkeypatch, capsys, tmp_path):
+    documents: list[dict] = []
+    other_src = _tree(src_tree_id="0" * 40)
+    _patch_run(d0, monkeypatch, [other_src, other_src], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path)
+    assert (exit_code, final["status"]) == (2, "input_error")
+    assert documents == []
+
+
+IS_WINDOWS = sys.platform == "win32"
+
+
+def test_the_c0b_folder_is_the_default_and_matches_any_spelling(d0, monkeypatch):
+    c0b = PROJECT_ROOT / "runs" / "eval" / "m33_d0"
+    assert d0.C0B_OUT_ROOT == d0.DEFAULT_OUT_ROOT == c0b
+    assert d0.is_c0b_out_root(d0._parse_args([]).out_root)  # --out-root left out
+    monkeypatch.chdir(PROJECT_ROOT)
+    assert d0.is_c0b_out_root(Path("runs/eval/m33_d0"))
+    assert d0.is_c0b_out_root(Path("runs/eval/m33_d0r/../m33_d0"))
+    assert d0.is_c0b_out_root(c0b)
+    if IS_WINDOWS:
+        assert d0.is_c0b_out_root(Path("RUNS/Eval/M33_D0"))
+        assert d0.is_c0b_out_root(Path(str(c0b).upper()))
+    assert not d0.is_c0b_out_root(Path("runs/eval/m33_d0r"))
+    assert not d0.is_c0b_out_root(Path("runs/eval/m33_d0_smoke"))
+
+
+def _c0b_spellings() -> list[str]:
+    spellings = ["absolute", "relative", "dotdot"]
+    return [*spellings, "upper_absolute", "upper_relative"] if IS_WINDOWS else spellings
+
+
+def _spell(sealed: Path, base: Path, spelling: str) -> str:
+    """``sealed`` written as ``spelling``; relative ones are relative to ``base``."""
+    relative = sealed.relative_to(base).as_posix()
+    return {
+        "absolute": str(sealed),
+        "relative": relative,
+        "dotdot": f"{relative}r/../{sealed.name}",
+        "upper_absolute": str(sealed).upper(),
+        "upper_relative": relative.upper(),
+    }[spelling]
+
+
+@pytest.mark.parametrize("spelling", _c0b_spellings())
+def test_overwrite_never_deletes_the_c0b_folder(
+    d0, monkeypatch, capsys, tmp_path, spelling
+):
+    """User decision 2026-11-15: --overwrite does not apply to the C0b folder.
+
+    A stand-in C0b folder under ``tmp_path`` replaces the real one, and
+    ``rmtree`` fails loudly, so the real results are never at risk.
+    """
+    sealed = tmp_path / "runs" / "eval" / "m33_d0"
+    sealed.mkdir(parents=True)
+    (sealed / "d0_gate.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(d0, "C0B_OUT_ROOT", sealed)
+    monkeypatch.setattr(d0.shutil, "rmtree", lambda path: pytest.fail(f"rmtree {path}"))
+    monkeypatch.chdir(tmp_path)
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree()], documents)
+    out_root = _spell(sealed, tmp_path, spelling)
+    exit_code = d0.main(["--out-root", out_root, "--overwrite", "--device", "cpu"])
+    final = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert (exit_code, final["status"]) == (2, "input_error")
+    assert documents == []
+    assert (sealed / "d0_gate.json").read_text(encoding="utf-8") == "{}"
+
+
+def test_overwrite_still_replaces_another_folder(d0, monkeypatch, capsys, tmp_path):
+    existing = tmp_path / "out"
+    existing.mkdir()
+    (existing / "old.csv").write_text("x\n", encoding="utf-8")
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree()], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path, "--overwrite")
+    assert len(documents) == 1
+    assert not (existing / "old.csv").exists()
+    assert final["status"] == documents[0]["status"] != "input_error"
+    assert exit_code == d0.EXIT_CODES[final["status"]]
+
+
+def test_an_existing_output_folder_needs_overwrite(d0, monkeypatch, capsys, tmp_path):
+    """[PP] A-1: the C0b folder can only be replaced on purpose."""
+    existing = tmp_path / "out"
+    existing.mkdir()
+    (existing / "d0_gate.json").write_text("{}", encoding="utf-8")
+    documents: list[dict] = []
+    _patch_run(d0, monkeypatch, [_tree(), _tree()], documents)
+    exit_code, final = _run_main(d0, capsys, tmp_path)
+    assert (exit_code, final["status"]) == (2, "input_error")
+    assert documents == []
+    assert (existing / "d0_gate.json").read_text(encoding="utf-8") == "{}"

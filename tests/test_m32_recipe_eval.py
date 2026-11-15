@@ -748,3 +748,29 @@ def test_p5b_time_counts_injection_once_and_inference_per_recipe_and_fold() -> N
 
     # context 0.4 + inject 20 x 0.5 + L1 3 x 20 x 4 x 0.01 + infer 15 x 40 x 0.002
     assert seconds == pytest.approx(0.4 + 10.0 + 2.4 + 1.2)
+
+
+# ------------------------------------------- full-precision box rows (M3-3)
+
+
+def test_box_rows_keep_scores_and_coordinates_exact() -> None:
+    """M3-3 verif audit 2026-11-15: no rounding of box scores or coordinates.
+
+    The float32 score right above 0.25 must stay above 0.25 when read back.
+    """
+    from types import SimpleNamespace
+
+    from gpr_detection.pipeline import LineBox
+
+    score = float(np.nextafter(np.float32(0.25), np.float32(1.0)))
+    pixel_box = PixelBox(1.23456789, 2.5, 30.0, 199.99999)
+    box = LineBox(0, "pipe_hyperbola", score, pixel_box, 0)
+    line = SimpleNamespace(ref=inputs.LineRef("4tu", "01.9/Path1", "background"))
+    job = SimpleNamespace(recipe="r0", orientation=runner.ORIGINAL)
+    content = match.ContentRange(0.0, 200.0, 4.0, None)
+
+    row = runner.box_row(line, job, 0, (box, None), content)
+
+    assert row["score"] == score > 0.25
+    assert [row[key] for key in ("x1", "y1", "x2", "y2")] == list(box.box.xyxy)
+    assert float(repr(row["score"])) == score  # csv writes repr

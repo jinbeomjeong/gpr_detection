@@ -7,4 +7,5 @@
 - [Band depth pitfalls](band-depth-pitfalls.md) — median bg erases long bands, pseudo-band, oblique 1/sin bias, no parallel truth, pick follows box top, overlapping detector boxes
 - [Selector floor facts](selector-floor-facts.md) — floor 0.05 max(level) zero coupling, 16 no-peak mostly cap300/noise not floor, B_full exact, B_min floods, gprMax dt 0.098 + noise
 - [Detection image scale facts](detection-image-scale-facts.md) — measure P after bg removal (raw +24 %..2.5x), AIHub ~iso depth units, GPR-SD 51-sample conflict, letterbox upscales; M3-2 pilot: AIHub R_h 0.23-0.40 vs 4TU 0.017, AGC flat, pad > trained 128 px; truncated-record period drifts to 3.8x (hold P)
+- [Stand-alone synthetic detection facts](synthetic-standalone-detection-facts.md) — r0 AGC makes stand-alone gprMax arcs edge-to-edge (Y0 3/100), cut-then-r0 gives manhole column FPs, 6 models 0 % even injected, use injection
 - [4TU 평가 기준선·실패 패턴](fourtu-eval-baseline-and-failure-pattern.md) — 기준선 A≈0.95, 얕은 실패 짝 = 남는 얕은 사건+자기 추정 없는 정답, 깊이 묶기 합침, L1 동률 133–148, (a) εr 몫 상한·헤더 기본값 무관

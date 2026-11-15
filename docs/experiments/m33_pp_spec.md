@@ -1,6 +1,6 @@
 # M3-3 X1 — 경계 오검출 후처리(PP) 명세와 개발 게이트 D0
 
-- 상태: **v0.2.3**(2026-11-15, cv-detection-expert). C0a로 커밋하는 판이다. 판별 내용은 변경 이력을 본다. [X2] [`m33_x2_pp_physics_review.md`](../processing/m33_x2_pp_physics_review.md)(gpr-processing 물리 검토)를 반영했다. [PLAN] [`m33_cross_domain_plan.md`](m33_cross_domain_plan.md) v0.2.6 §3을 구체화한다(S0 9b28694는 v0.2.2).
+- 상태: **v0.2.4**(2026-11-15, cv-detection-expert). C0a(53c4e16)로 봉인한 판은 v0.2.3이다. v0.2.4는 C0b 뒤 D0 실행기 정밀도·판정 가능성 개정을 부록 A로 덧붙인 것이고, §1–§5 본문(게이트·문턱·선택)은 v0.2.3 그대로다. D0 재실행 때 적용한다. 판별 내용은 변경 이력을 본다. [X2] [`m33_x2_pp_physics_review.md`](../processing/m33_x2_pp_physics_review.md)(gpr-processing 물리 검토)를 반영했다. [PLAN] [`m33_cross_domain_plan.md`](m33_cross_domain_plan.md) v0.2.6 §3을 구체화한다(S0 9b28694는 v0.2.2, 현재 계획 v0.2.8).
 - 이 문서는 **J1 판정 감사 대상**이다(QA (b)). 봉인 순서는 [PLAN] §4 표다: S0 → **C0a**(이 문서 §6 고정 항목, D0 전) → D0 → **C0b**(D0 결과·선택 집합) → C1 → …
 - 물리 기준($t_z$, $y_\text{bot}$, $P_ell$)은 gpr-processing-expert가 X2로 검토했다. 그 의견을 반영해 v0.2로 올렸고, v0.2.1은 표기 정리다(규칙 불변).
 - 구현은 python-expert가 한다.
@@ -190,6 +190,56 @@ $$S_1=\{a\}\subset S_2=\{a,d\}\subset S_3=\{a,b,d\}\subset S_4=\{a,b,d,c(0.35)\}
    - 순차 선택(§3)은 집합이 포함 순서열이고 지표가 단조라 다중 비교 보정이 필요 없다. 다만 선택된 집합의 D0 값은 "통과해서 고른 값"이라 경계 근처에서 작게 치우칠 수 있다.
    - 경계 부호가 다르다. 정답 무시 판정은 중심 ≥ $y_\text{bot}$(§4-3)이고, PP-a와 `m4_category`는 $y_m > y_\text{bot}$(§2)이다. 중심이 정확히 $y_\text{bot}$인 예측만 차이가 나며, 그 예측은 무시 정답과 겹쳐 PP 전에 버려지는 경우가 대부분이라 영향은 거의 없다. PP-a를 M3-2 `m4_category`와 같게 두기 위해 통일하지 않고 공개한다.
 
+## 부록 A. C0b 뒤 D0 실행기 개정 (v0.2.4, 게이트 규칙 불변)
+
+- **성격**: C0b(0f11c34) 뒤, C1 전에 python-expert가 D0 실행기(`analysis/detection/m33_d0_gate.py`, 함께 쓰는 `m31_d1_common.py`)의 기록 정밀도와 판정 가능성 결함을 고쳤다(2026-11-15). §1–§4의 정의·조건·게이트 지표·문턱·선택 규칙과 `PPConfig`, PP 구현(`src/gpr_detection/pipeline.py`)은 바뀌지 않았다. §6이 말하는 "규칙·문턱 변경"이 아니므로 C0a를 새로 만들지 않는다. 바뀐 것은 §4-5 출력 형식(status·종료 코드·json 키)과 기록 방식뿐이다.
+  - **§6 고정 목록의 해석**: §6의 "출력 형식"과 "D0 실행기와 `pp` 구현의 코드 blob"은 **C0a 시점 값**(53c4e16)을 가리킨다. C0b의 D0 결과는 그 값으로 만든 것이다. D0 재실행(D0′, 아래)에는 개정 실행기 blob과 이 부록의 개정 출력 형식을 쓴다. `pp` 구현 blob(`pipeline.py`)과 `PPConfig` 해시는 두 실행에서 같아야 한다(D0′가 단언).
+- **적용 범위**: 이 부록은 **D0를 다시 돌릴 때부터** 적용한다. C0b에 봉인된 D0 결과(`runs/eval/m33_d0/`, C0a 53c4e16 실행기 출력)는 바꾸기 전 코드의 출력이다. 선택(S3)과 C0b 판정서는 고치지 않는다.
+  - **"판정·선택 불변"은 아직 재실행으로 확인된 값이 아니다.** C0b 판정서 주 1의 불변은 4자리 기록값의 재집계와 실행기 값의 비교에서 나온 추론이다. 사용자 결정(2026-11-15)에 따라 C1 전에 D0′로 확인한다.
+- **바뀐 것**(§4-5 보충)
+  1. **전체 정밀도**: `predictions.csv`·`synthetic_boxes.csv`·`synthetic_apex.csv` 등의 점수·좌표, 합성 행의 `apex_sample`·`period_samples`·`zero_px`·`y_bot_px` 등을 반올림하지 않고 `repr(float)`로 쓴다. 이전에는 점수가 소수 4자리였고, 재집계에서 conf > 0.25 경계 박스 1개의 판정이 뒤집혔다(C0b 판정서 주 1. 판정·선택 불변은 추론이며 D0′로 확인한다, A-1).
+  2. **판정 가능성**: 기대 fold는 `EXPECTED_FOLDS` = 0–4다. 중복이거나 범위 밖인 fold는 종료 2로 거부한다. smoke·일부 fold·crop 수 제한·일부 모델·시작 시 dirty 가운데 하나라도 해당하면 `status` = `not_judgeable`, 종료 1이다. `d0_gate.json`에 `judgment` 블록(`judgeable`, `blockers`, `expected_folds`, `folds_run`, `tree_stable`, `tree_changes`), `selection.judgeable`, `settings.expected_folds`를 넣는다.
+  3. **끝 시점 트리 재측정**: git HEAD·`dirty`·코드 blob·src tree id를 시작할 때와 결과를 쓰기 직전에 잰다. 다르면 `input_error`, 종료 2다. `run_identity.tree_end`·`tree_problems`에 남긴다.
+  4. **텍스트 입력 LF sha**: `run_identity.inputs_sha256_lf`에 텍스트 입력의 LF 정규화 sha를 원시 sha와 함께 적는다. 예: 채움 표는 원시 `65fb6bf4…`, LF `c11bbd37…`.
+  5. `run_identity`에서 `g1_inputs_sha256`를 뺐다.
+- **§4-5 status·종료 코드의 보충**: 마지막 줄 `status`에 `not_judgeable`을 더한다. 종료 코드 1은 $S_1$ 실패(`s1_defect`·`s1_no_effect`)와 `not_judgeable`, 종료 2는 입력 거부(금지 경로, sha 불일치, dirty, fold 인자 오류, 끝 시점 트리 변경)다.
+- 같은 요구를 R1–R3 러너 공통 요구로 옮겼다([RUN] [`m33_runner_spec.md`](m33_runner_spec.md) v0.3.6 §1).
+
+### A-1. D0 재실행 D0′ (사용자 결정 2026-11-15, C1 전, 결과 전에 정의)
+
+- **순서**: 개정 실행기 커밋 → verif-protocol-auditor 실행 전 감사(`log_errors.py`·`placeholder_scan.py` 종료 0 포함) → **D0′ 실행** → **대조** → C1([PLAN] §4 표).
+- **실행 조건**
+  - 개정 실행기를 커밋한 뒤 깨끗한 트리에서 돌린다.
+  - **확정 명령**(저장소 루트에서, 다른 인자 없음): `conda run -n gpr-dev python -I -B analysis/detection/m33_d0_gate.py --out-root runs/eval/m33_d0r`
+  - 기본 경로(`runs/eval/m33_d0`)는 C0b 결과라 덮어쓰지 않는다. 실행기는 출력 폴더가 있으면 `--overwrite` 없이 거부하므로, 실수로 기본 경로를 쓰면 종료 2로 멈춘다. `--overwrite`·`--smoke`·`--limit`·`--synthetic-limit`·`--folds`·`--allow-dirty`는 쓰지 않는다.
+  - **C0b 폴더 보호**: `--out-root`가 C0b 결과 폴더 `runs/eval/m33_d0`(기본값, 생략 포함)로 해석되면 실행기는 `--overwrite`가 있어도 `input_error`·종료 2로 멈춘다(`C0B_OUT_ROOT`·`is_c0b_out_root`, 경로 resolve·대소문자 무시 비교, git 측정·추론 전). 다른 폴더의 `--overwrite`는 기존처럼 동작하나 D0′에서는 쓰지 않는다(사용자 결정 2026-11-15).
+  - `judgment.judgeable` = true여야 한다. `not_judgeable`·`input_error`·`error`이면 대조하지 않고 원인을 고친 뒤 다시 돌린다(결과값은 보지 않는다).
+  - **봉인 PP 단언**(실행기 모듈 상수로 구현, 인자 아님): `assert_sealed_pp`를 시작 트리 측정 직후, 입력을 읽거나 추론하기 전에 부른다. 하나라도 다르면 `input_error`, 종료 2다. 통과하면 `run_identity.sealed_pp_assertion`(`checks`, `expected`, `measured`, `result`)에 남긴다. 단언 상수는 다음과 같다.
+    - `C0B_PP_SET_SHA256`: S0–S5 집합별 `PPConfig.sha256()`(C0b `d0_gate.json`, S3 = `eb2796dd…`).
+    - `C0B_PP_SETS_SHA256` = `1f2b0cf2…`(집합 전체).
+    - `C0B_SELECTED_SET` = S3.
+    - `C0A_SRC_TREE_ID` = `164f0990…`(src tree id).
+    - `C0A_PIPELINE_BLOB` = `dd5e7bcb…`(`src/gpr_detection/pipeline.py` blob).
+  - **순서 제약**: D0′는 `src/`를 바꾸기 전에 돌린다. `src/`가 바뀌면 src tree id 단언에 걸려 실행기가 종료 2로 멈춘다. D0′와 C1 사이에 `src/`를 바꾸는 작업(R 러너 구현 등)이 있으면 D0′를 먼저 끝낸다.
+- **대조 항목**(D0′ `d0_gate.json` ↔ C0b `runs/eval/m33_d0/d0_gate.json`, sha는 C0b 기록값으로 먼저 단언)
+  1. 선택 `pp_set_id`(= S3)와 `selection.stop_reason`.
+  2. 평가된 집합마다 G1–G4 게이트별 통과·실패와 어느 집합까지 평가했는지.
+  3. C0b 주 1의 경계 박스(fold 1 A3 `pipe_band`, crop `NM_20221102(142627)_N00_B10_g1.0_x(10892-11148)`): D0′ `predictions.csv`의 전체 정밀도 점수가 0.25보다 큰지, 범주가 d인지, $S_2$부터 `removed_d`인지.
+  4. 수치: G3의 $H(S_0)$·$H(S_j)$·노출 수, G4 증분·누적·규칙별 수, G1·G2 조건·fold별 잃은 정답 수·덮임 감소 길이.
+- **불일치 판정(결과 전 고정)**
+  - (사용자 결정 2026-11-15, D0′ 실행 전. 아래 허용 폭이 엄격한 초안을 대신한다.)
+  - 1 또는 2가 하나라도 다르면 허용 폭과 상관없이 **불일치**다. C1로 넘어가지 않고 사용자에게 보고한다.
+  - 3은 **확인해서 기록만** 한다(점수, 범주, 집합별 `pp_action`). 불일치 사유가 아니다. 넓은 허용 폭이 박스 몇 개의 변화를 이미 흡수하기 때문이다.
+  - 4는 **같은 집합·조건 칸**끼리 비교한다. G1·G2는 `d0_gate.json`에 기록된 조건·fold별 칸이다. 허용 폭은 다음과 같다.
+    - G1: 잃은 정답 수 차이 ≤ 1개.
+    - G2: 덮임 손실 차이 ≤ ±0.2 %p.
+    - G4: 증분·누적·규칙별 수 각각 차이 ≤ max(5 %, 5개). 5 %는 C0b 값 기준이다.
+    - G3: $H(S_0)$·$H(S_j)$·노출 수 차이 ≤ 1.
+    - 폭 안의 차이는 모두 목록(집합, 조건, fold, 항목, C0b 값, D0′ 값)과 추정 원인(경계 박스, GPU 비결정성 등)을 적어 공개한다.
+    - 폭을 넘는 차이가 하나라도 있으면 **불일치**다. C1로 넘어가지 않고 사용자에게 보고한다.
+  - 1·2가 같고 4가 모두 폭 안이면 "D0′가 C0b 선택(S3)을 확인했다"로 기록한다. 이때도 C0b 결과와 판정서는 그대로 두고, D0′ `d0_gate.json` sha와 대조 결과를 C1 커밋에 적는다.
+- **C1 sha 표**: D0 실행기 blob 두 개를 나란히 적는다. C0a 실행기 blob(53c4e16, C0b 결과의 출처)과 개정 실행기 blob(D0′의 출처, 개정 커밋)이다. `m31_d1_common.py`도 같은 방식으로 두 blob을 적는다.
+
 ## 변경 이력
 
 | 날짜 | 판 | 내용 |
@@ -200,3 +250,4 @@ $$S_1=\{a\}\subset S_2=\{a,d\}\subset S_3=\{a,b,d\}\subset S_4=\{a,b,d,c(0.35)\}
 | 2026-11-15 | v0.2.2 | C0a 전 구현 해석 확정(규칙·문턱 불변). §4-7 신설: 무시 박스는 PP 전 1회 제거, G4는 AIHub conf > 0.25·Y0 conf 0.25 병합 박스 전부, G1·G2는 15칸 중 하나라도 값이 없으면 실패, G3는 정확히 0, 추론 문턱·배치. §4-1에 `m31_d1_r4_verdict.json`·`m33_d0_gate.py`·`m33_assert_no_aihub_test.py`를 넣었고 `m32_recipe_match.py`는 import하지 않음(시험 비교만)을 적었다. §2 범주는 "같은 함수"를 "같은 정의(시험 2)"로 고쳤다. §5 시험 1을 가짜 검출기 11측선(1a)·HEAD↔작업 트리 11측선(1b)으로 바꿨다(저장된 M3-2 결과는 열지 않음). gpr-processing 검토 반영: A3 $y_z$ = 행 $j$(항등 격자) 명시, A2 무시 판정을 +8 옮긴 뒤 자르기 전 중심으로(구현 결함 수정, A1↔A2 불변), Y1 주기를 Y0 r0 `period_samples`로 고정(고정안 채택, 짧은 기록 재측정은 최대 3.8배 어긋남)하고 진단 열을 추가했다. §6에 Y1 주기 고정·A2 무시 순서를 넣었다 |
 | 2026-11-15 | v0.2.3 | stats-design 검토에 따른 사용자 결정(결과 전, 문턱 값 불변). G1·G2를 총손실로 바꿨다(S_0에서 맞고 S_j에서 놓친 정답 수 / 정답 수, 띠는 정답별 덮임 감소분 합 / 길이 합, 이득은 빼지 않고 따로 보고. 근거: PP-b가 정답도 잘라 IoU를 올릴 수 있음). G4를 증분(S_j − S_{j−1} 처리 수)으로 바꿨다. G3는 H(S_0) ≥ 1일 때만 정의되고 H(S_0)와 노출 수를 함께 낸다. S_1 실패를 `s1_defect`(G1–G3)와 `s1_no_effect`(G4만)로 나눴다(종료 1 공통, `stop_reason`·`status`로 구분). §7 5에 게이트의 통계적 성질(G1 개수 규칙, G2 fold 3 띠 1개 0.32 %p, 분산비 1.21·2.24, G3 상한 16 %·PP-d 검정력 0, 순차 선택의 선택 편향, 경계 부호 ≥/> 차이 — 통일하지 않고 공개)을 넣었다 |
 | 2026-11-15 | v0.2.3 (C0a 전 무결성 보강) | 규칙·문턱 불변. §4-3 A2 내용 범위를 $y_\text{bot}$ = 256 − max($h_\text{pad}$ − 8, 0)으로 바로잡았다(코드·A1↔A2 불변성과 같은 식). §4-5 출력: `predictions.csv`는 crop 전용으로 적고, 합성 Y0·Y1 병합 박스는 새 `fold<k>/synthetic_boxes.csv`(L1·L0 좌표, 집합별 `pp_action`)에 쓰게 했다(재감사·재현용). §4-7 2: 규칙별 처리 수 `by_rule`을 누적과 같은 범위(A1·A3·Y0)로 세고 합 일치를 단언, 게이트 밖 조건(A0·A2·Y1)의 규칙별 수는 보고. 상태 줄의 판 이력 반복을 줄였다 |
+| 2026-11-15 | v0.2.4 | **C0b(0f11c34) 뒤·C1 전·R1–R3 측정 전.** D0 실행기 정밀도·판정 가능성 개정(python-expert 수정, 미커밋)을 부록 A로 남겼다. 전체 정밀도(`repr(float)`), 기대 fold 0–4·`not_judgeable`(종료 1)·`judgment` 블록, 끝 시점 트리 재측정(다르면 종료 2), 텍스트 입력 LF sha(`inputs_sha256_lf`), `g1_inputs_sha256` 제거. **게이트 규칙·문턱·선택·`PPConfig`·PP 구현 불변**이라 §6의 C0a 재작성 대상이 아니다. D0 재실행 때 적용하고, C0b의 기존 D0 결과(53c4e16 실행기 출력)와 선택 S3는 그대로다. §1–§5 본문은 고치지 않았다. (같은 판, 이어서) 사용자 결정(2026-11-15, C1 전에 개정 실행기로 D0를 다시 돌림)과 integrity 권고: 부록 A "성격"에 §6 고정 목록('출력 형식', 코드 blob)은 C0a 시점 값을 가리키고 D0′는 개정 blob·출력 형식을 쓴다는 해석을 적었다. "판정·선택 불변"은 아직 재실행으로 확인된 값이 아님을 적었다. A-1 D0′(순서, `--out-root runs/eval/m33_d0r` 한 인자, judgeable 필수, `PPConfig`·`pipeline.py` 단언, 대조 항목 4, 결과 전 불일치 기준, C1 sha 표에 실행기 blob 두 개)를 신설했다. 상태 줄에 현재 계획 v0.2.8을 적었다. (이어서) **사용자 결정(2026-11-15, D0′ 실행 전)**: A-1 불일치 기준을 엄격한 초안(수치는 같아야 하고, 차이는 점수 0.25 ± 5e-5 경계 박스로만 설명될 때 허용, 주 1 경계 박스 처리가 다르면 불일치)에서 미리 정한 넓은 허용 폭으로 바꿨다. 같은 집합·조건 칸에서 G1 ≤ 1개, G2 ≤ ±0.2 %p, G4 ≤ max(5 %, 5개), G3 ≤ 1이다. 폭 안의 차이는 목록과 추정 원인을 공개한다. 항목 3(주 1 경계 박스)은 기록만 한다. 항목 1·2(선택·`stop_reason`·게이트별 통과·실패·평가 범위)는 그대로 불일치 사유다. (이어서) python-expert의 D0′ 단언 구현(미커밋)을 A-1 실행 조건에 반영했다: 확정 명령(`--out-root runs/eval/m33_d0r` 한 인자), 모듈 상수 단언 `assert_sealed_pp`(`C0B_PP_SET_SHA256`·`C0B_PP_SETS_SHA256`·`C0B_SELECTED_SET`·`C0A_SRC_TREE_ID`·`C0A_PIPELINE_BLOB`, 입력·추론 전, 어기면 종료 2, `run_identity.sealed_pp_assertion`), `src/` 변경 전 실행 제약, `--overwrite`는 문서 금지로만 막는다는 한계 |

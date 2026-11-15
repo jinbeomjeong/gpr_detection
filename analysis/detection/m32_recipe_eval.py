@@ -558,6 +558,15 @@ def _float(value: float, digits: int = 4) -> float:
     return round(float(value), digits)
 
 
+def _exact(value: float) -> float:
+    """A box score or coordinate at full precision (csv writes ``repr``).
+
+    Rounded values cannot be recounted against thresholds such as conf >
+    0.25 or the PP rows (M3-3 verif audit, 2026-11-15).
+    """
+    return float(value)
+
+
 def assemble_stage_files(settings: RunSettings, parts: Sequence[Mapping]) -> None:
     """Concatenate the line parts into ``<stage>/<recipe>/fold<k>/<name>.csv``."""
     for name, columns in STAGE_FILES[settings.stage].items():
@@ -664,11 +673,11 @@ def box_row(
         "orientation": job.orientation,
         "class_id": box.class_id,
         "class_name": box.class_name,
-        "score": _float(box.score, 6),
-        "x1": _float(box.box.x1),
-        "y1": _float(box.box.y1),
-        "x2": _float(box.box.x2),
-        "y2": _float(box.box.y2),
+        "score": _exact(box.score),
+        "x1": _exact(box.box.x1),
+        "y1": _exact(box.box.y1),
+        "x2": _exact(box.box.x2),
+        "y2": _exact(box.box.y2),
         **_grid_fields(grid),
         "n_tiles_seen": box.n_tiles_seen,
         "tile_truncated": box.tile_truncated,
@@ -1428,9 +1437,7 @@ def _match_row(
     base: match.MatchOutcome,
     base_boxes: Sequence[match.ScoredBox],
 ) -> dict:
-    score = (
-        "" if base.box_index is None else _float(base_boxes[base.box_index].score, 6)
-    )
+    score = "" if base.box_index is None else _exact(base_boxes[base.box_index].score)
     level_w = ctx.level_w_db
     height_at_level = truth.height_periods_by_level[level_w]
     return {
