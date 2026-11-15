@@ -54,8 +54,8 @@
 | `analysis/processing/m33_j1_judge.py` | `{C2}` | `{C2}` | 판정 문구·실질 지표 |
 | R2 fold 0 `j1_boxes_post.csv` | – | `{R2_J1_POST_SHA}`(R2 summary `j1_inputs.folds["0"].post_sha256`) | **판정 입력** |
 | R2 fold 0 `j1_boxes_pre.csv` | – | `{R2_J1_PRE_SHA}`(같은 곳의 `pre_sha256`) | 보고 |
-| C0b `PPConfig` 해시 | – | `{C0B}`(C1에서 채움) | PP 집합 정체(판정 단언 대상) |
-| C0b `d0_gate.json` | – | `{C0B_D0_GATE_SHA}`(C1에서 채움, sha256) | PP 집합 선택 근거 |
+| C0b `PPConfig` 해시 | – | `eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f`(C1에서 채움, S3) | PP 집합 정체(판정 단언 대상) |
+| C0b `d0_gate.json` | – | `107d7b53f30667684baf7c2236bdf338c861309531ff17497e2836193bea08c6`(C1에서 채움, sha256) | PP 집합 선택 근거 |
 | `docs/processing/fourtu_lines_v1.csv` | `{C2}` | `{C2}` | 측선 메타 |
 | `docs/datasets/fourtu_duplicate_radargrams.csv` | `{C2}` | `{C2}` | 중복 규칙 |
 | `docs/processing/m29c_qc_constants.json` | `{C2}` | `{C2}` | QC 상수 |
@@ -70,7 +70,7 @@
 ```
 conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
   --boxes runs/eval/m33/r2/fold0/j1_boxes_post.csv --boxes-sha256 {R2_J1_POST_SHA} ^
-  --pp-config-sha256 {C0B} --prefix depth_4tu_j1
+  --pp-config-sha256 eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f --prefix depth_4tu_j1
 ```
 
 `m33_j1_judge.py`는 후보 생성 함수를 부르고 `eval_depth_4tu.main([...])`을 같은 프로세스에서 부른 뒤 문구를 쓴다. `eval_depth_4tu.py`는 고치지 않는다.

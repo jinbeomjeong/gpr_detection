@@ -1,41 +1,41 @@
-# M3-3 C1 봉인 기록 (초안)
+# M3-3 C1 봉인 기록 (C1 실행 전 감사 대기)
 
-- 상태: **초안**(2026-11-16, cv-detection-expert). 아직 봉인하지 않았다. 규칙은 [RUN] [`m33_runner_spec.md`](m33_runner_spec.md) v0.3.6 §1, 순서는 [PLAN] [`m33_cross_domain_plan.md`](m33_cross_domain_plan.md) v0.2.8 §4 C1 행이다.
+- 상태: **C1 실행 전 감사 대기**(2026-11-16, cv-detection-expert). C1 커밋 `826aa41`의 blob을 채웠다. 아직 봉인하지 않았다. 봉인 확정 문구는 verif 실행 전 감사 뒤에 넣는다. 규칙은 [RUN] [`m33_runner_spec.md`](m33_runner_spec.md) v0.3.6 §1, 순서는 [PLAN] [`m33_cross_domain_plan.md`](m33_cross_domain_plan.md) v0.2.8 §4 C1 행이다.
 - **권위 출처는 러너 상수다(러너 단언 행에 한함).** 러너가 단언하는 값은 `analysis/detection/m33_inputs.py`(와 `m32_recipe_inputs.py`·`m32_aihub_perturb.py`)의 상수다. 이 문서의 표는 그 사본이다. §2의 "간접 고정"·"기록 전용" 행에는 러너 상수가 없으므로 이 문장이 해당하지 않는다. 그 행의 값은 이 문서가 기록이다. C1 실행 전 감사에서 verif-protocol-auditor가 상수와 이 표가 같은지 대조한다.
 - 텍스트 입력은 **LF sha가 단언 기준**이고 원시 sha를 함께 적는다([RUN] §1 텍스트 입력 sha). 바이너리는 원시 sha다.
-- 아래 값은 2026-11-16 작업 트리(HEAD `995665f`)에서 scratchpad 스크립트로 직접 잰 것이다(읽기 전용, 판정 자료를 열지 않음). 러너 상수에 이미 있는 값은 모두 일치했다.
+- §2·§3 값은 2026-11-16 작업 트리(HEAD `995665f`)에서 scratchpad 스크립트로 직접 잰 것이다(읽기 전용, 판정 자료를 열지 않음). 러너 상수에 이미 있는 값은 모두 일치했다. C1 커밋 `826aa41` 뒤 같은 스크립트로 다시 재어 모두 같음을 확인했다. §1·§5의 blob은 `git rev-parse 826aa41:<경로>`로 쟀다.
 
 ## 1. 코드 blob
 
-C1 커밋 뒤에 채운다. 자리 `C1_BLOB`은 각 행의 C1 커밋 blob, `C1_COMMIT`은 C1 커밋 id다. 행 목록은 R1·R2·R3 `run_identity.code_blobs`의 합집합과 D0 계보·r0 기대값 출처다([RUN] §1 정체성 기록).
+C1 커밋 `826aa41` 기준으로 채웠다(2026-11-16). 행 목록은 R1·R2·R3 `run_identity.code_blobs`의 합집합과 D0 계보·r0 기대값 출처다([RUN] §1 정체성 기록).
 
-- C1 커밋: `{C1_COMMIT}`
+- C1 커밋: `826aa4119c599f69d6c80aea5a3d72bc8e167d5d`
 
 | 경로 | C1 커밋 blob | 쓰는 곳 | 비고 |
 |---|---|---|---|
-| `analysis/detection/m32_recipe_eval.py` | `{C1_BLOB}` | R2·R3 | 러너 본체 |
-| `analysis/detection/m33_r2_eval.py` | `{C1_BLOB}` | R2 | |
-| `analysis/detection/m33_r2_lines.py` | `{C1_BLOB}` | R2 목록 빌더 | 출력은 §2 R2 목록 |
-| `analysis/detection/m33_r3_band.py` | `{C1_BLOB}` | R3 | |
-| `analysis/detection/m33_r3_p4.py` | `{C1_BLOB}` | R3 | P4 계산 |
-| `analysis/detection/m33_morocco_eval.py` | `{C1_BLOB}` | R1 | |
-| `analysis/detection/m33_inputs.py` | `{C1_BLOB}` | R1·R2·R3 | 단언 상수의 권위 출처 |
-| `analysis/detection/m32_recipe_inputs.py` | `{C1_BLOB}` | R1·R2·R3 | |
-| `analysis/detection/m32_recipe_match.py` | `{C1_BLOB}` | R2·R3 | |
-| `analysis/detection/m32_pipe_responses.py` | `{C1_BLOB}` | R2·R3 | |
-| `analysis/detection/m32_aihub_perturb.py` | `{C1_BLOB}` | R1·R2·R3 | 가중치 sha 상수 |
-| `analysis/detection/m31_d1_common.py` | `{C1_BLOB}` | R1·R2·R3 | |
-| `analysis/detection/m33_d0_gate.py` | `{C1_BLOB}` | D0 계보 | §5와 함께 |
-| `analysis/detection/m33_d0r_compare.py` | `{C1_BLOB}` | D0 계보 | §5와 함께 |
-| `src/gpr_detection/pipeline.py` | `{C1_BLOB}` | 전체 | C0a 값 `dd5e7bcb…`과 같아야 한다 |
-| `src/gpr_detection/preprocess/to_image.py` | `{C1_BLOB}` | R2·R3 | |
-| `src/gpr_detection/eval/inject.py` | `{C1_BLOB}` | R3 | S4 코드(띠 함수 포함) |
-| `src/gpr_detection/detect/yolo.py` | `{C1_BLOB}` | R1·R2·R3 | |
-| `src/gpr_detection/data/morocco_eval.py` | `{C1_BLOB}` | R1 | |
-| `src/gpr_detection/preprocess/filters.py` | `{C1_BLOB}` | R1 | |
-| `tests/test_detection_image_recipes.py` | `{C1_BLOB}` | r0 정체 기대값 출처 | §4 |
+| `analysis/detection/m32_recipe_eval.py` | `d4842cb701402b260b78d8e5739a749945e81fcd` | R2·R3 | 러너 본체 |
+| `analysis/detection/m33_r2_eval.py` | `7ce7cee541880f1e8181e55341ad9ee84b5bbd37` | R2 | |
+| `analysis/detection/m33_r2_lines.py` | `627a2f1d5f5aed8fb329fcb7b366452f3f6510f4` | R2 목록 빌더 | 출력은 §2 R2 목록 |
+| `analysis/detection/m33_r3_band.py` | `807755125e46e785c4ede89550542bab41bb06ad` | R3 | |
+| `analysis/detection/m33_r3_p4.py` | `88da247434cba1e154c658b2aec8d1876ba37620` | R3 | P4 계산 |
+| `analysis/detection/m33_morocco_eval.py` | `1bd5ebb9c6602220b7996905f6b489fb7252bb46` | R1 | |
+| `analysis/detection/m33_inputs.py` | `2d61416eca18b84950c0ad3f6c497a32b1dcf288` | R1·R2·R3 | 단언 상수의 권위 출처 |
+| `analysis/detection/m32_recipe_inputs.py` | `7f4815c5582086408a56a2002bf51d6002826a62` | R1·R2·R3 | |
+| `analysis/detection/m32_recipe_match.py` | `7e17f060947073dbfcf4e3701a6e0505bffa9547` | R2·R3 | |
+| `analysis/detection/m32_pipe_responses.py` | `5d065b3a807b41df04ff81098df86ba9ec747f58` | R2·R3 | |
+| `analysis/detection/m32_aihub_perturb.py` | `320ce955a7acbcd8956cde7901234cf61e19ba45` | R1·R2·R3 | 가중치 sha 상수 |
+| `analysis/detection/m31_d1_common.py` | `0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72` | R1·R2·R3 | |
+| `analysis/detection/m33_d0_gate.py` | `2e72e9dcb75fdc9824342295660656eeb8eb951d` | D0 계보 | §5와 함께 |
+| `analysis/detection/m33_d0r_compare.py` | `66ec08c144330ac19d3ed69a2ac21ea24fffc315` | D0 계보 | §5와 함께 |
+| `src/gpr_detection/pipeline.py` | `dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1` | 전체 | C0a 값 `dd5e7bcb…`과 같아야 한다 |
+| `src/gpr_detection/preprocess/to_image.py` | `233e47ef22f825dc24449b7e5567fe8a47719d9a` | R2·R3 | |
+| `src/gpr_detection/eval/inject.py` | `2d88ff0a25c5cbc1bb7ca8698ba422c633f5b531` | R3 | S4 코드(띠 함수 포함) |
+| `src/gpr_detection/detect/yolo.py` | `505ff04d228c9e41272144fc263b7912b7568065` | R1·R2·R3 | |
+| `src/gpr_detection/data/morocco_eval.py` | `4844f5019f8c123395f14c75d9fe4d03184896c7` | R1 | |
+| `src/gpr_detection/preprocess/filters.py` | `b8f9704d79561bb886964a60ae8aa40abe2e8851` | R1 | |
+| `tests/test_detection_image_recipes.py` | `b84d4fbfea1226e59e98eb3ef15903b5db23035e` | r0 정체 기대값 출처 | §4 |
 
-- src tree id(C1 커밋): `{C1_BLOB}`. C0a·D0′ 값 `164f0990…`과 다르다. 882e881 뒤 바뀐 src는 `eval/inject.py` 하나다(띠 함수 추가, 995665f에서 +305/−1, `git diff --stat 882e881 995665f -- src`). 995665f의 src tree는 `d0e54933…`이다. `pipeline.py` blob은 바뀌지 않았다. 그래서 R 러너의 봉인 PP 단언(`pipeline.py` blob·`PPConfig`)은 유지되고, src tree id 단언은 D0 실행기에만 있다(D0′ 재실행은 이제 종료 2로 멈춘다. 다시 돌릴 계획은 없다).
+- src tree id(C1 커밋): `d0e54933f3a0c87cf2b8d43d255e97bd6bb97122`. C0a·D0′ 값 `164f0990…`과 다르다. 882e881 뒤 바뀐 src는 `eval/inject.py` 하나다(띠 함수 추가, 995665f에서 +305/−1, `git diff --stat 882e881 995665f -- src`). 995665f의 src tree는 `d0e54933…`이다. `pipeline.py` blob은 바뀌지 않았다. 그래서 R 러너의 봉인 PP 단언(`pipeline.py` blob·`PPConfig`)은 유지되고, src tree id 단언은 D0 실행기에만 있다(D0′ 재실행은 이제 종료 2로 멈춘다. 다시 돌릴 계획은 없다).
 
 ## 2. 텍스트 입력
 
@@ -107,10 +107,10 @@ C1 커밋 뒤에 채운다. 자리 `C1_BLOB`은 각 행의 C1 커밋 blob, `C1_C
 
 | 대상 | C0a·C0b 쪽 (53c4e16) | D0′ 쪽 (882e881) | C1 커밋 |
 |---|---|---|---|
-| `m33_d0_gate.py` blob | `a2741259bddbeaa26daf3b091ac76ea753679918` | `1775f9a27f9e798e8fc36364fb723cb836fb22ee` | `{C1_BLOB}` |
-| `m31_d1_common.py` blob | `bdfb7f0f2ff08ced10b7f281d646d717dee34621` | `0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72` | `{C1_BLOB}` |
-| `m33_d0r_compare.py` blob | – | `ee802e8b8e665264ccc95dc0f9944a8f661b4097` | `{C1_BLOB}` |
-| `pipeline.py` blob | `dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1` | 같음 | `{C1_BLOB}`(같아야 함) |
+| `m33_d0_gate.py` blob | `a2741259bddbeaa26daf3b091ac76ea753679918` | `1775f9a27f9e798e8fc36364fb723cb836fb22ee` | `2e72e9dcb75fdc9824342295660656eeb8eb951d` |
+| `m31_d1_common.py` blob | `bdfb7f0f2ff08ced10b7f281d646d717dee34621` | `0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72` | `0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72` |
+| `m33_d0r_compare.py` blob | – | `ee802e8b8e665264ccc95dc0f9944a8f661b4097` | `66ec08c144330ac19d3ed69a2ac21ea24fffc315` |
+| `pipeline.py` blob | `dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1` | 같음 | `dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1`(같아야 함) |
 | src tree id | `164f09909ad51c1a8d26545cadb0417b1da3acc6` | 같음 | §1 |
 | `d0_gate.json` sha256 | `107d7b53f30667684baf7c2236bdf338c861309531ff17497e2836193bea08c6` | `16d7d2ade37a79ef24f00603628d864b5ddd396bd468738dbe9ab3f1970aedf1` | – |
 | 대조 | – | `compare_c0b.json` sha256 `39fac6049d632addfd8328605c2425caa40f96e675cf785fcb7c0c7d9db57058`, status `match`, verif 판정 후 감사 완료(2026-11-15) | – |
@@ -132,16 +132,18 @@ C1 커밋 뒤에 채운다. 자리 `C1_BLOB`은 각 행의 C1 커밋 blob, `C1_C
 
 | 자리 | 뜻 | 채우는 시점 |
 |---|---|---|
-| `C1_COMMIT` | C1 커밋 id | 코드·문서 커밋 직후 |
-| `C1_BLOB` | 그 행 경로의 C1 커밋 blob(또는 src tree id) | 같음 |
+| `C1_COMMIT` | C1 커밋 id | 채움(2026-11-16, `826aa41`) |
+| `C1_BLOB` | 그 행 경로의 C1 커밋 blob(또는 src tree id) | 채움(2026-11-16, 26곳) |
 
-- **초안 단계**(지금, C1 커밋 전): 이 문서는 `placeholder_scan.py docs/experiments/m33_c1_seal.md --allow C1_COMMIT C1_BLOB`로 종료 0이어야 한다(설정 해시 자리는 2026-11-16 값으로 채웠다).
+- **초안 단계**(C1 커밋 전, 끝남): 이 문서는 `--allow C1_COMMIT C1_BLOB`로 종료 0이었다.
+- **지금(C1 실행 전 감사 대기)**: 두 자리를 모두 채웠다(2026-11-16, C1 커밋 `826aa41`). 이 문서는 허용 목록 없이 종료 0이다.
 - **C1 실행 전 감사**: 두 자리 모두 채워져 있어야 한다. 이 문서는 `--allow` 없이 종료 0이어야 한다. J1 문서는 [PLAN] §4 C1 행대로 `--allow C2 R2_J1_POST_SHA R2_J1_PRE_SHA`다.
 - 설명 문장에서는 자리 이름을 중괄호 없이 쓴다(스캔이 설명 문장도 잡음).
 
-## 8. 남은 일 (대기)
+## 8. 남은 일 (C1 실행 전 감사 대기)
 
 - gpr-processing-expert: X6 주기 측정 함수 확인은 참고로 남긴다(R1이 s5 주기의 X6 일치를 정식 실행에서 이미 단언하므로, 어긋나면 R1 단언이 실패해 멈춘다).
-- 메인 세션: 코드·문서 커밋 → 이 문서의 §1·§5 자리(`C1_COMMIT`·`C1_BLOB`) 채우기 → C1 실행 전 감사(verif) → C1 봉인.
+- 메인 세션: C1 실행 전 감사(verif) → C1 봉인(봉인 확정 문구는 감사 뒤 이 문서에 넣는다). J1의 C0B·C0B_D0_GATE_SHA 두 자리는 메인이 채운다(`PPConfig` `eb2796dd…`, `d0_gate.json` `107d7b53…`).
+- (끝남, 2026-11-16) 코드·문서 커밋 `826aa41`, 이 문서의 §1·§5 자리 채우기.
 - (끝남, 2026-11-16) python-expert: 설정 해시 상수(§4), r0 11측선 기대값 이관(§4), IDS `radargrams_index.csv` 정리(§2, 읽지 않음), C1 2단계 보강 6건.
 - (끝남, 2026-11-16) gpr-processing-expert: J1 채움 전용 박스 제외와 "파일의 모든 행" 규칙의 정합 확인. J1 §3·§4 5 문구로 반영했다(J1 판 번호는 v0.3.2 그대로, 문구 정리).
