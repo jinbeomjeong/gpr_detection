@@ -17,12 +17,16 @@ Real-data parts are opt-in like T7 (e): ``pytest -m realdata``.
 """
 
 import hashlib
+import sys
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
 import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "analysis" / "detection"))
+import m33_inputs
 
 from gpr_detection.io.fourtu import load_fourtu_radargram
 from gpr_detection.io.gprsd import DtHypothesis, load_gprsd_radargram
@@ -539,56 +543,17 @@ def _gprsd(file_id: str, sha256: str) -> RealLine:
     )
 
 
-SPEC9_LINES = (
-    _fourtu(
-        "03.9",
-        "Path5",
-        "a0891dbfd7efda9a862ddc8a3b0a0ebfd898f821750c07ba85e0a68275d94c79",
-    ),
-    _fourtu(
-        "01.1",
-        "Path1",
-        "10e8bc9ad7c671a766f9797d9a385dbf8b46b04867ba7d79b61d6d600019a62f",
-    ),
-    _fourtu(
-        "09.1",
-        "Path2",
-        "66863f4caa028cbca8ee93f173cb7cb5692733a38f61cf66d464316f9cc33ffd",
-    ),
-    _fourtu(
-        "09.4",
-        "Path1",
-        "78fad5249da1ceb1cf83c752eb8d7096f22be009c471ca190819ca15f075b660",
-    ),
-    _guangzhou(
-        "pipe/001_190321AA/LID10001",
-        "b1de7022cc398c91bfa3d34c329938868dbc1559fa878eeef75ae12192d13d78",
-    ),
-    _guangzhou(
-        "pipe/1030_190117AF/LID10001",
-        "a3a40315e42ac81602759c7490b98b6c0306bbb4461f0cc536c51031bd7699da",
-    ),
-    _guangzhou(
-        "pipe/190321A_190321AH/LID10001",
-        "788f8d22fcccb6b26015d4b699739122922afdd7898d94a8cad0639039e22e46",
-    ),
-    _guangzhou(
-        "pipe/MALA_07011/LA010001",
-        "2a0707a491e844808cb29bc0450eba977004e27a76d96dc458e5c75a12d98596",
-    ),
-    _guangzhou(
-        "pipe/1030_181224AB/LID10001",
-        "d73a8135a5c9c86075b319c3fd711584af08fe9f88e8e38c069fa6f4ab4e049e",
-    ),
-    _gprsd(
-        "CementRoad2_1",
-        "292ede9cdffdef2507692a9418aed58107546832c28af417ebae357a6ce9c9e6",
-    ),
-    _gprsd(
-        "AsphaltRoad2_1",
-        "30b732908110f45f581673bd0dd6765f5b4ca68c492dee603957bfa8a9b9fb89",
-    ),
-)
+def _spec9_line(dataset: str, line: str, sha256: str) -> RealLine:
+    if dataset == DatasetName.FOURTU:
+        return _fourtu(*line.split("/", 1), sha256)
+    if dataset == DatasetName.GUANGZHOU:
+        return _guangzhou(line, sha256)
+    return _gprsd(line, sha256)
+
+
+SPEC9_LINES = tuple(_spec9_line(*row) for row in m33_inputs.R0_IDENTITY_LINES)
+"""The 11 lines and sha256 come from ``m33_inputs`` (single source, M3-3 C1);
+the values are the a1a9895 records this test fixed in M3-2 S6 (a)."""
 DT0195_LINE = _fourtu(
     "011.17",
     "Profile_6409",

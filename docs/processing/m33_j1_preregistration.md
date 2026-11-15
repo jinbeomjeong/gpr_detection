@@ -147,6 +147,7 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 
 **입력**: fold 0 `j1_boxes_post.csv`의 **모든 행**(`pipe_hyperbola`, L0 격자 `i0, i1, k0, k1`).
 - 러너가 이미 운용 conf 필터(점수 > 0.25, 병합 경로와 같은 필터)와 PP(C0b)를 적용했고, 제거된 박스는 싣지 않는다([RS] §5). 그래서 J1 쪽에서 다시 거르지 않는다. 문턱 경계(≥ / >)가 두 곳에서 달라지는 일을 막기 위해서다.
+- 러너는 L0 박스가 없는(채움 전용) 박스도 싣지 않는다. 수는 R2 `summary.json`의 `j1_inputs.folds[k].n_padding_only_dropped`로 보고한다([RS] §5). 이런 박스는 L0 탐색 창이 비어 후보를 만들 수 없으므로 후보 집합·B·$p$·$\Delta_B$는 바뀌지 않고, 보고 항목의 박스 수만 달라진다.
 
 **측선 준비**(측선마다 1회, 깊이 경로와 같은 값)
 - 단면은 피팅 갈래 (1)–(4) 배경 제거 단면이다(`prepare_fitting_branch` 기본, median 301). 포락선 $e$는 시간 방향 Hilbert이고 2N 영 채움을 쓴다.
@@ -175,6 +176,7 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 4. **신호처리 후보 비교**: 같은 커밋의 `eval_depth_4tu.py`를 `fourtu_apex_candidates_v1.csv`로 다시 돌린 B·$p$·$\Delta_B$. 같은 코드에서의 공정 비교이고, M2-9 140/388은 옛 코드 값으로 함께 적는다.
 5. 후보 수
    - 박스 수 → 후보 수(중복 제거 전·후).
+   - 러너가 J1 파일에서 뺀 채움 전용 박스 수(`n_padding_only_dropped`, fold별)를 박스 수와 함께 적는다.
    - 영점 실패, QC B·D·E 각 제외 수.
    - PP 단계별 제거 박스 수와, 그중 위 끝이 내용 안인 PP-a 제거 수([X2] §1-1 진단).
 6. K 꼭짓점 SNR 4분위별 포함 여부는 R2가 보고하므로 여기서는 하지 않는다.
@@ -237,4 +239,4 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 | 2026-11-15 | v0.2 초안 | cv 공동 검토(cv-detection-expert). §3 입력을 "파일의 모든 행"으로 바꿨다(러너가 conf > 0.25·PP를 이미 적용, 문턱 경계 이중 정의 방지). 중복 제거에 동률 규칙과 처리 순서를 넣었다. [PLAN] 문구 차이는 사용자 결정으로 확정했다(`eval_depth_4tu.py` 경로, `estimate_line_depths` 미사용). §1-1에 판정 → 보고 실행 순서와 1회 실행 거부를 넣었다. J1-2 단언 목록 7개(트리·blob, 입력 sha 이중 대조, R2 정체성: fold 0 가중치·r0·설정·`PPConfig`·HEAD, 박스 내용, 후보 sha 재확인, prefix 부재, stdout·logging 이중 차단)를 넣었다. 박스 → 꼭짓점 규칙, 기준선 재계산, 실질 지표는 그대로 받아들였다 |
 | 2026-11-15 | v0.3 초안 | gpr-processing 재검토: 단계 1 탐색 창 위쪽 경계를 $\max(k_0-0.5P,\ k_z+0.5P)$로 묶고 $[0, n_s-1]$로 자르며, 창이 비면 `window_above_zero`로 기록한다. 시험 (e)를 추가했다. 무결성 반영: 제목 판 번호, 봉인 순서와 C2 자리 처리(`placeholder_scan` 허용 → C2 뒤 0), 단언 2의 `j1_inputs.folds["0"]` 키, 단언 4의 `line_id` 분해 규칙, 단언 6 시점(단계 1 이전). 판단 규칙은 바뀌지 않았다 |
 | 2026-11-15 | v0.3.1 초안 | stats-design-expert 통계 검토 반영(판정 기준 불변). §1-1 3: $n_\text{pass}$는 matches csv 주 조합 행에서 세고 round(`pass_b`×388)과 단언, $k$ = round(`baseline_p`×1000)과 1e-6 단언([U3] §2-2와 읽는 곳 통일, C3). §2-4: p 도달 가능성 보고($k_\text{perfect}$, $n_\text{req}$·$A_\text{req}$, 초과 추정 $E_+$ = `false_est`, C1), 현장 하나씩 빼기·현장 부트스트랩(2,000회, `default_rng(20261115)`, 기준선은 같은 시행 재집계, C2). §1-4 보고용 난수. §5 J1-2 보고 계산 7항과 시험 (f)–(i). §6 공개 6(목표 경계는 현장 군집 미반영). 같은 날 무결성 정정(규칙 불변): J1-2 보고 계산 2의 summary 열 이름을 실제 이름 `baseline_pass_b_mean`·`baseline_pass_b_p025`·`baseline_pass_b_p975`로 고쳤다 |
-| 2026-11-15 | v0.3.2 초안 | 문구 정리, 기준 불변(C1 봉인 전, cv-detection-expert의 `placeholder_scan` 대조 지적). 상태 절 설명 문장의 자리 이름(C2·R2_J1_POST_SHA·R2_J1_PRE_SHA·C0B)에서 중괄호를 뺐다(설명 문장이 스캔에 걸리지 않게). §1-2의 C0b 행을 `PPConfig` 해시(자리 C0B)와 `d0_gate.json` sha256(자리 C0B_D0_GATE_SHA) 두 행으로 나눠 자리마다 값 하나로 했고, 두 자리는 C1에서 채우며 C1 감사 허용 목록에 넣지 않는다고 적었다. §1-2 제목에 C0b 두 행은 C1에서 채운다고 적었다. §1-2 아래 단언 문장의 "`PPConfig` 해시를 C2 값과"를 "C0b 값(자리 C0B, C1에서 채움)과"로 고쳤다(J1-2 단언 3과 같은 뜻). 값은 채우지 않았다. 같은 날 무결성 점검 반영(문구만): 상태 절에 자리별로 채울 곳(C0B는 §1-2 표와 §1-3 명령줄, C0B_D0_GATE_SHA는 §1-2 표)을 적었다 |
+| 2026-11-15 | v0.3.2 초안 | 문구 정리, 기준 불변(C1 봉인 전, cv-detection-expert의 `placeholder_scan` 대조 지적). 상태 절 설명 문장의 자리 이름(C2·R2_J1_POST_SHA·R2_J1_PRE_SHA·C0B)에서 중괄호를 뺐다(설명 문장이 스캔에 걸리지 않게). §1-2의 C0b 행을 `PPConfig` 해시(자리 C0B)와 `d0_gate.json` sha256(자리 C0B_D0_GATE_SHA) 두 행으로 나눠 자리마다 값 하나로 했고, 두 자리는 C1에서 채우며 C1 감사 허용 목록에 넣지 않는다고 적었다. §1-2 제목에 C0b 두 행은 C1에서 채운다고 적었다. §1-2 아래 단언 문장의 "`PPConfig` 해시를 C2 값과"를 "C0b 값(자리 C0B, C1에서 채움)과"로 고쳤다(J1-2 단언 3과 같은 뜻). 값은 채우지 않았다. 같은 날 무결성 점검 반영(문구만): 상태 절에 자리별로 채울 곳(C0B는 §1-2 표와 §1-3 명령줄, C0B_D0_GATE_SHA는 §1-2 표)을 적었다. 같은 날 문구 정리, 기준 불변: §3 입력에 러너가 L0 박스 없는 채움 전용 박스도 싣지 않고 수를 `j1_inputs.folds[k].n_padding_only_dropped`로 보고한다는 문장([RS] §5, 후보 집합·B·$p$·$\Delta_B$ 불변)을, §4 5에 그 제외 수를 박스 수와 함께 적는다는 문구를 더했다 |

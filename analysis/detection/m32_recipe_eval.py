@@ -154,6 +154,8 @@ INJECTANT_BAND = "band"
 BAND_BACKGROUNDS = (inputs.DATASET_4TU, inputs.DATASET_IDS)
 BAND_UNINJECTED_DIR = "uninjected_ids"
 """R3: the IDS un-injected run (4TU un-injected boxes come from R2)."""
+R2_K_APEX_SNR = REPO / "analysis" / "processing" / "m33_k_apex_snr.csv"
+"""X6 K-apex SNR quartiles and widths read by R2 ([RUN] §2-1 5 and 6)."""
 P4_DEFECT = "p4_defect"
 EXIT_CODES = {
     m33_inputs.STATUS_OK: 0,
@@ -333,11 +335,18 @@ class RunSettings:
     backgrounds: tuple[str, ...] = BAND_BACKGROUNDS
     r2_root: Path = m33_inputs.R2_OUT_ROOT
     c1b_record: Path = m33_inputs.R3_C1B_RECORD
+    lines_csv: Path | None = None
+    only_lines: tuple[str, ...] = ()
 
     @property
     def is_band(self) -> bool:
         """M3-3 R3 pseudo-band run (``--injectant band``)."""
         return self.injectant == INJECTANT_BAND
+
+    @property
+    def is_r2(self) -> bool:
+        """M3-3 R2 4TU report (``--stage uninjected --lines``)."""
+        return self.lines_csv is not None
 
     @property
     def stage_dir(self) -> Path:
@@ -348,6 +357,8 @@ class RunSettings:
         The R3 band runs write ``uninjected_ids/``, ``plan/`` and ``injected/``.
         """
         name = self.stage.value
+        if self.is_r2:
+            return self.out_root  # R2 writes runs/eval/m33/r2/fold<k>/ ([RUN] §2-2)
         if self.is_band and self.stage is Stage.UNINJECTED:
             return self.out_root / BAND_UNINJECTED_DIR
         if self.stage is Stage.PLAN and self.provisional:
@@ -382,7 +393,8 @@ class RunSettings:
         blockers = []
         if self.smoke:
             blockers.append(m33_inputs.BLOCKER_SMOKE)
-        if self.limit_lines is not None or self._has_partial_backgrounds():
+        limited = self.limit_lines is not None or bool(self.only_lines)
+        if limited or self._has_partial_backgrounds():
             blockers.append(m33_inputs.BLOCKER_LINE_LIMIT)
         if self.stage is Stage.PLAN:
             if self.provisional:
@@ -396,8 +408,10 @@ class RunSettings:
 
     @property
     def expected_recipes(self) -> tuple[str, ...]:
-        """Recipes of a full run: r0 for R3 bands, r0 r5 r6 for M3-2 stage C."""
-        return (inputs.R0,) if self.is_band else inputs.STAGE_C_RECIPES
+        """Recipes of a full run: r0 for R2 and R3, r0 r5 r6 for M3-2 stage C."""
+        if self.is_band or self.is_r2:
+            return (inputs.R0,)
+        return inputs.STAGE_C_RECIPES
 
     def _has_partial_backgrounds(self) -> bool:
         """An R3 band plan or injected run without both backgrounds."""
@@ -422,6 +436,8 @@ class RunContext:
 
     start_tree: dict
     sealed_pp: dict
+    r_checks: dict = field(default_factory=dict)
+    """R2 / R3: the C1 settings hash and the r0 frozen-line check."""
 
 
 @dataclass
@@ -1669,6 +1685,7 @@ def code_paths() -> list[Path]:
         here / "m33_inputs.py",
         here / "m33_r3_p4.py",
         here / "m33_r3_band.py",
+        here / "m33_r2_eval.py",
         *(REPO / name for name in SRC_CODE_FILES),
     ]
 
@@ -1688,6 +1705,8 @@ def tracked_inputs(settings: RunSettings) -> list[Path]:
     ]
     if settings.stage is Stage.INJECTED:
         paths.append(stage_record(settings))
+    if settings.is_r2:
+        paths += [settings.lines_csv, R2_K_APEX_SNR]
     return paths
 
 
@@ -1702,6 +1721,9 @@ def text_input_paths(settings: RunSettings) -> dict[str, Path]:
         paths["exclusions"] = plan_dir / "exclusions.csv"
         if settings.is_band:
             paths["positions"] = plan_dir / "positions.csv"
+    if settings.is_r2:
+        paths["r2_lines"] = settings.lines_csv
+        paths["k_apex_snr"] = R2_K_APEX_SNR
     return {name: path for name, path in paths.items() if path.is_file()}
 
 
@@ -1746,6 +1768,8 @@ def new_run_identity(
     identity["code_blobs"] = context.start_tree["code_blobs"]
     identity["src_tree_id"] = context.start_tree["src_tree_id"]
     identity["sealed_pp_assertion"] = context.sealed_pp
+    if context.r_checks:
+        identity["r_checks"] = context.r_checks
     return identity
 
 
@@ -1843,6 +1867,17 @@ def run_lines(
 
 
 def _selected(lines: Sequence[inputs.LineRef], settings: RunSettings) -> list:
+    """``--only-lines`` (named lines, list order) then ``--limit-lines``.
+
+    Raises:
+        inputs.InputError: For an ``--only-lines`` id that is not in the list.
+    """
+    if settings.only_lines:
+        wanted = set(settings.only_lines)
+        missing = wanted - {ref.line_id for ref in lines}
+        if missing:
+            raise inputs.InputError(f"--only-lines not in the list: {sorted(missing)}")
+        lines = [ref for ref in lines if ref.line_id in wanted]
     return list(
         lines if settings.limit_lines is None else lines[: settings.limit_lines]
     )
@@ -2297,6 +2332,8 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
     )
     _add_band_arguments(parser)
     args = parser.parse_args(argv)
+    if args.smoke and args.stage is not None and args.lines is not None:
+        parser.error("R2 smoke is --lines <csv> --smoke (no --stage)")
     if args.smoke == (args.stage is not None):
         parser.error("give exactly one of --stage or --smoke")
     recipes = tuple(item.strip() for item in args.recipes.split(",") if item.strip())
@@ -2304,7 +2341,10 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
     if unknown:
         parser.error(f"unknown recipes {sorted(unknown)}")
     is_band = args.injectant == INJECTANT_BAND
-    if is_band:
+    is_r2 = args.lines is not None
+    if is_r2 and (is_band or (args.stage not in (None, Stage.UNINJECTED.value))):
+        parser.error("--lines (R2) runs the uninjected stage of hyperbola runs only")
+    if is_band or is_r2:
         recipes = _band_recipes(parser, args.recipes)
     try:
         folds = _int_list(args.folds)
@@ -2317,7 +2357,7 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
         parser.error(f"--backgrounds must name {list(BAND_BACKGROUNDS)}")
     return RunSettings(
         stage=Stage(args.stage) if args.stage else Stage.UNINJECTED,
-        out_root=args.out_root or _default_out_root(args.smoke, is_band),
+        out_root=args.out_root or _default_out_root(args.smoke, is_band, is_r2),
         device=args.device,
         batch_size=args.batch_size,
         recipes=(SMOKE_RECIPE,) if args.smoke else recipes,
@@ -2338,6 +2378,10 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
         backgrounds=backgrounds,
         r2_root=args.r2_root,
         c1b_record=args.c1b_record,
+        lines_csv=args.lines,
+        only_lines=tuple(
+            item.strip() for item in (args.only_lines or "").split(",") if item.strip()
+        ),
     )
 
 
@@ -2366,24 +2410,49 @@ def _add_band_arguments(parser: argparse.ArgumentParser) -> None:
         default=m33_inputs.R3_C1B_RECORD,
         help="band injected: C1b record (table, positions, exclusions sha)",
     )
+    parser.add_argument(
+        "--lines",
+        type=Path,
+        default=None,
+        help="R2: line list (analysis/detection/m33_r2_lines.csv); uninjected only",
+    )
+    parser.add_argument(
+        "--only-lines",
+        default=None,
+        help="comma list of line ids to run (smoke and diagnosis; not judgeable)",
+    )
 
 
 def _band_recipes(parser: argparse.ArgumentParser, text: str) -> tuple[str, ...]:
-    """R3 runs r0 only; the M3-2 default list is read as r0."""
+    """R2 and R3 run r0 only; the M3-2 default list is read as r0."""
     if text in (",".join(inputs.STAGE_C_RECIPES), inputs.R0):
         return (inputs.R0,)
-    parser.error("--injectant band runs --recipes r0 only")
+    parser.error("R2 (--lines) and R3 (--injectant band) run --recipes r0 only")
     raise AssertionError  # parser.error exits
 
 
-def _default_out_root(smoke: bool, is_band: bool) -> Path:
+def _default_out_root(smoke: bool, is_band: bool, is_r2: bool = False) -> Path:
     if is_band:
         return m33_inputs.R3_SMOKE_OUT_ROOT if smoke else m33_inputs.R3_OUT_ROOT
+    if is_r2:
+        return m33_inputs.R2_OUT_ROOT_SMOKE if smoke else m33_inputs.R2_OUT_ROOT
     return SMOKE_OUT_ROOT if smoke else DEFAULT_OUT_ROOT
 
 
 def _int_list(text: str) -> tuple[int, ...]:
     return tuple(int(item) for item in text.split(",") if item.strip())
+
+
+def r_runner_checks() -> dict:
+    """[RUN] §1 for R2 and R3: the C1 settings hash and the r0 identity lines.
+
+    Raises:
+        inputs.InputError: For other settings or a changed r0 image (exit 2).
+    """
+    return {
+        "settings": m33_inputs.assert_settings(CONFIDENCE, stage_b.CONF_AP, NMS_IOU),
+        "r0_identity_sha256": m33_inputs.assert_r0_identity(),
+    }
 
 
 def run(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
@@ -2405,10 +2474,17 @@ def run(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
         start_tree=start_tree,
         sealed_pp=m33_inputs.assert_sealed_pp(start_tree["code_blobs"]),
     )
+    if settings.is_band or settings.is_r2:
+        context = replace(context, r_checks=r_runner_checks())
     if settings.is_band:
         import m33_r3_band as band  # R3 pseudo bands (runner spec §3)
 
         return band.run(settings, started, context)
+    if settings.is_r2:
+        import m33_r2_eval as r2  # R2 4TU report (runner spec §2)
+
+        status, counts = r2.run_r2(settings, started, context)
+        return status, counts
     if settings.smoke:
         status, counts = run_smoke(settings, started)
         if status == m33_inputs.STATUS_OK:

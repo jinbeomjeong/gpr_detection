@@ -428,6 +428,7 @@ def offline_band(monkeypatch, helpers, tmp_path_factory):
     c0b.write_text(json.dumps({"selection": selection}), encoding="utf-8")
     monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_JSON", c0b)
     monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_SHA256", inputs.sha256_file(c0b))
+    monkeypatch.setattr(m33_inputs, "assert_r0_identity", lambda: {"stub": "r0"})
     monkeypatch.setattr(inputs, "assert_list_hashes", lambda: {})
     monkeypatch.setattr(inputs, "background_lines", lambda: [ref])
     monkeypatch.setattr(
