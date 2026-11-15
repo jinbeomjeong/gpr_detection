@@ -1,0 +1,480 @@
+{
+ "morocco": {
+  "P_A": 4.06,
+  "input_range_px": [
+   2.233,
+   6.09
+  ],
+  "subsets": {
+   "cavities": {
+    "n": 75,
+    "n_no_period": 0,
+    "P_native_px": {
+     "p5": 9.221,
+     "p25": 13.176,
+     "p50": 16.0,
+     "p75": 18.667,
+     "p95": 28.622,
+     "n": 75
+    },
+    "P_input_px": {
+     "p5": 10.539,
+     "p25": 15.059,
+     "p50": 18.286,
+     "p75": 21.333,
+     "p95": 32.711,
+     "n": 75
+    },
+    "ratio_to_P_A": {
+     "p5": 2.596,
+     "p25": 3.709,
+     "p50": 4.504,
+     "p75": 5.255,
+     "p95": 8.057,
+     "n": 75
+    },
+    "n_outside_range": 75
+   },
+   "intact": {
+    "n": 38,
+    "n_no_period": 0,
+    "P_native_px": {
+     "p5": 5.722,
+     "p25": 7.0,
+     "p50": 12.117,
+     "p75": 21.891,
+     "p95": 29.4,
+     "n": 38
+    },
+    "P_input_px": {
+     "p5": 6.539,
+     "p25": 8.0,
+     "p50": 13.848,
+     "p75": 25.018,
+     "p95": 33.6,
+     "n": 38
+    },
+    "ratio_to_P_A": {
+     "p5": 1.611,
+     "p25": 1.97,
+     "p50": 3.411,
+     "p75": 6.162,
+     "p95": 8.276,
+     "n": 38
+    },
+    "n_outside_range": 38
+   },
+   "utilities": {
+    "n": 120,
+    "n_no_period": 0,
+    "P_native_px": {
+     "p5": 18.667,
+     "p25": 20.364,
+     "p50": 22.4,
+     "p75": 32.0,
+     "p95": 45.36,
+     "n": 120
+    },
+    "P_input_px": {
+     "p5": 21.333,
+     "p25": 23.273,
+     "p50": 25.6,
+     "p75": 36.571,
+     "p95": 51.84,
+     "n": 120
+    },
+    "ratio_to_P_A": {
+     "p5": 5.255,
+     "p25": 5.732,
+     "p50": 6.305,
+     "p75": 9.008,
+     "p95": 12.768,
+     "n": 120
+    },
+    "n_outside_range": 120
+   },
+   "all": {
+    "n": 233,
+    "n_no_period": 0,
+    "P_native_px": {
+     "p5": 7.0,
+     "p25": 16.0,
+     "p50": 20.364,
+     "p75": 24.889,
+     "p95": 44.8,
+     "n": 233
+    },
+    "P_input_px": {
+     "p5": 8.0,
+     "p25": 18.286,
+     "p50": 23.273,
+     "p75": 28.444,
+     "p95": 51.2,
+     "n": 233
+    },
+    "ratio_to_P_A": {
+     "p5": 1.97,
+     "p25": 4.504,
+     "p50": 5.732,
+     "p75": 7.006,
+     "p95": 12.611,
+     "n": 233
+    },
+    "n_outside_range": 233
+   }
+  }
+ },
+ "fourtu_k_snr": {
+  "definition": "A = env peak of (1)-(4) on apex trace within apex +-0.5 P; sigma = 1.4826 MAD of (1)-(4) over rows apex +-1 P, traces 1.0-3.0 m from apex",
+  "quartile_edges_db": [
+   11.84,
+   18.52,
+   20.86
+  ],
+  "summary": {
+   "p5": 8.79,
+   "p25": 11.84,
+   "p50": 18.52,
+   "p75": 20.86,
+   "p95": 25.61,
+   "n": 41
+  },
+  "n_fallback": 1,
+  "share_by_ladder": {
+   "below_3dB": 0,
+   "3_9dB": 3,
+   "9_15dB": 14,
+   "15dB_up": 24
+  },
+  "apexes": [
+   {
+    "blind_id": "G114",
+    "line": "01.1/Path1",
+    "P_line": 27.307,
+    "snr_db": 20.86,
+    "ref_traces": 157,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G150",
+    "line": "01.1/Path1",
+    "P_line": 27.307,
+    "snr_db": 19.95,
+    "ref_traces": 195,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G130",
+    "line": "01.1/Path2",
+    "P_line": 24.824,
+    "snr_db": 21.98,
+    "ref_traces": 122,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G043",
+    "line": "01.1/Path2",
+    "P_line": 24.824,
+    "snr_db": 20.92,
+    "ref_traces": 192,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G098",
+    "line": "01.1/Path3",
+    "P_line": 25.284,
+    "snr_db": 8.79,
+    "ref_traces": 147,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G099",
+    "line": "01.1/Path3",
+    "P_line": 25.284,
+    "snr_db": 19.61,
+    "ref_traces": 167,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G134",
+    "line": "01.1/Path4",
+    "P_line": 25.441,
+    "snr_db": 18.89,
+    "ref_traces": 137,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G001",
+    "line": "01.1/Path4",
+    "P_line": 25.441,
+    "snr_db": 24.47,
+    "ref_traces": 162,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G132",
+    "line": "01.1/Path5",
+    "P_line": 27.49,
+    "snr_db": 14.25,
+    "ref_traces": 152,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G005",
+    "line": "01.1/Path5",
+    "P_line": 27.49,
+    "snr_db": 13.63,
+    "ref_traces": 167,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G076",
+    "line": "01.1/Path5",
+    "P_line": 27.49,
+    "snr_db": 20.27,
+    "ref_traces": 127,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G143",
+    "line": "01.1/Path6",
+    "P_line": 26.947,
+    "snr_db": 19.37,
+    "ref_traces": 147,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G066",
+    "line": "01.1/Path6",
+    "P_line": 26.947,
+    "snr_db": 25.61,
+    "ref_traces": 113,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G100",
+    "line": "01.1/Path7",
+    "P_line": 27.126,
+    "snr_db": 19.43,
+    "ref_traces": 137,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G057",
+    "line": "01.1/Path7",
+    "P_line": 27.126,
+    "snr_db": 23.87,
+    "ref_traces": 101,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G086",
+    "line": "01.1/Path7",
+    "P_line": 27.126,
+    "snr_db": 23.89,
+    "ref_traces": 101,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G051",
+    "line": "01.1/Path8",
+    "P_line": 24.675,
+    "snr_db": 21.01,
+    "ref_traces": 137,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G164",
+    "line": "01.1/Path8",
+    "P_line": 24.675,
+    "snr_db": 17.69,
+    "ref_traces": 185,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G075",
+    "line": "01.1/Path9",
+    "P_line": 31.03,
+    "snr_db": 18.91,
+    "ref_traces": 142,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G023",
+    "line": "01.1/Path10",
+    "P_line": 25.761,
+    "snr_db": 19.11,
+    "ref_traces": 137,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G041",
+    "line": "01.1/Path11",
+    "P_line": 24.824,
+    "snr_db": 18.91,
+    "ref_traces": 157,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G040",
+    "line": "01.1/Path11",
+    "P_line": 24.824,
+    "snr_db": 18.52,
+    "ref_traces": 177,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G153",
+    "line": "01.1/Path12",
+    "P_line": 24.094,
+    "snr_db": 30.22,
+    "ref_traces": 122,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G093",
+    "line": "03.6/Path7",
+    "P_line": 26.597,
+    "snr_db": 14.9,
+    "ref_traces": 72,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G160",
+    "line": "03.8/Path11",
+    "P_line": 25.924,
+    "snr_db": 11.84,
+    "ref_traces": 120,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G133",
+    "line": "05.3/Path1",
+    "P_line": 25.284,
+    "snr_db": 9.6,
+    "ref_traces": 202,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G157",
+    "line": "05.8/Path1",
+    "P_line": 24.824,
+    "snr_db": 20.94,
+    "ref_traces": 202,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G039",
+    "line": "05.10/Path1",
+    "P_line": 24.675,
+    "snr_db": 11.6,
+    "ref_traces": 202,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G084",
+    "line": "06.2/Path10",
+    "P_line": 25.761,
+    "snr_db": 17.43,
+    "ref_traces": 101,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G128",
+    "line": "07.2/Path6",
+    "P_line": 23.814,
+    "snr_db": 10.53,
+    "ref_traces": 6,
+    "ref_fallback": true
+   },
+   {
+    "blind_id": "G081",
+    "line": "07.4/Path8",
+    "P_line": 29.898,
+    "snr_db": 14.8,
+    "ref_traces": 34,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G104",
+    "line": "08.3/Path2",
+    "P_line": 27.49,
+    "snr_db": 26.17,
+    "ref_traces": 165,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G065",
+    "line": "08.8/Path3",
+    "P_line": 25.284,
+    "snr_db": 3.06,
+    "ref_traces": 141,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G017",
+    "line": "010.14/Path2",
+    "P_line": 24.976,
+    "snr_db": 8.54,
+    "ref_traces": 202,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G069",
+    "line": "010.14/Path2",
+    "P_line": 24.976,
+    "snr_db": 9.79,
+    "ref_traces": 202,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G124",
+    "line": "010.14/Path2",
+    "P_line": 24.976,
+    "snr_db": 18.15,
+    "ref_traces": 179,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G131",
+    "line": "010.14/Path4",
+    "P_line": 26.426,
+    "snr_db": 9.06,
+    "ref_traces": 202,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G096",
+    "line": "010.14/Path4",
+    "P_line": 26.426,
+    "snr_db": 14.76,
+    "ref_traces": 127,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G159",
+    "line": "012.1/Path4",
+    "P_line": 28.055,
+    "snr_db": 13.18,
+    "ref_traces": 122,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G103",
+    "line": "012.3/Path1",
+    "P_line": 26.947,
+    "snr_db": 11.65,
+    "ref_traces": 175,
+    "ref_fallback": false
+   },
+   {
+    "blind_id": "G026",
+    "line": "013.5/Path1",
+    "P_line": 34.712,
+    "snr_db": 10.86,
+    "ref_traces": 98,
+    "ref_fallback": false
+   }
+  ]
+ }
+}

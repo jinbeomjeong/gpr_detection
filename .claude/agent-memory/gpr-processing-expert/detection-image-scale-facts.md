@@ -21,5 +21,7 @@ Facts from the L1 spec draft (docs/processing/spec_detection_image_v1.md, script
 
 - (2026-11-15 stage C pre-check fail, m32_stageC_r0_signal_diag.py) Strong injected hyperbolas (18 dB) under r0: line p99 clip NOT pulled (ratio <= 1.07), median bg keeps ~99 % of apex; AGC 8/f_c saturates: wings lifted to apex level and in-window background suppressed -> wide strong A0 hyperbolas missed (EM: bg attenuation 0.68 -> 0.4). Recall can fall with SNR for local-normalisation recipes, so a monotone-in-SNR pre-check is not physically guaranteed. A1 (h 0.1) injections sit at floor: short flat arcs read as other classes + M15 placed at record bottom (box clipped).
 
+- (2026-11-15 M3-3 X6, m33_x6_period_snr.py) Morocco eval images have a coarse carrier: same whole-image estimator as P_A gives utilities P_in ~25.6 px (x6.3 P_A after letterbox 224->256), intact ~13.8, all 233 outside P_A x [0.55,1.5]; spectral power 20-36 px, nothing near 4-8 px. 4TU K apex SNR proxy (A = (1)-(4) apex env, sigma = MAD 1-3 m lateral) quartiles 11.8 / 18.5 / 20.9 dB -> most K apexes sit in the r0 AGC-saturation regime. AIHUB_WIDTH/HEIGHT_PERIODS come from m32_s1_recheck.py aihub_box_p (451 labels, rounded p5/p95).
+
 **Why:** these decide the L1 scale/tiling rule and are easy to get wrong by measuring on raw data or trusting headers.
 **How to apply:** when verifying `DetectionImage` (M3-2) or judging cross-domain detection, re-measure P per line on bg-removed data; never treat L1 curvature as velocity. Related: [[band-depth-pitfalls]], [[fourtu-zero-band]].
