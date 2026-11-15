@@ -1,13 +1,14 @@
 # 명세 v1 — 검출 영상(L1) 생성, 타일 병합, 측선 단위 깊이 호출 (M3-1 · M3-2 `DetectionImage` 좌표 부분)
 
-- 상태: **v0.4.2** (2026-11-14, gpr-processing-expert). 사용자 결정(2026-11-13)을 반영한 **구현 위임 명세**다. §4·§5·§6·§8을 python-expert가 그대로 구현한다. v0.1(같은 날 초안)의 대안 비교·근거는 §2·§3에 남겼다.
+- 상태: **v0.5** (2026-11-15, gpr-processing-expert). M3-2 마감 판(영상 품질 가정값을 현재값으로 확정, 정정 반영). 이전: v0.4.2 (2026-11-14). 사용자 결정(2026-11-13)을 반영한 **구현 위임 명세**다. §4·§5·§6·§8을 python-expert가 그대로 구현한다. v0.1(같은 날 초안)의 대안 비교·근거는 §2·§3에 남겼다.
 - v0.3 정정은 [CV] v0.2의 발견 3건·선택 4건을 반영한 것이고, 요약은 §0-1에 있다. 시험 목록은 §8이 한 벌이고, [CV] C1–C5와의 대응도 §8에 적었다.
 - 범위
   - 실측 npy(4TU·광저우대·GPR-SD) → 측선 L1 영상 → 256×256 겹침 타일 → 검출 → 측선 연속 좌표에서 병합 → L0 `GridBox`.
   - `pipeline`의 측선 단위 깊이 호출 순서(ADR-004 결정 7): 영점·`exclude_traces` → 쌍곡선 → 속도 풀 → 띠.
   - M3-1 왕복 시험과 깊이 순서 시험.
 - 범위 밖
-  - 영상 품질(채움 값·회색 매핑·검출 영상 배경 제거 창)은 M3-2로 넘긴다. M3-1은 §4-2의 **가정값**으로 구현하고, 결과에 그 사실을 표시한다(`assumed_params`).
+  - 영상 품질(채움 값·회색 매핑·검출 영상 배경 제거 창)은 M3-2로 넘겼다. M3-1은 §4-2의 **가정값**으로 구현하고, 결과에 그 사실을 표시했다(`assumed_params`).
+  - **M3-2에서 닫혔다**(v0.5, 2026-11-15). 단계 C 판정이 `keep_r0`라 가정값(r0 = B0·G0·P0·M0)을 그대로 확정했다. 근거는 [`m32_image_quality_plan.md`](m32_image_quality_plan.md) §9와 [`m32_stageC_judgment.md`](../experiments/m32_stageC_judgment.md)다.
   - 목표 주기 $P^*$와 겹침 폭은 cv-detection-expert의 D1 GPU 평가로 정한다. 여기서는 파라미터로 둔다. D1 r4(커밋 5c8ed09, `docs/experiments/m31_n2a2_d1r4_judgment.md`)와 사용자 결정 N6-a(2026-11-14, 기준선 N2-a′)에 따라 기본값은 **6.0 px·192 px(확정)**이다.
   - GPR-SD 라벨 축척은 M3-4 라벨이 나온 뒤 본다.
 - 바꾸지 않는 것
@@ -28,7 +29,7 @@
 | 병합 | [CV] R2(IoU ≥ 0.7, 잘린 박스가 끼면 IoMin ≥ 0.8, 대표 1개, 평균 없음) + 물리 거부권 V1·V2. `pipe_band`는 트레이스 구간만 중재하고 $k_0,k_1$은 그대로 두며 `group_band_boxes`로 넘긴다. 짝 없이 잘린 쌍곡선은 `tile_truncated` 플래그를 달아 깊이로 넘긴다 | §5, §6 |
 | Q2 $P^*$, 겹침 50/75 % | **확정(v0.4)**: D1 r4(5c8ed09)에서 $P^*$ = **6** 채택(규칙 P, $\Delta_C^{worst}$ 1.97 ≤ 3, $\Delta_B$ 46.11 ≥ 3), 겹침 **75 %(192 px)**(규칙 O, X6 Δ(32) 2.43 ≤ 3, Δ(64) 8.67 > 3). 사용자 결정 N6-a(2026-11-14): 기준선 = N2-a′. 이력: D1 r2(ea7f447)는 $P^*$ 4.06·잠정 192였다 | §4-2 |
 | Q4·Q7 | $v_s$ = 메타 v, 광저우 0.10 m/ns 가정. GPR-SD는 M3-1에서 기본안(주기 맞춤)으로 좌표 왕복 시험만 한다. 라벨 축척은 M3-4 뒤 | §4-4, §9 |
-| Q3·Q5 | M3-2(영상 품질)로 넘긴다. M3-1은 가정값으로 구현하고 표시한다 | §4-2 `assumed_params` |
+| Q3·Q5 | M3-2(영상 품질)로 넘겼다. M3-1은 가정값으로 구현하고 표시했다. **v0.5: M3-2에서 현재값으로 확정**(단계 C `keep_r0`, 2026-11-15) | §4-2 `assumed_params`, §10 |
 | Q6 | 깊이 계약을 바꾸지 않는다 | §7 (a) |
 | Q8·U6 | 측선 L1 정수 px `x0` + 측선당 `ImageGridMap` 1개([CV] 제안과 같음) | §4-3 |
 | Q9 내용 높이 > 256 (v0.3.1) | **(A) 압축 유지**: 두 축을 같은 비율로 줄이고 `compression`·`scale_out_of_range`를 남긴다. D3·M3-2에서 다시 본다 | §4-4 3, §10 |
@@ -145,7 +146,7 @@ $$h_\text{ns}=\frac{2}{v}\left(\sqrt{d^2+a^2}-d\right)+3P,\qquad w_\text{tr}=\fr
 | **C′. 맞춤 배율 + 겹침 타일** | 위와 같음 | 위와 같음, 경계 잘림은 병합으로 해소 | **채택(Q1)** |
 
 - 세로: 시간창 전체를 쓰고 자르지 않는다.
-  - 기본값($P^*$ 6, v0.4)에서 4TU는 119–239 px(Δt 0.195가 239), 광저우 IDS 400 MHz 30 ns 61 px·50 ns 142 px, GPR-SD 38 px라 256 안에 든다. ($P^*$ 4.06이면 80–161 / 42–96 / 25 px였다.)
+  - 기본값($P^*$ 6, v0.4)에서 4TU는 측정 주기 기준 **79–253 px**다(Δt 0.195 측선 최대 253, 011.17/Profile_6409, $P_\text{line}$ 12.15 샘플; v0.5 정정, `analysis/processing/m32_content_height.json`). 이전 판의 "119–239 px(Δt 0.195가 239)"는 2.51 ns 일괄 가정값이었다. 광저우 IDS 400 MHz 30 ns 61 px·50 ns 142 px, GPR-SD 38 px라 256 안에 든다. ($P^*$ 4.06이면 80–161 / 42–96 / 25 px였다.)
   - **광저우 MALA는 예외다**(v0.3 정정). Δt 0.391 ns·시간창 190–200 ns가 주기 40–80개라 256 px를 넘을 수 있다. [CV]는 MALA 2.5 ns 가정으로 75측선을 셌고, 폴더별 실측 주기로는 8측선이다(압축비 1.82). $P^*$ 6에서는 IDS 일부(2000·600 MHz, 400 MHz 128 ns 창)도 넘는다.
   - 넘치면 자르지 않고 두 축을 함께 줄인다(§4-4 3, `period_compressed`). 압축비가 `compress_max` 1.35(v0.4)를 넘으면 객체 축척이 검출 재현율이 확인된 범위 밖이므로 `scale_out_of_range`를 붙인다. Q9 확정 (A)(2026-11-13): 세로 분할하지 않는다. 재검토는 D3·M3-2.
 
@@ -154,7 +155,12 @@ $$h_\text{ns}=\frac{2}{v}\left(\sqrt{d^2+a^2}-d\right)+3P,\qquad w_\text{tr}=\fr
 ### 4-1. 모듈과 의존
 
 - 위치: `preprocess/to_image.py`(기존 `ImageGridMap` 옆). `ImageGridMap`은 **바꾸지 않는다**.
-- import 허용: `numpy`, `gpr_detection.io.radargram`(`Radargram`, `velocity_from_eps`), `gpr_detection.preprocess.filters`(`prepare_fitting_branch`, `agc`, `remove_dc`). `filters.dominant_period_px`·`estimate_period_px`는 import하지 않는다(아래).
+- import 허용(v0.5, M3-2 S1 구현과 맞춤)
+  - `numpy`
+  - `gpr_detection.io.radargram`: `Radargram`, `velocity_from_eps`
+  - `gpr_detection.preprocess.filters`: `AGC_WINDOW_PERIODS`, `BACKGROUND_WINDOW_TRACES`, `FittingBranch`, `agc`, `agc_rms`, `prepare_fitting_branch`, `remove_background`, `remove_dc`
+  - `gpr_detection.preprocess.timezero`: `find_time_zero`. 레시피 B3(`gated`) 전용이고, 기본값 r0에서는 부르지 않는다.
+  - `filters.dominant_period_px`·`estimate_period_px`는 import하지 않는다(아래).
 - 주기 추정(v0.3.3): `measure_period_samples`는 `to_image.py`에 **새로 만든다**. 기존 `filters.estimate_period_px`·`dominant_period_px`(166–195줄)는 고치지도 재사용하지도 않는다.
   - 공통점: 트레이스 평균 $|\mathrm{rfft}|$의 최대(DC 제외)라는 정의가 같다. AIHub $P^*$ 4.06 px는 기존 함수로 잰 값이다.
   - 차이: 기존 함수는 영 채움이 없고(512 샘플에서 주기 해상도 약 ±5 %), 유효 범위가 2.2–128 px이며, 스케일 없는 입력의 `bandpass_px` 경로(깊이 갈래, AIHub 픽 시험 기준)에 묶여 있다. 새 함수는 8배 영 채움, 범위 $[4, n_s/4]$ 샘플, 탐색 구간 양끝 빈이면 `None`이다.
@@ -179,16 +185,37 @@ class DetectionImageConfig:
     period_min_samples: float = 4.0    # valid P range [4, n_s/4]
     clip_percentile: float = 99.0
     v_assumed_m_per_ns: float = 0.10   # Guangzhou (README), Q7
-    # --- M3-2 assumptions (Q3, Q5); listed in DetectionImage.assumed_params ---
+    # --- M3-2 recipe fields (Q3, Q5, R2); defaults = recipe r0, kept by M3-2 stage C ---
     pad_gray: int = 128                # zero amplitude grey
-    gray_mapping: str = "symmetric"    # q = rint(127.5 + 127.5 * clip(a/c, -1, 1))
-    detection_bg_window: int = 301     # same as the fitting branch
+    gray_mapping: GrayMapping = "symmetric"    # M0; "hist_aihub" = M2
+    detection_bg_window: int = 301     # B0 median window (B4 = longer window)
+    period_bg_window: int = 301        # period section, fixed (fitting branch), not a recipe field
+    detection_bg_mode: DetectionBackgroundMode = "median"   # B0 / none B1 / partial B2 / gated B3
+    detection_bg_alpha: float = 0.5    # B2
+    detection_bg_gate_periods: float = 2.0   # B3 n_g
+    gain_mode: GainMode = "agc"        # G0 / agc_capped G2 / tpow G3 / none G4
+    agc_window_periods: float = 8.0    # G0 8, G1 32
+    agc_floor_beta: float = 0.5        # G2
+    tpow_exponent: float | None = None # G3 (record time k*dt)
+    pad_mode: PadMode = "flat"         # P0 / taper P1
+    pad_taper_periods: float = 1.0     # P1 n_tau
+    invert_polarity: bool = False      # M3 diagnostic
+    hist_reference_cdf: tuple[float, ...] | None = None   # M2 reference
+    recipe_id: str = "r0"              # "r0" only with the r0 values
 DEFAULT_DETECTION_IMAGE_CONFIG = DetectionImageConfig()
 DATASET_DEFAULT_PERIOD: dict[str, tuple[float, str]] = {
     "4tu": (2.51, "ns"), "guangzhou": (2.5, "ns"), "gprsd": (51.2, "samples"),
 }
-M3_2_ASSUMED = ("pad_gray", "gray_mapping", "detection_bg_window")
+RECIPE_FIELDS = ("pad_gray", "gray_mapping", "detection_bg_window", "detection_bg_mode",
+                 "detection_bg_alpha", "detection_bg_gate_periods", "gain_mode",
+                 "agc_window_periods", "agc_floor_beta", "tpow_exponent", "pad_mode",
+                 "pad_taper_periods", "clip_percentile", "invert_polarity",
+                 "hist_reference_cdf")          # 15 fields
+M3_2_ASSUMED = (*RECIPE_FIELDS, "recipe_id")   # 16 names recorded in assumed_params
 ```
+
+- v0.5: 위 스케치는 S1 구현(커밋 d9e3d13 이후 `to_image.py`)과 맞춘 것이다. 정본은 코드다. `period_bg_window`는 레시피 필드가 아니어서 `M3_2_ASSUMED`에 없다. 주기 단면을 고정하므로 축척은 레시피와 무관하다(M3-2 계획 §2-1).
+- 필드별 뜻과 후보값은 `docs/processing/m32_image_quality_plan.md` §2·§4-1에 있다.
 
 | 파라미터 | 기본값 | 근거 / 결정 상태 |
 |---|---|---|
@@ -201,7 +228,7 @@ M3_2_ASSUMED = ("pad_gray", "gray_mapping", "detection_bg_window")
 | `period_*` | ×8, 4 샘플 | §2-2 측정과 같은 추정기 |
 | `clip_percentile` | 99 | [D] §3 (6) |
 | `v_assumed_m_per_ns` | 0.10 | 광저우 [RG] §4, Q7 |
-| `pad_gray`, `gray_mapping`, `detection_bg_window` | 128, 대칭, 301 | **가정, M3-2(Q3·Q5)에서 정함** |
+| `pad_gray`, `gray_mapping`, `detection_bg_window`와 M3-2 레시피 필드 | r0: 128, 대칭(M0), median 301(B0), AGC 8/$f_c$(G0), 평탄 채움(P0), 클립 p99 | **확정: 현재값 유지**(M3-2 단계 C 판정 `keep_r0`, 2026-11-15, v0.5). 후보 r5·r6이 채택 조건을 넘지 못했다. 근거는 [`m32_image_quality_plan.md`](m32_image_quality_plan.md) §9, [`m32_stageC_judgment.md`](../experiments/m32_stageC_judgment.md) R-3 |
 
 ### 4-3. 출력 자료형
 
@@ -238,8 +265,13 @@ class DetectionImage:
     compression: float         # c (1.0 when not compressed)
     flags: tuple[str, ...]     # period_fallback, period_compressed, scale_out_of_range,
                                # overlap_period_capped, v_scale_assumed,
-                               # amplitude_processed, single_tile, short_line_padded, flat_line
-    assumed_params: tuple[str, ...]   # == M3_2_ASSUMED in M3-1
+                               # amplitude_processed, single_tile, short_line_padded, flat_line,
+                               # detection_bg_gate_fallback (B3 found no zero, used full median)
+    assumed_params: tuple[str, ...]   # == M3_2_ASSUMED (16 names)
+    pad_gray: int = 128               # used by tile_image
+    recipe_id: str = "r0"             # DetectionImageConfig.recipe_id
+    assumed_values: tuple[tuple[str, object], ...] = ()   # (name, value) of assumed_params
+    background_gate_k_zero: float | None = None           # t_z (samples) used by B3, else None
 
     def tile_image(self, k: int) -> np.ndarray:   # uint8 [L, L], C-contiguous copy;
         # columns >= content_width_px are pad_gray (short line only)
@@ -275,7 +307,11 @@ def make_detection_image(
      - 아니면 `metadata["depth_per_sample_m_rough"]`가 있으면 $\delta_z$ = 그 값, $v_s=2\delta_z/\Delta t$다(`"depth_per_sample_rough"`, GPR-SD; dt 가설과 무관하게 $\delta_z$만 쓴다).
      - 아니면 $v_s$ = `v_assumed_m_per_ns`(`"assumed"`, 플래그 `v_scale_assumed`, 광저우)다.
    - 공칭 배율: $s_y=P_\text{line}/P^*$, $s_x=s_y\,\delta_z/\Delta x$.
-   - 압축: $\operatorname{round}(n_s/s_y)>L$이면 $c=(n_s/L)/s_y$로 두 배율에 같은 $c$를 곱한다(등방 유지, 자르지 않음, 플래그 `period_compressed`). `compression` = $c$다. $c$ > `compress_max`(1.35, v0.4)이면 `scale_out_of_range`를 더한다. 좌표 계약에는 영향이 없고 검출 축척만 검증된 범위 밖이 된다(§10 Q9). 기본값 $P^*$ 6에서 압축되는 측선은 광저우뿐이다: MALA($c$ 1.45–2.7, 모두 > 1.35), 2000 MHz 30 ns 2측선·600 MHz 100 ns 1측선(1.41), 400 MHz 128 ns 창 6측선(1.2, 범위 안; 비400 MHz·창은 주기 $1/f$ 가정). 4TU는 최대 239 px라 압축되지 않는다(§3, `detection_image_gz_height_check.py`).
+   - 압축: $\operatorname{round}(n_s/s_y)>L$이면 $c=(n_s/L)/s_y$로 두 배율에 같은 $c$를 곱한다(등방 유지, 자르지 않음, 플래그 `period_compressed`). `compression` = $c$다. $c$ > `compress_max`(1.35, v0.4)이면 `scale_out_of_range`를 더한다. 좌표 계약에는 영향이 없고 검출 축척만 검증된 범위 밖이 된다(§10 Q9). 기본값 $P^*$ 6에서 압축되는 측선은 광저우뿐이다(v0.5 정정, 측선별 측정 주기 기준).
+     - IDS: 448측선 중 20측선이 압축되고, $c$ > 1.35는 1030_181230AC/LID10001 1측선(1.43)뿐이다. 나머지 19측선은 1.02–1.34다(`analysis/processing/m32_content_height.json`).
+     - MALA: 75측선 중 45측선이 압축되고, $c$ > 1.35는 28측선이다($c$ 1.005–2.70, `analysis/processing/m32_mala_period_diag.json`).
+     - 이전 판의 "MALA $c$ 1.45–2.7 모두 > 1.35, 2000 MHz 30 ns 2측선·600 MHz 100 ns 1측선(1.41), 400 MHz 128 ns 창 6측선(1.2)"은 폴더 첫 파일 주기와 $1/f$ 가정으로 센 값이었다.
+     - 4TU는 최대 253 px라 압축되지 않는다(§3).
    - 크기: $H_c=\max(1,\operatorname{round}(n_s/s_y))$, $W_1=\max(1,\operatorname{round}(N/s_x))$. 실제 배율은 $\sigma_y=n_s/H_c$, $\sigma_x=N/W_1$이고 이 값을 `ImageGridMap`에 넣는다.
    - 두 축 반올림 때문에 등방이 최대 $\pm0.5/\min(H_c,W_1)$ 상대로 어긋난다. 허용한다.
 4. **gain**: 원시 자료는 `agc(section, dt_ns, f_c_hz)`([D] §3 (5))를 적용한다. `amplitude_processed`면 생략한다.
@@ -361,6 +397,7 @@ def make_detection_image(
 | 4TU 03.9 Path5 | 4.2687 | 1.0451 | 120 | 9 | 1.0 | 4.26667 | 100 | 1 |
 
 - $P^*$ 6에서는 4TU Δt 0.195도 $H_c$ 239로 256 안이라 압축이 없다($P^*$ 8 압축 사례는 첫 표 셋째 행).
+  - 이 239는 시험용 가정 주기(2.51 ns 일괄)로 낸 값이다. 실측 측정 주기로는 Δt 0.195 측선의 최대가 253 px이고, 그래도 압축은 없다(§3, v0.5).
 - 실측 시험(T7 `data`)에서는 $P_\text{line}$을 측선에서 재므로 값이 달라진다. 이 표는 `line_scale`·`tile_layout` 순수 함수 시험에 주기를 직접 넣어 쓴다.
 
 ## 5. 구현 명세 — 타일 박스 병합 (`src/gpr_detection/pipeline.py`)
@@ -668,14 +705,14 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 | Q1 L1 방식 | 확정(C′) | – |
 | 병합(R2 + V1·V2, 띠 중재, `tile_truncated`) | 확정 | V1 문턱 1 P는 D3(4TU 정성)에서 확인 |
 | Q2 $P^*$ 4.06/6.0, 겹침 128/192 | **확정**: $P^*$ 6, 겹침 192(D1 r4 5c8ed09, N6-a 2026-11-14) | 기본값 변경에 따른 시험 정리는 §8-4 |
-| Q3 채움 값·회색 매핑 | M3-2 | 가정값 128·대칭, `assumed_params` |
+| Q3 채움 값·회색 매핑 | **확정: 현재값 유지**(v0.5, M3-2 단계 C `keep_r0`, 2026-11-15). 채움 128 평탄(P0), 대칭 p99 매핑(M0) | 없음. 근거는 [`m32_image_quality_plan.md`](m32_image_quality_plan.md) §9 |
 | Q4 GPR-SD 축척 | M3-1은 기본안 왕복만 | 라벨 축척은 M3-4 뒤 |
-| Q5 검출 영상 배경 창 | M3-2 | 가정값 301 |
+| Q5 검출 영상 배경 창 | **확정: 현재값 유지**(v0.5). median 301(B0). gain은 AGC 8/$f_c$(G0) 유지이고 위험 R2도 닫혔다(§11-1) | 없음. 같은 근거 |
 | Q6 박스 위 끝 여유 | 계약 불변 | T10 측정만 |
 | Q7 $v_s$ | 메타 v, 광저우 0.10 가정 | – |
 | Q8·U6 | 측선 L1 `x0` + 측선당 `ImageGridMap` | – |
 | $O_\text{phys}$ 식(v0.3) | 정정 확정: $\min(2a_\max, 20\lambda/2)$, 고주파 측선 포함·`overlap_period_capped` | 사용자 결정 불필요. 현재 파라미터($O_\text{cv}$ 128·192)에서 실제 겹침이 바뀌는 측선 없음 |
-| Q9 내용 높이 > 256 | **확정(A), 사용자 결정 2026-11-13**: 등방 압축, `compression` 기록, $c$ > 1.25(v0.4에서 1.35)면 `scale_out_of_range` | D3·M3-2에서 해당 측선(광저우 MALA, $P^*$ 6의 IDS 일부)의 검출 품질을 보고 다시 본다. 검토했던 선택지: (A) 압축 유지 / (B) 세로 겹침 타일(축척 보존, 타일 2차원화·위아래 잘림 표시·세로 소유 구간 추가, 깊은 타일에 지표 행 없음) / (C) $c$ ≤ 1.25만 압축, 넘으면 (B) |
+| Q9 내용 높이 > 256 | **확정(A), 사용자 결정 2026-11-13**: 등방 압축, `compression` 기록, $c$ > 1.25(v0.4에서 1.35)면 `scale_out_of_range` | **v0.5: M3-2에서 (A) 유지로 닫혔다**(계획 PQ3 (a)). (A)/(C) 주입 비교는 보고 전용이었고 수행하지 않았다(판정 무관). 대상 측선 수는 §4-4 3의 측정 주기 기준이다(IDS 범위 밖 1측선, MALA 28측선). 검토했던 선택지: (A) 압축 유지 / (B) 세로 겹침 타일(축척 보존, 타일 2차원화·위아래 잘림 표시·세로 소유 구간 추가, 깊은 타일에 지표 행 없음) / (C) $c$ ≤ 1.25만 압축, 넘으면 (B) |
 
 ## 11. 핸드오프
 
@@ -689,9 +726,20 @@ T2 기대 타일 수(행 $W_1$, 열 $O$ = 0 / 64 / 128 / 141 / 192)
 
 | ID | 위험 | 근거 | 다룰 곳 |
 |---|---|---|---|
-| R2 (v0.3.5) | 검출 영상의 AGC((5), 창 $8/f_c$)가 잡음·필터 끝 구간을 키워, L1 **전체**에서 잰 주기가 $P^*$보다 길어진다. 실측 4TU 6측선 4.57–5.25 px(+13–29 %, AIHub 크롭 전체 기준 p50 4.06·p90 4.57). 잡음 없는 합성은 17 px, SNR 20 dB는 7.4 px다. 관 반사 자리(꼭짓점 창)의 주기는 3.37–4.41 px로 $P^*$ 근처다. 그래서 축척 규칙(배경 제거 후·gain 전 $P_\text{line}$)은 맞고, 바뀌는 것은 영상 질감이다 | `analysis/processing/detection_image_t4_check.py` | M3-2 영상 품질: gain 종류·창과 AIHub 질감(크롭 전체 주기) 맞춤. M3-1 알고리즘은 바꾸지 않는다 |
+| R2 (v0.3.5) | 검출 영상의 AGC((5), 창 $8/f_c$)가 잡음·필터 끝 구간을 키워, L1 **전체**에서 잰 주기가 $P^*$보다 길어진다. 실측 4TU 6측선 4.57–5.25 px(+13–29 %, AIHub 크롭 전체 기준 p50 4.06·p90 4.57). 잡음 없는 합성은 17 px, SNR 20 dB는 7.4 px다. 관 반사 자리(꼭짓점 창)의 주기는 3.37–4.41 px로 $P^*$ 근처다. 그래서 축척 규칙(배경 제거 후·gain 전 $P_\text{line}$)은 맞고, 바뀌는 것은 영상 질감이다 | `analysis/processing/detection_image_t4_check.py` | M3-2 영상 품질: gain 종류·창과 AIHub 질감(크롭 전체 주기) 맞춤. M3-1 알고리즘은 바꾸지 않는다. **v0.5: 닫힘**(아래 11-1-1) |
 | R3 (v0.3.5) | 얇은 띠 박스(높이 ≤ 2 × 위 끝 차)는 이웃 타일 조각이 묶이지 않아 띠 결과가 둘로 나뉜다 | 구현 시험(높이 1.2 P, 3 px) | D3: 실측 이웃 타일 띠 조각의 위 끝 차·높이 분포와 미묶음 건수 보고 |
-| R1 | 광저우 MALA의 측정 주기가 폴더마다 4.45–36.6 샘플로 흩어진다. 처리본이라 저주파 잔여나 gain이 섞인 것으로 보인다. 그래서 $s_y$와 압축 여부가 측선마다 크게 바뀌고, 높이 > 256 측선 수가 주기 가정에 따라 8–75개로 달라진다 | `analysis/processing/detection_image_gz_height_check.py`(폴더 첫 파일 6개) | M3-2 영상 품질: MALA 주기 추정(창 제한·폴더 단위 대표값)과 D3에서 `compression`·`scale_out_of_range` 측선의 검출 품질 확인. M3-1은 측정값을 그대로 쓴다 |
+| R1 | 광저우 MALA의 측정 주기가 폴더마다 4.45–36.6 샘플로 흩어진다. 처리본이라 저주파 잔여나 gain이 섞인 것으로 보인다. 그래서 $s_y$와 압축 여부가 측선마다 크게 바뀌고, 높이 > 256 측선 수가 주기 가정에 따라 8–75개로 달라진다 | `analysis/processing/detection_image_gz_height_check.py`(폴더 첫 파일 6개) | M3-2 영상 품질: MALA 주기 추정(창 제한·폴더 단위 대표값)과 D3에서 `compression`·`scale_out_of_range` 측선의 검출 품질 확인. M3-1은 측정값을 그대로 쓴다. **v0.5: 진단만, 기본값 불변**(아래 11-1-1) |
+
+#### 11-1-1. M3-2 결과 (v0.5, 2026-11-15)
+
+- **R2**: 닫혔다.
+  - M3-2 단계 A가 AGC 평탄화를 확인했다($\rho_{bt}$ 4TU 0.92 대 AIHub NM 0.21).
+  - 단계 C에서 대안 gain(r5 G2, r6 G1)이 채택 조건을 넘지 못해 G0를 유지한다.
+  - 강신호(18 dB)에서는 AGC 포화로 4TU/A0 재현율이 5 fold 평균 −2.3 %p 떨어진다. 이 성질은 M3-3에 넘긴다(계획 §9).
+- **R1**: M3-2에서 진단만 했고 기본값은 바꾸지 않았다(계획 PQ3 (a)).
+  - 주기 8배 폭은 처리 잔여와 추정기 모드 이동 때문이다(`m32_em_review.md` §3). 안테나는 250 MHz급으로 추정된다.
+  - EM 규칙(이른 창 + 폴더 중앙값 + 대역 제한 + ±30 %)을 쓰면 압축 측선이 45 → 38, 범위 밖이 28 → 12가 된다.
+  - 폴더 07011에는 213 MHz 봉우리가 없다. 그래서 고조파보다 다른 안테나 쪽이 그럴듯하다(`analysis/processing/m32_mala_period_diag.json`).
 
 ### 11-2. N2-a 학습 축척 증강의 물리 조건 (v0.3.6, 2026-11-13 의견 기록)
 
@@ -717,7 +765,10 @@ N2-a 재학습(`docs/experiments/m31_n2a_retrain_plan.md`)이 Ultralytics `scale
    - 학습 축척 하한은 0.55(기본 모드 U[0.55, 1.5], 축소 INTER_AREA)이지만, 실제 축소 학습 비율은 약 23.7 %뿐이다. 그 하한 근처의 재현율은 $\log g$ 보간으로 $R(0.55)\approx$ 59.5 %라 $R(1.0)$보다 약 32 %p 낮다.
    - `scale_out_of_range`의 뜻은 "학습 범위 밖"이 아니라 **"검출 재현율이 확인된 축척 범위 밖"**으로 둔다. 확인된 최소 배율은 $R(g)\ge R(1.0)-3$ %p를 만족하는 S 점 중 가장 작은 0.74다. 그래서 `compress_max` = 1/0.74 = **1.35**다.
    - 0.5–0.74 사이는 측정점이 없다(0.5에서 48 %). 1/0.55 = 1.82를 쓰면 재현율이 약 60 %로 예상되는 압축 측선을 범위 안으로 분류하게 된다.
-   - 영향: 4TU는 기본값에서 압축이 없어 영향이 없다. 광저우 MALA($c$ 1.45–2.7)·2000 MHz 2측선·600 MHz 1측선(1.41)은 `scale_out_of_range`가 되고, 400 MHz 128 ns 6측선(1.2)은 범위 안이다.
+   - 영향: 4TU는 기본값에서 압축이 없어 영향이 없다. 광저우는 측선별 측정 주기 기준으로 다음과 같다(v0.5 정정, §4-4 3).
+     - IDS: `scale_out_of_range`는 1030_181230AC 1측선($c$ 1.43)뿐이고, 압축된 나머지 19측선은 범위 안이다.
+     - MALA: 45측선이 압축되고, 그중 28측선이 `scale_out_of_range`다.
+     - 이전 판의 "MALA $c$ 1.45–2.7·2000 MHz 2측선·600 MHz 1측선(1.41)"은 가정 주기로 센 값이었다.
    - 플래그는 정보용이고 측선을 빼지 않는다. 0.5–0.74 사이 S 점이 새로 측정되면(D1 다음 차수 또는 M3-2) 이 값을 다시 본다.
 6. 깊이는 L0만 쓰므로 이 증강의 영향을 받지 않는다(§7).
 ## 12. [CV] 가정·결정 후보에 대한 물리 쪽 답
@@ -774,7 +825,7 @@ N2-a 재학습(`docs/experiments/m31_n2a_retrain_plan.md`)이 Ultralytics `scale
 | V2 | 거부 건수, 중심 간격 / $r_F$ 분포 | 드물다 |
 | 잘림 | `tile_truncated` 단독 건수(`tile_seam_box`), 타일 경계 2 px 안 박스 비율 | `tile_seam_box`는 작다(쌍곡선 폭 < 192 px) |
 | 띠(R3) | 이웃 타일 띠 조각 쌍마다 위 끝 차(px, $P$ 단위)·작은 박스 높이·시간 겹침 비율. `group_band_boxes`의 후보 조건(시간 겹침 ≥ 50 %, gap ≤ $G$)을 **기하만으로** 계산해 탈락 쌍 수를 센다(픽은 하지 않음) | 4TU는 평행 관 정답이 거의 없어 띠 박스 자체가 적을 수 있다. 건수와 분포만 보고 |
-| 플래그 | 측선별 $P_\text{line}$, `period_source`, `compression`, `overlap_period_capped`, `period_compressed`, `scale_out_of_range` | 4TU는 압축 0(최대 239 px), capped는 메타 εr·측정 주기를 따른다 |
+| 플래그 | 측선별 $P_\text{line}$, `period_source`, `compression`, `overlap_period_capped`, `period_compressed`, `scale_out_of_range` | 4TU는 압축 0(최대 253 px, 측정 주기 기준; v0.5 정정, 이전 판 239는 2.51 ns 일괄 가정값), capped는 메타 εr·측정 주기를 따른다 |
 | 알려진 꼭짓점 | 묶음 K의 41꼭짓점마다, 그 꼭짓점(L0)을 ±3 트레이스·±0.5 주기 안에 담는 `pipe_hyperbola` 박스가 있는지. fold 0과 $n_\text{agree}$ 기준 | 판정 아님. 낮으면 M3-3 교차 도메인 문제로 넘긴다 |
 | 갤러리 | fold 0 측선 L1 영상에 병합 뒤 박스(클래스 색), 타일 경계선, V1·V2 거부와 `tile_truncated` 표시. 긴 측선은 1,024 px씩 나눈다. 묶음 K는 꼭짓점 표시를 함께 그린다 | 육안 검토: cv-detection-expert, gpr-processing-expert |
 | 요약 | `d3_summary.json`(위 수치, 측선 목록 sha256, 가중치 sha256 5개, git head) | – |
@@ -832,3 +883,4 @@ N2-a 재학습(`docs/experiments/m31_n2a_retrain_plan.md`)이 Ultralytics `scale
 | 2026-11-14 | v0.4 | D1 r4(5c8ed09)·N6-a(기준선 N2-a′) 반영: `p_target_px` 4.06 → **6.0**, `overlap_px` 192 확정(잠정 해제), `compress_max` 1.25 → **1.35**(§11-2 5 판정, 1.82 기각). §3·§4-4 3 높이·압축 측선을 $P^*$ 6 기준으로 갱신, §4-7에 $P^*$ 6 기대값 표 추가, §8-4 시험 정리(python-expert 수정 명세), §13 D3 실행 명세 신설 |
 | 2026-11-14 | v0.4.1 | §13-6 D3 결과 물리 해석 추가(V1 문턱, 띠 R3 0건, 플래그, 꼭짓점 놓침 원인). 파라미터 변경 없음 |
 | 2026-11-14 | v0.4.2 | 마감 정합: `compress_max` 옛 값 1.25를 1.35로(§3·§4-6·T7(c); §0-1·§10 Q9 기록에는 "(v0.4에서 1.35)" 덧붙임), §8-4 "구현됨(2026-11-14)" 표시. QA-8 $P^*$ 6.0 재확인은 `m31_qa8_roundtrip.md` 새 절 |
+| 2026-11-15 | v0.5 | M3-2 마감. 단계 C 판정 `keep_r0`([`m32_stageC_judgment.md`](../experiments/m32_stageC_judgment.md))에 따라 Q3·Q5를 현재값(r0 = B0·G0·P0·M0)으로 확정했다(§0·§4-2·§10). 위험 R2는 닫고, R1은 진단만 기록했다(§11-1-1). Q9 (A) 유지를 기록했다. M3-2 계획 §8-1의 정정을 반영했다: 4TU 최대 239 → 253 px(측정 주기 기준, §3·§4-4 3·§4-7 주석·§13-4), IDS 압축 측선 수(20측선, $c$ > 1.35는 1측선)와 MALA(45측선, 28측선; §4-4 3·§11-2 5). S1 구현과 맞췄다: §4-1 import 허용 목록, §4-2 레시피 필드 스케치·`RECIPE_FIELDS` 15개·`M3_2_ASSUMED` 16개·`period_bg_window`(레시피 아님), §4-3 `DetectionImage` 필드(`pad_gray`·`recipe_id`·`assumed_values`·`background_gate_k_zero`)와 플래그 `detection_bg_gate_fallback`. 기본값 동작은 그대로이고 코드는 바꾸지 않았다 |
