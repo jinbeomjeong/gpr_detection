@@ -168,6 +168,8 @@ CLIPPED_INJECTION_RATIO_MAX = 0.05
 """int16 rule (ii): a clipped cell may carry at most 5 % of the apex injection."""
 
 BOTTOM_STRATUM_PERIODS = 3.0
+RECORD_END_WING_PERIODS = 1.0
+"""Amendment 9: a -20 dB wing past ``n_samples - 1 - 1 P_line`` is cut off."""
 BOTTOM_PRIORITY_PER_LINE = 1
 """Bottom-stratum candidates placed first per line (amendment 6)."""
 
@@ -534,6 +536,8 @@ class InjectionTruth:
         noise_rms: ``sigma`` of the background.
         effective_eps_r: See ``ResponsePatch``.
         box_clipped: True when ``box`` was cut at the record end.
+        wing_past_record_end: The -20 dB wing below the apex reaches past
+            the record end - 1 ``P_line`` (amendment 9, [EMR] C3-6).
         in_horizontal_box_zone: The apex would have been blocked by the old
             horizontal-only zone (c); reported separately ([CVR] B-1).
         period_ringing: See ``ResponsePatch``.
@@ -571,6 +575,7 @@ class InjectionTruth:
     period_ringing: bool = False
     n_clipped_cells: int = 0
     max_clipped_injection_ratio: float = 0.0
+    wing_past_record_end: bool = False
     width_periods_by_level: Mapping[float, float] = field(
         default_factory=dict, hash=False
     )
@@ -591,6 +596,11 @@ class InjectionTruth:
     def in_distribution(self, level_w_db: float) -> bool:
         """Width stratum of plan 3-2 at the fixed level ``l_W``."""
         return self.width_class(level_w_db) is WidthClass.IN
+
+    @property
+    def main_cell(self) -> bool:
+        """Counts in the C-1 main cells: not cut at the record end (amendment 9)."""
+        return not (self.box_clipped or self.wing_past_record_end)
 
 
 @dataclass(frozen=True, eq=False)
@@ -633,7 +643,9 @@ class LinePlan:
         n_dropped: Candidates that kept the line spacing ``W_-20 / 2`` but fit
             in no realization (``[CVR]`` B-4: dropped and counted).
         candidates_by_response: ``response_id -> (bottom, all)`` allowed
-            candidates before any priority (natural bottom share, [CVR] D-3).
+            main-cell candidates before any priority (natural bottom share,
+            [CVR] D-3); clipped or wing-past-the-end models are left out
+            (amendment 9), so a model may be missing.
     """
 
     line_id: str
@@ -1647,6 +1659,7 @@ def _make_truth(
         period_ringing=patch.period_ringing,
         n_clipped_cells=clip.n_clipped_cells,
         max_clipped_injection_ratio=clip.max_ratio,
+        wing_past_record_end=is_wing_past_record_end(context, patch),
         width_periods_by_level={
             level: box.width_periods for level, box in patch.level_boxes.items()
         },
@@ -1931,15 +1944,20 @@ def plan_line_positions(
         positions=tuple(positions),
         n_candidates=len(candidates),
         n_dropped=n_dropped,
-        candidates_by_response=_candidate_counts(candidates, is_bottom),
+        candidates_by_response=_candidate_counts(context, candidates, is_bottom),
     )
 
 
 def _candidate_counts(
-    candidates: Sequence[tuple[ResponsePatch, float]], is_bottom: Sequence[bool]
+    context: LineContext,
+    candidates: Sequence[tuple[ResponsePatch, float]],
+    is_bottom: Sequence[bool],
 ) -> dict[str, tuple[int, int]]:
+    """``(bottom, all)`` main-cell candidates per model (the ``pi_bottom`` set)."""
     counts: dict[str, list[int]] = {}
     for (patch, _), bottom in zip(candidates, is_bottom, strict=True):
+        if not is_main_cell(context, patch):
+            continue
         tally = counts.setdefault(patch.response.response_id, [0, 0])
         tally[0] += int(bottom)
         tally[1] += 1
@@ -1952,6 +1970,39 @@ def is_bottom_stratum(context: LineContext, patch: ResponsePatch) -> bool:
         context.background.n_samples - BOTTOM_STRATUM_PERIODS * context.period_samples
     )
     return patch.apex_sample >= bottom_limit
+
+
+def is_box_clipped(context: LineContext, patch: ResponsePatch) -> bool:
+    """The truth box runs past the last record sample (same as ``box_clipped``).
+
+    Patch rows are line samples, so this does not depend on the apex trace.
+    """
+    return patch.truth_bbox[3] > context.background.n_samples - 1
+
+
+def is_wing_past_record_end(context: LineContext, patch: ResponsePatch) -> bool:
+    """The -20 dB wing below the apex passes the record end - 1 ``P_line``.
+
+    Amendment 9 ([EMR] C3-6): the last wing row (untapered -20 dB component)
+    must not lie beyond ``n_samples - 1 - P_line``; exactly on it is not past.
+    """
+    last_allowed_row = (
+        context.background.n_samples
+        - 1
+        - RECORD_END_WING_PERIODS * context.period_samples
+    )
+    return patch.wing_bbox[3] > last_allowed_row
+
+
+def is_main_cell(context: LineContext, patch: ResponsePatch) -> bool:
+    """Neither clipped nor with a wing past the record end - 1 P (amendment 9).
+
+    Positions outside the main cells stay planned (C-6 bottom report) but
+    leave the C-1 main cells and the ``pi_bottom`` candidate set.
+    """
+    return not (
+        is_box_clipped(context, patch) or is_wing_past_record_end(context, patch)
+    )
 
 
 def _bottom_first_order(

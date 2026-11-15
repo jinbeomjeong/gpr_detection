@@ -754,6 +754,44 @@ def test_plan_counts_the_natural_bottom_share_of_candidates(context, patch):
     assert total == plan.n_candidates and bottom in (0, total)
 
 
+def _with_wing_end(patch: ResponsePatch, last_row: int) -> ResponsePatch:
+    col0, col1, row0, _ = patch.wing_bbox
+    return replace(patch, wing_bbox=(col0, col1, row0, last_row))
+
+
+def test_wing_past_record_end_boundary_is_record_end_minus_one_period(context, patch):
+    from gpr_detection.eval import inject
+
+    limit = context.background.n_samples - 1 - context.period_samples
+    on_limit = _with_wing_end(patch, math.floor(limit))
+    past_limit = _with_wing_end(patch, math.floor(limit) + 1)
+    assert not inject.is_wing_past_record_end(context, on_limit)
+    assert inject.is_wing_past_record_end(context, past_limit)
+    assert inject.is_main_cell(context, on_limit) == (
+        not inject.is_box_clipped(context, on_limit)
+    )
+    assert not inject.is_main_cell(context, past_limit)
+
+
+def test_box_clipped_patch_matches_the_truth_flag(context, patch, injected):
+    from gpr_detection.eval import inject
+
+    (truth,) = injected.truths
+    assert inject.is_box_clipped(context, patch) == truth.box_clipped
+    assert truth.wing_past_record_end == inject.is_wing_past_record_end(context, patch)
+    assert truth.main_cell == inject.is_main_cell(context, patch)
+    assert not replace(truth, wing_past_record_end=True).main_cell
+    assert not replace(truth, box_clipped=True).main_cell
+
+
+def test_non_main_cell_models_leave_the_pi_candidate_set(context, patch):
+    limit = context.background.n_samples - 1 - context.period_samples
+    cut = _with_wing_end(patch, math.floor(limit) + 1)
+    plan = plan_line_positions(context, [cut])
+    assert plan.n_candidates > 0 and plan.positions  # still planned (C-6 report)
+    assert "M12" not in plan.candidates_by_response
+
+
 def test_period_check_ignores_components_more_than_2p_before_the_apex(
     response, context, patch
 ):

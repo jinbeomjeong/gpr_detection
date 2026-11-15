@@ -199,18 +199,97 @@ def test_identity_gate_needs_the_d3_counts() -> None:
     assert not runner.identity_gate(rows)["pass"]
 
 
-def _positions(n: int, n_lines: int, n_in: int, n_bottom: int) -> list[dict]:
+def _positions(
+    n: int, n_lines: int, n_in: int, n_bottom: int, *, group: str = "A0"
+) -> list[dict]:
     return [
         {
             "line_id": f"L{i % n_lines}",
             "dataset": "4tu",
-            "model_group": "A1",
+            "model_group": group,
             "in_distribution": i < n_in,
             "bottom_stratum": i < n_bottom,
+            "box_clipped": False,
+            "wing_past_record_end": False,
+            "main_cell": True,
             "period_ringing": i == 0,
         }
         for i in range(n)
     ]
+
+
+def test_main_cell_exclusions_leave_the_main_metric_but_count_for_c6() -> None:
+    reports = [{"patch_failures": {}, "n_dropped": 0, "n_period_ringing": 0}]
+    positions = _positions(450, 70, 410, 100)
+    for row in positions[:5]:  # in distribution and bottom stratum
+        row.update(box_clipped=True, wing_past_record_end=True, main_cell=False)
+    for row in positions[5:12]:
+        row.update(wing_past_record_end=True, main_cell=False)
+    report = runner.sample_report(positions, reports)
+    cells = report["main_cells"]
+    assert cells["main_cell_excluded"] == 12
+    assert cells["main_cell_excluded_by_reason"] == {
+        "box_clipped": 5,
+        "wing_past_record_end_only": 7,
+    }
+    assert cells["main_cell_excluded_bottom_stratum"] == 12
+    assert report["in_distribution_per_snr_step"] == 410 - 12
+    assert report["in_distribution_all_positions_per_snr_step"] == 410
+    assert report["primary_stratum"] == "in_or_out"  # 398 main in-distribution
+    assert report["bottom_stratum"] == 100 and report["bottom_rule"] == "point"
+
+
+def test_report_only_a1_cell_never_counts_toward_the_path() -> None:
+    reports = [{"patch_failures": {}, "n_dropped": 0, "n_period_ringing": 0}]
+    report = runner.sample_report(_positions(450, 70, 450, 0, group="A1"), reports)
+    assert report["in_distribution_per_snr_step"] == 0
+    assert report["main_cells"]["report_only_main_cell_in_distribution"] == 450
+    assert report["primary_stratum"] == "in_or_out"
+
+
+def test_precheck_subset_has_its_own_folder_and_the_full_p5b_starts_clean(
+    tmp_path,
+) -> None:
+    """Plan 4-4 / 9-7: r0 fold 0 first, then the full P5b in ``injected/``."""
+
+    def injected(*extra: str) -> runner.RunSettings:
+        return runner.parse_args(
+            ["--stage", "injected", "--out-root", str(tmp_path), *extra]
+        )
+
+    subset = injected("--recipes", "r0", "--folds", "0")
+    full = injected()
+    assert subset.is_precheck_subset and not subset.is_full
+    assert subset.stage_dir == tmp_path / runner.PRECHECK_STAGE_DIR
+    assert full.is_full and not full.is_precheck_subset
+    assert full.stage_dir == tmp_path / "injected"
+    runner.prepare_stage_dir(subset)
+    (subset.stage_dir / "summary.json").write_text("{}", encoding="utf-8")
+    runner.prepare_stage_dir(full)  # no --resume or --overwrite needed
+    assert (subset.stage_dir / "summary.json").is_file()
+    other = injected("--recipes", "r0", "--folds", "1")
+    assert not other.is_precheck_subset and other.stage_dir == full.stage_dir
+
+
+def test_m15_is_used_only_on_100_ns_4tu_records() -> None:
+    responses = {model_id: object() for model_id in ("M12", "M15", "M18")}
+    short = responses_io.select_4tu_responses(responses, 512 * 0.098)  # 50 ns
+    long = responses_io.select_4tu_responses(responses, 512 * 0.195)  # 99.84 ns
+    unknown = responses_io.select_4tu_responses(responses, None)
+    assert set(short) == set(unknown) == {"M12", "M18"}
+    assert set(long) == {"M12", "M15", "M18"}
+    assert not responses_io.is_long_4tu_window(512 * 0.117)  # 60 ns
+
+
+def test_4tu_line_window_comes_from_the_record(helpers) -> None:
+    radargram = helpers._radargram(helpers._background_data())
+    ref = inputs.LineRef("4tu", "01.9/Path1", "background")
+    line = runner.LineData(ref, radargram, None)  # type: ignore[arg-type]
+    assert runner.line_time_window_ns(line) == pytest.approx(
+        radargram.n_samples * radargram.dt_ns
+    )
+    ids = runner.LineData(replace(ref, time_window_ns=30.0), radargram, None)  # type: ignore[arg-type]
+    assert runner.line_time_window_ns(ids) == 30.0
 
 
 def test_sample_report_decides_the_path_and_the_bottom_rule() -> None:

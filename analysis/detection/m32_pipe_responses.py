@@ -39,6 +39,10 @@ Quality values ([EMR] 1-6), checked by ``gpr_detection.eval.inject``:
 
 IDS depth limit ([EMR] 2-2): lines whose time window is at most 30 ns use only
 models with a pipe top at most 1.0 m deep.
+
+4TU M15 limit (amendment 9, [EMR] C3-6): M15 (top 1.5 m, eps_r 16) is used
+only on 100 ns (dt 0.195 ns) records; below 100 ns its box is cut at the
+record end.
 """
 
 import hashlib
@@ -68,6 +72,12 @@ NS_PER_S = 1e9
 IDS_SHORT_WINDOW_NS = 30.0
 """IDS lines with a time window up to this use only shallow models ([EMR] 2-2)."""
 IDS_SHORT_WINDOW_MAX_TOP_M = 1.0
+LONG_WINDOW_ONLY_MODELS = ("M15",)
+"""4TU models used only on 100 ns records (amendment 9, [EMR] C3-6)."""
+LONG_WINDOW_NS = 100.0
+NOMINAL_WINDOW_TOLERANCE = 0.01
+"""4TU windows are nominal: 512 x 0.195 ns = 99.84 ns counts as 100 ns, while
+the next shorter record is 512 x 0.117 ns = 59.9 ns."""
 APEX_SEARCH_PERIODS = 0.5
 """The apex peak is searched within +-0.5 P of the json ray-time prediction."""
 
@@ -357,12 +367,40 @@ class ResponseLibrary:
     sha256: Mapping[str, Mapping[str, str]]
 
     def for_line(self, dataset: str, time_window_ns: float | None) -> dict:
-        """Responses usable on a line of ``dataset`` (``"4tu"`` or ``"gz_ids"``)."""
+        """Responses usable on a line of ``dataset`` (``"4tu"`` or ``"gz_ids"``).
+
+        ``time_window_ns`` is the record length (4TU: ``n_samples x dt_ns``,
+        IDS: the stage-A list value).
+        """
         if dataset == "4tu":
-            return dict(self.air)
+            return select_4tu_responses(self.air, time_window_ns)
         if dataset != "gz_ids":
             raise ValueError(f"no injection responses for dataset {dataset!r}")
         return select_ids_responses(self.ground, time_window_ns)
+
+
+def is_long_4tu_window(time_window_ns: float | None) -> bool:
+    """A nominal 100 ns 4TU record (512 samples x dt 0.195 ns = 99.84 ns)."""
+    if time_window_ns is None:
+        return False
+    return time_window_ns >= LONG_WINDOW_NS * (1.0 - NOMINAL_WINDOW_TOLERANCE)
+
+
+def select_4tu_responses(
+    responses: Mapping[str, PipeResponse], time_window_ns: float | None
+) -> dict[str, PipeResponse]:
+    """4TU responses of one line; M15 only on 100 ns records (amendment 9).
+
+    On the 50 ns records the M15 apex sits within 3 P of the record end and
+    its truth box is cut ([EMR] appendix C-2 (a), C3-6). A line without a
+    known window is treated as short.
+    """
+    keep_long_only = not is_long_4tu_window(time_window_ns)
+    return {
+        model_id: response
+        for model_id, response in responses.items()
+        if not (keep_long_only and model_id in LONG_WINDOW_ONLY_MODELS)
+    }
 
 
 def select_ids_responses(

@@ -1,18 +1,49 @@
 """M3-2 S5 stage-C judge: plan 4-3 C-1-C-8 and selection (C-9 report-only, unmeasured).
 
 Spec: ``docs/processing/m32_image_quality_plan.md`` v0.2.3 section 4-3 (the
-thresholds), 4-4 (fixed order), 4-8 (stage-B polarity and B0 records) and
-``docs/experiments/m32_cv_review.md`` sections 3-1 and 4-2. C-9 (band) is
-report-only by user decision and is not measured by S5; the verdict only
-records that status.
+thresholds), 4-3-1 (aggregation), 4-4 (fixed order), 4-8 (stage-B polarity
+and B0 records), 4-9 (amendment 9) and ``docs/experiments/m32_cv_review.md``
+sections 3-1 and 4-2. C-9 (band) is report-only by user decision and is not
+measured by S5; the verdict only records that status.
 
 Reads the runner outputs (``m32_recipe_eval.py``: ``uninjected/`` P5a and
 ``injected/`` P5b of one out-root, both finished full runs) and writes
 ``verdict.json`` only. Stdout carries no metric: its last line is
 ``{"status", "verdict", "g_in_cells", "g_in_not_evaluable", "elapsed_s"}``
 (the G-in valid cell count and not-evaluable flag, both ``null`` off the
-in-or-out path). Exit codes: 0 verdict written, 2 input refused, 3 internal
-error.
+in-or-out path or after a failed pre-check). Exit codes: 0 verdict written,
+1 pre-check failed (``verdict.json`` holds the r0 pre-check only), 2 input
+refused, 3 internal error.
+
+Pre-check (plan 3-2 after amendment 9, ``stage_c_precheck``): r0, fold 0,
+``k`` 1.3, main cells IDS/A0 and 4TU/A0, in distribution; pooled and
+cell-weighted recall >= 50 % at 12 dB and monotone 0 -> 6 -> 12 dB (a later
+step at most 1 %p lower).
+
+Order (plan 4-4, 9-7), two calls:
+
+1. ``--precheck-only`` reads ``injected_precheck/`` (``m32_recipe_eval.py
+   --stage injected --recipes r0 --folds 0``), asserts the F2 record,
+   injection table and exclusions sha256, refuses any file or row outside r0
+   fold 0 (exit 2, nothing else is read) and writes ``precheck.json``. Exit 0
+   pass, 1 fail. Stdout: ``{"status", "precheck", "elapsed_s"}``.
+2. The verdict call (full P5b in ``injected/``) recomputes the pre-check
+   from its own r0 fold-0 rows; ``precheck.json`` must exist and hold the
+   same values (else exit 2). A failed pre-check stops before any recipe
+   comparison is computed.
+
+Amendment 9 (plan 4-9)
+
+* Weighted cells are IDS/A0 1/2 and 4TU/A0 1/2 for C-1-C-5 and G-in; 4TU/A1
+  is reported only (``report_only_cell_4tu_a1``). C-6 keeps every group.
+* Rows with ``main_cell`` False (truth box clipped or the -20 dB wing past
+  the record end - 1 P) leave every main-cell computation and count only in
+  C-6 (the bottom stratum, any size).
+* The A1/A0 (INJ-A) row is used only when the r0 4TU/A1 recall at 12 dB
+  (polarity mean, unstratified, 5-fold mean) is >= 30 %; otherwise it is
+  "A1 정보 없음" and never holds the adoption.
+* Strong-signal robustness ``R(18 dB) - R(12 dB)`` per recipe and cell is
+  reported only; C-1 keeps the four SNR steps.
 
 Identity gate (plan C-8, amendment 5): the gate is the P5a batch-1 run of
 r0 x K lines x folds (``uninjected/gate.json`` and the ``identity_gate``
@@ -32,15 +63,17 @@ Aggregation (one function, ``fold_recalls``; [CVR] 4-2 "집계 함수는 하나"
   ``G-in``: ``Delta_in >= -2.0 %p`` (point estimate) is added.
 * Per fold: polarity mean (stage B drop <= 5 %p, plan 4-8; with
   ``POLARITY_RULE = "each"`` every criterion runs on each polarity), then SNR
-  0/6/12/18 unweighted mean, then 4TU = mean(A1, A0), then the mean of 4TU
-  and IDS. ``Delta = mean over folds of R(r) - R(r0)``.
+  0/6/12/18 unweighted mean, then the group mean inside a dataset (4TU/A0
+  alone since amendment 9), then the mean of 4TU and IDS.
+  ``Delta = mean over folds of R(r) - R(r0)``.
 * Post-stratification (amendment 7, [CVR] D-3): every (cell, SNR, polarity)
   recall is ``pi R_bottom + (1 - pi) R_rest`` with the F2 ``pi_bottom`` of
   its (dataset, group) cell (one stratum empty: the other one) for C-1-C-5
   and G-in; ``unstratified`` values are reported next to them. G-in uses the
   C-1 cell weights over valid cells (>= 10 in-distribution positions at
   every SNR and polarity), re-weighted inside a dataset; it is
-  not evaluable (fail) only when a dataset has no valid cell.
+  not evaluable (fail) only when a dataset has no valid cell (with 4TU/A0
+  the only 4TU cell, an invalid 4TU/A0 is enough).
 * All values are exact ``Fraction`` numbers and thresholds are Fractions, so
   a boundary value (e.g. exactly +3 %p) is decided without rounding.
 * A criterion whose input set is empty (a cell with n = 0, no M6 apex, no
@@ -64,10 +97,14 @@ Interpretations (reported in ``settings.interpretations``)
   ``M4a + M4b + M4d`` (category order a > b > d); "M4 line" = a line with
   such a box in any fold; the fold limit is ``r0 + max(3, 10 % of r0)``.
 * A1/A0: "1st recipe" compares r0, r5, r6 by the 4TU A1 (A0) recall; tied
-  leaders form a set, and different sets count as a split.
+  leaders form a set, and different sets count as a split. Comparisons use
+  unstratified values (plan 4-3-1).
+* C-3 bootstrap: only the cells of the scope are resampled; a line with
+  report-only cells alone is left out of the line clusters.
 """
 
 import argparse
+import csv
 import json
 import logging
 import math
@@ -86,7 +123,12 @@ import m32_recipe_inputs as inputs
 import m32_recipe_match as match
 
 DEFAULT_RUN_ROOT = inputs.REPO / "runs" / "eval" / "m32_recipe"
+DEFAULT_F2_RECORD = inputs.REPO / "analysis" / "detection" / "m32_recipe_f2.json"
 SCHEMA = "m32_recipe_judge/1"
+PRECHECK_SCHEMA = "m32_recipe_precheck/1"
+PRECHECK_STAGE_DIR = "injected_precheck"
+"""P5b folder of ``--recipes r0 --folds 0`` (``m32_recipe_eval`` writes it)."""
+PRECHECK_FILE = "precheck.json"
 
 SNR_STEPS = (0.0, 6.0, 12.0, 18.0)
 POLARITIES = (1, -1)
@@ -128,9 +170,25 @@ positions at every (SNR, polarity) ([CVR] appendix D-2)."""
 INJ_A_GAP = Fraction(3, 100)
 BOOTSTRAP_REPLICATES = 2000
 BOOTSTRAP_LOWER_SHARE = 0.025
-EXIT_CODES = {"ok": 0, "input_error": 2, "error": 3}
+EXIT_CODES = {"ok": 0, "precheck_failed": 1, "input_error": 2, "error": 3}
 
-GROUPS_BY_DATASET = {inputs.DATASET_4TU: ("A1", "A0"), inputs.DATASET_IDS: ("A0",)}
+GROUPS_BY_DATASET = {inputs.DATASET_4TU: ("A0",), inputs.DATASET_IDS: ("A0",)}
+"""Weighted C-1 cells (amendment 9): IDS/A0 1/2, 4TU/A0 1/2."""
+REPORT_ONLY_GROUPS = {inputs.DATASET_4TU: ("A1",)}
+"""Amendment 9 (9-3): 4TU/A1 leaves every weighted criterion; reported only."""
+INJ_A_MIN_A1_RECALL = Fraction(30, 100)
+"""INJ-A row only when the r0 4TU/A1 12 dB recall (polarity mean, unstratified,
+5-fold mean) is >= 30 % (amendment 9, F1')."""
+INJ_A_SNR_DB = 12.0
+STRONG_SIGNAL_SNRS = (12.0, 18.0)
+"""Strong-signal robustness (amendment 9, 9-1): R(18 dB) - R(12 dB), report."""
+PRECHECK_FOLD = 0
+PRECHECK_SNR_DB = 12.0
+PRECHECK_MIN_RECALL = Fraction(1, 2)
+PRECHECK_MONOTONE_SNRS = (0.0, 6.0, 12.0)
+"""Amendment 9 (9-1): monotone from 0 to 12 dB only."""
+PRECHECK_TOLERANCE = Fraction(1, 100)
+"""A later step may be at most 1 %p below an earlier one."""
 
 logger = logging.getLogger("m32_recipe_judge")
 
@@ -157,6 +215,9 @@ class MatchRow:
     hit: bool
     hit_any_class: bool
     hit_mask: str
+    main_cell: bool = True
+    """False: box clipped or wing past the record end - 1 P (amendment 9);
+    such rows count only in C-6 (bottom stratum)."""
 
 
 def _flag(text: str) -> bool:
@@ -185,6 +246,7 @@ def match_row(row: Mapping[str, str]) -> MatchRow:
         hit=_flag(row["hit"]),
         hit_any_class=_flag(row["hit_any_class"]),
         hit_mask=row["hit_mask"],
+        main_cell=_flag(row["main_cell"]),
     )
 
 
@@ -281,10 +343,17 @@ def read_gate_record(summary: Mapping, gate_path: Path) -> dict:
 
 
 def check_pi_cells(pi_bottom: Mapping | None, matches: Iterable[MatchRow]) -> None:
-    """Every (dataset, group) cell with injections needs its ``pi_bottom``."""
+    """Every weighted (dataset, group) cell with injections needs ``pi_bottom``.
+
+    The report-only 4TU/A1 cell may lack it (its report then pools strata).
+    """
     if pi_bottom is None:
         return
-    cells = {f"{row.dataset}/{row.group}" for row in matches}
+    cells = {
+        f"{row.dataset}/{row.group}"
+        for row in matches
+        if row.group in GROUPS_BY_DATASET.get(row.dataset, ())
+    }
     missing = sorted(cell for cell in cells if pi_bottom.get(cell) is None)
     if missing:
         raise inputs.InputError(f"pi_bottom missing for cells {missing}")
@@ -498,19 +567,22 @@ def mask_hit(index: int) -> HitSelector:
     return select
 
 
-def main_stratum(row: MatchRow) -> bool:
-    """In-distribution rows at ``k`` 1.3 (C-1 when ``primary_stratum="in"``)."""
-    return math.isclose(row.k, K_MAIN) and row.in_distribution
-
-
 def all_sizes_stratum(row: MatchRow) -> bool:
-    """Every size at ``k`` 1.3 (C-1 when ``primary_stratum="in_or_out"``)."""
-    return math.isclose(row.k, K_MAIN)
+    """Main-cell rows of every size at ``k`` 1.3 (C-1 on the in-or-out path).
+
+    Rows outside the main cells (amendment 9) count only in C-6.
+    """
+    return math.isclose(row.k, K_MAIN) and row.main_cell
+
+
+def main_stratum(row: MatchRow) -> bool:
+    """In-distribution main-cell rows at ``k`` 1.3 (C-1 on the ``"in"`` path)."""
+    return all_sizes_stratum(row) and row.in_distribution
 
 
 def out_stratum(row: MatchRow) -> bool:
-    """Out-of-distribution rows at ``k`` 1.3 (stratum report)."""
-    return math.isclose(row.k, K_MAIN) and not row.in_distribution
+    """Out-of-distribution main-cell rows at ``k`` 1.3 (stratum report)."""
+    return all_sizes_stratum(row) and not row.in_distribution
 
 
 def primary_filter(primary_stratum: str) -> Callable[[MatchRow], bool]:
@@ -1043,14 +1115,29 @@ def _c3(ji: JudgeInputs, recipe: str, scope: Scope, pi: PiBottom = None) -> dict
     }
 
 
+def _in_scope(cell: CellKey, scope: Scope) -> bool:
+    _, dataset, group, _, polarity, _ = cell
+    return (
+        dataset in scope.datasets
+        and group in scope.groups[dataset]
+        and polarity in scope.polarities
+    )
+
+
 def _scope_lines(per_line: Mapping, scope: Scope) -> dict:
-    """Keep only cells of the scope's polarities (bootstrap input)."""
-    return {
-        line: {
-            key: value for key, value in cells.items() if key[1][4] in scope.polarities
+    """Bootstrap input: cells of the scope only, lines left empty dropped.
+
+    A line with only report-only (4TU/A1) cells carries no weighted data, so
+    resampling it would only dilute the line clusters (amendment 9).
+    """
+    kept = {}
+    for line, cells in per_line.items():
+        in_scope = {
+            key: value for key, value in cells.items() if _in_scope(key[1], scope)
         }
-        for line, cells in per_line.items()
-    }
+        if in_scope:
+            kept[line] = in_scope
+    return kept
 
 
 def _c4(ji: JudgeInputs, recipe: str, scope: Scope, pi: PiBottom = None) -> dict:
@@ -1234,10 +1321,41 @@ def recall_by_group(ji: JudgeInputs, recipe: str, group: str) -> Fraction | None
     return None if values is None else _mean(values)
 
 
+def a1_information(ji: JudgeInputs) -> dict:
+    """INJ-A precondition: r0 4TU/A1 recall at 12 dB (amendment 9, F1').
+
+    Polarity mean, unstratified, mean of the five folds, on the main rows of
+    the A1 cell; below 30 % (or not computable) the A1/A0 row is not used.
+
+    Population (verdict disclosure): ``main_counts``, i.e. the F2 main-metric
+    rows - in-distribution main-cell rows on the ``"in"`` path, main-cell
+    rows of every size on the ``"in_or_out"`` path - of 4TU/A1 at 12 dB.
+    """
+    scope = dataset_scope(inputs.DATASET_4TU, REPORT_ONLY_GROUPS[inputs.DATASET_4TU])
+    values = fold_recalls(
+        ji.main_counts, inputs.R0, scope, ji.folds, snr_steps=(INJ_A_SNR_DB,)
+    )
+    recall = None if values is None else _mean(values)
+    available = recall is not None and recall >= INJ_A_MIN_A1_RECALL
+    return {
+        "available": available,
+        "status": "A1 information available" if available else "A1 정보 없음",
+        "r0_a1_recall_12db": _number(recall),
+        "threshold": ">= 30 % (polarity mean, unstratified, 5-fold mean)",
+    }
+
+
 def inj_a_flags(ji: JudgeInputs, chosen: str, recipes: Sequence[str]) -> dict:
-    """A1/A0 row of plan 4-3: any flag holds the adoption (ask INJ-A)."""
+    """A1/A0 row of plan 4-3: any flag holds the adoption (ask INJ-A).
+
+    The row is used only when ``a1_information`` is available (amendment 9);
+    otherwise it is recorded as "A1 정보 없음" and never holds.
+    """
     if chosen == inputs.R0:
         return {"applies": False, "hold": False}
+    a1_info = a1_information(ji)
+    if not a1_info["available"]:
+        return {"applies": False, "hold": False, "a1_information": a1_info}
     deltas = {
         group: difference(
             ji.main_counts,
@@ -1252,6 +1370,7 @@ def inj_a_flags(ji: JudgeInputs, chosen: str, recipes: Sequence[str]) -> dict:
     return {
         "applies": True,
         "hold": any(flags.values()),
+        "a1_information": a1_info,
         "flags": flags,
         "delta": {group: _number(value) for group, value in deltas.items()},
         "leaders": {
@@ -1300,11 +1419,11 @@ def _leaders(ji: JudgeInputs, recipes: Sequence[str], group: str) -> set[str] | 
 
 
 def _out_of_distribution(row: MatchRow) -> bool:
-    return math.isclose(row.k, K_MAIN) and not row.in_distribution
+    return out_stratum(row)
 
 
 def _ricker_like(row: MatchRow) -> bool:
-    return math.isclose(row.k, K_REPORT) and row.in_distribution
+    return math.isclose(row.k, K_REPORT) and row.in_distribution and row.main_cell
 
 
 def _old_zone_c(row: MatchRow) -> bool:
@@ -1364,7 +1483,57 @@ def report_only(ji: JudgeInputs, recipe: str) -> dict:
         "delta_k08_12db": _report_delta(ji, recipe, _ricker_like, snr_steps=(12.0,)),
         "delta_class_agnostic": _report_delta(ji, recipe, ji.keep, hit=_any_class_hit),
         "delta_old_horizontal_zone_c_subset": _report_delta(ji, recipe, _old_zone_c),
+        "report_only_cell_4tu_a1": report_only_cell(ji, recipe),
     }
+
+
+A1_SCOPE = Scope(
+    datasets=(inputs.DATASET_4TU,),
+    groups=REPORT_ONLY_GROUPS,
+    polarities=POLARITIES,
+)
+
+
+def report_only_cell(ji: JudgeInputs, recipe: str) -> dict:
+    """4TU/A1 Delta on the main rows (amendment 9: out of every weighted cell)."""
+    stratified = difference(ji.main_counts, recipe, A1_SCOPE, ji.folds, pi=ji.pi)
+    plain = difference(ji.main_counts, recipe, A1_SCOPE, ji.folds)
+    return {
+        "delta": _number(stratified.mean),
+        "delta_unstratified": _number(plain.mean),
+    }
+
+
+REPORT_CELLS = {
+    "gz_ids/A0": dataset_scope(inputs.DATASET_IDS, ("A0",)),
+    "4tu/A0": dataset_scope(inputs.DATASET_4TU, ("A0",)),
+    "4tu/A1": A1_SCOPE,
+}
+
+
+def strong_signal_robustness(ji: JudgeInputs, recipes: Sequence[str]) -> dict:
+    """Per recipe and cell: ``R(18 dB) - R(12 dB)`` (amendment 9, report only).
+
+    Polarity mean, unstratified, mean of the five folds, on the main rows.
+    C-1 keeps all four SNR steps; this column never enters a criterion.
+    """
+    low_db, high_db = STRONG_SIGNAL_SNRS
+    report: dict[str, dict] = {}
+    for recipe in recipes:
+        per_cell: dict[str, dict] = {}
+        for name, scope in REPORT_CELLS.items():
+            low = fold_recalls(ji.main_counts, recipe, scope, ji.folds, (low_db,))
+            high = fold_recalls(ji.main_counts, recipe, scope, ji.folds, (high_db,))
+            if low is None or high is None:
+                per_cell[name] = {"reason": "not_evaluable"}
+                continue
+            per_cell[name] = {
+                "recall_12db": _number(_mean(low)),
+                "recall_18db": _number(_mean(high)),
+                "difference_18_minus_12": _number(_mean(high) - _mean(low)),
+            }
+        report[recipe] = per_cell
+    return report
 
 
 def sample_counts(ji: JudgeInputs) -> dict:
@@ -1394,11 +1563,251 @@ def sample_counts(ji: JudgeInputs) -> dict:
             and math.isclose(r.k, K_MAIN)
         )
         // (len(POLARITIES) * len(SNR_STEPS)),
+        "main_cell_excluded_fold0": sum(
+            not r.main_cell
+            for r in ji.data.matches
+            if r.recipe == inputs.R0
+            and r.fold == ji.folds[0]
+            and math.isclose(r.k, K_MAIN)
+        )
+        // (len(POLARITIES) * len(SNR_STEPS)),
     }
 
 
+# --------------------------------------------------------------- pre-check
+
+
+@dataclass(frozen=True)
+class PrecheckCell:
+    """One weighted cell of the pre-check and its C-1 weight."""
+
+    dataset: str
+    group: str
+    weight: Fraction
+
+
+PRECHECK_CELLS = (
+    PrecheckCell(inputs.DATASET_IDS, "A0", Fraction(1, 2)),
+    PrecheckCell(inputs.DATASET_4TU, "A0", Fraction(1, 2)),
+)
+"""Amendment 9 cell weights (the cv ad-hoc script used 1/2, 1/4, 1/4)."""
+
+
+def precheck_row(row: MatchRow) -> bool:
+    """r0, fold 0, ``k`` 1.3, main cell, in distribution, weighted cell."""
+    return (
+        row.recipe == inputs.R0
+        and row.fold == PRECHECK_FOLD
+        and main_stratum(row)
+        and row.group in GROUPS_BY_DATASET.get(row.dataset, ())
+    )
+
+
+def _is_monotone(values: Sequence[Fraction]) -> bool:
+    """No later step more than ``PRECHECK_TOLERANCE`` below any earlier one."""
+    return all(
+        later >= earlier - PRECHECK_TOLERANCE
+        for i, earlier in enumerate(values)
+        for later in values[i + 1 :]
+    )
+
+
+def _precheck_recalls(rows: Sequence[MatchRow]) -> tuple[dict, dict]:
+    """Pooled and cell-weighted (polarity-mean) r0 recall per SNR step."""
+    tallies: dict[tuple[float, str, str, int], list[int]] = {}
+    for row in rows:
+        key = (row.snr_db, row.dataset, row.group, row.polarity)
+        tally = tallies.setdefault(key, [0, 0])
+        tally[0] += int(row.hit)
+        tally[1] += 1
+    pooled: dict[float, Fraction | None] = {}
+    weighted: dict[float, Fraction | None] = {}
+    for snr in SNR_STEPS:
+        hits = sum(v[0] for k, v in tallies.items() if k[0] == snr)
+        n = sum(v[1] for k, v in tallies.items() if k[0] == snr)
+        pooled[snr] = Fraction(hits, n) if n else None
+        weighted[snr] = _weighted_precheck_recall(tallies, snr)
+    return pooled, weighted
+
+
+def _weighted_precheck_recall(
+    tallies: Mapping[tuple[float, str, str, int], Sequence[int]], snr: float
+) -> Fraction | None:
+    total = Fraction(0)
+    for cell in PRECHECK_CELLS:
+        recalls = []
+        for polarity in POLARITIES:
+            hits, n = tallies.get((snr, cell.dataset, cell.group, polarity), (0, 0))
+            if n == 0:
+                return None
+            recalls.append(Fraction(hits, n))
+        total += cell.weight * _mean(recalls)
+    return total
+
+
+def _precheck_conditions(recall: Mapping[float, Fraction | None]) -> dict[str, bool]:
+    ladder = [recall[snr] for snr in PRECHECK_MONOTONE_SNRS]
+    at_12 = recall[PRECHECK_SNR_DB]
+    return {
+        "recall_12db_ge_50pct": at_12 is not None and at_12 >= PRECHECK_MIN_RECALL,
+        "monotone_0_to_12db": all(v is not None for v in ladder)
+        and _is_monotone([v for v in ladder if v is not None]),
+    }
+
+
+def stage_c_precheck(matches: Iterable[MatchRow]) -> dict:
+    """Plan 3-2 pre-check after amendment 9 (r0 only, not a judgement).
+
+    Rows: r0, fold 0, ``k`` 1.3, main cells (IDS/A0, 4TU/A0), in
+    distribution. Both the pooled recall and the cell-weighted one (weights
+    1/2, 1/2, polarity mean, unstratified) must reach 50 % at 12 dB and be
+    monotone from 0 to 12 dB within 1 %p, as in
+    ``analysis/detection/m32_stageC_precheck.py`` with the amendment-9 cells
+    and range. 18 dB is reported, never tested. An empty cell fails.
+    """
+    rows = [row for row in matches if precheck_row(row)]
+    pooled, weighted = _precheck_recalls(rows)
+    conditions = {
+        f"{name}_{form}": passed
+        for form, recall in (("pooled", pooled), ("weighted", weighted))
+        for name, passed in _precheck_conditions(recall).items()
+    }
+    return {
+        "pass": all(conditions.values()),
+        "conditions": conditions,
+        "n_rows_per_snr": {
+            f"{snr:g}": sum(row.snr_db == snr for row in rows) for snr in SNR_STEPS
+        },
+        "recall_pooled": {f"{s:g}": _number(v) for s, v in pooled.items()},
+        "recall_cell_weighted": {f"{s:g}": _number(v) for s, v in weighted.items()},
+        "cell_weights": {
+            f"{cell.dataset}/{cell.group}": _number(cell.weight)
+            for cell in PRECHECK_CELLS
+        },
+        "monotone_snrs": list(PRECHECK_MONOTONE_SNRS),
+        "tolerance": _number(PRECHECK_TOLERANCE),
+    }
+
+
+@dataclass(frozen=True)
+class PrecheckRun:
+    """The r0 fold-0 rows of the P5b pre-check subset and the hashes read."""
+
+    matches: list[MatchRow]
+    sha256: dict[str, str]
+
+
+def _assert_f2_inputs(run_root: Path, f2_record: Path, summary: Mapping) -> dict:
+    """F2 record, injection table and exclusions as fixed at F2 (sha256).
+
+    The P5b summary must have run on the same three files.
+    """
+    if not f2_record.is_file():
+        raise inputs.InputError(f"F2 record missing: {f2_record}")
+    record = json.loads(f2_record.read_text(encoding="utf-8"))
+    plan_dir = run_root / "plan"
+    try:
+        hashes = {
+            "f2_record": inputs.sha256_file(f2_record),
+            "injection_table": inputs.checked_sha256(
+                plan_dir / "injection_table.csv",
+                record["injection_table_sha256"],
+                "injection table",
+            ),
+            "exclusions": inputs.checked_sha256(
+                plan_dir / "exclusions.csv", record["exclusions_sha256"], "exclusions"
+            ),
+        }
+    except KeyError as error:
+        raise inputs.InputError(f"F2 record lacks {error}") from error
+    used = summary.get("run_identity", {}).get("inputs_sha256", {})
+    differing = sorted(key for key, value in hashes.items() if used.get(key) != value)
+    if differing:
+        raise inputs.InputError(f"P5b ran on other F2 inputs: {differing}")
+    return hashes
+
+
+def _precheck_rows(path: Path) -> list[MatchRow]:
+    """Rows of the pre-check csv; any non-r0 or non-fold-0 row is refused.
+
+    Each row is checked before it is parsed, so no comparison value of another
+    recipe is ever held in memory (blind rule).
+    """
+    rows = []
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        for raw in csv.DictReader(handle):
+            if raw.get("recipe") != inputs.R0 or raw.get("fold") != str(PRECHECK_FOLD):
+                raise inputs.InputError(f"{path}: a row outside r0 fold 0")
+            try:
+                rows.append(match_row(raw))
+            except (KeyError, ValueError) as error:
+                raise inputs.InputError(f"malformed inj_matches: {error!r}") from error
+    if not rows:
+        raise inputs.InputError(f"{path}: no injection rows")
+    return rows
+
+
+def load_precheck_run(run_root: Path, f2_record: Path) -> PrecheckRun:
+    """Read ``injected_precheck/`` (P5b with ``--recipes r0 --folds 0``).
+
+    Raises:
+        inputs.InputError: Unfinished or other subset run, any file or row
+            outside r0 fold 0, or F2 inputs that differ from the record.
+    """
+    stage_dir = run_root / PRECHECK_STAGE_DIR
+    summary_path = stage_dir / "summary.json"
+    if not summary_path.is_file():
+        raise inputs.InputError(f"missing {summary_path}")
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    is_subset = (
+        summary.get("status") == "ok"
+        and summary.get("precheck_subset") is True
+        and summary.get("recipes") == [inputs.R0]
+        and summary.get("folds") == [PRECHECK_FOLD]
+    )
+    if not is_subset:
+        raise inputs.InputError(f"{summary_path}: not a finished r0 fold-0 subset")
+    expected = stage_dir / inputs.R0 / f"fold{PRECHECK_FOLD}" / "inj_matches.csv"
+    found = sorted(stage_dir.glob("*/fold*/inj_matches.csv"))
+    if found != [expected]:
+        raise inputs.InputError(f"pre-check folder holds other results: {found}")
+    hashes = _assert_f2_inputs(run_root, f2_record, summary)
+    hashes[f"{PRECHECK_STAGE_DIR}/summary.json"] = inputs.sha256_file(summary_path)
+    hashes[expected.relative_to(run_root).as_posix()] = inputs.sha256_file(expected)
+    return PrecheckRun(matches=_precheck_rows(expected), sha256=hashes)
+
+
+def _json_round_trip(document: Mapping) -> dict:
+    return json.loads(json.dumps(document))
+
+
+def check_recorded_precheck(run_root: Path, precheck: Mapping) -> str:
+    """The full run's r0 fold-0 pre-check must equal ``precheck.json``.
+
+    Returns:
+        The sha256 of ``precheck.json``.
+
+    Raises:
+        inputs.InputError: The file is missing (the pre-check must come first,
+            plan 4-4) or its values differ from the full run's.
+    """
+    path = run_root / PRECHECK_FILE
+    if not path.is_file():
+        raise inputs.InputError(f"missing {path}: run --precheck-only first")
+    recorded = json.loads(path.read_text(encoding="utf-8")).get("precheck")
+    if recorded != _json_round_trip(precheck):
+        raise inputs.InputError(
+            "full-run r0 fold-0 pre-check differs from precheck.json"
+        )
+    return inputs.sha256_file(path)
+
+
 def judge(data: RunData, rule: str = POLARITY_RULE) -> dict:
-    """The verdict document (no file I/O)."""
+    """The verdict document (no file I/O).
+
+    Callers run :func:`stage_c_precheck` first; ``main`` stops on a failed
+    pre-check before any recipe comparison is computed.
+    """
     ji = prepare(data)
     gate = identity_gate(data.gate_record)
     batch_report = d3_comparison(m6_counts(data.apex_hits, inputs.R0), data.batch_path)
@@ -1430,6 +1839,9 @@ def judge(data: RunData, rule: str = POLARITY_RULE) -> dict:
         "inj_a": inj_a,
         "b0_direction": b0_direction,
         "report_only": {recipe: report_only(ji, recipe) for recipe in candidates},
+        "strong_signal_robustness": strong_signal_robustness(
+            ji, inputs.STAGE_C_RECIPES
+        ),
         "samples": sample_counts(ji),
     }
 
@@ -1483,9 +1895,59 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--run-root", type=Path, default=DEFAULT_RUN_ROOT)
     parser.add_argument(
-        "--out", type=Path, default=None, help="default <run-root>/verdict.json"
+        "--out",
+        type=Path,
+        default=None,
+        help="default <run-root>/verdict.json (precheck.json with --precheck-only)",
     )
+    parser.add_argument(
+        "--precheck-only",
+        action="store_true",
+        help="read injected_precheck/ (P5b r0 fold 0) and write precheck.json",
+    )
+    parser.add_argument("--f2-record", type=Path, default=DEFAULT_F2_RECORD)
     return parser.parse_args(argv)
+
+
+def run_precheck_only(args: argparse.Namespace, out: Path) -> str:
+    """Pre-check of the r0 fold-0 subset; returns ``ok`` or ``precheck_failed``."""
+    run = load_precheck_run(args.run_root, args.f2_record)
+    precheck = stage_c_precheck(run.matches)
+    document = {
+        "schema": PRECHECK_SCHEMA,
+        "precheck": precheck,
+        "inputs_sha256": run.sha256,
+        "run_identity": common.new_run_identity(),
+    }
+    common.write_json(out, document)
+    return "ok" if precheck["pass"] else "precheck_failed"
+
+
+def run_verdict(args: argparse.Namespace, out: Path) -> tuple[str, dict]:
+    """Full judgement; returns the status and the stdout-safe G-in facts."""
+    data = load_run(args.run_root)
+    precheck = stage_c_precheck(data.matches)
+    precheck_sha = check_recorded_precheck(args.run_root, precheck)
+    if precheck["pass"]:
+        verdict = {**judge(data), "precheck": precheck}
+        status = "ok"
+    else:
+        # Plan 3-2 / 4-9 (9-7): stop before any recipe comparison exists.
+        verdict = {
+            "schema": SCHEMA,
+            "decision": "precheck_failed",
+            "precheck": precheck,
+        }
+        status = "precheck_failed"
+    verdict["inputs_sha256"] = {**data.sha256, PRECHECK_FILE: precheck_sha}
+    verdict["run_identity"] = common.new_run_identity()
+    verdict["settings"] = {"interpretations": __doc__.split("Interpretations")[1]}
+    common.write_json(out, verdict)
+    cells = blind_cell_summary(verdict) if status == "ok" else dict(NO_CELLS)
+    return status, cells
+
+
+NO_CELLS = {"g_in_cells": None, "g_in_not_evaluable": None}
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1493,29 +1955,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(message)s")
     started = time.time()
     args = parse_args(argv)
-    out = args.out or args.run_root / "verdict.json"
-    cells: dict = {"g_in_cells": None, "g_in_not_evaluable": None}
+    default_name = PRECHECK_FILE if args.precheck_only else "verdict.json"
+    out = args.out or args.run_root / default_name
+    cells: dict = dict(NO_CELLS)
     try:
-        data = load_run(args.run_root)
-        verdict = judge(data)
-        verdict["inputs_sha256"] = data.sha256
-        verdict["run_identity"] = common.new_run_identity()
-        verdict["settings"] = {"interpretations": __doc__.split("Interpretations")[1]}
-        common.write_json(out, verdict)
-        cells = blind_cell_summary(verdict)
-        status = "ok"
+        if args.precheck_only:
+            status = run_precheck_only(args, out)
+        else:
+            status, cells = run_verdict(args, out)
     except inputs.InputError as error:
         logger.error("input error: %s", error)
         status = "input_error"
     except Exception:
         logger.exception("internal error")
         status = "error"
-    line = {
-        "status": status,
-        "verdict": str(out),
-        **cells,
-        "elapsed_s": round(time.time() - started, 1),
-    }
+    if args.precheck_only:
+        line: dict = {"status": status, "precheck": str(out)}
+    else:
+        line = {"status": status, "verdict": str(out), **cells}
+    line["elapsed_s"] = round(time.time() - started, 1)
     print(json.dumps(line, ensure_ascii=False), flush=True)
     return EXIT_CODES[status]
 

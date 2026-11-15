@@ -28,7 +28,10 @@ Stages (plan 4-4, each a separate call)
    tiles around the injections only -> R2 + V1/V2 merge -> L0 boxes ->
    one-to-one match (+-3 traces, +-0.5 ``P_line``, a box hits only the apex
    nearest its centre). The hit is also written for every conf level of the
-   C-5 grid.
+   C-5 grid. ``--recipes r0 --folds 0`` is the pre-check subset (plan 3-2,
+   4-9 9-7): it writes ``<out-root>/injected_precheck/`` for
+   ``m32_recipe_judge.py --precheck-only``; the full P5b afterwards runs in
+   ``injected/`` from scratch (r0 fold 0 again, checked equal by the judge).
 4. ``--smoke``: r0 x fold 0 x three 4TU lines (short, middle, long) through
    P5a and P5b paths in a separate folder; measures time and VRAM and writes
    ``smoke_estimate.json`` (cost x measured rates, F1 time record). Not for
@@ -96,6 +99,9 @@ REPO = inputs.REPO
 DEFAULT_OUT_ROOT = REPO / "runs" / "eval" / "m32_recipe"
 SMOKE_OUT_ROOT = REPO / "runs" / "eval" / "m32_recipe_smoke"
 F2_RECORD = REPO / "analysis" / "detection" / "m32_recipe_f2.json"
+PRECHECK_STAGE_DIR = "injected_precheck"
+"""P5b folder of the r0 fold-0 pre-check run (read by ``m32_recipe_judge``)."""
+PRECHECK_FOLD = 0
 SCHEMA = "m32_recipe_eval/1"
 
 CONFIDENCE = 0.25
@@ -110,6 +116,10 @@ BOTTOM_POINT = "point"
 BOTTOM_UPPER = "upper_bound"
 LEVELS = tuple(inject.LEVEL_AMPLITUDES)
 LEVEL_W_TIE = -20.0
+WING_LEVEL_DB = -20.0
+"""The -20 dB box of the height diagnostic (amendment 9, 9-4)."""
+REPORT_ONLY_CELLS = ("4tu/A1",)
+"""Amendment 9 (9-3): 4TU/A1 leaves the C-1 cell weights and is reported only."""
 F2_DECISIONS = ("level_w_db", "primary_stratum", "bottom_rule", "pi_bottom")
 """Plan-stage choices the F2 record fixes (amendment 5)."""
 SAMPLE_TARGET = 600
@@ -216,6 +226,8 @@ MATCH_COLUMNS = (
     "width_periods",
     "height_periods",
     "box_clipped",
+    "wing_past_record_end",
+    "main_cell",
     "period_ringing",
     "n_clipped_cells",
     "max_clipped_injection_ratio",
@@ -237,6 +249,9 @@ POSITION_COLUMNS = (
     "model_group",
     "apex_trace",
     "bottom_stratum",
+    "box_clipped",
+    "wing_past_record_end",
+    "main_cell",
     "period_ringing",
     *(
         f"{kind}_m{round(-level)}"  # level_tag(), defined below
@@ -290,11 +305,28 @@ class RunSettings:
 
     @property
     def stage_dir(self) -> Path:
-        """Output folder of the stage."""
+        """Output folder of the stage.
+
+        The pre-check subset of P5b (r0, fold 0) has its own folder, so the
+        full P5b that follows starts clean in ``injected/`` (plan 4-4, 9-7).
+        """
         name = self.stage.value
         if self.stage is Stage.PLAN and self.provisional:
             name = "plan_provisional"
+        if self.is_precheck_subset:
+            name = PRECHECK_STAGE_DIR
         return self.out_root / name
+
+    @property
+    def is_precheck_subset(self) -> bool:
+        """P5b on r0 and fold 0 only, every line: the stage-C pre-check input."""
+        return (
+            self.stage is Stage.INJECTED
+            and not self.smoke
+            and self.limit_lines is None
+            and self.recipes == (inputs.R0,)
+            and self.folds == (PRECHECK_FOLD,)
+        )
 
     @property
     def is_full(self) -> bool:
@@ -911,6 +943,9 @@ def position_row(
         "model_group": groups[position.response_id].value,
         "apex_trace": repr(float(position.apex_trace)),
         "bottom_stratum": inject.is_bottom_stratum(context, patch),
+        "box_clipped": inject.is_box_clipped(context, patch),
+        "wing_past_record_end": inject.is_wing_past_record_end(context, patch),
+        "main_cell": inject.is_main_cell(context, patch),
         "period_ringing": patch.period_ringing,
     }
     for level_db, box in patch.level_boxes.items():
@@ -1058,6 +1093,18 @@ def _report_k_period_failures(
     )
 
 
+def line_time_window_ns(line: LineData) -> float | None:
+    """Record length used to choose the responses of a line.
+
+    IDS keeps the stage-A list value; 4TU lines have none there, so the
+    record itself gives it (``n_samples x dt_ns``, amendment 9 M15 rule).
+    """
+    if line.ref.time_window_ns is not None:
+        return line.ref.time_window_ns
+    dt_ns = line.radargram.dt_ns
+    return None if dt_ns is None else line.radargram.n_samples * dt_ns
+
+
 def plan_line(
     line: LineData,
     exclusions: inject.LineExclusions,
@@ -1065,7 +1112,7 @@ def plan_line(
 ) -> LinePlanResult:
     """Seeded positions, table rows and cost of one background line."""
     context = inject.prepare_line_context(line.radargram, exclusions)
-    responses = library.for_line(line.ref.dataset, line.ref.time_window_ns)
+    responses = library.for_line(line.ref.dataset, line_time_window_ns(line))
     patches, failures = usable_patches(context, responses)
     plan = inject.plan_line_positions(context, patches)
     conditions = inject.default_conditions()
@@ -1114,15 +1161,83 @@ def line_exclusions(
     )
 
 
+def position_cell(position: Mapping) -> str:
+    """``"dataset/model group"`` of a position row."""
+    return f"{position['dataset']}/{position['model_group']}"
+
+
+def counts_in_main_metric(position: Mapping) -> bool:
+    """A main-cell position of a weighted C-1 cell (amendment 9).
+
+    Clipped and wing-past-the-end positions and the report-only 4TU/A1 cell
+    stay planned (C-6 bottom report, A1 report) but are not C-1 positions.
+    """
+    return bool(position["main_cell"]) and position_cell(position) not in (
+        REPORT_ONLY_CELLS
+    )
+
+
+def main_cell_report(positions: Sequence[Mapping]) -> dict:
+    """Amendment 9 counts per SNR step: main cells, exclusions, A1 report cell."""
+    excluded = [p for p in positions if not p["main_cell"]]
+    main = [p for p in positions if counts_in_main_metric(p)]
+    return {
+        "main_metric_positions": len(main),
+        "main_metric_in_distribution_by_cell": count_by(
+            [p for p in main if p["in_distribution"]], ("dataset", "model_group")
+        ),
+        "main_cell_excluded": len(excluded),
+        "main_cell_excluded_by_reason": {
+            "box_clipped": sum(bool(p["box_clipped"]) for p in excluded),
+            "wing_past_record_end_only": sum(
+                not p["box_clipped"] and bool(p["wing_past_record_end"])
+                for p in excluded
+            ),
+        },
+        "main_cell_excluded_by_cell": count_by(excluded, ("dataset", "model_group")),
+        "main_cell_excluded_bottom_stratum": sum(
+            bool(p["bottom_stratum"]) for p in excluded
+        ),
+        "report_only_cells": list(REPORT_ONLY_CELLS),
+        "report_only_main_cell_in_distribution": sum(
+            bool(p["main_cell"]) and bool(p["in_distribution"])
+            for p in positions
+            if position_cell(p) in REPORT_ONLY_CELLS
+        ),
+    }
+
+
+def height_diagnostic(positions: Sequence[Mapping], level_w_db: float) -> dict:
+    """Amendment 9 (9-4): height classes at ``l_W`` and of the -20 dB box."""
+    tag = level_tag(level_w_db)
+    wing_tag = level_tag(WING_LEVEL_DB)
+    return {
+        "level_w": count_by(
+            [{"c": inject.height_class(p[f"height_{tag}"]).value} for p in positions],
+            ("c",),
+        ),
+        "minus20db": count_by(
+            [
+                {"c": inject.height_class(p[f"height_{wing_tag}"]).value}
+                for p in positions
+            ],
+            ("c",),
+        ),
+        "note": "diagnostic only; the stratum is decided by width (user decision 1)",
+    }
+
+
 def sample_report(positions: Sequence[Mapping], reports: Sequence[Mapping]) -> dict:
-    """Plan 3-2 sample rules after amendment 5: path, bottom rule, lines.
+    """Plan 3-2 sample rules after amendments 5 and 9: path, bottom rule, lines.
 
     ``primary_stratum`` is ``"in"`` with at least 400 in-distribution
-    positions, else ``"in_or_out"`` (user decision 2026-11-14); the run stops
-    (``sample_ok`` false) only below 60 contributing lines. Fewer than 100
-    bottom-stratum positions switch C-6 to ``bottom_rule="upper_bound"``.
+    positions of the main metric (main cells of the weighted C-1 cells,
+    amendment 9), else ``"in_or_out"`` (user decision 2026-11-14); the run
+    stops (``sample_ok`` false) only below 60 contributing lines. Fewer than
+    100 bottom-stratum positions (all positions, the C-6 report includes the
+    excluded ones) switch C-6 to ``bottom_rule="upper_bound"``.
     """
-    main = [p for p in positions if p["in_distribution"]]
+    main = [p for p in positions if counts_in_main_metric(p) and p["in_distribution"]]
     per_line: dict[str, int] = {}
     for position in positions:
         per_line[position["line_id"]] = per_line.get(position["line_id"], 0) + 1
@@ -1133,7 +1248,13 @@ def sample_report(positions: Sequence[Mapping], reports: Sequence[Mapping]) -> d
     report = {
         "positions_per_snr_step": len(positions),
         "in_distribution_per_snr_step": len(main),
-        "out_of_distribution_per_snr_step": len(positions) - len(main),
+        "in_distribution_all_positions_per_snr_step": sum(
+            bool(p["in_distribution"]) for p in positions
+        ),
+        "out_of_distribution_per_snr_step": sum(
+            counts_in_main_metric(p) and not p["in_distribution"] for p in positions
+        ),
+        "main_cells": main_cell_report(positions),
         "bottom_stratum": sum(bool(p["bottom_stratum"]) for p in positions),
         "contributing_lines": len(per_line),
         "max_positions_per_line": max(per_line.values(), default=0),
@@ -1332,6 +1453,8 @@ def _match_row(
         "width_periods": _float(truth.width_periods),
         "height_periods": _float(truth.height_periods),
         "box_clipped": truth.box_clipped,
+        "wing_past_record_end": truth.wing_past_record_end,
+        "main_cell": truth.main_cell,
         "period_ringing": truth.period_ringing,
         "n_clipped_cells": truth.n_clipped_cells,
         "max_clipped_injection_ratio": _float(truth.max_clipped_injection_ratio, 6),
@@ -1396,7 +1519,7 @@ def evaluate_injected_line(
     timer = timer or PhaseTimer()
     with timer.phase("context"):
         context = inject.prepare_line_context(line.radargram, exclusions)
-        responses = library.for_line(line.ref.dataset, line.ref.time_window_ns)
+        responses = library.for_line(line.ref.dataset, line_time_window_ns(line))
     with timer.phase("inject"):
         results = [
             inject.inject_realization(context, specs, responses)
@@ -1824,6 +1947,7 @@ def _finish_plan(
         r["period_check_failed_k08"] for r in reports
     )
     samples["at_level_w"] = level_summary(positions, level_w_db)
+    samples["height_diagnostic"] = height_diagnostic(positions, level_w_db)
     if settings.report_all_levels:
         samples["all_levels"] = {
             level_tag(level): level_summary(positions, level) for level in LEVELS
@@ -1903,6 +2027,9 @@ def run_injected(settings: RunSettings, started: float) -> tuple[str, StageCount
         "stage": Stage.INJECTED.value,
         "status": "ok",
         "full_run": settings.is_full,
+        "precheck_subset": settings.is_precheck_subset,
+        "recipes": list(settings.recipes),
+        "folds": list(settings.folds),
         "run_identity": {**identity, "finished_at": common.local_now()},
         "n_lines": len(parts),
         "n_accepted": sum(part["n_accepted"] for part in parts),

@@ -184,8 +184,10 @@ def test_fold_recall_averages_polarity_snr_groups_then_datasets() -> None:
 
     values = judge.fold_recalls(counts, "r0", judge.MAIN_SCOPE, FOLDS)
 
-    # 4TU = (0.1 + 0.3) / 2 = 0.2, then (0.2 + 0.6) / 2 = 0.4 (not 1/3 of all).
-    assert values == [Fraction(2, 5)] * 5
+    # Amendment 9: IDS/A0 1/2, 4TU/A0 1/2, A1 out: (0.3 + 0.6) / 2 = 0.45.
+    assert values == [Fraction(9, 20)] * 5
+    a1 = judge.fold_recalls(counts, "r0", judge.A1_SCOPE, FOLDS)
+    assert a1 == [Fraction(1, 10)] * 5  # reported on its own
 
 
 def test_c1_boundary_is_exact_three_percentage_points() -> None:
@@ -525,6 +527,121 @@ def test_a1_a0_split_holds_the_adoption() -> None:
     assert verdict["decision"] == "hold_r5_ask_inj_a"
 
 
+def _a1_floor_rule(a1_base: int):
+    """r5 +10 on the weighted cells, +1 on A1 (a gap >= 3 %p); A1 r0 at base."""
+
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        if group == "A1":
+            return index < a1_base + (1 if recipe == "r5" else 0)
+        return index < N_PER_CELL // 2 + (10 if recipe == "r5" else 0)
+
+    return rule
+
+
+@pytest.mark.parametrize(
+    ("a1_base", "decision", "available"),
+    [(29, "adopt_r5", False), (30, "hold_r5_ask_inj_a", True)],
+)
+def test_inj_a_row_needs_the_a1_r0_recall_floor(a1_base, decision, available) -> None:
+    verdict = judge.judge(run_data(make_rows(_a1_floor_rule(a1_base))))
+    info = verdict["inj_a"]["a1_information"]
+    assert info["available"] is available
+    exact = Fraction(info["r0_a1_recall_12db"]["exact"])
+    assert exact == Fraction(a1_base, 100)  # the boundary 30 % is inclusive
+    assert verdict["decision"] == decision
+    if not available:
+        assert info["status"] == "A1 정보 없음"
+        assert not verdict["inj_a"]["applies"] and "flags" not in verdict["inj_a"]
+
+
+def test_report_only_a1_cell_does_not_enter_c1() -> None:
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        gain = 0
+        if recipe == "r5":
+            gain = -30 if group == "A1" else 6
+        return index < N_PER_CELL // 2 + gain
+
+    verdict = judge.judge(run_data(make_rows(rule)))
+    r5 = verdict["candidates"]["r5"]
+    assert r5["criteria_by_polarity"]["mean"]["C-1"]["value"]["exact"] == "3/50"
+    a1 = verdict["report_only"]["r5"]["report_only_cell_4tu_a1"]
+    assert a1["delta_unstratified"]["exact"] == "-3/10"
+
+
+def test_main_cell_false_rows_count_only_in_c6() -> None:
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        if index >= 90:  # clipped positions (index 90 bottom): r0 hits, r5 misses
+            return recipe != "r5"
+        if recipe == "r5":  # +6 on non-bottom rows 51-56 only
+            return index < 50 or 51 <= index <= 56
+        return index < 50
+
+    rows = [
+        replace(row, main_cell=int(row.injection_id.rsplit(":", 1)[1]) < 90)
+        for row in make_rows(rule)
+    ]
+    ji = judge.prepare(run_data(rows))
+    criteria = judge.injection_criteria(ji, "r5", judge.MAIN_SCOPE)
+    assert criteria["C-1"]["value"]["exact"] == "1/15"  # 6 / 90 main rows
+    c6 = criteria["C-6"]
+    # Bottom rows: index % 10 == 0 -> 10 per condition, one (index 90) clipped.
+    assert c6["n_injections_fold0"] == 10 * len(CELLS) * 4 * 2
+    assert c6["value"]["exact"] == "-1/10"  # the clipped bottom row is counted
+    assert judge.sample_counts(ji)["main_cell_excluded_fold0"] == 10 * len(CELLS)
+
+
+def test_non_main_non_bottom_rows_enter_neither_c1_nor_c6() -> None:
+    """C-6 reads bottom-stratum rows only; a clipped non-bottom row is nowhere."""
+
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        if index >= 91:  # non-bottom rows (index % 10 != 0): r0 hits, r5 misses
+            return recipe != "r5"
+        return index < N_PER_CELL // 2 + (6 if recipe == "r5" else 0)
+
+    def index_of(row) -> int:
+        return int(row.injection_id.rsplit(":", 1)[1])
+
+    rows = make_rows(rule)
+    clipped = [
+        replace(row, main_cell=False)
+        if row.dataset == "gz_ids" and index_of(row) >= 91
+        else row
+        for row in rows
+    ]
+    assert not any(row.bottom_stratum and not row.main_cell for row in clipped)
+    dropped = [
+        row for row in rows if not (row.dataset == "gz_ids" and index_of(row) >= 91)
+    ]
+    with_clipped = judge.injection_criteria(
+        judge.prepare(run_data(clipped)), "r5", judge.MAIN_SCOPE
+    )
+    without = judge.injection_criteria(
+        judge.prepare(run_data(dropped)), "r5", judge.MAIN_SCOPE
+    )
+    for name in ("C-1", "C-6"):
+        assert with_clipped[name]["value"] == without[name]["value"], name
+    assert (
+        with_clipped["C-6"]["n_injections_fold0"]
+        == without["C-6"]["n_injections_fold0"]
+    )
+
+
+def test_strong_signal_robustness_reports_18_minus_12_db_per_cell() -> None:
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        by_snr = {0.0: 40, 6.0: 50, 12.0: 60, 18.0: 52}
+        return index < by_snr[snr] + (3 if recipe == "r6" and snr == 18.0 else 0)
+
+    verdict = judge.judge(run_data(make_rows(rule)))
+    report = verdict["strong_signal_robustness"]
+    assert set(report) == set(inputs.STAGE_C_RECIPES)
+    assert set(report["r0"]) == {"gz_ids/A0", "4tu/A0", "4tu/A1"}
+    assert report["r0"]["4tu/A0"]["difference_18_minus_12"]["exact"] == "-2/25"
+    assert report["r6"]["4tu/A1"]["difference_18_minus_12"]["exact"] == "-1/20"
+    # C-1 still averages all four SNR steps: r6 gains 3 %p at 18 dB only.
+    r6 = verdict["candidates"]["r6"]["criteria_by_polarity"]["mean"]["C-1"]
+    assert r6["value"]["exact"] == "3/400"
+
+
 def test_uniform_gain_is_adopted_and_flags_are_recorded() -> None:
     verdict = judge.judge(run_data(make_rows(plus({"r5": 6, "r6": 5}))))
     assert verdict["decision"] == "adopt_r5"
@@ -578,28 +695,10 @@ def _write_run(root: Path, rows: list) -> None:
     for recipe in inputs.STAGE_C_RECIPES:
         for fold in FOLDS:
             folder = f"{recipe}/fold{fold}"
-            matches = [
-                {
-                    "recipe": r.recipe,
-                    "fold": r.fold,
-                    "injection_id": r.injection_id,
-                    "line_id": r.line_id,
-                    "dataset": r.dataset,
-                    "model_group": r.group,
-                    "snr_db": r.snr_db,
-                    "polarity": r.polarity,
-                    "k": r.k,
-                    "in_distribution": r.in_distribution,
-                    "bottom_stratum": r.bottom_stratum,
-                    "in_horizontal_box_zone": r.in_horizontal_box_zone,
-                    "hit": r.hit,
-                    "hit_any_class": r.hit_any_class,
-                    "hit_mask": r.hit_mask,
-                }
-                for r in rows
-                if r.recipe == recipe and r.fold == fold
-            ]
-            _write_csv(root / "injected" / folder / "inj_matches.csv", matches)
+            _write_csv(
+                root / "injected" / folder / "inj_matches.csv",
+                _match_dicts(rows, recipe, fold),
+            )
             for name, table in (
                 ("conf_counts", data.conf_counts),
                 ("apex_hits", data.apex_hits),
@@ -612,6 +711,147 @@ def _write_run(root: Path, rows: list) -> None:
                 _write_csv(root / "uninjected" / folder / f"{name}.csv", selected)
             _write_csv(root / "uninjected" / folder / "boxes.csv", [])
     _write_csv(root / "uninjected" / "lines.csv", [])
+    _write_precheck_json(root, rows)
+
+
+def _match_dicts(rows: list, recipe: str, fold: int) -> list[dict]:
+    """``inj_matches.csv`` rows of one recipe and fold."""
+    return [
+        {
+            "recipe": r.recipe,
+            "fold": r.fold,
+            "injection_id": r.injection_id,
+            "line_id": r.line_id,
+            "dataset": r.dataset,
+            "model_group": r.group,
+            "snr_db": r.snr_db,
+            "polarity": r.polarity,
+            "k": r.k,
+            "in_distribution": r.in_distribution,
+            "bottom_stratum": r.bottom_stratum,
+            "in_horizontal_box_zone": r.in_horizontal_box_zone,
+            "hit": r.hit,
+            "hit_any_class": r.hit_any_class,
+            "hit_mask": r.hit_mask,
+            "main_cell": r.main_cell,
+        }
+        for r in rows
+        if r.recipe == recipe and r.fold == fold
+    ]
+
+
+def _write_precheck_json(root: Path, rows: list) -> None:
+    """The ``precheck.json`` a ``--precheck-only`` call would have written."""
+    document = {"precheck": judge.stage_c_precheck(rows)}
+    (root / judge.PRECHECK_FILE).write_text(json.dumps(document), encoding="utf-8")
+
+
+def _write_precheck_run(root: Path, rows: list) -> Path:
+    """``plan/``, an F2 record and ``injected_precheck/`` (r0 fold 0 only).
+
+    Returns:
+        The F2 record path.
+    """
+    plan = root / "plan"
+    plan.mkdir(parents=True)
+    (plan / "injection_table.csv").write_text("injection_id\nx\n", encoding="utf-8")
+    (plan / "exclusions.csv").write_text("line_id\n", encoding="utf-8")
+    record = {
+        "injection_table_sha256": inputs.sha256_file(plan / "injection_table.csv"),
+        "exclusions_sha256": inputs.sha256_file(plan / "exclusions.csv"),
+    }
+    f2_record = root / "f2.json"
+    f2_record.write_text(json.dumps(record), encoding="utf-8")
+    stage = root / judge.PRECHECK_STAGE_DIR
+    stage.mkdir()
+    summary = {
+        "status": "ok",
+        "full_run": False,
+        "precheck_subset": True,
+        "recipes": ["r0"],
+        "folds": [0],
+        "run_identity": {
+            "inputs_sha256": {
+                "f2_record": inputs.sha256_file(f2_record),
+                "injection_table": record["injection_table_sha256"],
+                "exclusions": record["exclusions_sha256"],
+            }
+        },
+    }
+    (stage / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    _write_csv(stage / "r0" / "fold0" / "inj_matches.csv", _match_dicts(rows, "r0", 0))
+    return f2_record
+
+
+def _precheck_main(root: Path, f2_record: Path, capsys) -> tuple[int, dict]:
+    code = judge.main(
+        ["--run-root", str(root), "--precheck-only", "--f2-record", str(f2_record)]
+    )
+    final = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    return code, final
+
+
+@pytest.mark.parametrize(
+    ("recalls", "code", "status"),
+    [((50, 60, 70, 70), 0, "ok"), ((50, 60, 40, 40), 1, "precheck_failed")],
+)
+def test_precheck_only_reads_the_r0_fold0_subset(
+    tmp_path, capsys, recalls, code, status
+) -> None:
+    f2_record = _write_precheck_run(tmp_path, make_rows(_precheck_rule(recalls)))
+
+    exit_code, final = _precheck_main(tmp_path, f2_record, capsys)
+
+    assert (exit_code, final["status"]) == (code, status)
+    assert set(final) == {"status", "precheck", "elapsed_s"}
+    document = json.loads((tmp_path / "precheck.json").read_text(encoding="utf-8"))
+    assert document["schema"] == judge.PRECHECK_SCHEMA
+    assert document["precheck"]["pass"] is (code == 0)
+    assert not (tmp_path / "verdict.json").exists()
+
+
+def test_precheck_only_refuses_any_other_recipe_or_fold(tmp_path, capsys) -> None:
+    rows = make_rows(_precheck_rule((50, 60, 70, 70)))
+    f2_record = _write_precheck_run(tmp_path, rows)
+    csv_path = tmp_path / judge.PRECHECK_STAGE_DIR / "r0" / "fold0" / "inj_matches.csv"
+    r5_row = _match_dicts(rows, "r5", 0)[0]
+    with csv_path.open("a", encoding="utf-8", newline="") as handle:
+        csv.DictWriter(handle, fieldnames=list(r5_row), lineterminator="\n").writerow(
+            r5_row
+        )
+    assert _precheck_main(tmp_path, f2_record, capsys)[0] == 2
+
+    other = tmp_path / "other"
+    f2_other = _write_precheck_run(other, rows)
+    _write_csv(
+        other / judge.PRECHECK_STAGE_DIR / "r5" / "fold0" / "inj_matches.csv",
+        _match_dicts(rows, "r5", 0),
+    )
+    code, final = _precheck_main(other, f2_other, capsys)
+    assert code == 2 and final["status"] == "input_error"
+    assert not (other / "precheck.json").exists()
+
+
+def test_precheck_only_asserts_the_f2_inputs(tmp_path, capsys) -> None:
+    f2_record = _write_precheck_run(
+        tmp_path, make_rows(_precheck_rule((50, 60, 70, 70)))
+    )
+    (tmp_path / "plan" / "exclusions.csv").write_text("changed\n", encoding="utf-8")
+    assert _precheck_main(tmp_path, f2_record, capsys)[0] == 2
+
+
+def test_verdict_refuses_a_missing_or_different_precheck_record(tmp_path, capsys):
+    rows = make_rows(plus({"r5": 6}))
+    _write_run(tmp_path, rows)
+    stored = tmp_path / judge.PRECHECK_FILE
+    other_rows = make_rows(_precheck_rule((50, 60, 70, 70)))
+    _write_precheck_json(tmp_path, other_rows)  # another r0 fold-0 result
+    assert judge.main(["--run-root", str(tmp_path)]) == 2
+    stored.unlink()
+    assert judge.main(["--run-root", str(tmp_path)]) == 2
+    _write_precheck_json(tmp_path, rows)
+    assert judge.main(["--run-root", str(tmp_path)]) == 0
+    capsys.readouterr()
 
 
 def test_cli_writes_only_the_verdict_and_prints_no_metric(tmp_path, capsys) -> None:
@@ -785,19 +1025,27 @@ def _drop_in_distribution(rows, dataset: str, group: str, keep: int) -> list:
     return changed
 
 
-def test_g_in_reweights_inside_the_dataset_when_one_cell_is_invalid() -> None:
-    def rule(recipe, fold, dataset, group, snr, polarity, index):
-        extra = {"A1": -4, "A0": 0}[group] if recipe == "r5" and dataset == "4tu" else 0
-        return index < N_PER_CELL // 2 + extra
-
-    rows = _drop_in_distribution(make_rows(rule), "4tu", "A0", keep=9)
+def test_g_in_is_not_evaluable_when_the_only_4tu_cell_is_invalid() -> None:
+    """Amendment 9: 4TU has only A0 left, so an invalid 4TU/A0 fails G-in."""
+    rows = _drop_in_distribution(make_rows(plus({"r5": 5})), "4tu", "A0", keep=9)
     guard = judge.injection_criteria(_in_or_out(rows), "r5", judge.MAIN_SCOPE)["G-in"]
     assert guard["excluded_cells"] == ["4tu/A0"]
     assert guard["cells"]["4tu/A0"]["min_n"] == 9
-    # 4TU/A1 takes the whole 4TU half: (-4 %p + 0) / 2 = -2 %p, at the limit.
-    assert guard["value"]["exact"] == "-1/50" and guard["pass"]
+    assert "4tu/A1" not in guard["cells"]
+    assert guard["reason"] == "not_evaluable" and not guard["pass"]
+
+
+def test_g_in_ignores_the_report_only_a1_cell() -> None:
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        extra = -40 if recipe == "r5" and group == "A1" else 0
+        return index < N_PER_CELL // 2 + extra
+
+    rows = _drop_in_distribution(make_rows(rule), "4tu", "A1", keep=3)
+    guard = judge.injection_criteria(_in_or_out(rows), "r5", judge.MAIN_SCOPE)["G-in"]
+    assert guard["excluded_cells"] == []
+    assert guard["value"]["exact"] == "0/1"  # the -40 %p A1 drop is ignored
     assert guard["weights"] == {
-        "4tu/A1": {"value": 0.5, "exact": "1/2"},
+        "4tu/A0": {"value": 0.5, "exact": "1/2"},
         "gz_ids/A0": {"value": 0.5, "exact": "1/2"},
     }
 
@@ -809,7 +1057,7 @@ def test_g_in_fails_when_a_whole_dataset_is_invalid() -> None:
     assert guard["reason"] == "not_evaluable" and not guard["pass"]
     verdict = judge.judge(ji.data)
     assert judge.blind_cell_summary(verdict) == {
-        "g_in_cells": 2,
+        "g_in_cells": 1,  # 4TU/A0 only; A1 is no longer a G-in cell
         "g_in_not_evaluable": True,
     }
 
@@ -898,3 +1146,59 @@ def test_cli_refuses_missing_or_unfinished_runs(tmp_path, capsys) -> None:
     assert judge.main(["--run-root", str(tmp_path)]) == 2
     final = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     assert final["status"] == "input_error"
+
+
+# ---------------------------------------------------------------- pre-check
+
+
+def _precheck_rule(recall_pct_by_snr: tuple[int, int, int, int]) -> HitRule:
+    """Weighted cells at the given recall per SNR step; A1 never hit."""
+    by_snr = dict(zip(judge.SNR_STEPS, recall_pct_by_snr, strict=True))
+
+    def rule(recipe, fold, dataset, group, snr, polarity, index):
+        return group != "A1" and index < by_snr[snr]
+
+    return rule
+
+
+@pytest.mark.parametrize(
+    ("recalls", "passes"),
+    [
+        ((50, 60, 59, 10), True),  # 1 %p drop allowed; 18 dB is not tested
+        ((50, 60, 58, 90), False),  # 2 %p drop from 6 to 12 dB
+        ((60, 50, 70, 70), False),  # drop from 0 to 6 dB
+        ((40, 45, 49, 90), False),  # 12 dB below 50 %
+        ((40, 45, 50, 90), True),  # exactly 50 % at 12 dB
+    ],
+)
+def test_precheck_is_monotone_from_0_to_12_db(recalls, passes) -> None:
+    result = judge.stage_c_precheck(make_rows(_precheck_rule(recalls)))
+    assert result["pass"] is passes
+    assert result["cell_weights"] == {
+        "gz_ids/A0": {"value": 0.5, "exact": "1/2"},
+        "4tu/A0": {"value": 0.5, "exact": "1/2"},
+    }
+    assert result["n_rows_per_snr"]["12"] == 2 * 2 * N_PER_CELL  # A1 left out
+
+
+def test_precheck_ignores_non_main_cell_rows_and_fails_on_an_empty_cell() -> None:
+    rows = make_rows(_precheck_rule((50, 60, 70, 70)))
+    clipped = [
+        replace(row, main_cell=False) if row.dataset == "4tu" else row for row in rows
+    ]
+    result = judge.stage_c_precheck(clipped)
+    assert not result["pass"]
+    assert result["recall_cell_weighted"]["12"] is None  # 4TU/A0 empty
+
+
+def test_cli_stops_with_exit_1_when_the_precheck_fails(tmp_path, capsys) -> None:
+    _write_run(tmp_path, make_rows(_precheck_rule((50, 60, 40, 40))))
+
+    code = judge.main(["--run-root", str(tmp_path)])
+
+    final = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    assert code == 1 and final["status"] == "precheck_failed"
+    assert final["g_in_cells"] is None
+    verdict = json.loads((tmp_path / "verdict.json").read_text(encoding="utf-8"))
+    assert verdict["decision"] == "precheck_failed"
+    assert "candidates" not in verdict and not verdict["precheck"]["pass"]
