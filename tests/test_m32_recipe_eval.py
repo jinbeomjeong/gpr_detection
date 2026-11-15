@@ -25,6 +25,7 @@ import m32_pipe_responses as responses_io
 import m32_recipe_eval as runner
 import m32_recipe_inputs as inputs
 import m32_recipe_match as match
+import m33_inputs
 
 from gpr_detection.detect.base import (
     Detection,
@@ -34,6 +35,7 @@ from gpr_detection.detect.base import (
 )
 from gpr_detection.eval import inject
 from gpr_detection.io.classes import DetectionClass
+from gpr_detection.pipeline import PP_SETS, PPSetId
 
 CLASS_NAMES = ("pipe_hyperbola", "pipe_band", "cavity", "manhole")
 HYPERBOLA_SCORE = 0.6
@@ -484,7 +486,21 @@ def test_touched_tiles_cover_the_wing_box_plus_one_stride(helpers, library) -> N
 
 
 @pytest.fixture
-def offline_run(monkeypatch, line):
+def sealed_c0b(monkeypatch, tmp_path_factory) -> Path:
+    """A stand-in C0b ``d0_gate.json`` (selection S3) made the sealed one."""
+    path = tmp_path_factory.mktemp("c0b") / "d0_gate.json"
+    selection = {
+        "pp_set_id": "S3",
+        "pp_config_sha256": PP_SETS[PPSetId.S3].sha256(),
+    }
+    path.write_text(json.dumps({"selection": selection}), encoding="utf-8")
+    monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_JSON", path)
+    monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_SHA256", inputs.sha256_file(path))
+    return path
+
+
+@pytest.fixture
+def offline_run(monkeypatch, line, sealed_c0b):
     """Stage inputs replaced by the synthetic line and the fake detector."""
     detector = FakeBatchDetector()
     monkeypatch.setattr(inputs, "assert_list_hashes", lambda: {"lists": "x"})
@@ -521,10 +537,12 @@ def _uninjected_argv(tmp_path: Path, *extra: str) -> list[str]:
 def test_uninjected_cli_writes_files_and_prints_no_metric(
     offline_run, tmp_path, capsys
 ) -> None:
+    """A partial run writes every file but is not judgeable (exit 1)."""
     code = runner.main(_uninjected_argv(tmp_path))
 
     final, lines = _final_line(capsys)
-    assert code == 0 and final["status"] == "ok" and set(final) == FINAL_KEYS
+    assert code == 1 and final["status"] == "not_judgeable"
+    assert set(final) == FINAL_KEYS
     assert final["n_lines"] == 1 and final["n_tiles"] > 0
     assert not any(METRIC_WORDS.search(text) for text in lines)
     stage = tmp_path / "uninjected"
@@ -534,16 +552,25 @@ def test_uninjected_cli_writes_files_and_prints_no_metric(
     assert (
         summary["full_run"] is False and summary["run_identity"]["seed"] == inputs.SEED
     )
+    judgment = summary["judgment"]
+    assert judgment["judgeable"] is False and judgment["tree_stable"] is True
+    assert {"partial_folds", "partial_recipes"} <= set(judgment["blockers"])
+    assert judgment["expected_folds"] == [0, 1, 2, 3, 4]
+    assert judgment["folds_run"] == [0]
+    identity = summary["run_identity"]
+    assert identity["sealed_pp_assertion"]["pp_set_id"] == "S3"
+    assert identity["tree_end"]["code_blobs"] == identity["code_blobs"]
+    assert "src/gpr_detection/pipeline.py" in identity["code_blobs"]
 
 
 def test_existing_output_needs_resume_and_resume_reuses_parts(
     offline_run, tmp_path, capsys
 ) -> None:
-    assert runner.main(_uninjected_argv(tmp_path)) == 0
+    assert runner.main(_uninjected_argv(tmp_path)) == 1  # finished, partial
     calls = offline_run.n_calls
     assert runner.main(_uninjected_argv(tmp_path)) == 2
     assert _final_line(capsys)[0]["status"] == "input_error"
-    assert runner.main(_uninjected_argv(tmp_path, "--resume")) == 0
+    assert runner.main(_uninjected_argv(tmp_path, "--resume")) == 1
     assert offline_run.n_calls == calls  # the line part was reused
     assert runner.main(_uninjected_argv(tmp_path, "--resume", "--no-flip")) == 2
 
@@ -774,3 +801,207 @@ def test_box_rows_keep_scores_and_coordinates_exact() -> None:
     assert row["score"] == score > 0.25
     assert [row[key] for key in ("x1", "y1", "x2", "y2")] == list(box.box.xyxy)
     assert float(repr(row["score"])) == score  # csv writes repr
+
+
+# ------------------------------- M3-3 common requirements ([RUN] §1, C1)
+
+
+def test_line_and_flip_rows_keep_full_precision(tmp_path) -> None:
+    """No 4-digit rounding of periods, zero times or IoU (C1 item 1)."""
+    from types import SimpleNamespace
+
+    import m31_d1_common as common
+
+    from gpr_detection.io.radargram import GridBox
+
+    assert not hasattr(runner, "_float")
+    zero = SimpleNamespace(t_zero_ns=12.345678901234567)
+    ref = inputs.LineRef(inputs.DATASET_4TU, "01.9/Path1", inputs.ROLE_BACKGROUND)
+    image = SimpleNamespace(
+        period_samples=7.123456789012345,
+        content_height_px=200,
+        tiles=(1, 2),
+        width_px=300,
+        flags=(),
+    )
+    row = runner.line_row(SimpleNamespace(ref=ref, zero=zero), image)
+    assert row["t_zero_ns"] == zero.t_zero_ns
+    assert row["period_samples"] == image.period_samples
+
+    original = [match.ScoredBox(0, 0.9, GridBox(0, 2, 0, 2))]
+    flipped = [match.ScoredBox(0, 0.9, match.flip_grid_box(GridBox(0, 2, 0, 1), 10))]
+    line = SimpleNamespace(ref=ref, radargram=SimpleNamespace(n_traces=10))
+    (pair,) = runner.flip_rows(line, "r0", 0, original, flipped)
+    assert pair["iou"] == 6 / 9 and pair["iou"] != round(6 / 9, 4)
+
+    path = tmp_path / "rows.csv"
+    common.write_csv(
+        path, ("t", "p", "iou"), [[row["t_zero_ns"], row["period_samples"], 6 / 9]]
+    )
+    read_back = inputs.read_csv(path)[0]
+    assert float(read_back["t"]) == zero.t_zero_ns
+    assert float(read_back["p"]) == image.period_samples
+    assert float(read_back["iou"]) == 6 / 9
+
+
+@pytest.mark.parametrize("folds", ["0,0", "5", "0,1,2,3,4,4"])
+def test_fold_ids_must_be_distinct_ids_of_0_to_4(
+    offline_run, tmp_path, capsys, folds
+) -> None:
+    argv = _uninjected_argv(tmp_path)
+    argv[argv.index("--folds") + 1] = folds
+    assert runner.main(argv) == 2
+    assert _final_line(capsys)[0]["status"] == "input_error"
+    assert not (tmp_path / "uninjected").exists()
+
+
+def test_scope_blockers_name_every_partial_run(tmp_path) -> None:
+    full = replace(
+        _settings(tmp_path), folds=(4, 3, 2, 1, 0), recipes=inputs.STAGE_C_RECIPES
+    )
+    assert full.scope_blockers() == [] and full.is_full
+    assert replace(full, limit_lines=3).scope_blockers() == ["line_limit"]
+    assert replace(full, folds=(0, 1, 2, 3)).scope_blockers() == ["partial_folds"]
+    assert replace(full, recipes=("r0",)).scope_blockers() == ["partial_recipes"]
+    plan = replace(full, stage=runner.Stage.PLAN, folds=(0,), recipes=("r0",))
+    assert plan.scope_blockers() == [] and plan.folds_run is None
+    assert replace(plan, provisional=True).scope_blockers() == ["provisional"]
+    assert replace(full, smoke=True).scope_blockers() == ["smoke"]
+
+
+def _clean_tree(**changes) -> dict:
+    tree = {
+        "head": "a" * 40,
+        "dirty": False,
+        "problems": [],
+        "code_blobs": {m33_inputs.PIPELINE_PATH: m33_inputs.C0A_PIPELINE_BLOB},
+        "src_tree_id": "b" * 40,
+    }
+    return tree | changes
+
+
+def _full_offline(monkeypatch, trees) -> list[str]:
+    """Five folds, every recipe, a passed gate and scripted tree snapshots."""
+    detector = FakeBatchDetector()
+    monkeypatch.setattr(
+        runner, "load_detectors", lambda settings: dict.fromkeys(range(5), detector)
+    )
+    monkeypatch.setattr(
+        runner, "identity_gate", lambda rows: {"result": "stub", "pass": True}
+    )
+    snapshots = iter(trees)
+    monkeypatch.setattr(runner, "measure_tree", lambda settings: next(snapshots))
+    return [
+        "--stage",
+        "uninjected",
+        "--device",
+        "cpu",
+        "--no-flip",
+    ]
+
+
+def test_a_full_run_on_a_clean_tree_is_judgeable(
+    offline_run, monkeypatch, tmp_path, capsys
+) -> None:
+    argv = _full_offline(monkeypatch, [_clean_tree(), _clean_tree()])
+
+    code = runner.main([*argv, "--out-root", str(tmp_path)])
+
+    assert (code, _final_line(capsys)[0]["status"]) == (0, "ok")
+    summary = json.loads(
+        (tmp_path / "uninjected" / "summary.json").read_text(encoding="utf-8")
+    )
+    assert summary["judgment"] == {
+        "judgeable": True,
+        "blockers": [],
+        "expected_folds": [0, 1, 2, 3, 4],
+        "folds_run": [0, 1, 2, 3, 4],
+        "tree_stable": True,
+        "tree_changes": [],
+    }
+
+
+def test_a_tree_changed_during_the_run_is_an_input_error(
+    offline_run, monkeypatch, tmp_path, capsys
+) -> None:
+    """End-of-run tree measurement (C1 item 2): exit 2, change recorded."""
+    changed = _clean_tree(head="c" * 40, src_tree_id="d" * 40)
+    argv = _full_offline(monkeypatch, [_clean_tree(), changed])
+
+    code = runner.main([*argv, "--out-root", str(tmp_path)])
+
+    assert (code, _final_line(capsys)[0]["status"]) == (2, "input_error")
+    summary = json.loads(
+        (tmp_path / "uninjected" / "summary.json").read_text(encoding="utf-8")
+    )
+    assert summary["status"] == "input_error"
+    assert summary["judgment"]["tree_changes"] == ["head", "src_tree_id"]
+    assert summary["judgment"]["judgeable"] is False
+    assert summary["run_identity"]["tree_end"]["head"] == "c" * 40
+
+
+def test_a_dirty_start_tree_is_refused_without_allow_dirty(
+    offline_run, monkeypatch, tmp_path, capsys
+) -> None:
+    dirty = _clean_tree(dirty=True, problems=["modified: x.py"])
+    argv = _full_offline(monkeypatch, [dirty, dirty])
+    assert runner.main([*argv, "--out-root", str(tmp_path)]) == 2
+    _final_line(capsys)
+
+    argv = _full_offline(monkeypatch, [dirty, dirty])
+    code = runner.main([*argv, "--allow-dirty", "--out-root", str(tmp_path / "b")])
+    assert (code, _final_line(capsys)[0]["status"]) == (1, "not_judgeable")
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("C0B_PP_CONFIG_SHA256", "0" * 64),
+        ("C0A_PIPELINE_BLOB", "0" * 40),
+        ("C0B_D0_GATE_SHA256", "0" * 64),
+        ("C0B_PP_SET_ID", PPSetId.S4),
+    ],
+)
+def test_a_pp_other_than_the_sealed_one_refuses_with_exit_2(
+    offline_run, monkeypatch, tmp_path, capsys, name, value
+) -> None:
+    monkeypatch.setattr(m33_inputs, name, value)
+    assert runner.main(_uninjected_argv(tmp_path)) == 2
+    assert _final_line(capsys)[0]["status"] == "input_error"
+    assert not (tmp_path / "uninjected").exists()
+
+
+def test_sealed_pp_reads_the_rule_list_from_the_set_id(sealed_c0b) -> None:
+    blobs = {m33_inputs.PIPELINE_PATH: m33_inputs.C0A_PIPELINE_BLOB}
+    record = m33_inputs.assert_sealed_pp(blobs)
+    assert record["pp_set_id"] == "S3" and record["rules"] == ["a", "b", "d"]
+    assert record["pp_config_sha256"] == m33_inputs.C0B_PP_CONFIG_SHA256
+    assert all(record["checks"].values())
+
+
+def test_text_inputs_are_asserted_on_their_lf_sha(tmp_path) -> None:
+    lf = tmp_path / "lf.csv"
+    crlf = tmp_path / "crlf.csv"
+    lf.write_bytes(b"line,n\na,1\n")
+    crlf.write_bytes(b"line,n\r\na,1\r\n")
+    expected = inputs.sha256_file(lf)
+
+    assert inputs.checked_text_sha256(crlf, expected, "table") == expected
+    with pytest.raises(inputs.InputError):
+        inputs.checked_sha256(crlf, expected, "table")  # raw sha differs
+    record = m33_inputs.text_sha256_record({"lf": lf, "crlf": crlf})
+    assert record["lf"]["crlf"] == record["lf"]["lf"] == expected
+    assert record["raw"]["crlf"] != expected
+
+
+def test_judgment_status_order() -> None:
+    clean, moved = _clean_tree(), _clean_tree(head="e" * 40)
+    stable = m33_inputs.judgment_record([0, 1, 2, 3, 4], [], clean, clean)
+    assert m33_inputs.final_status("ok", stable) == "ok"
+    partial = m33_inputs.judgment_record([0], ["partial_folds"], clean, clean)
+    assert m33_inputs.final_status("ok", partial) == "not_judgeable"
+    assert m33_inputs.final_status("gate_failed", partial) == "gate_failed"
+    changed = m33_inputs.judgment_record([0, 1, 2, 3, 4], [], clean, moved)
+    assert m33_inputs.final_status("gate_failed", changed) == "input_error"
+    dirty = m33_inputs.judgment_record(None, [], _clean_tree(dirty=True), clean)
+    assert dirty["blockers"] == ["dirty_tree"] and dirty["folds_run"] is None

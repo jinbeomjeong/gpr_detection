@@ -3,6 +3,6 @@
 - [N2-a′ perturbation sensitivity](n2a2-perturbation-sensitivity.md) — hyperbola invariant to polarity/bg/AGC/pad; band·manhole fragile; S3 timing 14 s/cond/1k crops
 - [AIHub crop geometry](aihub-crop-geometry.md) — crops object-centered (hyperbola 0/503 at edge), crops overlap within session; tiling edge-recall risk
 - [placeholder_scan prose trap](placeholder-scan-prose.md) — scan flags `{NAME}` even in descriptive prose; write slot names without braces outside fill sites
-- [D0 rerun determinism](d0-rerun-determinism.md) — D0 full run 295 s/16,919 img; rerun reproduced gate values bit-for-bit on same GPU/env
+- [M3-3 timing & determinism](d0-rerun-determinism.md) — D0 295 s, bit-identical rerun; R3 band ~1.9 h upper (plan CPU dominant); r0 has line-global stats → infer whole line
 - [Recount CSV rounding](recount-csv-rounding.md) — runner CSV score 4 dp/box 2 dp: count printed 0.25 as conf>0.25, boundary flips; synthetic Y0 apex hits only 3/100
 

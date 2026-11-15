@@ -1081,6 +1081,18 @@ def test_the_c0b_folder_is_the_default_and_matches_any_spelling(d0, monkeypatch)
     assert not d0.is_c0b_out_root(Path("runs/eval/m33_d0_smoke"))
 
 
+def test_folders_inside_the_c0b_folder_are_refused_too(d0, monkeypatch):
+    """Tool update 2026-11-15: a sub-folder would write into the C0b results."""
+    monkeypatch.chdir(PROJECT_ROOT)
+    assert d0.is_c0b_out_root(Path("runs/eval/m33_d0/rerun"))
+    assert d0.is_c0b_out_root(Path("runs/eval/m33_d0/a/b/../c"))
+    assert d0.is_c0b_out_root(d0.C0B_OUT_ROOT / "fold0")
+    if IS_WINDOWS:
+        assert d0.is_c0b_out_root(Path("RUNS/EVAL/M33_D0/Rerun"))
+    assert not d0.is_c0b_out_root(Path("runs/eval/m33_d0r/rerun"))
+    assert not d0.is_c0b_out_root(Path("runs/eval"))
+
+
 def _c0b_spellings() -> list[str]:
     spellings = ["absolute", "relative", "dotdot"]
     return [*spellings, "upper_absolute", "upper_relative"] if IS_WINDOWS else spellings

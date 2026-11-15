@@ -58,7 +58,8 @@ hashes of S0-S5 must equal the C0b record and the ``src`` tree id and the
 ``pipeline.py`` blob must equal C0a (53c4e16); otherwise exit 2. The
 result is kept in ``run_identity.sealed_pp_assertion``. An existing output
 folder is refused (exit 2) unless ``--overwrite`` is given; the C0b result
-folder ``runs/eval/m33_d0`` (also the default) is refused even with it.
+folder ``runs/eval/m33_d0`` (also the default) and any folder inside it are
+refused even with it.
 """
 
 import argparse
@@ -2056,18 +2057,20 @@ def judgment_record(
     }
 
 
-def _folder_key(path: Path) -> str:
+def _folder_key(path: Path) -> Path:
     # normcase: Windows paths that differ only in case name the same folder.
-    return os.path.normcase(str(Path(path).resolve()))
+    return Path(os.path.normcase(str(Path(path).resolve())))
 
 
 def is_c0b_out_root(out_root: Path) -> bool:
-    """``out_root`` names the C0b result folder ``runs/eval/m33_d0``.
+    """``out_root`` is the C0b result folder ``runs/eval/m33_d0`` or inside it.
 
     Paths are resolved first (relative to the working directory), so
-    relative, absolute and differently cased spellings all match.
+    relative, absolute and differently cased spellings all match; a folder
+    below C0b (``runs/eval/m33_d0/rerun``) would also write into the sealed
+    results and is refused too.
     """
-    return _folder_key(out_root) == _folder_key(C0B_OUT_ROOT)
+    return _folder_key(out_root).is_relative_to(_folder_key(C0B_OUT_ROOT))
 
 
 def run(args: argparse.Namespace, guard: InputGuard) -> dict:

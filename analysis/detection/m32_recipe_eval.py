@@ -45,8 +45,26 @@ Blind output: metric files only (``<out-root>/<stage>/<recipe>/fold<k>/*.csv``
 and the stage ``summary.json``). Stdout carries line counts, tile counts,
 elapsed seconds and paths; its last line is the JSON
 ``{"status", "stage", "out_dir", "n_lines", "n_tiles", "n_injections",
-"elapsed_s"}``. Exit codes: 0 done, 1 identity gate failed or sample short,
-2 input refused (sha, tree, output exists), 3 internal error.
+"elapsed_s"}``. Exit codes: 0 done, 1 identity gate failed, sample short or
+not judgeable, 2 input refused (sha, tree, sealed PP, fold argument, output
+exists) or tree changed during the run, 3 internal error.
+
+M3-3 common requirements (``docs/experiments/m33_runner_spec.md`` v0.3.6 §1,
+the base of R2 and R3; constants in ``m33_inputs``):
+
+* Every float written to csv or json is at full precision (``repr``).
+* The C0b ``PPConfig`` hash and the C0a ``pipeline.py`` blob are asserted
+  before any input is read (exit 2).
+* Folds must be distinct ids of 0-4 (else exit 2). A run that is not every
+  fold, line and recipe on a tree clean at the start (``--smoke``,
+  ``--folds`` subset, ``--limit-lines``, ``--provisional``, ``--allow-dirty``
+  on a dirty tree) is ``not_judgeable`` (exit 1); the summary carries the
+  ``judgment`` block.
+* HEAD, the tracked-tree state, the code blobs and the ``src`` tree id are
+  measured at the start and right before the results are written; a change
+  is ``input_error`` (exit 2), kept in ``run_identity.tree_end``.
+* Text inputs are asserted on their LF sha; ``run_identity`` keeps the raw
+  sha (``inputs_sha256``) and the LF sha (``inputs_sha256_lf``).
 """
 
 import argparse
@@ -55,7 +73,6 @@ import json
 import logging
 import math
 import shutil
-import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
@@ -73,6 +90,7 @@ import m32_aihub_perturb as stage_b
 import m32_pipe_responses as responses_io
 import m32_recipe_inputs as inputs
 import m32_recipe_match as match
+import m33_inputs
 
 from gpr_detection.detect.base import DetectorOutput
 from gpr_detection.eval import inject
@@ -130,11 +148,20 @@ SMOKE_FOLD = 0
 SMOKE_N_LINES = 3
 ORIGINAL = "original"
 FLIPPED = "flipped"
+INJECTANT_HYPERBOLA = "hyperbola"
+INJECTANT_BAND = "band"
+"""``--injectant``: M3-2 hyperbolas or the M3-3 R3 pseudo bands."""
+BAND_BACKGROUNDS = (inputs.DATASET_4TU, inputs.DATASET_IDS)
+BAND_UNINJECTED_DIR = "uninjected_ids"
+"""R3: the IDS un-injected run (4TU un-injected boxes come from R2)."""
+P4_DEFECT = "p4_defect"
 EXIT_CODES = {
-    "ok": 0,
+    m33_inputs.STATUS_OK: 0,
     "gate_failed": 1,
     "sample_short": 1,
-    "input_error": 2,
+    P4_DEFECT: 1,
+    m33_inputs.STATUS_NOT_JUDGEABLE: 1,
+    m33_inputs.STATUS_INPUT_ERROR: 2,
     "error": 3,
 }
 
@@ -302,6 +329,15 @@ class RunSettings:
     workers: int = 1
     cost_table: Path | None = None
     report_all_levels: bool = False
+    injectant: str = INJECTANT_HYPERBOLA
+    backgrounds: tuple[str, ...] = BAND_BACKGROUNDS
+    r2_root: Path = m33_inputs.R2_OUT_ROOT
+    c1b_record: Path = m33_inputs.R3_C1B_RECORD
+
+    @property
+    def is_band(self) -> bool:
+        """M3-3 R3 pseudo-band run (``--injectant band``)."""
+        return self.injectant == INJECTANT_BAND
 
     @property
     def stage_dir(self) -> Path:
@@ -309,8 +345,11 @@ class RunSettings:
 
         The pre-check subset of P5b (r0, fold 0) has its own folder, so the
         full P5b that follows starts clean in ``injected/`` (plan 4-4, 9-7).
+        The R3 band runs write ``uninjected_ids/``, ``plan/`` and ``injected/``.
         """
         name = self.stage.value
+        if self.is_band and self.stage is Stage.UNINJECTED:
+            return self.out_root / BAND_UNINJECTED_DIR
         if self.stage is Stage.PLAN and self.provisional:
             name = "plan_provisional"
         if self.is_precheck_subset:
@@ -322,6 +361,7 @@ class RunSettings:
         """P5b on r0 and fold 0 only, every line: the stage-C pre-check input."""
         return (
             self.stage is Stage.INJECTED
+            and not self.is_band
             and not self.smoke
             and self.limit_lines is None
             and self.recipes == (inputs.R0,)
@@ -331,12 +371,57 @@ class RunSettings:
     @property
     def is_full(self) -> bool:
         """All recipes, folds and lines: the only runs a verdict may use."""
-        return (
-            not self.smoke
-            and self.limit_lines is None
-            and self.recipes == inputs.STAGE_C_RECIPES
-            and self.folds == inputs.FOLDS
-        )
+        return not self.scope_blockers()
+
+    def scope_blockers(self) -> list[str]:
+        """Why this run's scope is not a judgment input (empty for a full run).
+
+        The plan stage runs no model, so folds and recipes do not limit it;
+        a provisional plan (no P5a zone (c')) does.
+        """
+        blockers = []
+        if self.smoke:
+            blockers.append(m33_inputs.BLOCKER_SMOKE)
+        if self.limit_lines is not None or self._has_partial_backgrounds():
+            blockers.append(m33_inputs.BLOCKER_LINE_LIMIT)
+        if self.stage is Stage.PLAN:
+            if self.provisional:
+                blockers.append(m33_inputs.BLOCKER_PROVISIONAL)
+            return blockers
+        if not m33_inputs.has_all_folds(self.folds):
+            blockers.append(m33_inputs.BLOCKER_PARTIAL_FOLDS)
+        if sorted(self.recipes) != sorted(self.expected_recipes):
+            blockers.append(m33_inputs.BLOCKER_PARTIAL_RECIPES)
+        return blockers
+
+    @property
+    def expected_recipes(self) -> tuple[str, ...]:
+        """Recipes of a full run: r0 for R3 bands, r0 r5 r6 for M3-2 stage C."""
+        return (inputs.R0,) if self.is_band else inputs.STAGE_C_RECIPES
+
+    def _has_partial_backgrounds(self) -> bool:
+        """An R3 band plan or injected run without both backgrounds."""
+        if not self.is_band or self.stage is Stage.UNINJECTED:
+            return False
+        return sorted(self.backgrounds) != sorted(BAND_BACKGROUNDS)
+
+    @property
+    def folds_run(self) -> tuple[int, ...] | None:
+        """Folds of a stage that runs models (``None`` for the plan stage)."""
+        return None if self.stage is Stage.PLAN else self.folds
+
+
+@dataclass(frozen=True)
+class RunContext:
+    """What the checks before a stage found, for its identity and judgment.
+
+    Attributes:
+        start_tree: ``m33_inputs.tree_state`` before any input is read.
+        sealed_pp: ``m33_inputs.assert_sealed_pp`` result.
+    """
+
+    start_tree: dict
+    sealed_pp: dict
 
 
 @dataclass
@@ -554,15 +639,13 @@ def _write_part(path: Path, document: Mapping) -> None:
     temporary.replace(path)
 
 
-def _float(value: float, digits: int = 4) -> float:
-    return round(float(value), digits)
-
-
 def _exact(value: float) -> float:
-    """A box score or coordinate at full precision (csv writes ``repr``).
+    """A float output at full precision (csv and json write ``repr``).
 
-    Rounded values cannot be recounted against thresholds such as conf >
-    0.25 or the PP rows (M3-3 verif audit, 2026-11-15).
+    Scores, coordinates, periods, zero times, IoU and box sizes are never
+    rounded: rounded values cannot be recounted against thresholds such as
+    conf > 0.25 or the PP rows (M3-3 verif audit 2026-11-15, [RUN] §1).
+    ``float`` also turns numpy scalars into Python floats.
     """
     return float(value)
 
@@ -767,7 +850,7 @@ def flip_rows(
             "box_index": index,
             "class_id": original[index].class_id,
             "flip_box_index": "" if other is None else other,
-            "iou": _float(value),
+            "iou": _exact(value),
             "consistent": other is not None,
         }
         for index, other, value in match.flip_pairs(original, back)
@@ -782,8 +865,8 @@ def line_row(line: LineData, image: DetectionImage) -> dict:
         "dataset": line.ref.dataset,
         "role": line.ref.role,
         "zero_ok": zero.t_zero_ns is not None,
-        "t_zero_ns": "" if zero.t_zero_ns is None else _float(zero.t_zero_ns),
-        "period_samples": _float(image.period_samples),
+        "t_zero_ns": "" if zero.t_zero_ns is None else _exact(zero.t_zero_ns),
+        "period_samples": _exact(image.period_samples),
         "content_height_px": image.content_height_px,
         "n_tiles": len(image.tiles),
         "width_px": image.width_px,
@@ -1323,12 +1406,12 @@ def read_f2_inputs(settings: RunSettings) -> F2Inputs:
         raise inputs.InputError(f"F2 record missing: {settings.f2_record}")
     record = json.loads(settings.f2_record.read_text(encoding="utf-8"))
     plan_dir = settings.out_root / "plan"
-    table_sha = inputs.checked_sha256(
+    table_sha = inputs.checked_text_sha256(
         plan_dir / "injection_table.csv",
         record["injection_table_sha256"],
         "injection table",
     )
-    exclusions_sha = inputs.checked_sha256(
+    exclusions_sha = inputs.checked_text_sha256(
         plan_dir / "exclusions.csv", record["exclusions_sha256"], "exclusions"
     )
     specs, _ = inject.read_injection_table(plan_dir / "injection_table.csv")
@@ -1339,7 +1422,7 @@ def read_f2_inputs(settings: RunSettings) -> F2Inputs:
         specs=specs,
         exclusions=inputs.read_exclusions(plan_dir / "exclusions.csv"),
         sha256={
-            "f2_record": inputs.sha256_file(settings.f2_record),
+            "f2_record": inputs.sha256_file_lf(settings.f2_record),
             "injection_table": table_sha,
             "exclusions": exclusions_sha,
         },
@@ -1457,21 +1540,21 @@ def _match_row(
         "in_horizontal_box_zone": truth.in_horizontal_box_zone,
         "width_class": truth.width_class(level_w).value,
         "height_class": inject.height_class(height_at_level).value,
-        "width_periods": _float(truth.width_periods),
-        "height_periods": _float(truth.height_periods),
+        "width_periods": _exact(truth.width_periods),
+        "height_periods": _exact(truth.height_periods),
         "box_clipped": truth.box_clipped,
         "wing_past_record_end": truth.wing_past_record_end,
         "main_cell": truth.main_cell,
         "period_ringing": truth.period_ringing,
         "n_clipped_cells": truth.n_clipped_cells,
-        "max_clipped_injection_ratio": _float(truth.max_clipped_injection_ratio, 6),
+        "max_clipped_injection_ratio": _exact(truth.max_clipped_injection_ratio),
         "hit": base.hit,
         "n_boxes": base.n_boxes,
         "score": score,
-        "iou_best": _float(
+        "iou_best": _exact(
             match.best_iou(truth.box, base_boxes, DetectionClass.PIPE_HYPERBOLA)
         ),
-        "iou_visible_box": _float(
+        "iou_visible_box": _exact(
             match.best_iou(truth.visible_box, base_boxes, DetectionClass.PIPE_HYPERBOLA)
         ),
     }
@@ -1564,62 +1647,127 @@ def evaluate_injected_line(
 # ============================================================ stage runner
 
 
-def tracked_inputs(settings: RunSettings) -> list[Path]:
-    """Files a full run reads that git must track unchanged."""
+SRC_CODE_FILES = (
+    "src/gpr_detection/preprocess/to_image.py",
+    "src/gpr_detection/eval/inject.py",
+    "src/gpr_detection/pipeline.py",
+    "src/gpr_detection/detect/yolo.py",
+)
+"""Library code whose blobs identify a run ([RUN] §1 정체성 기록)."""
+
+
+def code_paths() -> list[Path]:
+    """Runner and library code: blobs measured at the start and the end."""
     here = Path(__file__).resolve().parent
-    paths = [
-        Path(__file__),
+    return [
+        Path(__file__).resolve(),
         here / "m31_d1_common.py",
         here / "m32_aihub_perturb.py",
         here / "m32_pipe_responses.py",
         here / "m32_recipe_inputs.py",
         here / "m32_recipe_match.py",
+        here / "m33_inputs.py",
+        here / "m33_r3_p4.py",
+        here / "m33_r3_band.py",
+        *(REPO / name for name in SRC_CODE_FILES),
+    ]
+
+
+def stage_record(settings: RunSettings) -> Path:
+    """Tracked record the injected stage reads: F2 (M3-2) or C1b (R3)."""
+    return settings.c1b_record if settings.is_band else settings.f2_record
+
+
+def tracked_inputs(settings: RunSettings) -> list[Path]:
+    """Files a full run reads that git must track unchanged."""
+    paths = [
+        *code_paths(),
         inputs.STAGE_A_4TU,
         inputs.STAGE_A_IDS,
         inputs.APEX_CANDIDATES,
     ]
     if settings.stage is Stage.INJECTED:
-        paths.append(settings.f2_record)
+        paths.append(stage_record(settings))
     return paths
 
 
-def git_blob(path: Path) -> str | None:
-    """``git hash-object`` of a working-tree file (the code that ran)."""
-    try:
-        completed = subprocess.run(
-            ["git", "-C", str(REPO), "hash-object", str(path)],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=common.GIT_TIMEOUT_S,
-            check=True,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return completed.stdout.strip()
+def text_input_paths(settings: RunSettings) -> dict[str, Path]:
+    """Text tables the stage reads (raw and LF sha go to the run identity)."""
+    paths = dict(inputs.LIST_PATHS)
+    paths["apex_candidates"] = inputs.APEX_CANDIDATES
+    if settings.stage is Stage.INJECTED:
+        plan_dir = settings.out_root / "plan"
+        paths["f2_record"] = stage_record(settings)
+        paths["injection_table"] = plan_dir / "injection_table.csv"
+        paths["exclusions"] = plan_dir / "exclusions.csv"
+        if settings.is_band:
+            paths["positions"] = plan_dir / "positions.csv"
+    return {name: path for name, path in paths.items() if path.is_file()}
 
 
-def new_run_identity(settings: RunSettings, extra_sha: Mapping[str, str]) -> dict:
-    """``run_identity`` of [CVR] 4-2 (git, versions, GPU, inputs, seed)."""
+def measure_tree(settings: RunSettings) -> dict:
+    """``m33_inputs.tree_state`` over this runner's inputs and code."""
+    return m33_inputs.tree_state(tracked_inputs(settings), code_paths())
+
+
+def new_run_identity(
+    settings: RunSettings,
+    extra_sha: Mapping[str, str],
+    context: RunContext | None = None,
+) -> dict:
+    """``run_identity`` of [CVR] 4-2 (git, versions, GPU, inputs, seed).
+
+    With a ``context`` (every stage run; the smoke estimate passes none) it
+    also records the start tree, the sealed PP assertion and the raw and LF
+    sha of the text inputs.
+    """
     identity = common.new_run_identity()
-    identity["gpu"] = common.gpu_name(settings.device)
+    # The plan stage runs no model; do not wake CUDA for its identity.
+    if settings.stage is not Stage.PLAN or settings.smoke:
+        identity["gpu"] = common.gpu_name(settings.device)
     identity["seed"] = inputs.SEED
     identity["recipes"] = list(settings.recipes)
     identity["recipes_sha256"] = inputs.recipes_sha256(settings.recipes)
-    identity["code_blobs"] = {
-        name: git_blob(REPO / name)
-        for name in (
-            "src/gpr_detection/preprocess/to_image.py",
-            "src/gpr_detection/eval/inject.py",
-            "src/gpr_detection/pipeline.py",
-            "src/gpr_detection/detect/yolo.py",
-        )
-    }
     identity["inputs_sha256"] = dict(extra_sha)
     identity["merge_config"] = asdict(DEFAULT_MERGE_CONFIG)
     identity["confidence"] = CONFIDENCE
     identity["batch_size"] = settings.batch_size
+    if context is None:
+        identity["code_blobs"] = m33_inputs.git_blobs(
+            REPO / name for name in SRC_CODE_FILES
+        )
+        return identity
+    text_sha = m33_inputs.text_sha256_record(text_input_paths(settings))
+    identity["inputs_sha256"].update(text_sha["raw"])
+    identity["inputs_sha256_lf"] = text_sha["lf"]
+    identity["dirty"] = context.start_tree["dirty"]
+    identity["tree_problems"] = context.start_tree["problems"]
+    identity["allow_dirty"] = settings.allow_dirty
+    identity["code_blobs"] = context.start_tree["code_blobs"]
+    identity["src_tree_id"] = context.start_tree["src_tree_id"]
+    identity["sealed_pp_assertion"] = context.sealed_pp
     return identity
+
+
+def close_run(
+    settings: RunSettings,
+    context: RunContext,
+    identity: dict,
+    base_status: str,
+) -> tuple[str, dict]:
+    """Measure the tree again right before the results are written.
+
+    Adds ``tree_end`` to ``identity`` and returns the final status and the
+    ``judgment`` block ([RUN] §1 판정 가능성, 끝 시점 트리 재측정).
+    """
+    end_tree = measure_tree(settings)
+    identity["tree_end"] = end_tree
+    judgment = m33_inputs.judgment_record(
+        settings.folds_run, settings.scope_blockers(), context.start_tree, end_tree
+    )
+    if judgment["tree_changes"]:
+        logger.error("tree changed during the run: %s", judgment["tree_changes"])
+    return m33_inputs.final_status(base_status, judgment), judgment
 
 
 def prepare_stage_dir(settings: RunSettings) -> None:
@@ -1659,6 +1807,9 @@ def settings_sha256(settings: RunSettings, extra_sha: Mapping[str, str]) -> str:
         "batch_size": settings.batch_size,
         "inputs": dict(sorted(extra_sha.items())),
     }
+    if settings.is_band:
+        document["injectant"] = settings.injectant
+        document["backgrounds"] = sorted(settings.backgrounds)
     return hashlib.sha256(
         json.dumps(document, sort_keys=True).encode("utf-8")
     ).hexdigest()
@@ -1820,7 +1971,9 @@ def _gate_or_load(
     return gate
 
 
-def run_uninjected(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
+def run_uninjected(
+    settings: RunSettings, started: float, context: RunContext
+) -> tuple[str, StageCounts]:
     """P5a: batch-1 D3 gate first, then boxes, M4, conf counts, M5 and M6."""
     hashes = inputs.assert_list_hashes()
     hashes.update(assert_weights(settings.run_root, settings.folds))
@@ -1828,28 +1981,31 @@ def run_uninjected(settings: RunSettings, started: float) -> tuple[str, StageCou
     apexes = inputs.known_apexes()
     prepare_stage_dir(settings)
     check_resume_identity(settings, settings_sha256(settings, hashes))
-    identity = new_run_identity(settings, hashes)
+    identity = new_run_identity(settings, hashes, context)
     identity["tile_order"] = TILE_ORDER
     detectors = load_detectors(settings)
     gate = _gate_or_load(settings, lines, detectors, apexes)
     gate_passed = gate is not None and gate["result"]["pass"]
     if settings.is_full and not gate_passed:
+        status, judgment = close_run(settings, context, identity, "gate_failed")
         summary = {
             "schema": SCHEMA,
             "stage": Stage.UNINJECTED.value,
-            "status": "gate_failed",
+            "status": status,
             "full_run": True,
+            "judgment": judgment,
             "run_identity": {**identity, "finished_at": common.local_now()},
             "identity_gate": None if gate is None else gate["result"],
         }
         _write_json(settings.stage_dir / "summary.json", summary)
-        return "gate_failed", StageCounts()
+        return status, StageCounts()
     parts = run_lines(
         settings,
         lines,
         lambda line: evaluate_uninjected_line(line, detectors, settings, apexes),
         started,
     )
+    status, judgment = close_run(settings, context, identity, m33_inputs.STATUS_OK)
     assemble_stage_files(settings, parts)
     _write_rows(
         settings.stage_dir / "lines.csv",
@@ -1859,13 +2015,13 @@ def run_uninjected(settings: RunSettings, started: float) -> tuple[str, StageCou
     measured_m6 = identity_gate(row for part in parts for row in part["apex_hits"])
     if gate is not None:
         identity["batch_path"] = batch_path_report(gate, parts)
-    status = "ok"
     summary = {
         "schema": SCHEMA,
         "stage": Stage.UNINJECTED.value,
         "status": status,
         "full_run": settings.is_full,
         "gated": settings.is_full,
+        "judgment": judgment,
         "run_identity": {**identity, "finished_at": common.local_now()},
         "identity_gate": None if gate is None else gate["result"],
         "measured_r0_m6_report_only": measured_m6,
@@ -1879,7 +2035,9 @@ def run_uninjected(settings: RunSettings, started: float) -> tuple[str, StageCou
     return status, counts
 
 
-def run_plan(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
+def run_plan(
+    settings: RunSettings, started: float, context: RunContext
+) -> tuple[str, StageCounts]:
     """Zone (c') from P5a, seeded plans, injection table, costs, F2 draft."""
     hashes = inputs.assert_list_hashes()
     library = responses_io.load_library()
@@ -1900,7 +2058,7 @@ def run_plan(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
         for number, result in enumerate(executor.map(_plan_worker, jobs), start=1):
             results.append(result)
             print(f"plan {number}/{len(lines)} {result.report['line_id']}", flush=True)
-    return _finish_plan(settings, started, results, boxes, hashes)
+    return _finish_plan(settings, started, results, boxes, hashes, context)
 
 
 _WORKER_LIBRARY: list[responses_io.ResponseLibrary] = []
@@ -1926,6 +2084,7 @@ def _finish_plan(
     results: Sequence[LinePlanResult],
     boxes: Mapping[str, Sequence[GridBox]],
     hashes: dict[str, str],
+    context: RunContext,
 ) -> tuple[str, StageCounts]:
     stage_dir = settings.stage_dir
     specs = [spec for result in results for spec in result.specs]
@@ -1934,13 +2093,19 @@ def _finish_plan(
     level_w_db, level_report = select_level_w(positions)
     pi_bottom = natural_bottom_share(results, _model_groups())
     classify_positions(positions, level_w_db)
+    samples = sample_report(positions, reports)
+    sample_status = m33_inputs.STATUS_OK if samples["sample_ok"] else "sample_short"
+    identity = {
+        **new_run_identity(settings, hashes, context),
+        "seed": inject.PLAN_SEED,
+    }
+    status, judgment = close_run(settings, context, identity, sample_status)
     table_sha = inject.write_injection_table(stage_dir / "injection_table.csv", specs)
     cost_sha = inject.write_cost_table(
         stage_dir / "cost_table.csv", [result.cost for result in results]
     )
     exclusions_sha = inputs.write_exclusions(stage_dir / "exclusions.csv", boxes)
     _write_rows(stage_dir / "positions.csv", POSITION_COLUMNS, positions)
-    samples = sample_report(positions, reports)
     samples["level_w_db"] = level_w_db
     samples["level_width_report"] = level_report
     samples["pi_bottom"] = pi_bottom
@@ -1959,7 +2124,6 @@ def _finish_plan(
         samples["all_levels"] = {
             level_tag(level): level_summary(positions, level) for level in LEVELS
         }
-    status = "ok" if samples["sample_ok"] else "sample_short"
     f2 = {
         "level_w_db": level_w_db,
         "pi_bottom": pi_bottom,
@@ -1981,11 +2145,8 @@ def _finish_plan(
             "stage": "plan",
             "status": status,
             "provisional": settings.provisional,
-            "run_identity": {
-                **common.new_run_identity(),
-                "seed": inject.PLAN_SEED,
-                "finished_at": common.local_now(),
-            },
+            "judgment": judgment,
+            "run_identity": {**identity, "finished_at": common.local_now()},
             "inputs_sha256": hashes,
             "outputs_sha256": f2,
             "samples": samples,
@@ -1996,7 +2157,9 @@ def _finish_plan(
     return status, StageCounts(len(results), 0, len(specs))
 
 
-def run_injected(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
+def run_injected(
+    settings: RunSettings, started: float, context: RunContext
+) -> tuple[str, StageCounts]:
     """P5b: inject the F2 table and match every recipe and fold."""
     hashes = inputs.assert_list_hashes()
     hashes.update(assert_weights(settings.run_root, settings.folds))
@@ -2010,7 +2173,7 @@ def run_injected(settings: RunSettings, started: float) -> tuple[str, StageCount
     candidates = inputs.candidate_apexes()
     prepare_stage_dir(settings)
     check_resume_identity(settings, settings_sha256(settings, hashes))
-    identity = new_run_identity(settings, hashes)
+    identity = new_run_identity(settings, hashes, context)
     detectors = load_detectors(settings)
 
     def evaluate(line: LineData) -> dict:
@@ -2026,17 +2189,19 @@ def run_injected(settings: RunSettings, started: float) -> tuple[str, StageCount
         )
 
     parts = run_lines(settings, lines, evaluate, started)
+    status, judgment = close_run(settings, context, identity, m33_inputs.STATUS_OK)
     assemble_stage_files(settings, parts)
     rejections = [row for part in parts for row in part["rejections"]]
     _write_rows(settings.stage_dir / "rejections.csv", REJECTION_COLUMNS, rejections)
     summary = {
         "schema": SCHEMA,
         "stage": Stage.INJECTED.value,
-        "status": "ok",
+        "status": status,
         "full_run": settings.is_full,
         "precheck_subset": settings.is_precheck_subset,
         "recipes": list(settings.recipes),
         "folds": list(settings.folds),
+        "judgment": judgment,
         "run_identity": {**identity, "finished_at": common.local_now()},
         "n_lines": len(parts),
         "n_accepted": sum(part["n_accepted"] for part in parts),
@@ -2049,7 +2214,7 @@ def run_injected(settings: RunSettings, started: float) -> tuple[str, StageCount
     }
     _write_json(settings.stage_dir / "summary.json", summary)
     n_rows = summary["n_accepted"] + len(rejections)
-    return "ok", StageCounts(len(parts), sum(p["n_tiles"] for p in parts), n_rows)
+    return status, StageCounts(len(parts), sum(p["n_tiles"] for p in parts), n_rows)
 
 
 def resources(settings: RunSettings, started: float) -> dict:
@@ -2130,6 +2295,7 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
         action="store_true",
         help="plan: stratum counts of all four levels (report only)",
     )
+    _add_band_arguments(parser)
     args = parser.parse_args(argv)
     if args.smoke == (args.stage is not None):
         parser.error("give exactly one of --stage or --smoke")
@@ -2137,13 +2303,25 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
     unknown = set(recipes) - set(inputs.STAGE_C_RECIPES)
     if unknown:
         parser.error(f"unknown recipes {sorted(unknown)}")
+    is_band = args.injectant == INJECTANT_BAND
+    if is_band:
+        recipes = _band_recipes(parser, args.recipes)
+    try:
+        folds = _int_list(args.folds)
+    except ValueError:
+        parser.error(f"--folds must be integers: {args.folds!r}")
+    backgrounds = tuple(
+        item.strip() for item in args.backgrounds.split(",") if item.strip()
+    )
+    if set(backgrounds) - set(BAND_BACKGROUNDS) or not backgrounds:
+        parser.error(f"--backgrounds must name {list(BAND_BACKGROUNDS)}")
     return RunSettings(
         stage=Stage(args.stage) if args.stage else Stage.UNINJECTED,
-        out_root=args.out_root or (SMOKE_OUT_ROOT if args.smoke else DEFAULT_OUT_ROOT),
+        out_root=args.out_root or _default_out_root(args.smoke, is_band),
         device=args.device,
         batch_size=args.batch_size,
         recipes=(SMOKE_RECIPE,) if args.smoke else recipes,
-        folds=(SMOKE_FOLD,) if args.smoke else _int_list(args.folds),
+        folds=(SMOKE_FOLD,) if args.smoke else folds,
         flip=not args.no_flip,
         limit_lines=args.limit_lines,
         smoke=args.smoke,
@@ -2156,7 +2334,52 @@ def parse_args(argv: Sequence[str] | None) -> RunSettings:
         workers=max(1, min(args.workers, MAX_PLAN_WORKERS)),
         cost_table=args.cost_table,
         report_all_levels=args.report_all_levels,
+        injectant=args.injectant,
+        backgrounds=backgrounds,
+        r2_root=args.r2_root,
+        c1b_record=args.c1b_record,
     )
+
+
+def _add_band_arguments(parser: argparse.ArgumentParser) -> None:
+    """M3-3 R3 options (runner spec §3); defaults keep the M3-2 behaviour."""
+    parser.add_argument(
+        "--injectant",
+        choices=(INJECTANT_HYPERBOLA, INJECTANT_BAND),
+        default=INJECTANT_HYPERBOLA,
+        help="band: R3 pseudo bands (uninjected = IDS 60 lines, plan, injected)",
+    )
+    parser.add_argument(
+        "--backgrounds",
+        default=",".join(BAND_BACKGROUNDS),
+        help="band plan / injected: 4tu, gz_ids (both for a judgeable run)",
+    )
+    parser.add_argument(
+        "--r2-root",
+        type=Path,
+        default=m33_inputs.R2_OUT_ROOT,
+        help="band: R2 output with the 4TU un-injected boxes",
+    )
+    parser.add_argument(
+        "--c1b-record",
+        type=Path,
+        default=m33_inputs.R3_C1B_RECORD,
+        help="band injected: C1b record (table, positions, exclusions sha)",
+    )
+
+
+def _band_recipes(parser: argparse.ArgumentParser, text: str) -> tuple[str, ...]:
+    """R3 runs r0 only; the M3-2 default list is read as r0."""
+    if text in (",".join(inputs.STAGE_C_RECIPES), inputs.R0):
+        return (inputs.R0,)
+    parser.error("--injectant band runs --recipes r0 only")
+    raise AssertionError  # parser.error exits
+
+
+def _default_out_root(smoke: bool, is_band: bool) -> Path:
+    if is_band:
+        return m33_inputs.R3_SMOKE_OUT_ROOT if smoke else m33_inputs.R3_OUT_ROOT
+    return SMOKE_OUT_ROOT if smoke else DEFAULT_OUT_ROOT
 
 
 def _int_list(text: str) -> tuple[int, ...]:
@@ -2164,19 +2387,39 @@ def _int_list(text: str) -> tuple[int, ...]:
 
 
 def run(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
-    """Dispatch one stage after the clean-tree check of full runs."""
-    if not settings.allow_dirty:
-        problems = stage_b.tracked_tree_problems(tracked_inputs(settings), REPO)
-        if problems:
-            raise inputs.InputError(f"tree not clean for a run: {problems}")
+    """Dispatch one stage after the checks every run needs ([RUN] §1).
+
+    Order: fold ids, start tree (clean unless ``--allow-dirty``), sealed PP;
+    all before any input is read. A smoke run is never judgeable, so its
+    ``ok`` becomes ``not_judgeable`` (exit 1).
+
+    Raises:
+        inputs.InputError: For a refused fold argument, a dirty tree or a PP
+            that is not the sealed one (exit 2).
+    """
+    m33_inputs.check_folds(settings.folds)
+    start_tree = measure_tree(settings)
+    if not settings.allow_dirty and start_tree["problems"]:
+        raise inputs.InputError(f"tree not clean for a run: {start_tree['problems']}")
+    context = RunContext(
+        start_tree=start_tree,
+        sealed_pp=m33_inputs.assert_sealed_pp(start_tree["code_blobs"]),
+    )
+    if settings.is_band:
+        import m33_r3_band as band  # R3 pseudo bands (runner spec §3)
+
+        return band.run(settings, started, context)
     if settings.smoke:
-        return run_smoke(settings, started)
+        status, counts = run_smoke(settings, started)
+        if status == m33_inputs.STATUS_OK:
+            status = m33_inputs.STATUS_NOT_JUDGEABLE
+        return status, counts
     stage_runner = {
         Stage.UNINJECTED: run_uninjected,
         Stage.PLAN: run_plan,
         Stage.INJECTED: run_injected,
     }[settings.stage]
-    return stage_runner(settings, started)
+    return stage_runner(settings, started, context)
 
 
 def print_final_line(
@@ -2219,4 +2462,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # m33_r3_band and m32_recipe_smoke import this module by name; register
+    # the running copy so they share its classes (Stage, RunSettings).
+    sys.modules.setdefault("m32_recipe_eval", sys.modules[__name__])
     sys.exit(main())

@@ -18,6 +18,7 @@ import pytest
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = PROJECT_ROOT / "analysis" / "detection" / "m33_d0r_compare.py"
 C0B_JSON = PROJECT_ROOT / "runs" / "eval" / "m33_d0" / "d0_gate.json"
+D0R_JSON = PROJECT_ROOT / "runs" / "eval" / "m33_d0r" / "d0_gate.json"
 METRIC_WORDS = re.compile(r"loss|recall|lost|h_s0|increment|cumulative", re.I)
 ALL_SETS = ("S1", "S2", "S3", "S4", "S5")
 EVALUATED = ["S1", "S2", "S3", "S4"]
@@ -61,8 +62,25 @@ def _gate() -> dict:
     }
 
 
+Y1_CUTS = ("Y1_0.5P", "Y1_1P", "Y1_2P", "Y1_3P")
+
+
+def _report() -> dict:
+    """Report-only Y1 values: apex hits per cut and set, rule counts per cut."""
+    hits = {cut: {f"S{k}": 9 for k in range(6)} for cut in Y1_CUTS}
+    rules = {
+        set_id: {"by_condition": {cut: {"removed_a": 3} for cut in Y1_CUTS}}
+        for set_id in ALL_SETS
+    }
+    return {"synthetic_apex_hits": hits, "rule_counts_outside_gate": rules}
+
+
 def _document() -> dict:
-    """A C0b-shaped document: S1-S4 evaluated, S3 selected, stop at S4."""
+    """A C0b-shaped document: S1-S4 evaluated, S3 selected, stop at S4.
+
+    It carries a judgeable ``judgment`` block, as a revised D0 run does
+    (the real C0b file has none; the base never needs one).
+    """
     gates = {set_id: _gate() for set_id in ALL_SETS}
     gates["S4"]["checks"]["G1"] = False
     gates["S4"]["pass"] = False
@@ -74,6 +92,8 @@ def _document() -> dict:
             "stop_reason": "gate_failed",
         },
         "gates": gates,
+        "report": _report(),
+        "judgment": {"judgeable": True, "blockers": []},
     }
 
 
@@ -218,13 +238,22 @@ def test_a_missing_cell_is_an_input_error(cmp, edit):
         cmp.compare(_changed(edit), _document())
 
 
-def test_cell_counts_off_the_expected_are_an_input_error(cmp):
+def test_cell_counts_off_the_expected_are_a_mismatch(cmp, monkeypatch):
+    """Tool update 2026-11-15: an off count is ``mismatch``, not an input error."""
     cells = cmp.build_cells(_document(), _document())
-    with pytest.raises(cmp.CompareInputError, match="cell counts"):
-        cmp.check_counts(cells, n_sets=5)
+    _, off = cmp.check_counts(cells, n_sets=5)
+    assert off["G1"] == (60, 75)
     without_one = [cell for cell in cells if cell.key != "S2/G1/A0/fold3/lost"]
-    with pytest.raises(cmp.CompareInputError, match="cell counts"):
-        cmp.check_counts(without_one, n_sets=4)
+    assert cmp.check_counts(without_one, n_sets=4)[1] == {"G1": (59, 60)}
+    assert cmp.check_counts(cells, n_sets=4)[1] == {}
+
+    wanted = cmp.expected_counts(len(EVALUATED))
+    monkeypatch.setattr(
+        cmp, "expected_counts", lambda n_sets: dict(wanted, G3=wanted["G3"] + 1)
+    )
+    result = cmp.compare(_document(), _document())
+    assert result.status == "mismatch" and result.outside == []
+    assert result.count_problems == {"G3": (12, 13)}
 
 
 def test_an_empty_comparison_is_an_input_error(cmp):
@@ -242,9 +271,46 @@ def test_a_not_judgeable_new_run_is_not_compared(cmp):
     new = _changed(_set(("judgment",), {"judgeable": False, "blockers": ["smoke"]}))
     with pytest.raises(cmp.CompareInputError, match="not judgeable"):
         cmp.compare(_document(), new)
-    judged = _changed(_set(("judgment",), {"judgeable": True, "blockers": []}))
-    assert cmp.compare(_document(), judged).judgment == "judgeable"
-    assert cmp.compare(_document(), _document()).judgment == "absent"
+    assert cmp.compare(_document(), _document()).judgment == "judgeable"
+
+
+def test_a_new_run_without_a_judgment_block_is_refused(cmp):
+    """Tool update 2026-11-15: an old-format json (e.g. C0b itself) is refused."""
+    old_format = _document()
+    del old_format["judgment"]
+    with pytest.raises(cmp.CompareInputError, match="no judgment block"):
+        cmp.compare(_document(), old_format)
+    assert cmp.compare(old_format, _document()).status == "match"  # base may lack it
+
+
+# ------------------------------------------------------- Y1 record only
+
+
+def test_y1_cells_are_recorded_and_never_change_the_result(cmp):
+    def edit(document):
+        document["report"]["synthetic_apex_hits"]["Y1_1P"]["S3"] = 2
+        by_condition = document["report"]["rule_counts_outside_gate"]["S2"]
+        by_condition["by_condition"]["Y1_3P"] = {"removed_a": 300, "clipped_b": 1}
+
+    result = cmp.compare(_document(), _changed(edit))
+    assert result.status == "match"
+    y1 = {c.key: c for c in result.cells if c.group == "record_Y1"}
+    assert all(cell.record_only for cell in y1.values())
+    assert (y1["S3/Y1/Y1_1P/apex_hits"].base, y1["S3/Y1/Y1_1P/apex_hits"].new) == (9, 2)
+    assert not y1["S2/Y1/Y1_3P/by_rule/removed_a"].within
+    assert y1["S2/Y1/Y1_3P/by_rule/clipped_b"].base == 0  # union of keys
+    hit_keys = [key for key in y1 if key.endswith("apex_hits")]
+    assert len(hit_keys) == len(Y1_CUTS) * (1 + len(EVALUATED))  # S0 + evaluated
+    assert "S0/Y1/Y1_0.5P/apex_hits" in y1
+
+
+def test_missing_y1_keys_are_recorded_as_null(cmp):
+    new = _document()
+    del new["report"]
+    result = cmp.compare(_document(), new)
+    assert result.status == "match"
+    hits = [c for c in result.cells if c.key.endswith("apex_hits")]
+    assert hits and all(cell.new is None for cell in hits)
 
 
 # ----------------------------------------------------------------- CLI
@@ -262,8 +328,17 @@ def _main(cmp, capsys, *argv) -> tuple[int, dict]:
     return exit_code, final
 
 
-def test_cli_writes_values_to_files_only(cmp, capsys, tmp_path):
-    base = _write(tmp_path / "c0b" / "d0_gate.json", _document())
+def _sealed_base(cmp, monkeypatch, path: Path, document: dict) -> Path:
+    """Write a stand-in C0b file and make its sha the sealed one."""
+    _write(path, document)
+    monkeypatch.setattr(cmp, "C0B_D0_GATE_SHA256", cmp.sha256_file(path))
+    return path
+
+
+def test_cli_writes_values_to_files_only(cmp, capsys, tmp_path, monkeypatch):
+    base = _sealed_base(
+        cmp, monkeypatch, tmp_path / "c0b" / "d0_gate.json", _document()
+    )
     new = _write(tmp_path / "d0r" / "d0_gate.json", _changed(_set(G1_A0, 3.0)))
     out = tmp_path / "report" / "compare.json"
     exit_code, final = _main(cmp, capsys, "--base", base, "--new", new, "--out", out)
@@ -281,8 +356,10 @@ def test_cli_writes_values_to_files_only(cmp, capsys, tmp_path):
     assert final["n_cells"] == len(report["cells"])
 
 
-def test_cli_exit_codes(cmp, capsys, tmp_path):
-    base = _write(tmp_path / "c0b" / "d0_gate.json", _document())
+def test_cli_exit_codes(cmp, capsys, tmp_path, monkeypatch):
+    base = _sealed_base(
+        cmp, monkeypatch, tmp_path / "c0b" / "d0_gate.json", _document()
+    )
     bad = _write(tmp_path / "d0r" / "d0_gate.json", _changed(_set(G1_A0, 9.0)))
     out = tmp_path / "report" / "compare.json"
     assert _main(cmp, capsys, "--base", base, "--new", bad, "--out", out)[0] == 1
@@ -292,6 +369,23 @@ def test_cli_exit_codes(cmp, capsys, tmp_path):
     inside = tmp_path / "c0b" / "compare.json"  # never write next to C0b
     code, _ = _main(cmp, capsys, "--base", base, "--new", bad, "--out", inside)
     assert code == 2 and not inside.exists()
+
+
+def test_a_base_other_than_the_c0b_record_is_refused_first(
+    cmp, capsys, tmp_path, monkeypatch
+):
+    """Tool update 2026-11-15: the base sha is asserted before anything else."""
+    base = _sealed_base(
+        cmp, monkeypatch, tmp_path / "c0b" / "d0_gate.json", _document()
+    )
+    other = _write(tmp_path / "other" / "d0_gate.json", _changed(_set(G1_A0, 3.0)))
+    new = _write(tmp_path / "d0r" / "d0_gate.json", _document())
+    out = tmp_path / "report" / "compare.json"
+    code, final = _main(cmp, capsys, "--base", other, "--new", new, "--out", out)
+    assert (code, final["status"]) == (2, "input_error") and not out.exists()
+    assert cmp.check_base_sha(base) == cmp.C0B_D0_GATE_SHA256
+    with pytest.raises(cmp.CompareInputError, match="not the C0b record"):
+        cmp.check_base_sha(other)
 
 
 def test_boundary_rows_are_recorded_from_the_predictions(cmp, tmp_path):
@@ -321,19 +415,34 @@ def test_boundary_rows_are_recorded_from_the_predictions(cmp, tmp_path):
 
 
 @pytest.mark.skipif(not C0B_JSON.is_file(), reason="C0b d0_gate.json absent")
-def test_c0b_matches_itself(cmp, capsys, tmp_path):
-    """Read only: the report goes to tmp_path; no value reaches stdout."""
+def test_c0b_is_the_sealed_base_and_not_a_new_run(cmp, capsys, tmp_path):
+    """Read only: C0b passes the base sha check but has no judgment block."""
     out = tmp_path / "c0b_self.json"
     before = C0B_JSON.stat().st_mtime_ns
+    assert cmp.check_base_sha(C0B_JSON) == cmp.C0B_D0_GATE_SHA256
     code, final = _main(
         cmp, capsys, "--base", C0B_JSON, "--new", C0B_JSON, "--out", out
+    )
+    assert (code, final["status"]) == (2, "input_error") and not out.exists()
+    assert C0B_JSON.stat().st_mtime_ns == before
+
+
+@pytest.mark.skipif(
+    not (C0B_JSON.is_file() and D0R_JSON.is_file()), reason="C0b or D0' json absent"
+)
+def test_d0r_matches_c0b(cmp, capsys, tmp_path):
+    """Read only: the recorded D0' result still matches C0b with zero differences."""
+    out = tmp_path / "d0r_vs_c0b.json"
+    before = (C0B_JSON.stat().st_mtime_ns, D0R_JSON.stat().st_mtime_ns)
+    code, final = _main(
+        cmp, capsys, "--base", C0B_JSON, "--new", D0R_JSON, "--out", out
     )
     assert (code, final["status"]) == (0, "match")
     report = json.loads(out.read_text(encoding="utf-8"))
     assert report["outside_tolerance"] == []
-    assert report["within_tolerance_differences"] == []
+    assert report["cell_count_problems"] == {}
     expected = report["expected_counts"]
     assert {k: report["cell_counts"][k] for k in expected} == expected
     assert report["evaluated_sets"] == EVALUATED
-    assert all(row["diff"] in (None, 0, 0.0) for row in report["cells"])
-    assert C0B_JSON.stat().st_mtime_ns == before
+    assert report["cell_counts"]["record_Y1"] > 0
+    assert (C0B_JSON.stat().st_mtime_ns, D0R_JSON.stat().st_mtime_ns) == before

@@ -14,9 +14,17 @@ judgment; it asks whether the re-run reproduces the C0b one.
   <= max(5 % of the C0b value, 5).
 * Count dicts are compared over the union of their keys (a missing key is
   0). ``null`` equals ``null`` only.
-* Record only (never changes the result): the A2 cells and the C0b note-1
-  boundary box (fold 1, A3, ``pipe_band``) from ``fold1/predictions.csv``
-  next to each json, when present.
+* Cell counts per group must equal the expected counts (G1 and G2: 4 sets x
+  3 conditions x 5 folds); a different count is a ``mismatch``, no compared
+  cell at all is an input error.
+* Record only (never changes the result): the A2 cells, the Y1 cells
+  (``report.synthetic_apex_hits`` and ``report.rule_counts_outside_gate``
+  of every Y1 cut, S0 and each evaluated set; a missing key is recorded as
+  ``null``) and the C0b note-1 boundary box (fold 1, A3, ``pipe_band``) from
+  ``fold1/predictions.csv`` next to each json, when present.
+* Before anything else the base file sha256 must be the C0b record
+  (``C0B_D0_GATE_SHA256``), and the new json must carry a ``judgment``
+  block with ``judgeable`` true (tool update 2026-11-15).
 
 Usage::
 
@@ -28,9 +36,11 @@ Usage::
 ``--out`` names the json report; a markdown table is written beside it
 (same stem, ``.md``). Values go to these files only. The last stdout line is
 ``{"status", "n_cells", "n_record_only", "out"}`` with ``status`` ``match``,
-``mismatch``, ``input_error`` or ``error``. Exit codes: 0 match, 1 mismatch,
-2 input error (missing file or key, zero cells, cell count off the expected
-count, D0' not judgeable, report inside the C0b folder), 3 internal error.
+``mismatch``, ``input_error`` or ``error``. Exit codes: 0 match, 1 mismatch
+(also a cell count off the expected count), 2 input error (base sha not the
+C0b record, missing file or key, zero compared cells, D0' without a
+``judgment`` block or not judgeable, report inside the C0b folder), 3
+internal error.
 """
 
 import argparse
@@ -49,8 +59,14 @@ REPO = Path(__file__).resolve().parents[2]
 SCHEMA = "m33_d0r_compare/1"
 RULE = "docs/experiments/m33_pp_spec.md v0.2.4 A-1 (user decision 2026-11-15)"
 
+C0B_D0_GATE_SHA256 = "107d7b53f30667684baf7c2236bdf338c861309531ff17497e2836193bea08c6"
+"""sha256 of the C0b ``runs/eval/m33_d0/d0_gate.json`` (0f11c34)."""
+
 GATE_CONDITIONS = ("A0", "A1", "A3")
 RECORD_CONDITIONS = ("A2",)
+Y1_CONDITIONS = ("Y1_0.5P", "Y1_1P", "Y1_2P", "Y1_3P")
+"""Report-only record-end cuts of [PP] §4-3 (keys of ``d0_gate.json``)."""
+Y1_GROUP = "record_Y1"
 FOLDS = (0, 1, 2, 3, 4)
 G4_CONDITIONS = ("A1", "A3", "Y0")
 CHECK_NAMES = ("G1", "G2", "G3", "G4")
@@ -263,7 +279,13 @@ def g4_tolerance(base_value: Any) -> float:
     return max(G4_RELATIVE_TOLERANCE * magnitude, G4_MIN_TOLERANCE)
 
 
-def _count_cells(prefix: str, base_counts: Mapping, new_counts: Mapping) -> list[Cell]:
+def _count_cells(
+    prefix: str,
+    base_counts: Mapping,
+    new_counts: Mapping,
+    group: str = "G4_rules",
+    record_only: bool = False,
+) -> list[Cell]:
     """One cell per key of the union; a key missing on one side counts 0."""
     cells = []
     for key in sorted(set(base_counts) | set(new_counts)):
@@ -272,10 +294,11 @@ def _count_cells(prefix: str, base_counts: Mapping, new_counts: Mapping) -> list
         cells.append(
             Cell(
                 f"{prefix}/{key}",
-                "G4_rules",
+                group,
                 base_value,
                 new_value,
                 g4_tolerance(base_value),
+                record_only,
             )
         )
     return cells
@@ -312,10 +335,54 @@ def g4_cells(base: Mapping, new: Mapping, set_id: str) -> list[Cell]:
     return cells
 
 
+def _optional(document: Mapping, path: Sequence[str]) -> Any:
+    """``document[path...]`` or ``None`` when a key is missing (record only)."""
+    value: Any = document
+    for key in path:
+        if not isinstance(value, Mapping) or key not in value:
+            return None
+        value = value[key]
+    return value
+
+
+def y1_hit_cells(base: Mapping, new: Mapping, set_id: str) -> list[Cell]:
+    """Y1 apex hits of one set per cut (record only, must-be-equal display)."""
+    cells = []
+    for condition in Y1_CONDITIONS:
+        path = ("report", "synthetic_apex_hits", condition, set_id)
+        cells.append(
+            Cell(
+                f"{set_id}/Y1/{condition}/apex_hits",
+                Y1_GROUP,
+                _optional(base, path),
+                _optional(new, path),
+                None,
+                record_only=True,
+            )
+        )
+    return cells
+
+
+def y1_rule_cells(base: Mapping, new: Mapping, set_id: str) -> list[Cell]:
+    """Y1 per-rule counts of one set per cut (record only, G4 tolerance)."""
+    cells = []
+    for condition in Y1_CONDITIONS:
+        path = ("report", "rule_counts_outside_gate", set_id, "by_condition", condition)
+        cells += _count_cells(
+            f"{set_id}/Y1/{condition}/by_rule",
+            _optional(base, path) or {},
+            _optional(new, path) or {},
+            group=Y1_GROUP,
+            record_only=True,
+        )
+    return cells
+
+
 def build_cells(base: Mapping, new: Mapping) -> list[Cell]:
     """Every compared and record-only cell, set by set in C0b order."""
     cells = selection_cells(base, new)
-    for set_id in evaluated_sets(base):
+    sets = evaluated_sets(base)
+    for set_id in sets:
         cells += check_cells(base, new, set_id)
         cells += loss_cells(base, new, set_id, "G1")
         cells += loss_cells(base, new, set_id, "G2")
@@ -323,6 +390,10 @@ def build_cells(base: Mapping, new: Mapping) -> list[Cell]:
         cells += g4_cells(base, new, set_id)
         cells += loss_cells(base, new, set_id, "G1", RECORD_CONDITIONS)
         cells += loss_cells(base, new, set_id, "G2", RECORD_CONDITIONS)
+    cells += y1_hit_cells(base, new, "S0")
+    for set_id in sets:
+        cells += y1_hit_cells(base, new, set_id)
+        cells += y1_rule_cells(base, new, set_id)
     return cells
 
 
@@ -351,12 +422,19 @@ def count_groups(cells: Iterable[Cell]) -> dict[str, int]:
     return counts
 
 
-def check_counts(cells: Sequence[Cell], n_sets: int) -> dict[str, int]:
-    """Cell counts per group; they must equal :func:`expected_counts`.
+def check_counts(
+    cells: Sequence[Cell], n_sets: int
+) -> tuple[dict[str, int], dict[str, tuple[int, int]]]:
+    """Cell counts per group and the groups off :func:`expected_counts`.
+
+    An off count makes the comparison a ``mismatch`` ([PP] A-1 0 키 처리);
+    only an empty comparison is an input error.
+
+    Returns:
+        ``(counts, off)`` with ``off`` = ``{group: (got, want)}``.
 
     Raises:
-        CompareInputError: For zero compared cells or a group count off the
-            expected count.
+        CompareInputError: For zero compared cells.
     """
     counts = count_groups(cells)
     if not any(not cell.record_only for cell in cells):
@@ -367,9 +445,7 @@ def check_counts(cells: Sequence[Cell], n_sets: int) -> dict[str, int]:
         for group, n in expected.items()
         if counts.get(group, 0) != n
     }
-    if off:
-        raise CompareInputError(f"cell counts off the expected (got, want): {off}")
-    return counts
+    return counts, off
 
 
 # ------------------------------------------------- record-only extras
@@ -415,15 +491,16 @@ def _boundary_record(row: Mapping[str, str], score: float) -> dict:
 
 
 def judgment_state(new: Mapping) -> str:
-    """``judgeable`` / ``absent`` (old format, e.g. a C0b self-check).
+    """``judgeable`` when the D0' json says so.
 
     Raises:
-        CompareInputError: When the D0' json says it is not judgeable
+        CompareInputError: When the D0' json has no ``judgment`` block (an
+            old-format run, e.g. C0b itself) or says it is not judgeable
             ([PP] A-1: such a run is not compared).
     """
     judgment = new.get("judgment")
-    if judgment is None:
-        return "absent"
+    if not isinstance(judgment, Mapping):
+        raise CompareInputError("new: no judgment block (not a revised D0 run)")
     if judgment.get("judgeable") is not True:
         raise CompareInputError(f"new: not judgeable ({judgment.get('blockers')})")
     return "judgeable"
@@ -475,6 +552,7 @@ class Comparison:
     counts: dict[str, int]
     evaluated: list[str]
     judgment: str
+    count_problems: dict[str, tuple[int, int]]
 
     @property
     def compared(self) -> list[Cell]:
@@ -492,17 +570,20 @@ class Comparison:
 def compare(base: Mapping, new: Mapping) -> Comparison:
     """Compare two ``d0_gate.json`` documents under the A-1 rule.
 
+    A cell count off the expected count is a mismatch, like a cell outside
+    its tolerance.
+
     Raises:
-        CompareInputError: For a missing key, zero cells, off cell counts or
-            a D0' document that is not judgeable.
+        CompareInputError: For a missing key, zero compared cells or a D0'
+            document without a judgeable ``judgment`` block.
     """
     judgment = judgment_state(new)
     evaluated = evaluated_sets(base)
     cells = build_cells(base, new)
-    counts = check_counts(cells, len(evaluated))
-    is_match = all(cell.within for cell in cells if not cell.record_only)
+    counts, off = check_counts(cells, len(evaluated))
+    is_match = not off and all(cell.within for cell in cells if not cell.record_only)
     status = STATUS_MATCH if is_match else STATUS_MISMATCH
-    return Comparison(status, cells, counts, evaluated, judgment)
+    return Comparison(status, cells, counts, evaluated, judgment, off)
 
 
 def report_document(comparison: Comparison, base_path: Path, new_path: Path) -> dict:
@@ -520,6 +601,10 @@ def report_document(comparison: Comparison, base_path: Path, new_path: Path) -> 
         "evaluated_sets": comparison.evaluated,
         "cell_counts": comparison.counts,
         "expected_counts": expected_counts(len(comparison.evaluated)),
+        "cell_count_problems": {
+            group: {"got": got, "want": want}
+            for group, (got, want) in comparison.count_problems.items()
+        },
         "outside_tolerance": [cell.as_row() for cell in comparison.outside],
         "within_tolerance_differences": [
             cell.as_row() for cell in comparison.differing_within
@@ -570,6 +655,7 @@ def markdown_report(document: Mapping) -> str:
         f"- script blob: `{document['script']['git_blob']}`",
         f"- new judgment: {document['new_judgment']}",
         f"- 칸 수: {document['cell_counts']}",
+        f"- 칸 수 불일치: {document['cell_count_problems'] or '없음'}",
         "",
         "## 폭 밖 차이",
         *_markdown_table(document["outside_tolerance"]),
@@ -580,7 +666,7 @@ def markdown_report(document: Mapping) -> str:
         "## 모든 칸",
         *_markdown_table(document["cells"]),
         "",
-        "## 기록만 (A2)",
+        "## 기록만 (A2·Y1)",
         *_markdown_table(document["record_only"]["cells"]),
         "",
         "## 기록만 (C0b 주 1 경계 박스)",
@@ -625,8 +711,25 @@ def _check_out_path(out: Path, base_path: Path) -> None:
         raise CompareInputError(f"--out inside the base folder {base_dir}")
 
 
+def check_base_sha(base_path: Path) -> str:
+    """The base file must be the C0b ``d0_gate.json`` (checked first).
+
+    Raises:
+        CompareInputError: For a missing file or another sha256.
+    """
+    if not base_path.is_file():
+        raise CompareInputError(f"base: no file {base_path}")
+    digest = sha256_file(base_path)
+    if digest != C0B_D0_GATE_SHA256:
+        raise CompareInputError(
+            f"base sha256 {digest} is not the C0b record {C0B_D0_GATE_SHA256}"
+        )
+    return digest
+
+
 def run(args: argparse.Namespace) -> tuple[str, dict]:
     """Compare and write the report; return the status and the line counts."""
+    check_base_sha(args.base)
     _check_out_path(args.out, args.base)
     base = load_document(args.base, "base")
     new = load_document(args.new, "new")

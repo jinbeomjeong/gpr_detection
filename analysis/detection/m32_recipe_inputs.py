@@ -130,13 +130,40 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def sha256_file_lf(path: Path) -> str:
+    """sha256 of a text file with CRLF line ends read as LF.
+
+    A tracked table under ``eol=lf`` gives the sha of its committed content
+    whether the work tree holds it with CRLF or LF (M3-3 [RUN] §1).
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
 def checked_sha256(path: Path, expected: str, what: str) -> str:
-    """sha256 of ``path``; ``InputError`` when missing or different."""
+    """sha256 of ``path``; ``InputError`` when missing or different.
+
+    For binary inputs (weights, arrays); text tables use
+    :func:`checked_text_sha256`.
+    """
     if not path.is_file():
         raise InputError(f"{what} missing: {path}")
     digest = sha256_file(path)
     if digest != expected:
         raise InputError(f"{what} sha256 {digest} != expected {expected}")
+    return digest
+
+
+def checked_text_sha256(path: Path, expected: str, what: str) -> str:
+    """LF sha256 of a text input; ``InputError`` when missing or different.
+
+    The assertion basis of text inputs is the LF sha (M3-3 [RUN] §1 텍스트
+    입력 sha); the raw sha goes to the run identity beside it.
+    """
+    if not path.is_file():
+        raise InputError(f"{what} missing: {path}")
+    digest = sha256_file_lf(path)
+    if digest != expected:
+        raise InputError(f"{what} LF sha256 {digest} != expected {expected}")
     return digest
 
 
@@ -166,17 +193,20 @@ def recipes_sha256(recipe_ids: Sequence[str]) -> str:
 # ---------------------------------------------------------------- line lists
 
 
+LIST_PATHS = {
+    "stage_a_4tu": STAGE_A_4TU,
+    "stage_a_ids": STAGE_A_IDS,
+    "k_lines": K_LINES,
+    "k_apexes": K_APEXES,
+}
+"""The plan-fixed text lists of ``EXPECTED_SHA256``."""
+
+
 def assert_list_hashes() -> dict[str, str]:
-    """Assert the four plan-fixed lists (stage A and the K canon)."""
-    paths = {
-        "stage_a_4tu": STAGE_A_4TU,
-        "stage_a_ids": STAGE_A_IDS,
-        "k_lines": K_LINES,
-        "k_apexes": K_APEXES,
-    }
+    """Assert the four plan-fixed lists (stage A and the K canon) on LF sha."""
     return {
-        name: checked_sha256(path, EXPECTED_SHA256[name], name)
-        for name, path in paths.items()
+        name: checked_text_sha256(path, EXPECTED_SHA256[name], name)
+        for name, path in LIST_PATHS.items()
     }
 
 

@@ -44,7 +44,7 @@ import dataclasses
 import hashlib
 import math
 import zlib
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -2620,6 +2620,56 @@ def band_survival_ratio(
     )
 
 
+def background_step4_section(
+    context: LineContext, window_traces: int = MEDIAN_WINDOW_TRACES
+) -> np.ndarray:
+    """Steps (1)-(4) of the raw background as the survival ratio runs them."""
+    background = context.background
+    return remove_background(_linear_steps(background.data, background), window_traces)
+
+
+def linear_steps(section: np.ndarray, background: Radargram) -> np.ndarray:
+    """Steps (1)-(3) of ``prepare_fitting_branch`` on any section of the line."""
+    return _linear_steps(section, background)
+
+
+def band_survival_ratios(
+    context: LineContext,
+    injected_data: np.ndarray,
+    truths: Sequence[BandTruth],
+    background_section: np.ndarray,
+    window_traces: int = MEDIAN_WINDOW_TRACES,
+) -> list[float]:
+    """``band_survival_ratio`` of every band of one realization in one pass.
+
+    Step (4) runs once on the injected line; the background section
+    (``background_step4_section``, once per line) is passed in; the envelope
+    is taken on each band's central traces only (it runs along time, column
+    by column). The values equal ``band_survival_ratio`` per band.
+
+    Raises:
+        ValueError: If the line is ``amplitude_processed``.
+    """
+    background = context.background
+    if background.amplitude_processed:
+        raise ValueError(f"{background.line_id}: amplitude_processed line, no (4)")
+    survived = (
+        remove_background(_linear_steps(injected_data, background), window_traces)
+        - background_section
+    )
+    period = context.period_samples
+    ratios = []
+    for truth in truths:
+        columns = _central_traces(truth.box.i0, truth.box.i1)
+        envelope = _envelope(survived[:, columns])
+        row0 = max(0, math.floor(truth.apex_sample - period))
+        row1 = min(envelope.shape[0] - 1, math.ceil(truth.apex_sample + period))
+        peaks = envelope[row0 : row1 + 1, :].max(axis=0)
+        reference = abs(truth.gain) * truth.signal_amplitude
+        ratios.append(float(np.median(peaks) / reference))
+    return ratios
+
+
 # ---------------------------------------------------------------- planning
 
 
@@ -2911,6 +2961,260 @@ def build_injection_specs(
                     )
                 )
     return specs
+
+
+# ------------------------------------------------------------ band planning
+
+BAND_LENGTHS_TRACES = (40, 64, 100, 150, 200, 300)
+"""Band length sample ``L`` in traces ([EMR] D-3, runner spec §3-1 4)."""
+BAND_PLAN_SEED = 20261115
+"""Seed of the R3 band plan (runner spec §3-1 4)."""
+
+
+@dataclass(frozen=True)
+class PlannedBand:
+    """One planned band: realization group, model, L0 centre, length and taper."""
+
+    group: int
+    response_id: str
+    center_trace: float
+    length_traces: int
+    taper_traces: int
+
+    @property
+    def n_columns(self) -> int:
+        """Injected columns, tapers included (``L + T``)."""
+        return self.length_traces + self.taper_traces
+
+
+@dataclass(frozen=True)
+class BandLinePlan:
+    """Planned bands of one line and what the plan had to leave out.
+
+    Attributes:
+        line_id: Background line.
+        positions: Chosen bands, at most ``MAX_REALIZATIONS_PER_LINE`` groups.
+        n_candidates: Allowed (model, length, centre) triples before spacing.
+        n_dropped: Candidates clear of the chosen bands that fit in no group.
+        lengths_skipped: Lengths left out by the line-length rule.
+    """
+
+    line_id: str
+    positions: tuple[PlannedBand, ...]
+    n_candidates: int
+    n_dropped: int
+    lengths_skipped: tuple[int, ...] = ()
+
+    @property
+    def n_realizations(self) -> int:
+        """Number of band groups."""
+        return len({position.group for position in self.positions})
+
+
+def band_length_fits(
+    length_traces: int, taper_traces: int, n_traces: int, keep_fresnel_margin: bool
+) -> bool:
+    """``L + T <= N`` always; with the 4TU rule also ``L <= N - 2 r_F``.
+
+    ``r_F`` in traces is the taper ``T`` (``band_taper_traces``), so the 4TU
+    rule reads ``L + 2 T <= N`` ([EMR] D-3 권고).
+    """
+    if length_traces + taper_traces > n_traces:
+        return False
+    return not keep_fresnel_margin or length_traces <= n_traces - 2 * taper_traces
+
+
+def _band_candidates(
+    context: LineContext,
+    patches: Sequence[ResponsePatch],
+    lengths: Sequence[int],
+    keep_fresnel_margin: bool,
+) -> tuple[list[tuple[BandPatch, float]], tuple[int, ...]]:
+    """Allowed (band, L0 centre) pairs and the lengths no model could use."""
+    n_traces = context.background.n_traces
+    candidates: list[tuple[BandPatch, float]] = []
+    used_lengths: set[int] = set()
+    for patch in patches:
+        for length in lengths:
+            band = build_band_patch(patch, context, length)
+            if isinstance(band, RejectReason):
+                continue
+            if not band_length_fits(
+                length, band.taper_traces, n_traces, keep_fresnel_margin
+            ):
+                continue
+            used_lengths.add(length)
+            for offset in range(n_traces - band.n_columns + 1):
+                center = offset + (band.n_columns - 1) / 2.0
+                if band_placement_failure(context, band, center) is None:
+                    candidates.append((band, center))
+    skipped = tuple(length for length in lengths if length not in used_lengths)
+    return candidates, skipped
+
+
+def _band_clear_of_line(
+    center: float, n_columns: int, chosen: Sequence[PlannedBand]
+) -> bool:
+    """Injected columns do not overlap a band chosen for another group."""
+    return all(
+        abs(center - other.center_trace) >= (n_columns + other.n_columns) / 2.0
+        for other in chosen
+    )
+
+
+def plan_band_positions(
+    context: LineContext,
+    patches: Sequence[ResponsePatch],
+    *,
+    lengths: Sequence[int] = BAND_LENGTHS_TRACES,
+    keep_fresnel_margin: bool = False,
+    max_positions: int = MAX_INJECTIONS_PER_LINE,
+    seed: int = BAND_PLAN_SEED,
+    preferred_models: Collection[str] = (),
+) -> BandLinePlan:
+    """Seeded band positions of one line in at most two realizations.
+
+    Same order rule as ``plan_line_positions``: the allowed (model, length,
+    centre) triples are visited in one seeded permutation with the first
+    bottom-stratum candidate moved to the front (``_bottom_first_order``,
+    runner spec §3-1 4 띠 배치 순서). With ``preferred_models`` the
+    candidates of those models come first and the rest after, each part in
+    that seeded order (runner spec §3-1 1: 500 MHz models first on the
+    900 MHz IDS line). A candidate whose injected columns overlap a chosen
+    band is skipped; otherwise it joins the first group where the band
+    spacing (e) ``|c1 - c2| >= (L1 + L2) / 2 + W_eff`` holds, or is dropped
+    and counted.
+
+    Args:
+        context: Background line with its exclusions.
+        patches: Usable models on this line (main ``k``).
+        lengths: Band lengths ``L`` to draw from.
+        keep_fresnel_margin: 4TU rule ``L <= N - 2 r_F``.
+        max_positions: Bands per line (per SNR step).
+        seed: Plan seed; combined with the line id.
+        preferred_models: Models whose candidates are visited first.
+    """
+    candidates, skipped = _band_candidates(
+        context, patches, lengths, keep_fresnel_margin
+    )
+    is_bottom = [is_bottom_stratum(context, band.patch) for band, _ in candidates]
+    line_rng = _line_seed(seed, context.background.line_id)
+    seeded = _bottom_first_order(is_bottom, line_rng)
+    is_preferred = [
+        band.patch.response.response_id in preferred_models for band, _ in candidates
+    ]
+    order = [i for i in seeded if is_preferred[i]] + [
+        i for i in seeded if not is_preferred[i]
+    ]
+    w_eff = effective_median_window(context)
+    groups: list[list[PlacedBand]] = [[] for _ in range(MAX_REALIZATIONS_PER_LINE)]
+    chosen: list[PlannedBand] = []
+    n_dropped = 0
+    for index in order:
+        if len(chosen) >= max_positions:
+            break
+        band, center = candidates[int(index)]
+        if not _band_clear_of_line(center, band.n_columns, chosen):
+            continue
+        group = next(
+            (
+                number
+                for number, placed in enumerate(groups)
+                if band_spacing_ok(center, band.length_traces, placed, w_eff)
+            ),
+            None,
+        )
+        if group is None:
+            n_dropped += 1
+            continue
+        groups[group].append((center, band.length_traces))
+        chosen.append(
+            PlannedBand(
+                group,
+                band.patch.response.response_id,
+                center,
+                band.length_traces,
+                band.taper_traces,
+            )
+        )
+    positions = sorted(chosen, key=lambda band: (band.group, band.center_trace))
+    return BandLinePlan(
+        line_id=context.background.line_id,
+        positions=tuple(positions),
+        n_candidates=len(candidates),
+        n_dropped=n_dropped,
+        lengths_skipped=skipped,
+    )
+
+
+def band_conditions() -> tuple[InjectionCondition, ...]:
+    """R3 bands: SNR 0/6/12/18 dB x polarity +-1 at ``k`` 1.3 (no report ``k``)."""
+    return tuple(
+        InjectionCondition(snr_db, polarity, K_MAIN)
+        for snr_db in SNR_LADDER_DB
+        for polarity in POLARITIES
+    )
+
+
+def band_position_id(line_id: str, group: int, index: int) -> str:
+    """``<line>:g<group>:<index>``: shared by every condition of one position."""
+    return f"{line_id}:g{group:02d}:{index:02d}"
+
+
+def build_band_specs(
+    line_id: str,
+    positions: Sequence[PlannedBand],
+    conditions: Sequence[InjectionCondition],
+    seed: int = BAND_PLAN_SEED,
+) -> list[InjectionSpec]:
+    """Band table rows: every position group under every condition.
+
+    ``injection_id`` is ``<realization>:<index>``; the index is the band's
+    place in its group, so :func:`band_position_id` recovers the position.
+    """
+    specs = []
+    for condition in conditions:
+        for group in sorted({position.group for position in positions}):
+            realization_id = realization_name(line_id, group, condition)
+            members = [position for position in positions if position.group == group]
+            for index, position in enumerate(members):
+                specs.append(
+                    InjectionSpec(
+                        injection_id=f"{realization_id}:{index:02d}",
+                        realization_id=realization_id,
+                        line_id=line_id,
+                        apex_trace=position.center_trace,
+                        response_id=position.response_id,
+                        snr_db=condition.snr_db,
+                        polarity=condition.polarity,
+                        k=condition.k,
+                        seed=seed,
+                        mode=InjectionMode.BAND,
+                        band_length_traces=position.length_traces,
+                        band_center_trace=position.center_trace,
+                    )
+                )
+    return specs
+
+
+def band_truth_box(band: BandPatch, center_trace: float, n_samples: int) -> GridBox:
+    """L0 truth box of a band centred on ``center_trace`` (clipped to the record).
+
+    The same box ``inject_band_realization`` writes into ``BandTruth.box``.
+
+    Raises:
+        ValueError: If the centre is off the column grid.
+    """
+    offset = band_offset(band, center_trace)
+    if offset is None:
+        raise ValueError(f"band centre {center_trace} is off the column grid")
+    return _band_truth_box(band, offset, n_samples)[0]
+
+
+def band_wing_past_record_end(band: BandPatch, context: LineContext) -> bool:
+    """The -20 dB run passes ``n_samples - 1 - P_line`` (C3-6, as ``BandTruth``)."""
+    n_samples = context.background.n_samples
+    return band.row1 > n_samples - 1 - RECORD_END_WING_PERIODS * context.period_samples
 
 
 # -------------------------------------------------------------- table I/O
