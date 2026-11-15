@@ -1,0 +1,16 @@
+{
+ "level_w_db": -6.0,
+ "pi_bottom": {
+  "4tu/A0": 0.0,
+  "4tu/A1": 0.0,
+  "gz_ids/A0": 0.0
+ },
+ "primary_stratum": "in_or_out",
+ "bottom_rule": "upper_bound",
+ "injection_table_sha256": "05239eefb996ce80dd4402bda3809d9e41385e5787ae8354eb7789d194a79257",
+ "exclusions_sha256": "241cf2605b34f0e6312cfba533a7fa2c118e6a7f5056bd73dcdd9c9fed1e2440",
+ "cost_table_sha256": "2decf08f7059b603ba1150593aee0da3edafd0fa726ebcb352006caf6cbbcfe8",
+ "positions_sha256": "8eba3e3f60315ca09e18560fae4577a9001f439b00a741cb8e9c6676972680a3",
+ "seed": 20261114,
+ "provisional": false
+}
