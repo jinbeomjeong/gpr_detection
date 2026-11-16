@@ -383,8 +383,22 @@ def _cluster_rows() -> list[dict]:
     return rows
 
 
+DRY_RUN_EXIT = {"code": 0}
+"""Exit code of the stand-in dry run (a test sets 1 to fail it)."""
+
+
+def fake_dry_run(argv: list[str]) -> int:
+    """Stand-in ``--dry-run``: reads the candidate csv, prints counts only."""
+    candidates = pd.read_csv(argv[argv.index("--candidates") + 1], dtype=str)
+    print(SECRET)
+    print(json.dumps({"candidates": len(candidates)}))
+    return DRY_RUN_EXIT["code"]
+
+
 def fake_eval_main(argv: list[str], tamper=None) -> int:
     """Stand-in for ``eval_depth_4tu.main``: real ``_evaluate_one``, fake inputs."""
+    if "--dry-run" in argv:
+        return fake_dry_run(argv)
     prefix = argv[argv.index("--prefix") + 1]
     print(SECRET)
     depth_eval.LOGGER.info(SECRET)
@@ -507,8 +521,19 @@ class World:
             *extra,
         ]
 
-    def run(self, capsys, *extra: str, boxes_sha: str | None = None):
+    def run(
+        self,
+        capsys,
+        *extra: str,
+        boxes_sha: str | None = None,
+        auto_precheck: bool = True,
+    ):
+        """One judge call; a judgment run gets its precheck first if none exists."""
         self.write()
+        is_judgment = not {"--report", "--precheck"} & set(extra)
+        if auto_precheck and is_judgment and not judge.precheck_record_path().exists():
+            judge.main(self.argv("--precheck", boxes_sha=boxes_sha))
+            capsys.readouterr()
         code = judge.main(self.argv(*extra, boxes_sha=boxes_sha))
         captured = capsys.readouterr()
         return code, captured.out, captured.err
@@ -722,8 +747,8 @@ def test_other_prefix_is_refused(world, capsys):
 def test_changed_candidate_csv_is_refused(world, capsys, monkeypatch):
     original = judge.write_candidates
 
-    def tampering(inputs):
-        record = original(inputs)
+    def tampering(*args):
+        record = original(*args)
         with record.path.open("a", encoding="utf-8") as handle:
             handle.write("01.1,1,Path1,1,1.0,1.0,1.0,,,,,x,\n")
         return record
@@ -732,6 +757,77 @@ def test_changed_candidate_csv_is_refused(world, capsys, monkeypatch):
     code, _, _ = world.run(capsys)
     assert code == 2
     assert "5.candidates_sha_unchanged" in world.refused_names()
+
+
+# ------------------------------------------------------- §1-5 3 precheck
+
+
+def _precheck_record() -> dict:
+    return json.loads(judge.precheck_record_path().read_text(encoding="utf-8"))
+
+
+def test_precheck_runs_the_dry_run_and_writes_no_judgment_output(world, capsys):
+    code, out, err = world.run(capsys, "--precheck")
+    assert code == 0, err
+    last = _last_json(out)
+    assert set(last) == {"status", "out", "n_candidates", "elapsed_s"}
+    assert last["status"] == "ok" and last["n_candidates"] == 2
+    assert SECRET not in out and SECRET not in err
+    record = _precheck_record()
+    assert (record["status"], record["dry_run_exit"]) == ("ok", 0)
+    assert record["dry_run_report"] == {"candidates": 2}
+    candidates = judge.precheck_candidates_path()
+    assert record["candidates_sha256"] == _sha(candidates)
+    assert list(world.out_dir.iterdir()) == []  # nothing under docs/
+    # The judgment is not refused by assertion 6 and reproduces the candidates.
+    code, _, err = world.run(capsys)
+    assert code == 0, err
+    judged = world.out_dir / "depth_4tu_j1_candidates_input.csv"
+    assert _sha(judged) == record["candidates_sha256"]
+
+
+def test_judgment_without_a_precheck_is_refused(world, capsys):
+    code, out, _ = world.run(capsys, auto_precheck=False)
+    _assert_refused(world, code, out, "1-5.3.precheck_dry_run_passed")
+
+
+def test_failed_dry_run_fails_the_precheck_and_blocks_the_judgment(
+    world, capsys, monkeypatch
+):
+    monkeypatch.setitem(DRY_RUN_EXIT, "code", 1)
+    code, out, _ = world.run(capsys, "--precheck")
+    assert code != 0 and _last_json(out)["status"] == "precheck_failed"
+    assert _precheck_record()["dry_run_exit"] == 1
+    code, out, _ = world.run(capsys)
+    _assert_refused(world, code, out, "1-5.3.precheck_dry_run_passed")
+
+
+def test_candidates_that_differ_from_the_precheck_are_refused(world, capsys):
+    assert world.run(capsys, "--precheck")[0] == 0
+    path = judge.precheck_record_path()
+    record = _precheck_record()
+    record["candidates_sha256"] = "6" * 64
+    path.write_text(json.dumps(record), encoding="utf-8")
+    code, out, _ = world.run(capsys)
+    _assert_refused(world, code, out, "1-5.3.candidates_sha_equals_precheck")
+
+
+def test_precheck_on_other_boxes_is_refused(world, capsys):
+    assert world.run(capsys, "--precheck")[0] == 0
+    path = judge.precheck_record_path()
+    record = _precheck_record()
+    record["boxes_sha256"] = "7" * 64
+    path.write_text(json.dumps(record), encoding="utf-8")
+    code, out, _ = world.run(capsys)
+    _assert_refused(world, code, out, "1-5.3.precheck_same_boxes")
+
+
+def test_refused_precheck_leaves_no_passing_record(world, capsys):
+    assert world.run(capsys, "--precheck")[0] == 0
+    (world.out_dir / "depth_4tu_j1.md").write_text("", encoding="utf-8")
+    code, _, _ = world.run(capsys, "--precheck")
+    assert code == 2
+    assert not judge.precheck_record_path().exists()
 
 
 def test_head_rule_accepts_docs_only_commits(monkeypatch):

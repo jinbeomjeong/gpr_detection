@@ -498,9 +498,18 @@ def build_j1_candidates(
     return build_candidate_set(boxes_csv, fold, pp, lines).table
 
 
-def write_candidates_csv(table: pd.DataFrame, path: Path) -> None:
-    """Write the candidate table (LF, UTF-8, full float precision, NaN blank)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    table.to_csv(
-        path, index=False, columns=list(CANDIDATE_COLUMNS), lineterminator="\n"
+def candidates_csv_text(table: pd.DataFrame) -> str:
+    """The candidate csv text (LF, full float precision, NaN blank).
+
+    The judge hashes this text before it writes anything, so the precheck
+    and the judgment run can compare their candidates byte for byte.
+    """
+    return table.to_csv(
+        index=False, columns=list(CANDIDATE_COLUMNS), lineterminator="\n"
     )
+
+
+def write_candidates_csv(table: pd.DataFrame, path: Path) -> None:
+    """Write :func:`candidates_csv_text` as UTF-8 without newline translation."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(candidates_csv_text(table), encoding="utf-8", newline="")

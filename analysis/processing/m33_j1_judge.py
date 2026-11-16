@@ -8,6 +8,13 @@ and report computations, J1-3 report runs), [U3]
 ``docs/processing/preregistration_4tu_reeval_v1.md`` §2 (phrases, k, borders),
 runner spec ``docs/experiments/m33_runner_spec.md`` §5 (R2 J1 inputs).
 
+Precheck (J1 §1-5 3, before the judgment; may be repeated): the judgment
+command with ``--precheck``. Assertions 1-6, J1-1 candidates written to
+``data/processing/m33_j1/precheck/depth_4tu_j1_candidates_input.csv`` and
+``eval_depth_4tu.main(["--dry-run", "--candidates", <that csv>])``; the exit
+code and the candidate sha go to ``precheck/precheck.json``. Nothing is
+written under ``docs/``. A dry-run that does not exit 0 gives exit 2.
+
 Judgment run (once per M3-3)::
 
     conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
@@ -16,10 +23,13 @@ Judgment run (once per M3-3)::
 
 1. Assertions 1-4 and 6 of J1-2 (tree and C2 blobs, input sha, R2
    judgeability and identity, box file content, no ``depth_4tu_j1*`` output
-   yet). Any failure: exit 2 before a file under ``docs/`` is written; the
-   refusal is recorded under ``data/processing/m33_j1/``.
-2. J1-1 (``m33_j1_candidates.py``) -> ``depth_4tu_j1_candidates_input.csv``;
-   its sha is recorded and re-read before the depth run (assertion 5).
+   yet) and a passed precheck on the same boxes. Any failure: exit 2 before
+   a file under ``docs/`` is written; the refusal is recorded under
+   ``data/processing/m33_j1/``.
+2. J1-1 (``m33_j1_candidates.py``); the csv text must have the precheck's
+   sha (determinism) before it is written to
+   ``depth_4tu_j1_candidates_input.csv``; its sha is recorded and re-read
+   before the depth run (assertion 5).
 3. ``scripts/eval_depth_4tu.py`` ``main(["--candidates", ..., "--prefix",
    "depth_4tu_j1"])`` in this process, unchanged; its log and stdout go to a
    file (assertion 7, blind).
@@ -51,6 +61,8 @@ os.environ.setdefault("MKL_CBWR", "COMPATIBLE")
 
 import argparse
 import contextlib
+import hashlib
+import io
 import json
 import logging
 import math
@@ -157,14 +169,22 @@ J1_PARENTHESIS = U3_PARENTHESIS[:-1] + CANDIDATE_SOURCE_TEXT + ")"
 
 STATUS_OK = "ok"
 STATUS_INPUT_ERROR = "input_error"
+STATUS_PRECHECK_FAILED = "precheck_failed"
+"""The precheck's ``eval_depth_4tu --dry-run`` did not exit 0."""
 STATUS_REPORT_FAILED = "report_failed"
 STATUS_INTERNAL_ERROR = "internal_error"
 EXIT_CODES = {
     STATUS_OK: 0,
     STATUS_INPUT_ERROR: 2,
+    STATUS_PRECHECK_FAILED: 2,
     STATUS_REPORT_FAILED: 3,
     STATUS_INTERNAL_ERROR: 3,
 }
+
+PRECHECK_FOLDER = "precheck"
+PRECHECK_RECORD_NAME = "precheck.json"
+"""J1 §1-5 3 precheck (user decision 2026-11-16): under ``RUN_LOG_DIR``, never
+``docs/``, so the judgment's one-run assertion 6 is not triggered."""
 
 
 class ReportKind(StrEnum):
@@ -654,15 +674,23 @@ class CandidateRecord:
     counts: dict
 
 
-def write_candidates(inputs: RunInputs) -> CandidateRecord:
-    """J1-1, then assertion 5 (sha recorded now, re-read before the depth run)."""
+@dataclass(frozen=True)
+class BuiltCandidates:
+    """J1-1 output held in memory: csv text, its sha256 and the counts."""
+
+    text: str
+    sha256: str
+    counts: dict
+
+
+def build_candidates(inputs: RunInputs) -> BuiltCandidates:
+    """J1-1 on the run's box file; nothing is written yet."""
     spec = inputs.spec
     assert inputs.boxes_path is not None and spec.fold is not None and spec.pp
     built = j1_candidates.build_candidate_set(
         inputs.boxes_path, spec.fold, spec.pp, inputs.line_set
     )
-    j1_candidates.write_candidates_csv(built.table, spec.candidates_path)
-    sha = common.sha256_file(spec.candidates_path)
+    text = j1_candidates.candidates_csv_text(built.table)
     counts = {
         "n_boxes": built.n_boxes,
         "n_candidates_before_dedupe": built.n_before_dedupe,
@@ -670,7 +698,35 @@ def write_candidates(inputs: RunInputs) -> CandidateRecord:
         "n_boxes_without_candidate": built.skipped_by_reason(),
         "n_candidates_tau_blank": built.n_zero_failed,
     }
-    return CandidateRecord(spec.candidates_path, sha, counts)
+    sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return BuiltCandidates(text, sha, counts)
+
+
+def _write_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8", newline="")
+
+
+def write_candidates(
+    inputs: RunInputs, checks: Checks, precheck_sha: str | None = None
+) -> CandidateRecord:
+    """J1-1, then assertion 5 (sha recorded now, re-read before the depth run).
+
+    With ``precheck_sha`` (the judgment run) the candidates must be byte for
+    byte the precheck's before anything is written under ``docs/``
+    (determinism, J1 §1-5 3).
+
+    Raises:
+        InputError: When the candidates differ from the precheck's (exit 2).
+    """
+    built = build_candidates(inputs)
+    if precheck_sha is not None:
+        same = built.sha256 == precheck_sha
+        checks.require("1-5.3.candidates_sha_equals_precheck", same)
+        checks.raise_if_failed()
+    path = inputs.spec.candidates_path
+    _write_text(path, built.text)
+    return CandidateRecord(path, common.sha256_file(path), built.counts)
 
 
 def recheck_candidates(checks: Checks, record: CandidateRecord) -> None:
@@ -712,6 +768,27 @@ def blind_output(log_path: Path) -> Iterator[None]:
         finally:
             root.handlers = saved_handlers
             root.setLevel(saved_level)
+
+
+def run_depth_dry_run(candidates_path: Path) -> tuple[int, dict | None]:
+    """``eval_depth_4tu.main(["--dry-run", ...])``: exit code and its json report.
+
+    The dry run only parses the candidate, line, ground-truth and duplicate
+    tables and prints their counts; it loads no radargram, computes no depth,
+    matching or baseline and writes no file (``eval_depth_4tu.dry_run``). Its
+    report and log go to the precheck folder, never to the console.
+    """
+    captured = io.StringIO()
+    with blind_output(precheck_dir() / "precheck_eval.log"):
+        with contextlib.redirect_stdout(captured):
+            code = depth_eval.main(["--dry-run", "--candidates", str(candidates_path)])
+        print(captured.getvalue(), end="")
+    lines = captured.getvalue().strip().splitlines()
+    try:
+        report = json.loads(lines[-1]) if lines else None
+    except ValueError:
+        report = None
+    return code, report
 
 
 def run_depth_eval(candidates_path: Path, prefix: str) -> None:
@@ -1585,14 +1662,98 @@ def evaluate_outputs(spec: RunSpec, checks: Checks, document: dict) -> str:
     return STATUS_OK if report.failure is None else STATUS_REPORT_FAILED
 
 
+def precheck_dir() -> Path:
+    return RUN_LOG_DIR / PRECHECK_FOLDER
+
+
+def precheck_record_path() -> Path:
+    return precheck_dir() / PRECHECK_RECORD_NAME
+
+
+def precheck_candidates_path() -> Path:
+    return precheck_dir() / f"{VERDICT_PREFIX}_candidates_input.csv"
+
+
+def _read_precheck_record() -> dict | None:
+    path = precheck_record_path()
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+
+
+def check_precheck_record(checks: Checks, boxes_sha: str | None) -> str:
+    """J1 §1-5 3: a passed precheck on the same boxes must exist.
+
+    Returns:
+        The precheck's candidate csv sha256 (the judgment must reproduce it).
+
+    Raises:
+        InputError: Without a passed precheck on the same box file (exit 2).
+    """
+    record = _read_precheck_record() or {}
+    passed = record.get("status") == STATUS_OK and record.get("dry_run_exit") == 0
+    checks.require("1-5.3.precheck_dry_run_passed", passed)
+    same_boxes = _same_known(record.get("boxes_sha256"), boxes_sha)
+    checks.require("1-5.3.precheck_same_boxes", same_boxes)
+    checks.raise_if_failed()
+    return str(record["candidates_sha256"])
+
+
+def run_precheck(
+    args: argparse.Namespace, spec: RunSpec, checks: Checks, clock: Clock
+) -> Outcome:
+    """J1 §1-5 3: assertions 1-6, candidates and ``--dry-run``, nothing in docs/.
+
+    The record (``precheck.json``) is removed first, so a refused or failed
+    precheck never leaves an old passing record behind.
+    """
+    precheck_record_path().unlink(missing_ok=True)
+    print_phase("assertions")
+    inputs = assert_run_inputs(checks, spec, args)
+    print_phase("candidates")
+    built = build_candidates(inputs)
+    path = precheck_candidates_path()
+    _write_text(path, built.text)
+    recheck_candidates(checks, CandidateRecord(path, built.sha256, built.counts))
+    print_phase("depth_dry_run")
+    dry_run_exit, dry_run_report = run_depth_dry_run(path)
+    status = STATUS_OK if dry_run_exit == 0 else STATUS_PRECHECK_FAILED
+    record = {
+        "schema": SCHEMA,
+        "kind": "precheck",
+        "status": status,
+        "dry_run_exit": dry_run_exit,
+        "dry_run_report": dry_run_report,
+        "boxes": _project_relative(inputs.boxes_path),
+        "boxes_sha256": inputs.boxes_sha256,
+        "candidates_csv": _project_relative(path),
+        "candidates_sha256": built.sha256,
+        "candidate_counts": built.counts,
+        "assertions": checks.records,
+        "tree": inputs.tree,
+        "run": run_record(clock, inputs, sys.argv),
+    }
+    write_json(precheck_record_path(), record)
+    return Outcome(status, precheck_record_path(), built.counts["n_candidates"])
+
+
 def run_judgment(
     args: argparse.Namespace, spec: RunSpec, checks: Checks, clock: Clock
 ) -> Outcome:
     """Assertions, candidates, depth run, verdict / report files (one run)."""
     print_phase("assertions")
     inputs = assert_run_inputs(checks, spec, args)
+    precheck_sha = None
+    if spec.is_verdict:
+        precheck_sha = check_precheck_record(checks, inputs.boxes_sha256)
     print_phase("candidates")
-    record = write_candidates(inputs) if spec.uses_boxes else signal_candidates()
+    if spec.uses_boxes:
+        record = write_candidates(inputs, checks, precheck_sha)
+    else:
+        record = signal_candidates()
     recheck_candidates(checks, record)
     print_phase("depth_eval")
     run_depth_eval(record.path, spec.prefix)
@@ -1638,12 +1799,13 @@ def judge_log(prefix: str) -> Iterator[Path]:
 
 
 def run_guarded(args: argparse.Namespace, clock: Clock) -> Outcome:
-    """:func:`run_judgment` with the exit-2 / exit-3 mapping (CLI boundary)."""
+    """The run (precheck or judgment) with the exit-2 / exit-3 mapping (CLI)."""
     spec = run_spec(args.report)
     checks = Checks()
+    run = run_precheck if args.precheck else run_judgment
     with judge_log(spec.prefix) as log_path:
         try:
-            return run_judgment(args, spec, checks, clock)
+            return run(args, spec, checks, clock)
         except InputError as error:
             refusal = record_refusal(spec, checks, error)
             LOGGER.error("input refused: %s", error)
@@ -1723,13 +1885,20 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--measure-seal", action="store_true", help="print the C2 values only"
     )
+    parser.add_argument(
+        "--precheck",
+        action="store_true",
+        help="J1 §1-5 3: assertions, candidates and eval --dry-run (no docs output)",
+    )
     args = parser.parse_args(argv)
     if args.measure_seal:
         return args
+    if args.precheck and args.report is not None:
+        parser.error("--precheck checks the judgment input; it takes no --report")
     if args.pp_config_sha256 is None:
         parser.error("--pp-config-sha256 is required")
     if args.report is None and args.boxes_sha256 is None:
-        parser.error("the judgment run needs --boxes-sha256")
+        parser.error("the judgment run and the precheck need --boxes-sha256")
     return args
 
 
