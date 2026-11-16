@@ -1,6 +1,6 @@
 # M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.4)
 
-- 상태: **초안 v0.3.4**(2026-11-16). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). v0.3.3은 C1 실행 전 감사 지적에 대한 사용자 결정(2026-11-16, C1 봉인 전, R1–R3·J1 결과 없음)으로 J1-2 단언 3에 R2 판정 가능성 조건 네 가지와 가중치 sha를 읽을 키를 더한 규칙 강화다(판정 불가 R2 입력 차단). v0.3.4는 C2 전 구현 해석이다(python-expert 구현의 확인 필요 7건 판단, 봉인값 모듈·명령줄·이산화·보고 이름 명시, J1 결과 전). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
+- 상태: **초안 v0.3.4**(2026-11-16). **C2 봉인(2f75d3b), 값 채움**: §1-2 표와 §1-3 명령줄의 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA 자리를 C2 커밋 값으로 채웠다(문서 전용 변경, 기준 불변). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). v0.3.3은 C1 실행 전 감사 지적에 대한 사용자 결정(2026-11-16, C1 봉인 전, R1–R3·J1 결과 없음)으로 J1-2 단언 3에 R2 판정 가능성 조건 네 가지와 가중치 sha를 읽을 키를 더한 규칙 강화다(판정 불가 R2 입력 차단). v0.3.4는 C2 전 구현 해석이다(python-expert 구현의 확인 필요 7건 판단, 봉인값 모듈·명령줄·이산화·보고 이름 명시, J1 결과 전). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
   - 봉인 순서는 [PLAN] §4 표다: … → C0b → C1 → R1 → R2 → R3 → **C2** → J1 판정.
   - 자리 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA는 **C2 커밋**에서 채운다. C1 실행 전 감사의 `placeholder_scan.py`는 이 세 이름을 허용 자리(`--allow`)로 받는다. C2 뒤에는 허용 없이 종료 0이어야 한다.
   - 자리 C0B(C0b `PPConfig` 해시)와 C0B_D0_GATE_SHA(C0b `d0_gate.json` sha256)는 C0b 값으로 C1에서 채운다. 자리마다 64자리 16진 값 하나만 넣는다. C1 감사의 `placeholder_scan.py` 허용 목록에는 두 이름을 넣지 않는다. C1에서 자리 C0B는 §1-2 표와 §1-3 명령줄 두 곳에서, 자리 C0B_D0_GATE_SHA는 §1-2 표에서 채운다. 그래서 채운 뒤 스캔이 종료 0이 된다.
@@ -48,21 +48,26 @@
 
 ### 1-2. 고정할 코드·입력 (C2 커밋 때 채움, C0b 두 행은 C1)
 
+- C2 커밋: `2f75d3b932ec27287dcf9ceabcc7df690cf6b9fb`(= `git log -1 --format=%H -- analysis/processing/m33_j1_seal.py`). 아래 C2 값은 이 커밋에서 잰 값이고 봉인값 모듈과 같다.
+
 | 대상 | git blob/tree id | SHA-256(LF) | 쓰임 |
 |---|---|---|---|
-| `scripts/eval_depth_4tu.py` | `{C2}`(지금 HEAD blob 9289f6df…) | `{C2}` | 깊이·묶기·매칭·기준선 |
-| `src/gpr_detection/` (tree) | `{C2}` | – | 깊이 경로·영점·로더 |
-| `analysis/processing/m33_j1_candidates.py` | `{C2}` | `{C2}` | 박스 → 후보(§3) |
-| `analysis/processing/m33_j1_judge.py` | `{C2}` | `{C2}` | 판정 문구·실질 지표 |
-| `analysis/processing/m33_j1_seal.py` | `{C2}` | `{C2}` | C2 봉인값 모듈(v0.3.4). 이 표의 값을 담고, 이 파일을 마지막으로 바꾼 커밋이 C2 커밋이다. 판정 스크립트는 이 파일의 blob을 단언하지 않고 기록한다 |
-| R2 fold 0 `j1_boxes_post.csv` | – | `{R2_J1_POST_SHA}`(R2 summary `j1_inputs.folds["0"].post_sha256`) | **판정 입력** |
-| R2 fold 0 `j1_boxes_pre.csv` | – | `{R2_J1_PRE_SHA}`(같은 곳의 `pre_sha256`) | 보고 |
+| `scripts/eval_depth_4tu.py` | `9289f6df5a96645305e469ebd18e1ddf9138bd2a` | `e09efd48c0cb2fc5ac063fc8f380b7f3382a728f86ee38152dc538e246e4a07a` | 깊이·묶기·매칭·기준선 |
+| `src/gpr_detection/` (tree) | `84b02beda30544960d4d2ac02cf461fe66556c4f` | – | 깊이 경로·영점·로더 |
+| `analysis/processing/m33_j1_candidates.py` | `6cf2387a56bec114d5baa82c216abc4cba529f87` | `15546fdcc09c60db98edffbae7d7c146651bad9dc7e87c2cb7f31e5df88da122` | 박스 → 후보(§3) |
+| `analysis/processing/m33_j1_judge.py` | `87b84552b70caa0fa4f521bbe30e1b50e5320484` | `689d264d17a5de598451d2b62d5d4a4813bb20cb891452022eb362a464d1b669` | 판정 문구·실질 지표 |
+| `analysis/processing/m33_j1_seal.py` | `2c69eed4ffa4999abe669d7c00ab2195cb16a85e` | `e4525577316a8c73d7b19c2d5cf1d301c303d1e51442efe92199da8a167a7313` | C2 봉인값 모듈(v0.3.4). 이 표의 값을 담고, 이 파일을 마지막으로 바꾼 커밋이 C2 커밋이다. 판정 스크립트는 이 파일의 blob을 단언하지 않고 기록한다 |
+| R2 fold 0 `j1_boxes_post.csv` | – | `f6a63e667cf10f7e5c8f0f55bca08c6804622ed1bf1416f039fb487c4a8b8137`(R2 summary `j1_inputs.folds["0"].post_sha256`) | **판정 입력** |
+| R2 fold 0 `j1_boxes_pre.csv` | – | `d8f409dd0c6290d53b82153c210ed64c45442ecb6ae5ebc978064b4ed85e3d07`(같은 곳의 `pre_sha256`) | 보고 |
 | C0b `PPConfig` 해시 | – | `eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f`(C1에서 채움, S3) | PP 집합 정체(판정 단언 대상) |
 | C0b `d0_gate.json` | – | `107d7b53f30667684baf7c2236bdf338c861309531ff17497e2836193bea08c6`(C1에서 채움, sha256) | PP 집합 선택 근거 |
-| `docs/processing/fourtu_lines_v1.csv` | `{C2}` | `{C2}` | 측선 메타 |
-| `docs/datasets/fourtu_duplicate_radargrams.csv` | `{C2}` | `{C2}` | 중복 규칙 |
-| `docs/processing/m29c_qc_constants.json` | `{C2}` | `{C2}` | QC 상수 |
-| 4TU 원본 메타 csv 4개 | – | `{C2}` | 정답·메타([U3] §1-2와 같은 대상) |
+| `docs/processing/fourtu_lines_v1.csv` | `fbc6da72ab89e48b7463dd0becdfe3e38a7b40d7` | `475f0a71fdd79fcca3fde035bce0876778f4771b61e4dc50195868e085104cc6` | 측선 메타 |
+| `docs/datasets/fourtu_duplicate_radargrams.csv` | `b6516bbcf8f98b33256067528d4222d8efd5a0a6` | `7602d94fbd5824f3536d463e2b248e4ea474770f852519db3ea30097312c488a` | 중복 규칙 |
+| `docs/processing/m29c_qc_constants.json` | `13f2fd3ac76d6996ac9c590a2cadcd988d34a376` | `6a88bd8d2501132b0db43eeec2dec9ef347de6e260a9f98aef9a2322ec56ba8c` | QC 상수 |
+| 4TU 원본 메타 `utilities_groundtruth.csv` | – | `18e217b1fa890151423e10aa08dc1104c1240d51c4e2828b7b104b5b2777a41e`(원시 sha256) | 정답([U3] §1-2와 같은 대상) |
+| 4TU 원본 메타 `utilities_metadata_list.csv` | – | `d7c8ec9e3898caecbc09774d28b08b48c5320074338f29ef475b55ac06a0dc7c`(원시 sha256) | 메타 |
+| 4TU 원본 메타 `radargrams_index.csv` | – | `28a550e190cbba31dc8d504d3a29a80779eec1b544ee73df07223e03fcc6b106`(원시 sha256) | 메타 |
+| 4TU 원본 메타 `activities_metadata_ko.csv` | – | `91bca3447ed861655ca996b18c42719c81196fb118576d0d20fe628aca3899a9`(원시 sha256) | 메타 |
 | 후보 csv `depth_4tu_j1_candidates_input.csv` | – | 생성 직후 기록 | 1단계 산출 |
 
 - 판정 스크립트는 `j1_boxes_post.csv`의 sha를 C2 값(자리 R2_J1_POST_SHA)과, `PPConfig` 해시를 C0b 값(자리 C0B, C1에서 채움)과 단언한다. 다르면 종료 2다.
@@ -76,7 +81,7 @@
 
 ```
 conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
-  --boxes runs/eval/m33/r2/fold0/j1_boxes_post.csv --boxes-sha256 {R2_J1_POST_SHA} ^
+  --boxes runs/eval/m33/r2/fold0/j1_boxes_post.csv --boxes-sha256 f6a63e667cf10f7e5c8f0f55bca08c6804622ed1bf1416f039fb487c4a8b8137 ^
   --pp-config-sha256 eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f --prefix depth_4tu_j1
 ```
 
@@ -273,4 +278,4 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 | 2026-11-15 | v0.3.1 초안 | stats-design-expert 통계 검토 반영(판정 기준 불변). §1-1 3: $n_\text{pass}$는 matches csv 주 조합 행에서 세고 round(`pass_b`×388)과 단언, $k$ = round(`baseline_p`×1000)과 1e-6 단언([U3] §2-2와 읽는 곳 통일, C3). §2-4: p 도달 가능성 보고($k_\text{perfect}$, $n_\text{req}$·$A_\text{req}$, 초과 추정 $E_+$ = `false_est`, C1), 현장 하나씩 빼기·현장 부트스트랩(2,000회, `default_rng(20261115)`, 기준선은 같은 시행 재집계, C2). §1-4 보고용 난수. §5 J1-2 보고 계산 7항과 시험 (f)–(i). §6 공개 6(목표 경계는 현장 군집 미반영). 같은 날 무결성 정정(규칙 불변): J1-2 보고 계산 2의 summary 열 이름을 실제 이름 `baseline_pass_b_mean`·`baseline_pass_b_p025`·`baseline_pass_b_p975`로 고쳤다 |
 | 2026-11-15 | v0.3.2 초안 | 문구 정리, 기준 불변(C1 봉인 전, cv-detection-expert의 `placeholder_scan` 대조 지적). 상태 절 설명 문장의 자리 이름(C2·R2_J1_POST_SHA·R2_J1_PRE_SHA·C0B)에서 중괄호를 뺐다(설명 문장이 스캔에 걸리지 않게). §1-2의 C0b 행을 `PPConfig` 해시(자리 C0B)와 `d0_gate.json` sha256(자리 C0B_D0_GATE_SHA) 두 행으로 나눠 자리마다 값 하나로 했고, 두 자리는 C1에서 채우며 C1 감사 허용 목록에 넣지 않는다고 적었다. §1-2 제목에 C0b 두 행은 C1에서 채운다고 적었다. §1-2 아래 단언 문장의 "`PPConfig` 해시를 C2 값과"를 "C0b 값(자리 C0B, C1에서 채움)과"로 고쳤다(J1-2 단언 3과 같은 뜻). 값은 채우지 않았다. 같은 날 무결성 점검 반영(문구만): 상태 절에 자리별로 채울 곳(C0B는 §1-2 표와 §1-3 명령줄, C0B_D0_GATE_SHA는 §1-2 표)을 적었다. 같은 날 문구 정리, 기준 불변: §3 입력에 러너가 L0 박스 없는 채움 전용 박스도 싣지 않고 수를 `j1_inputs.folds[k].n_padding_only_dropped`로 보고한다는 문장([RS] §5, 후보 집합·B·$p$·$\Delta_B$ 불변)을, §4 5에 그 제외 수를 박스 수와 함께 적는다는 문구를 더했다 |
 | 2026-11-16 | v0.3.3 초안 | **규칙 강화(판정 불가 R2 입력 차단)**. 사용자 결정(2026-11-16, C1 실행 전 verif 감사 지적에 대해, C1 봉인 전, R1–R3·J1 결과 없음). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)과 후보 규칙은 그대로다. §5 J1-2 단언 3을 "R2 `summary.json`의 정체성과 판정 가능성"으로 넓혔다. 판정 가능성 네 가지를 더했고 하나라도 어긋나면 종료 2다: (가) `status == "ok"`, (나) `judgment.judgeable == true`, (다) `full_run == true`·`judgment.blockers` 빔·`judgment.folds_run` = `judgment.expected_folds` = [0..4], (라) `j1_inputs.n_lines == 754`(최상위 `n_lines`도 754, 키는 [RS] §5와 R2 `j1_inputs_record`). 가중치 fold 0 sha는 `j1_inputs.weights_sha256["0"]`와 `run_identity.inputs_sha256["0"]`에서 읽어 서로 같고 기댓값과 같아야 한다고 적었다. `run_identity.weights_sha256`은 R2에서 비어 있어 읽지 않고, 두 키가 없거나 비면 종료 2다. `PPConfig` 해시·`pp_set_id`의 읽는 키(`j1_inputs.*`)도 적었다. 남은 자리(C2·R2_J1_*)는 그대로다 |
-| 2026-11-16 | v0.3.4 초안 | **C2 전 구현 해석, 기준 불변, J1 결과 전.** python-expert 구현(`m33_j1_candidates.py`·`m33_j1_judge.py`·`m33_j1_seal.py`·`tests/test_m33_j1.py`)의 확인 필요 7건을 gpr-processing이 판단해 반영했다. 판정 기준(U-3)과 후보 규칙의 뜻은 그대로다. (1) §1-2에 봉인값 모듈 행을 더했다. C2 커밋은 이 모듈을 마지막으로 바꾼 커밋이고, C2 뒤 문서 전용 커밋은 `docs/`나 `.claude/agent-memory/` 아래만 바꾼 커밋이다(에이전트 메모리는 판정 입력이 아님). (2) §2-3 후보 문구를 [U3] 괄호 안으로 옮겼다(조사 위치). (3) §3에 창 이산화(ceil/floor, `window_empty`, 동점은 행 우선, 창 끝은 보간 없음)를 적었다. (4) §2-4 현장 부트스트랩 추출(`rng.integers`)과 분위(numpy 선형)를 적었다. (5) "C1 이후" = R2 HEAD가 68f4719와 같거나 그 자손이다. (6) 보고 출력 `<prefix>_report.json`·`.md`, fold k `source` `j1_fold{k}_post`, 경계 표기 자릿수(CP 3자리, 기준선 4자리)를 적었다. (7) 구현이 더한 단언(인자 제한, `assert_sealed_pp`, `n_gt == 388`, summary `n_pass` 일치, $E_+$·기준선 짝 수 불일치는 종료 3)을 J1-2 단언 8로 적었다. §1-3에 `--report`·`--measure-seal`, §1-1에 로그·거부 기록 위치 `data/processing/m33_j1/`, §5에 J1-5(봉인값 모듈)를 더했고 J1-4 시험 파일 이름을 `tests/test_m33_j1.py`로 고쳤다. 자리(C2·R2_J1_*)는 채우지 않았다 |
+| 2026-11-16 | v0.3.4 초안 | **C2 전 구현 해석, 기준 불변, J1 결과 전.** python-expert 구현(`m33_j1_candidates.py`·`m33_j1_judge.py`·`m33_j1_seal.py`·`tests/test_m33_j1.py`)의 확인 필요 7건을 gpr-processing이 판단해 반영했다. 판정 기준(U-3)과 후보 규칙의 뜻은 그대로다. (1) §1-2에 봉인값 모듈 행을 더했다. C2 커밋은 이 모듈을 마지막으로 바꾼 커밋이고, C2 뒤 문서 전용 커밋은 `docs/`나 `.claude/agent-memory/` 아래만 바꾼 커밋이다(에이전트 메모리는 판정 입력이 아님). (2) §2-3 후보 문구를 [U3] 괄호 안으로 옮겼다(조사 위치). (3) §3에 창 이산화(ceil/floor, `window_empty`, 동점은 행 우선, 창 끝은 보간 없음)를 적었다. (4) §2-4 현장 부트스트랩 추출(`rng.integers`)과 분위(numpy 선형)를 적었다. (5) "C1 이후" = R2 HEAD가 68f4719와 같거나 그 자손이다. (6) 보고 출력 `<prefix>_report.json`·`.md`, fold k `source` `j1_fold{k}_post`, 경계 표기 자릿수(CP 3자리, 기준선 4자리)를 적었다. (7) 구현이 더한 단언(인자 제한, `assert_sealed_pp`, `n_gt == 388`, summary `n_pass` 일치, $E_+$·기준선 짝 수 불일치는 종료 3)을 J1-2 단언 8로 적었다. §1-3에 `--report`·`--measure-seal`, §1-1에 로그·거부 기록 위치 `data/processing/m33_j1/`, §5에 J1-5(봉인값 모듈)를 더했고 J1-4 시험 파일 이름을 `tests/test_m33_j1.py`로 고쳤다. 자리(C2·R2_J1_*)는 채우지 않았다. 같은 판에서 C2 봉인(2f75d3b) 뒤 문서 전용 변경으로 §1-2·§1-3의 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA 자리를 채웠다. 4TU 메타 csv 행은 자리마다 값 하나가 되도록 네 행으로 나눴다. 기준은 바꾸지 않았다 |
