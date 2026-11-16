@@ -4,5 +4,6 @@
 - [AIHub crop geometry](aihub-crop-geometry.md) — crops object-centered (hyperbola 0/503 at edge), crops overlap within session; tiling edge-recall risk
 - [placeholder_scan prose trap](placeholder-scan-prose.md) — scan flags `{NAME}` even in descriptive prose; write slot names without braces outside fill sites
 - [M3-3 timing & determinism](d0-rerun-determinism.md) — D0 295 s, bit-identical rerun; R3 band ~1.9 h upper (plan CPU dominant); r0 has line-global stats → infer whole line
+- [M3-3 result patterns](m33-results-patterns.md) — Morocco no transfer, IDS pseudo-band recall 6.5 %, PP-b M4b→M4c, n_zero_changed artefact
 - [Recount CSV rounding](recount-csv-rounding.md) — runner CSV score 4 dp/box 2 dp: count printed 0.25 as conf>0.25, boundary flips; synthetic Y0 apex hits only 3/100
 
