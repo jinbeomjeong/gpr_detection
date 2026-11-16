@@ -1,6 +1,6 @@
-# M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.3)
+# M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.4)
 
-- 상태: **초안 v0.3.3**(2026-11-16). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). v0.3.3은 C1 실행 전 감사 지적에 대한 사용자 결정(2026-11-16, C1 봉인 전, R1–R3·J1 결과 없음)으로 J1-2 단언 3에 R2 판정 가능성 조건 네 가지와 가중치 sha를 읽을 키를 더한 규칙 강화다(판정 불가 R2 입력 차단). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
+- 상태: **초안 v0.3.4**(2026-11-16). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). v0.3.3은 C1 실행 전 감사 지적에 대한 사용자 결정(2026-11-16, C1 봉인 전, R1–R3·J1 결과 없음)으로 J1-2 단언 3에 R2 판정 가능성 조건 네 가지와 가중치 sha를 읽을 키를 더한 규칙 강화다(판정 불가 R2 입력 차단). v0.3.4는 C2 전 구현 해석이다(python-expert 구현의 확인 필요 7건 판단, 봉인값 모듈·명령줄·이산화·보고 이름 명시, J1 결과 전). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
   - 봉인 순서는 [PLAN] §4 표다: … → C0b → C1 → R1 → R2 → R3 → **C2** → J1 판정.
   - 자리 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA는 **C2 커밋**에서 채운다. C1 실행 전 감사의 `placeholder_scan.py`는 이 세 이름을 허용 자리(`--allow`)로 받는다. C2 뒤에는 허용 없이 종료 0이어야 한다.
   - 자리 C0B(C0b `PPConfig` 해시)와 C0B_D0_GATE_SHA(C0b `d0_gate.json` sha256)는 C0b 값으로 C1에서 채운다. 자리마다 64자리 16진 값 하나만 넣는다. C1 감사의 `placeholder_scan.py` 허용 목록에는 두 이름을 넣지 않는다. C1에서 자리 C0B는 §1-2 표와 §1-3 명령줄 두 곳에서, 자리 C0B_D0_GATE_SHA는 §1-2 표에서 채운다. 그래서 채운 뒤 스캔이 종료 0이 된다.
@@ -42,7 +42,9 @@
 - 끝까지 돌면 그 결과가 최종이다. 같은 M3-3 안에서 다시 돌리지 않는다.
 - **순서**(cv 공동 검토 추가): 판정 실행(fold 0 post)이 `depth_4tu_j1_verdict.json`을 쓴 **뒤에** 보고 실행을 한다. 보고 실행은 PP 전, fold 1–4, 신호처리 후보 재실행이다(J1-3).
   - 보고 실행은 prefix가 달라(`depth_4tu_j1_pre`, `_f1`–`_f4`, `_signal`) 판정 파일을 덮지 못한다.
+  - 보고 실행 결과는 `docs/processing/<prefix>_report.json`·`.md`다(v0.3.4). 판정 파일 `depth_4tu_j1_verdict.json`·`.md`는 쓰지 않는다.
   - 판정 래퍼는 판정 prefix 출력이 이미 있으면 거부한다(1회 실행).
+- **로그·거부 기록**(v0.3.4): `eval_depth_4tu.main`의 로그·stdout, 단언 실패(거부) 기록은 `data/processing/m33_j1/`(git 제외)에 쓴다. 거부(종료 2)는 `docs/` 아래에 아무 파일도 쓰기 전에 일어나므로 결과를 본 것으로 치지 않는다(§1-6).
 
 ### 1-2. 고정할 코드·입력 (C2 커밋 때 채움, C0b 두 행은 C1)
 
@@ -52,6 +54,7 @@
 | `src/gpr_detection/` (tree) | `{C2}` | – | 깊이 경로·영점·로더 |
 | `analysis/processing/m33_j1_candidates.py` | `{C2}` | `{C2}` | 박스 → 후보(§3) |
 | `analysis/processing/m33_j1_judge.py` | `{C2}` | `{C2}` | 판정 문구·실질 지표 |
+| `analysis/processing/m33_j1_seal.py` | `{C2}` | `{C2}` | C2 봉인값 모듈(v0.3.4). 이 표의 값을 담고, 이 파일을 마지막으로 바꾼 커밋이 C2 커밋이다. 판정 스크립트는 이 파일의 blob을 단언하지 않고 기록한다 |
 | R2 fold 0 `j1_boxes_post.csv` | – | `{R2_J1_POST_SHA}`(R2 summary `j1_inputs.folds["0"].post_sha256`) | **판정 입력** |
 | R2 fold 0 `j1_boxes_pre.csv` | – | `{R2_J1_PRE_SHA}`(같은 곳의 `pre_sha256`) | 보고 |
 | C0b `PPConfig` 해시 | – | `eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f`(C1에서 채움, S3) | PP 집합 정체(판정 단언 대상) |
@@ -64,6 +67,10 @@
 
 - 판정 스크립트는 `j1_boxes_post.csv`의 sha를 C2 값(자리 R2_J1_POST_SHA)과, `PPConfig` 해시를 C0b 값(자리 C0B, C1에서 채움)과 단언한다. 다르면 종료 2다.
 - 후보 생성 직후 후보 csv의 sha를 기록하고, 깊이 계산은 그 sha를 단언한 뒤 시작한다.
+- **봉인값 모듈과 C2 커밋 판별**(v0.3.4, C2 전 구현 해석)
+  - 파일은 자기 blob을 담을 수 없다. 그래서 판정 스크립트가 단언할 C2 값(이 표의 blob·sha, `src` tree, 4TU 메타 csv sha, R2_J1_POST_SHA·R2_J1_PRE_SHA)은 `analysis/processing/m33_j1_seal.py`에 둔다. C2 커밋에서 `m33_j1_judge.py --measure-seal`로 재서 채운다. 값이 하나라도 비어 있으면 판정 스크립트는 종료 2다.
+  - **C2 커밋** = `m33_j1_seal.py`를 마지막으로 바꾼 커밋이다. 이 문서 §1-2 표의 자리도 같은 커밋에서 채운다.
+  - **C2 뒤 문서 전용 커밋**(단언 1) = C2 이후 커밋들이 바꾼 경로가 모두 `docs/` 아래이거나 `.claude/agent-memory/` 아래인 경우다. 에이전트 메모리는 어떤 코드도 읽지 않으므로 판정 입력이 아니다. `docs/` 아래에도 판정 입력(측선·중복·QC 상수 표, 신호처리 후보 csv)이 있지만, 이들은 이 표의 blob·sha 단언으로 따로 막힌다.
 
 ### 1-3. 명령줄 (초안)
 
@@ -74,6 +81,10 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 ```
 
 `m33_j1_judge.py`는 후보 생성 함수를 부르고 `eval_depth_4tu.main([...])`을 같은 프로세스에서 부른 뒤 문구를 쓴다. `eval_depth_4tu.py`는 고치지 않는다.
+
+- 판정 실행의 `--prefix`는 `depth_4tu_j1`만, `--boxes`는 R2 `fold0/j1_boxes_post.csv`만 받는다. 다른 값이면 종료 2다(v0.3.4).
+- **보고 실행**(J1-3, 판정 파일이 생긴 뒤 각 1회): 위 명령에 `--report pre|fold1|fold2|fold3|fold4|signal`을 붙인다. `--boxes`·`--pp-config-sha256`은 같다. 보고 대상 박스 파일은 R2 `summary.json`의 `j1_inputs`에서 찾는다. prefix는 `depth_4tu_j1_pre`, `_f1`–`_f4`, `_signal`이고, 결과는 `<prefix>_report.json`·`.md`다.
+- **봉인값 재기**(C2 커밋 때만): `m33_j1_judge.py --measure-seal --boxes runs/eval/m33/r2/fold0/j1_boxes_post.csv`. blob·sha만 출력하고 판정·깊이 계산은 하지 않는다.
 
 ### 1-4. 난수와 기준선
 
@@ -111,8 +122,8 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 ### 2-3. 판정 문구
 
 - [U3] §2-5 표 4종(합격 / 불합격(기준선) / 불합격(목표) / 불합격(둘 다))을 그대로 쓴다.
-- 문구의 "(판정률 B, `main`·관 상단·검출 영점·X 제외)" 뒤에 "**· 후보: 검출기 N2-a′ fold 0, PP(C0b) 후 박스**"를 붙인다.
-- 경계 표시(p 경계, 목표 경계)도 [U3] §2-5와 같다.
+- 문구의 괄호 "(판정률 B, `main`·관 상단·검출 영점·X 제외)" **안**, 닫는 괄호 앞에 "**· 후보: 검출기 N2-a′ fold 0, PP(C0b) 후 박스**"를 넣는다. 결과는 "(판정률 B, `main`·관 상단·검출 영점·X 제외 · 후보: 검출기 N2-a′ fold 0, PP(C0b) 후 박스)"다. 괄호 뒤 조사("로"·"이")는 [U3]처럼 "388"에 붙는다(v0.3.4. v0.3.3까지는 괄호 뒤에 붙였으나, 그러면 조사가 "박스"에 붙는 것처럼 읽힌다).
+- 경계 표시(p 경계, 목표 경계)도 [U3] §2-5와 같다. 표기 자릿수(v0.3.4, 표시만): Clopper–Pearson 구간은 소수 3자리, 기준선 값(평균·분위)은 4자리다(summary csv 자릿수와 같음).
 - "제186조 준수"라고 쓰지 않는다.
 
 ### 2-4. 실질 지표 (보고, 판정 아님)
@@ -141,6 +152,7 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 - $p$는 활동 단위 생성형 귀무 분포이므로 그대로 둔다. 아래는 B·$\Delta_B$가 현장 구성에 얼마나 기대는지 보이는 보고다.
 - **현장 하나씩 빼기**: $s\in\mathcal S$마다 $B_{-s}=(n_\text{pass}-n_{\text{pass},s})/(N_g-N_{g,s})$, 기준선 $B^{(t)}_{-s}$(같은 시행에서 현장 $s$ 활동만 뺌), $\Delta_{B,-s}=B_{-s}-\overline{B^{(t)}_{-s}}$, $k_{-s}=\#\{t:B^{(t)}_{-s}\ge B_{-s}\}$를 낸다. $n_{\text{pass},s}$는 matches csv 주 조합 행을 `site`로 나눠 센다.
 - **현장 부트스트랩**: `default_rng(20261115)`로 2,000회. 회마다 $\mathcal S$(현장 번호 오름차순)에서 $|\mathcal S|$개를 복원 추출해 현장별 중복 수 $w_s$를 얻는다. $B^*=\sum_s w_s n_{\text{pass},s}/\sum_s w_s N_{g,s}$, 기준선은 같은 1,000회 시행을 같은 가중으로 다시 집계해 $B^{*(t)}$, $\Delta_B^*=B^*-\overline{B^{*(t)}}$로 둔다. $B^*$·$\Delta_B^*$의 2.5·97.5 % 분위(백분위 방식)를 낸다.
+- 구현 해석(v0.3.4): 회마다 `rng.integers(0, |S|, size=|S|)`로 현장 색인(현장 번호 오름차순 정렬)을 뽑아 $w_s$를 센다. 2.5·97.5 % 분위는 `numpy.percentile` 기본(선형 보간)이다.
 - 공개 문구(§6에 옮김): "목표 경계(±9)는 짝을 독립으로 본 이항 1 SE이고 현장 군집을 반영하지 않는다. 현장이 10곳뿐이라 현장 부트스트랩 구간은 실제 불확도보다 좁게 나올 수 있다."
 
 ## 3. 박스 → 꼭짓점 후보 규칙 (물리 명세)
@@ -162,7 +174,14 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 | 2 꼭짓점 | 창 안 $e$의 최댓값 칸 $(i^*, k^*)$. 행은 3점 포물선 보간으로 분수 샘플 $\hat k$ | [U3] 신호처리 후보와 같은 "포락선 피크" 위상 기준이다(영점도 포락선 피크) |
 | 3 시간 | `t_ns` $=\hat k\,\Delta t$, `tau_ns` $=\hat k\,\Delta t-t_z$. 영점 실패면 `tau_ns` 빈 값(NaN) | `eval_depth_4tu.py`가 `candidate_tau_missing`로 처리한다 |
 | 4 중복 제거 | 같은 측선에서 두 후보가 ±3 트레이스·±0.5 $P_\text{line}$ 안이면 박스 점수가 높은 쪽 하나만 남긴다. 점수가 같으면 (트레이스, 샘플)이 작은 쪽을 남긴다. 처리 순서는 점수 내림차순 탐욕이다(결정적) | 겹친 박스가 같은 꼭짓점을 두 번 세면 활동별 추정 수와 기준선이 바뀐다. M3-2 일치 규칙과 같은 반경이다 |
-| 5 기록 | `source` = `j1_fold0_post`(보고 실행은 `j1_fold0_pre`), `note` = 박스 점수·`pp_action`·`tile_truncated` | 보고용 |
+| 5 기록 | `source` = `j1_fold0_post`(보고 실행은 `j1_fold0_pre`, fold k post는 `j1_fold{k}_post`), `note` = 박스 점수·`pp_action`·`tile_truncated` | 보고용 |
+
+- **이산화**(v0.3.4, C2 전 구현 해석. 단계 1–2에 정의가 없던 부분)
+  - 행 창은 정수 샘플 $\lceil k_\text{lo}\rceil$ … $\lfloor k_\text{hi}\rfloor$이다($k_\text{hi}=k_0+2.5P$, 둘 다 $[0,\ n_s-1]$로 자른 뒤). 트레이스 창은 단계 1의 가운데 절반을 $[0,\ n_\text{tr}-1]$로 자른 것이다.
+  - 자른 뒤 행이나 트레이스 창이 비면 후보를 만들지 않고 사유 `window_empty`를 기록한다. `window_above_zero`(영점 판정)와 다른 사유다.
+  - 최댓값 동점은 이른 행, 그다음 작은 트레이스를 고른다(행 우선 `argmax`).
+  - 3점 포물선 보간은 최댓값 트레이스의 창 안 행에서만 한다. 최댓값이 창 끝 행이면 보간하지 않고 정수 행을 쓴다. 그래서 $\hat k$는 창 밖으로 나가지 않는다.
+  - 물리 판단: 창 끝 최댓값은 포락선이 창 밖으로 계속 오르는 경우(위 끝이면 남은 영점 띠의 꼬리, 아래 끝이면 더 깊은 반사)다. 창 안 값으로 고정하는 편이 창 밖 사건을 꼭짓점으로 끌어오는 것보다 안전하다. 이런 후보는 QC(B·D·E)와 묶기에서 걸러질 수 있고, 판정 규칙은 바뀌지 않는다.
 
 - 후보마다 깊이 박스는 `eval_depth_4tu.py`가 [EV] §4-1 규칙(꼭짓점 ±0.8 m, 메타 속도 날개)으로 다시 만든다. 검출 박스 자체는 깊이 창으로 쓰지 않는다. 이렇게 해서 [U3]와 달라지는 것을 후보 공급원 하나로 한정한다.
 - **경로 확정**(사용자 결정 2026-11-15, [PLAN] v0.2.4 §2-4): 박스 → 꼭짓점 후보 → `eval_depth_4tu.py`(무수정)다. `estimate_line_depths`는 [U3]의 QC·묶기·지지 필터를 거치지 않아 J1에 쓰지 않는다. 보고 변형으로도 이번에는 돌리지 않는다.
@@ -187,11 +206,12 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 |---|---|---|
 | J1-1 | 후보 생성 `build_j1_candidates(boxes_csv, fold, pp, lines) -> DataFrame`. §3 단계 1–5를 따른다. 정답 파일은 읽지 않는다(허용 목록: 박스 csv, 측선 목록, 4TU 원자료, `src`). 결정적이고 난수를 쓰지 않는다 | `analysis/processing/m33_j1_candidates.py` |
 | J1-2 | 판정 래퍼: (1) 단언 — 아래 "J1-2 단언 목록" 전부, (2) J1-1 → 후보 csv와 sha 기록, (3) `eval_depth_4tu.main(["--candidates", …, "--prefix", "depth_4tu_j1"])`, (4) §1-1 3의 규칙으로 $n_\text{pass}$·$k$를 읽어 §2-3 문구, §2-4 실질 지표와 보고 항목 → `depth_4tu_j1_verdict.json`·`.md`. 보고 항목 계산은 아래 "J1-2 보고 계산"을 따른다. stdout 마지막 줄은 `{"status","out","n_candidates","elapsed_s"}`이고 지표를 넣지 않는다. `eval_depth_4tu.main`은 `logging.basicConfig(level=INFO)`로 진행 로그를 낸다. 래퍼는 이 로그를 파일 핸들러로 돌려 stdout에 지표가 나가지 않게 한다. 종료 코드 0 / 2(입력 거부) / 3 | `analysis/processing/m33_j1_judge.py` |
-| J1-3 | 보고 실행 옵션 `--report pre|fold1..4|signal`: 같은 경로로 prefix만 바꿔 돌린다(`depth_4tu_j1_pre` 등). 판정 파일은 쓰지 않는다 | 같음 |
-| J1-4 | 시험 `tests/test_m33_j1_candidates.py` 다섯 가지. (e) 박스 위 끝이 영점 띠 위에 있어도 후보 행 $\hat k > k_z+0.5P$이고, 창이 비면 후보 없이 `window_above_zero`가 기록된다. 나머지 네 가지: (a) 합성 쌍곡선 박스 → 후보 꼭짓점이 정답 ±1 트레이스·±0.25 P 안. (b) 중복 제거(점수 높은 쪽 남김). (c) 영점 실패면 `tau_ns` NaN. (d) 열 형식이 `fourtu_apex_candidates_v1.csv`와 같고 `eval_depth_4tu.py --dry-run`을 통과. v0.3.1 추가(`tests/test_m33_j1_judge.py`): (f) 작은 손 계산 `BaselineDraws`에서 $k_\text{perfect}$·$n_\text{req}$·$E_+$가 손 계산과 같고, $n_\text{req}>n_\text{pairs}\iff k_\text{perfect}\ge50$. (g) 가중 집계가 $w\equiv1$에서 `baseline_stats`와 같고, 현장 하나를 0으로 두면 그 현장 활동을 뺀 `baseline_stats`와 같다. (h) 현장 부트스트랩이 같은 시드에서 결정적이다. (i) matches csv 세기와 round(`pass_b`×388) 단언이 어긋난 입력에서 종료 2 | `tests/` |
+| J1-3 | 보고 실행 옵션 `--report pre|fold1..4|signal`: 같은 경로로 prefix만 바꿔 돌린다(`depth_4tu_j1_pre` 등). 결과는 `<prefix>_report.json`·`.md`이고 판정 파일은 쓰지 않는다 | 같음 |
+| J1-5 | 봉인값 모듈(v0.3.4): §1-2의 C2 값과 C1 봉인 커밋, fold 0 가중치 sha, 신호처리 후보 sha를 담는다. `--measure-seal`로 C2 값을 재서 채운다 | `analysis/processing/m33_j1_seal.py` |
+| J1-4 | 시험 파일은 `tests/test_m33_j1.py` 하나다(v0.3.4, 아래 (a)–(i) 전부와 구현 단언을 담는다). 후보 쪽 다섯 가지. (e) 박스 위 끝이 영점 띠 위에 있어도 후보 행 $\hat k > k_z+0.5P$이고, 창이 비면 후보 없이 `window_above_zero`가 기록된다. 나머지 네 가지: (a) 합성 쌍곡선 박스 → 후보 꼭짓점이 정답 ±1 트레이스·±0.25 P 안. (b) 중복 제거(점수 높은 쪽 남김). (c) 영점 실패면 `tau_ns` NaN. (d) 열 형식이 `fourtu_apex_candidates_v1.csv`와 같고 `eval_depth_4tu.py --dry-run`을 통과. v0.3.1 추가(판정 쪽): (f) 작은 손 계산 `BaselineDraws`에서 $k_\text{perfect}$·$n_\text{req}$·$E_+$가 손 계산과 같고, $n_\text{req}>n_\text{pairs}\iff k_\text{perfect}\ge50$. (g) 가중 집계가 $w\equiv1$에서 `baseline_stats`와 같고, 현장 하나를 0으로 두면 그 현장 활동을 뺀 `baseline_stats`와 같다. (h) 현장 부트스트랩이 같은 시드에서 결정적이다. (i) matches csv 세기와 round(`pass_b`×388) 단언이 어긋난 입력에서 종료 2 | `tests/` |
 
 **J1-2 단언 목록**(cv 공동 검토 추가, 하나라도 어기면 종료 2. 단언 결과는 `depth_4tu_j1_verdict.json`의 `assertions`에 쓴다)
-1. 깨끗한 트리(`dirty` false). HEAD는 C2 커밋이거나 그 뒤의 문서 전용 커밋이다. §1-2 표의 blob·sha(`eval_depth_4tu.py`, `src` tree, J1-1·J1-2, 측선·중복·QC 상수, 4TU 메타 csv 4개)가 C2 값과 같다.
+1. 깨끗한 트리(`dirty` false). HEAD는 C2 커밋이거나 그 뒤의 문서 전용 커밋이다(두 정의는 §1-2 "봉인값 모듈과 C2 커밋 판별"). 봉인값 모듈에 빈 값이 있으면 거부한다. §1-2 표의 blob·sha(`eval_depth_4tu.py`, `src` tree, J1-1·J1-2, 측선·중복·QC 상수, 4TU 메타 csv 4개)가 C2 값과 같다.
 2. 판정 입력 `j1_boxes_post.csv`의 sha가 C2 값과 같고, R2 `summary.json`의 `j1_inputs.folds["0"].post_sha256`과도 같다(키 구조는 [RS] §5).
 3. R2 `summary.json`의 정체성과 판정 가능성
    - **판정 가능성**(v0.3.3 추가). 넷 다 맞아야 하고, 하나라도 어긋나면 J1을 시작하지 않고 종료 2다.
@@ -204,7 +224,7 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
      - `run_identity.weights_sha256`은 R2에서 빈 사전이므로 읽지 않는다. 빈 값으로 통과하는 일이 없게, 두 키 중 하나라도 없거나 비어 있으면 종료 2다.
    - r0 11측선 `line_image` sha·설정 해시(conf·병합·r0)가 C1 값과 같다.
    - `PPConfig` 해시와 `pp_set_id`가 C0b 값과 같다(`j1_inputs.pp_config_sha256`·`j1_inputs.pp_set_id`).
-   - R2 실행 당시 git HEAD가 C1 이후이고 `dirty` false다.
+   - R2 실행 당시 git HEAD가 C1 이후이고 `dirty` false다. "C1 이후"는 R2 `run_identity.git.head`가 C1 봉인 커밋 68f4719와 같거나 그 자손이라는 뜻이다(`git merge-base --is-ancestor`, v0.3.4). C1 코드 커밋보다 늦은 봉인 커밋을 기준으로 잡아 더 엄격하다.
 4. 박스 파일 내용
    - `fold` 열이 모두 0이다.
    - `pp_action`에 `removed_*`가 없다.
@@ -213,7 +233,12 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
    - 모든 `(activity_id, path)`가 754측선 목록 안에 있다.
 5. 후보 csv를 만든 직후 sha를 기록하고, `eval_depth_4tu.main` 호출 전에 다시 읽어 같은지 확인한다.
 6. **실행 전, 단계 1(후보 생성) 이전에** 출력 prefix `depth_4tu_j1*` 파일이 하나도 없다. 보고 실행은 판정 뒤에 돌므로 이 시점에는 보고 파일도 없어야 한다.
-7. 블라인드: `eval_depth_4tu.main`의 `logging`과 `print`(stdout)를 둘 다 파일로 돌린다(`contextlib.redirect_stdout` + 파일 핸들러). 래퍼 stdout에는 마지막 줄 JSON만 남긴다.
+7. 블라인드: `eval_depth_4tu.main`의 `logging`과 `print`(stdout)를 둘 다 파일로 돌린다(`contextlib.redirect_stdout` + 파일 핸들러, 위치 `data/processing/m33_j1/`). 래퍼 stdout에는 마지막 줄 JSON만 남긴다.
+8. (v0.3.4, 구현이 더한 단언. 모두 위 규칙을 좁히기만 하고 판정 기준은 그대로다)
+   - 인자: `--prefix`는 `depth_4tu_j1`만, `--boxes`는 R2 `fold0/j1_boxes_post.csv`만 받는다(종료 2).
+   - `assert_sealed_pp`: C0b 봉인 PP(`pp_set_id`·`PPConfig` 해시)를 러너와 같은 함수로 대조한다(종료 2).
+   - 주 조합 summary 행의 `n_gt == 388`이고, summary `n_pass` 열이 matches csv에서 센 $n_\text{pass}$와 같다(§1-1 3과 같은 판정 단언, 종료 2).
+   - 보고 계산에서 재구성한 $E_+$가 summary `false_est`와, 기준선 시행의 짝 수가 summary `n_pairs`와 다르면 보고 항목을 `null`과 사유로 남기고 종료 3이다(J1-2 보고 계산 2·3과 같은 등급). 판정 문구에는 영향이 없다. matches csv 행 수 = `n_pairs`(§1-1 3)는 판정 단언이라 종료 2다.
 
 **J1-2 보고 계산**(v0.3.1, §2-4. 판정 문구는 이 계산과 무관하게 summary·matches만으로 만든다)
 1. $n_\text{pass}$·$k$ 읽기와 반올림 단언(§1-1 3). 판정 단언과 같이 어기면 종료 2다.
@@ -248,3 +273,4 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 | 2026-11-15 | v0.3.1 초안 | stats-design-expert 통계 검토 반영(판정 기준 불변). §1-1 3: $n_\text{pass}$는 matches csv 주 조합 행에서 세고 round(`pass_b`×388)과 단언, $k$ = round(`baseline_p`×1000)과 1e-6 단언([U3] §2-2와 읽는 곳 통일, C3). §2-4: p 도달 가능성 보고($k_\text{perfect}$, $n_\text{req}$·$A_\text{req}$, 초과 추정 $E_+$ = `false_est`, C1), 현장 하나씩 빼기·현장 부트스트랩(2,000회, `default_rng(20261115)`, 기준선은 같은 시행 재집계, C2). §1-4 보고용 난수. §5 J1-2 보고 계산 7항과 시험 (f)–(i). §6 공개 6(목표 경계는 현장 군집 미반영). 같은 날 무결성 정정(규칙 불변): J1-2 보고 계산 2의 summary 열 이름을 실제 이름 `baseline_pass_b_mean`·`baseline_pass_b_p025`·`baseline_pass_b_p975`로 고쳤다 |
 | 2026-11-15 | v0.3.2 초안 | 문구 정리, 기준 불변(C1 봉인 전, cv-detection-expert의 `placeholder_scan` 대조 지적). 상태 절 설명 문장의 자리 이름(C2·R2_J1_POST_SHA·R2_J1_PRE_SHA·C0B)에서 중괄호를 뺐다(설명 문장이 스캔에 걸리지 않게). §1-2의 C0b 행을 `PPConfig` 해시(자리 C0B)와 `d0_gate.json` sha256(자리 C0B_D0_GATE_SHA) 두 행으로 나눠 자리마다 값 하나로 했고, 두 자리는 C1에서 채우며 C1 감사 허용 목록에 넣지 않는다고 적었다. §1-2 제목에 C0b 두 행은 C1에서 채운다고 적었다. §1-2 아래 단언 문장의 "`PPConfig` 해시를 C2 값과"를 "C0b 값(자리 C0B, C1에서 채움)과"로 고쳤다(J1-2 단언 3과 같은 뜻). 값은 채우지 않았다. 같은 날 무결성 점검 반영(문구만): 상태 절에 자리별로 채울 곳(C0B는 §1-2 표와 §1-3 명령줄, C0B_D0_GATE_SHA는 §1-2 표)을 적었다. 같은 날 문구 정리, 기준 불변: §3 입력에 러너가 L0 박스 없는 채움 전용 박스도 싣지 않고 수를 `j1_inputs.folds[k].n_padding_only_dropped`로 보고한다는 문장([RS] §5, 후보 집합·B·$p$·$\Delta_B$ 불변)을, §4 5에 그 제외 수를 박스 수와 함께 적는다는 문구를 더했다 |
 | 2026-11-16 | v0.3.3 초안 | **규칙 강화(판정 불가 R2 입력 차단)**. 사용자 결정(2026-11-16, C1 실행 전 verif 감사 지적에 대해, C1 봉인 전, R1–R3·J1 결과 없음). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)과 후보 규칙은 그대로다. §5 J1-2 단언 3을 "R2 `summary.json`의 정체성과 판정 가능성"으로 넓혔다. 판정 가능성 네 가지를 더했고 하나라도 어긋나면 종료 2다: (가) `status == "ok"`, (나) `judgment.judgeable == true`, (다) `full_run == true`·`judgment.blockers` 빔·`judgment.folds_run` = `judgment.expected_folds` = [0..4], (라) `j1_inputs.n_lines == 754`(최상위 `n_lines`도 754, 키는 [RS] §5와 R2 `j1_inputs_record`). 가중치 fold 0 sha는 `j1_inputs.weights_sha256["0"]`와 `run_identity.inputs_sha256["0"]`에서 읽어 서로 같고 기댓값과 같아야 한다고 적었다. `run_identity.weights_sha256`은 R2에서 비어 있어 읽지 않고, 두 키가 없거나 비면 종료 2다. `PPConfig` 해시·`pp_set_id`의 읽는 키(`j1_inputs.*`)도 적었다. 남은 자리(C2·R2_J1_*)는 그대로다 |
+| 2026-11-16 | v0.3.4 초안 | **C2 전 구현 해석, 기준 불변, J1 결과 전.** python-expert 구현(`m33_j1_candidates.py`·`m33_j1_judge.py`·`m33_j1_seal.py`·`tests/test_m33_j1.py`)의 확인 필요 7건을 gpr-processing이 판단해 반영했다. 판정 기준(U-3)과 후보 규칙의 뜻은 그대로다. (1) §1-2에 봉인값 모듈 행을 더했다. C2 커밋은 이 모듈을 마지막으로 바꾼 커밋이고, C2 뒤 문서 전용 커밋은 `docs/`나 `.claude/agent-memory/` 아래만 바꾼 커밋이다(에이전트 메모리는 판정 입력이 아님). (2) §2-3 후보 문구를 [U3] 괄호 안으로 옮겼다(조사 위치). (3) §3에 창 이산화(ceil/floor, `window_empty`, 동점은 행 우선, 창 끝은 보간 없음)를 적었다. (4) §2-4 현장 부트스트랩 추출(`rng.integers`)과 분위(numpy 선형)를 적었다. (5) "C1 이후" = R2 HEAD가 68f4719와 같거나 그 자손이다. (6) 보고 출력 `<prefix>_report.json`·`.md`, fold k `source` `j1_fold{k}_post`, 경계 표기 자릿수(CP 3자리, 기준선 4자리)를 적었다. (7) 구현이 더한 단언(인자 제한, `assert_sealed_pp`, `n_gt == 388`, summary `n_pass` 일치, $E_+$·기준선 짝 수 불일치는 종료 3)을 J1-2 단언 8로 적었다. §1-3에 `--report`·`--measure-seal`, §1-1에 로그·거부 기록 위치 `data/processing/m33_j1/`, §5에 J1-5(봉인값 모듈)를 더했고 J1-4 시험 파일 이름을 `tests/test_m33_j1.py`로 고쳤다. 자리(C2·R2_J1_*)는 채우지 않았다 |
