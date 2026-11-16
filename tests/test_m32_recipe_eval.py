@@ -575,6 +575,40 @@ def test_existing_output_needs_resume_and_resume_reuses_parts(
     assert runner.main(_uninjected_argv(tmp_path, "--resume", "--no-flip")) == 2
 
 
+def _rewrite_json(path: Path, **changes) -> None:
+    document = json.loads(path.read_text(encoding="utf-8"))
+    path.write_text(json.dumps(document | changes), encoding="utf-8")
+
+
+def test_resume_refuses_another_head_code_or_part_head(
+    offline_run, tmp_path, capsys
+) -> None:
+    """verif 2026-11-16 (user decision): a resume checks HEAD, code blobs and
+    the ``src`` tree of the first start, and each part's HEAD."""
+    assert runner.main(_uninjected_argv(tmp_path)) == 1
+    stage_dir = tmp_path / "uninjected"
+    marker = stage_dir / "stage_settings.json"
+    recorded = json.loads(marker.read_text(encoding="utf-8"))
+    assert set(runner.RESUME_TREE_KEYS) <= set(recorded)
+    (part_path,) = (stage_dir / "parts").glob("*.json")
+    part = json.loads(part_path.read_text(encoding="utf-8"))
+    assert part["head"] == recorded["head"]
+
+    _rewrite_json(part_path, head="0" * 40)
+    assert runner.main(_uninjected_argv(tmp_path, "--resume")) == 2
+    _rewrite_json(part_path, head=recorded["head"])
+    assert runner.main(_uninjected_argv(tmp_path, "--resume")) == 1
+    for key, other in (("head", "0" * 40), ("src_tree_id", "x"), ("code_blobs", {})):
+        _rewrite_json(marker, **{key: other})
+        assert runner.main(_uninjected_argv(tmp_path, "--resume")) == 2
+        assert _final_line(capsys)[0]["status"] == "input_error"
+        _rewrite_json(marker, **{key: recorded[key]})
+    marker.write_text(  # a marker from before the tree keys
+        json.dumps({"settings_sha256": recorded["settings_sha256"]}), encoding="utf-8"
+    )
+    assert runner.main(_uninjected_argv(tmp_path, "--resume")) == 2
+
+
 def test_list_sha_mismatch_refuses_with_exit_2(monkeypatch, tmp_path, capsys) -> None:
     changed = dict(inputs.EXPECTED_SHA256, k_apexes="0" * 64)
     monkeypatch.setattr(inputs, "EXPECTED_SHA256", changed)

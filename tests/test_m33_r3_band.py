@@ -533,6 +533,11 @@ def test_plan_to_injected_runs_end_to_end(offline_band, tmp_path, capsys) -> Non
     assert sum(p4_block["n_positions_by_stratum"].values()) == len(in_strata)
     assert in_strata, "the fixture should reach the P4 strata"
     assert sum(p4_block["n_truth_folds_by_stratum"].values()) > 0
+    assert p4_block["n_truth_folds_by_cell"]["expected_cells"] == list(p4.BAND_CELLS)
+    assert p4_block["n_r_lines"]["total"] >= 0 and "total" in p4_block["n_r_boxes"]
+    assert "recall_pre" in p4_block and "action_line_rate_upper95" in p4_block
+    inject_check = summary["run_identity"]["r_checks"]["inject_blob"]
+    assert inject_check["blob"] == m33_inputs.C1_INJECT_BLOB
     assert summary["judgment"]["blockers"]  # partial: never a judgment input
     assert "recall" in summary and "survival_ratio" in summary
     assert summary["bottom"]["report_only"] is True and "recall" in summary["bottom"]
@@ -599,6 +604,39 @@ def test_injected_refuses_a_changed_plan_table(offline_band, tmp_path, capsys) -
     extra = ("--c1b-record", str(tmp_path / "plan" / "c1b_record_draft.json"))
     code = runner.main(_argv(tmp_path, "injected", *extra, "--overwrite"))
     assert (code, _final(capsys)[0]["status"]) == (2, "input_error")
+
+
+def test_injected_needs_a_finished_non_provisional_judgeable_plan(
+    offline_band, tmp_path, capsys
+) -> None:
+    """verif 2026-11-16: no injected run from a plan that cannot seal C1b."""
+    _run_all(tmp_path, capsys)
+    record = str(tmp_path / "plan" / "c1b_record_draft.json")
+    report_path = tmp_path / "plan" / "plan_report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    for changes in ({"provisional": True}, {"status": "error"}):
+        report_path.write_text(json.dumps(report | changes), encoding="utf-8")
+        argv = _argv(tmp_path, "injected", "--c1b-record", record, "--overwrite")
+        assert runner.main(argv) == 2
+        assert _final(capsys)[0]["status"] == "input_error"
+    report_path.write_text(json.dumps(report), encoding="utf-8")
+    full_argv = ["--injectant", "band", "--stage", "injected", "--c1b-record", record]
+    full = runner.parse_args([*full_argv, "--out-root", str(tmp_path)])
+    assert report["judgment"]["judgeable"] is False  # the fixture plan is partial
+    with pytest.raises(inputs.InputError, match="not judgeable"):
+        band.read_c1b_inputs(full)
+
+
+@pytest.mark.parametrize("stage", ["uninjected", "plan", "injected"])
+def test_every_r3_stage_refuses_another_inject_blob(
+    offline_band, monkeypatch, tmp_path, capsys, stage
+) -> None:
+    """verif S4 (user 2026-11-16): ``inject.py`` must be the C1 blob."""
+    monkeypatch.setattr(m33_inputs, "C1_INJECT_BLOB", "0" * 40)
+    extra = ("--c1b-record", str(tmp_path / "c1b.json"))
+    assert runner.main(_argv(tmp_path, stage, *extra)) == 2
+    assert _final(capsys)[0]["status"] == "input_error"
+    assert not (tmp_path / stage).exists()
 
 
 def test_band_settings_and_blockers(tmp_path) -> None:

@@ -42,7 +42,7 @@ C1 커밋 `826aa41` 기준으로 채웠다(2026-11-16). 행 목록은 R1·R2·R3
 | 이름 | 경로 | LF sha256 (단언 기준) | 원시 sha256 | 줄 수(머리 포함) | 줄끝 | 러너에서의 쓰임 |
 |---|---|---|---|---|---|---|
 | R2 4TU 측선 목록(754 / `keep_one` 720 / K 27) | `analysis/detection/m33_r2_lines.csv` | `57de56c64d488eab0bc2316f816177317958a40060c47227787523d0f97c4b8d` | 같음 | 755 | LF | 러너 단언(`R2_LINES_SHA256_LF`) |
-| 활동 간 중복 목록 | `docs/datasets/fourtu_duplicate_radargrams.csv` | `7602d94fbd5824f3536d463e2b248e4ea474770f852519db3ea30097312c488a` | `6cdef12c55fe49ec1d865f0f513485b4dd51cfbe4e81b9171956b22821430552` | 40 | CRLF | 간접 고정(R2 목록 빌더 입력, 754 목록 sha로 고정) |
+| 활동 간 중복 목록 | `docs/datasets/fourtu_duplicate_radargrams.csv` | `7602d94fbd5824f3536d463e2b248e4ea474770f852519db3ea30097312c488a` | `6cdef12c55fe49ec1d865f0f513485b4dd51cfbe4e81b9171956b22821430552` | 40 | CRLF(BOM 포함) | 간접 고정(R2 목록 빌더 입력, 754 목록 sha로 고정) |
 | K 꼭짓점 | `data/processing/d3/known_apexes.csv` | `0fec12dba4efa504a69a8319e52eb854dac6359296beb391f6b83b177d49db61` | 같음 | 42 | LF | 러너 단언(`EXPECTED_SHA256["k_apexes"]`) |
 | K 측선 | `data/processing/d3/lines.csv` | `f6fe08a93808555727acb3ecd864abc1cd555f0c6900a753a8c598be4543ca0a` | 같음 | 60 | LF | 러너 단언(`EXPECTED_SHA256["k_lines"]`) |
 | K 꼭짓점 SNR(X6) | `analysis/processing/m33_k_apex_snr.csv` | `55d54bb15a84f4acccdd51d4ace82b4fef23265956f7ab3f73b1dea94c29bd16` | 같음 | 42 | LF | 러너 단언(`K_APEX_SNR_SHA256_LF`) |
@@ -59,6 +59,7 @@ C1 커밋 `826aa41` 기준으로 채웠다(2026-11-16). 행 목록은 R1·R2·R3
 
 - 모로코 영상·라벨 두 값은 X7(`m33_data_assertions.md` §1) 방식의 묶음 sha이고, 러너 상수 `MOROCCO_IMAGES_SHA256`·`MOROCCO_LABELS_SHA256`에서 옮겼다(이번에 다시 재지 않음).
 - `data/`·`runs/`는 git 밖이다. 그래서 blob이 아니라 sha만 적는다.
+- **원시 sha 주석(C1 실행 전 감사 기록)**: `fourtu_duplicate_radargrams.csv`(BOM·CRLF)와 `m33_x6_period_snr.json`(CRLF)의 원시 sha는 이 Windows 체크아웃의 바이트 값이다. git 설정(autocrlf)이나 다른 체크아웃에서는 원시 sha가 달라질 수 있다. 단언·대조는 LF sha로 한다. 두 파일은 러너 단언 대상도 아니다(간접 고정·기록 전용).
 - IDS `radargrams_index.csv`는 [RUN] §1 입력 목록에 있었지만 R 러너가 읽지 않는다(python-expert 확인, 2026-11-16). 그래서 sha를 적지 않는다. IDS 측선 정보는 `m32_stageA_lines_ids.csv`에서 온다.
 
 ## 3. 바이너리 입력 — 검출기 가중치 (N2-a′ 5 fold `last.pt`)
@@ -73,12 +74,13 @@ C1 커밋 `826aa41` 기준으로 채웠다(2026-11-16). 행 목록은 R1·R2·R3
 
 - 다섯 값 모두 `m32_aihub_perturb.EXPECTED_WEIGHTS_SHA256`과 같다(앞 8자는 [`m31_n2a2_retrain_plan.md`](m31_n2a2_retrain_plan.md)의 기대 sha8과 같다). `m31_d1_common.EXPECTED_WEIGHTS_SHA8`은 M1-10 가중치용이라 N2-a′와 무관하다.
 - 가중치는 AGPL 대상이라 공개 저장소에 넣지 않는다(sha만 적는다).
+- **실행 기록 위치 주석(C1 실행 전 감사 기록)**: R2·R3 `run_identity.weights_sha256`은 비어 있다. 실제 가중치 sha는 `run_identity.inputs_sha256["0"]`–`["4"]`와 R2 `summary.json`의 `j1_inputs.weights_sha256`에 있다. 판정서·J1 감사는 이 두 곳을 본다.
 
 ## 4. 설정·정체
 
 | 항목 | 값 | 출처·계산 |
 |---|---|---|
-| 설정 해시(conf 0.25·AP 0.001·NMS 0.7·`MergeConfig()`·r0 `assumed_params`·`assumed_values`) | `b9c5c905c5fec3ea9840e9644b177aeb6689ab4191d1e2e1dfce17e9a4518b6a` | 상수 `m33_inputs.R_SETTINGS_SHA256`(`m33_inputs.py`:169). 문서 `settings_document`(:417) = conf_operating 0.25, conf_ap 0.001, nms_iou 0.7, `asdict(DEFAULT_MERGE_CONFIG)`, r0 `M3_2_ASSUMED` 이름 목록과 그 이름들의 `DEFAULT_DETECTION_IMAGE_CONFIG` 값. 해시 = `json.dumps(sort_keys=True, default=str)`의 sha256. 단언 `assert_settings`(:446). 줄 번호는 미커밋 작업 트리(2026-11-16) 기준이다 |
+| 설정 해시(conf 0.25·AP 0.001·NMS 0.7·`MergeConfig()`·r0 `assumed_params`·`assumed_values`) | `b9c5c905c5fec3ea9840e9644b177aeb6689ab4191d1e2e1dfce17e9a4518b6a` | 상수 `m33_inputs.R_SETTINGS_SHA256`(`m33_inputs.py`:169). 문서 `settings_document`(:417) = conf_operating 0.25, conf_ap 0.001, nms_iou 0.7, `asdict(DEFAULT_MERGE_CONFIG)`, r0 `M3_2_ASSUMED` 이름 목록과 그 이름들의 `DEFAULT_DETECTION_IMAGE_CONFIG` 값. 해시 = `json.dumps(sort_keys=True, default=str)`의 sha256. 단언 `assert_settings`(:446). 줄 번호는 C1 커밋 `826aa41`의 `m33_inputs.py` 기준이다(직접 확인) |
 | `pp_set_id` | S3 = {a, b, d} | C0b `selection.pp_set_id`, `m33_inputs.C0B_PP_SET_ID` |
 | `PPConfig` 해시(S3) | `eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f` | `m33_inputs.C0B_PP_CONFIG_SHA256`, C0b `d0_gate.json` |
 | `pipeline.py` blob(C0a) | `dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1` | `m33_inputs.C0A_PIPELINE_BLOB`, `git rev-parse 53c4e16:src/gpr_detection/pipeline.py` |
@@ -145,5 +147,10 @@ C1 커밋 `826aa41` 기준으로 채웠다(2026-11-16). 행 목록은 R1·R2·R3
 - gpr-processing-expert: X6 주기 측정 함수 확인은 참고로 남긴다(R1이 s5 주기의 X6 일치를 정식 실행에서 이미 단언하므로, 어긋나면 R1 단언이 실패해 멈춘다).
 - 메인 세션: C1 실행 전 감사(verif) → C1 봉인(봉인 확정 문구는 감사 뒤 이 문서에 넣는다). J1의 C0B·C0B_D0_GATE_SHA 두 자리는 메인이 채운다(`PPConfig` `eb2796dd…`, `d0_gate.json` `107d7b53…`).
 - (끝남, 2026-11-16) 코드·문서 커밋 `826aa41`, 이 문서의 §1·§5 자리 채우기.
+- **남은 순서**: integrity 점검 → 커밋 → §1·§5 blob 재측정 → verif 재확인 → 봉인.
+  - C1 실행 전 감사 보강으로 바뀐 코드 5개(`analysis/detection/m32_recipe_eval.py`, `m33_inputs.py`, `m33_r2_eval.py`, `m33_r3_band.py`, `m33_r3_p4.py`)는 커밋한 뒤 §1(과 §5 해당 행)의 blob을 다시 잰다. 그 전까지 §1의 826aa41 값은 잠정이다. `src/` 아래는 바뀌지 않았다(`C1_INJECT_BLOB` = 826aa41 `inject.py` blob).
+- (끝남, 2026-11-16) python-expert: S4 코드 blob 단언(`C1_INJECT_BLOB`, `r_checks.inject_blob`)과 `--resume` 거부(resume 표지 `head`·`code_blobs`·`src_tree_id`), stats-design 결정 키(`n_r_boxes`·`n_r_lines`·`recall_pre`·`action_line_rate_upper95` 등). 블라인드 smoke 4차로 확인했다([RUN] §6).
+- (끝남, 2026-11-16) gpr-processing-expert: J1 v0.3.3 개정(단언 3 판정 가능성 4조건·가중치 sha 키).
+- smoke 다섯 폴더의 파일 해시 목록: [`m33_smoke_hashes.csv`](m33_smoke_hashes.csv)(91개, 4차 smoke 뒤 판 sha256 `674afa93…`, 내용 미열람). 첫 판(`d84cf08a…`)은 커밋되지 않았고 덮어써졌다. 판정서 단계에서 지금 판으로 대조한다.
 - (끝남, 2026-11-16) python-expert: 설정 해시 상수(§4), r0 11측선 기대값 이관(§4), IDS `radargrams_index.csv` 정리(§2, 읽지 않음), C1 2단계 보강 6건.
-- (끝남, 2026-11-16) gpr-processing-expert: J1 채움 전용 박스 제외와 "파일의 모든 행" 규칙의 정합 확인. J1 §3·§4 5 문구로 반영했다(J1 판 번호는 v0.3.2 그대로, 문구 정리).
+- (끝남, 2026-11-16) gpr-processing-expert: J1 채움 전용 박스 제외와 "파일의 모든 행" 규칙의 정합 확인. J1 §3·§4 5 문구로 반영했다(J1 판 번호는 v0.3.2 그대로(v0.3.3 이전 시점), 문구 정리).

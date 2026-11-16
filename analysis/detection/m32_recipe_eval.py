@@ -404,6 +404,8 @@ class RunSettings:
             blockers.append(m33_inputs.BLOCKER_PARTIAL_FOLDS)
         if sorted(self.recipes) != sorted(self.expected_recipes):
             blockers.append(m33_inputs.BLOCKER_PARTIAL_RECIPES)
+        if self.is_r2 and not self.flip:  # the R2 flip tables would be missing
+            blockers.append(m33_inputs.BLOCKER_NO_FLIP)
         return blockers
 
     @property
@@ -1807,15 +1809,42 @@ def prepare_stage_dir(settings: RunSettings) -> None:
     (stage_dir / "parts").mkdir(parents=True, exist_ok=True)
 
 
-def check_resume_identity(settings: RunSettings, settings_sha: str) -> None:
-    """A resumed stage must have the same settings and input hashes."""
+RESUME_TREE_KEYS = ("head", "code_blobs", "src_tree_id")
+"""Tree fields a resumed stage must share with its first start (verif 2026-11-16)."""
+
+
+def check_resume_identity(
+    settings: RunSettings, settings_sha: str, start_tree: Mapping[str, object]
+) -> None:
+    """A resumed stage must have the same settings, inputs, HEAD and code.
+
+    The first start writes ``stage_settings.json``; a later start compares
+    the settings sha and ``RESUME_TREE_KEYS`` with it. A marker written
+    before these keys existed has none of them, so it is refused as well.
+
+    Raises:
+        inputs.InputError: For other settings or inputs, or another HEAD,
+            code blob or ``src`` tree (exit 2).
+    """
     marker = settings.stage_dir / "stage_settings.json"
-    if marker.is_file():
-        recorded = json.loads(marker.read_text(encoding="utf-8"))
-        if recorded.get("settings_sha256") != settings_sha:
-            raise inputs.InputError("resume with other settings or inputs refused")
+    current = {key: start_tree.get(key) for key in RESUME_TREE_KEYS}
+    if not marker.is_file():
+        _write_json(marker, {"settings_sha256": settings_sha, **current})
         return
-    _write_json(marker, {"settings_sha256": settings_sha})
+    recorded = json.loads(marker.read_text(encoding="utf-8"))
+    if recorded.get("settings_sha256") != settings_sha:
+        raise inputs.InputError("resume with other settings or inputs refused")
+    changed = [key for key in RESUME_TREE_KEYS if recorded.get(key) != current[key]]
+    if changed:
+        raise inputs.InputError(f"resume with another tree refused: {changed}")
+
+
+def recorded_head(settings: RunSettings) -> str | None:
+    """HEAD of the stage's first start (``stage_settings.json``), if recorded."""
+    marker = settings.stage_dir / "stage_settings.json"
+    if not marker.is_file():
+        return None
+    return json.loads(marker.read_text(encoding="utf-8")).get("head")
 
 
 def settings_sha256(settings: RunSettings, extra_sha: Mapping[str, str]) -> str:
@@ -1845,15 +1874,27 @@ def run_lines(
     evaluate: Callable[[LineData], dict],
     started: float,
 ) -> list[dict]:
-    """Evaluate each line once (parts are reused on ``--resume``)."""
+    """Evaluate each line once (parts are reused on ``--resume``).
+
+    Each part records the HEAD of the stage; a reused part from another
+    HEAD is refused.
+
+    Raises:
+        inputs.InputError: For a reused part written under another HEAD.
+    """
+    head = recorded_head(settings)
     parts = []
     for number, ref in enumerate(lines, start=1):
         part_path = settings.stage_dir / "parts" / f"{ref.key}.json"
         if part_path.is_file():
-            parts.append(json.loads(part_path.read_text(encoding="utf-8")))
+            part = json.loads(part_path.read_text(encoding="utf-8"))
+            if part.get("head") != head:
+                raise inputs.InputError(f"part {part_path.name} has another HEAD")
+            parts.append(part)
             continue
         line_started = time.time()
         part = evaluate(load_line(ref))
+        part["head"] = head
         part["seconds"] = round(time.time() - line_started, 2)
         _write_part(part_path, part)
         parts.append(part)
@@ -2015,7 +2056,9 @@ def run_uninjected(
     lines = _selected(inputs.uninjected_lines(), settings)
     apexes = inputs.known_apexes()
     prepare_stage_dir(settings)
-    check_resume_identity(settings, settings_sha256(settings, hashes))
+    check_resume_identity(
+        settings, settings_sha256(settings, hashes), context.start_tree
+    )
     identity = new_run_identity(settings, hashes, context)
     identity["tile_order"] = TILE_ORDER
     detectors = load_detectors(settings)
@@ -2207,7 +2250,9 @@ def run_injected(
     lines = _selected([refs[line_id] for line_id in by_line], settings)
     candidates = inputs.candidate_apexes()
     prepare_stage_dir(settings)
-    check_resume_identity(settings, settings_sha256(settings, hashes))
+    check_resume_identity(
+        settings, settings_sha256(settings, hashes), context.start_tree
+    )
     identity = new_run_identity(settings, hashes, context)
     detectors = load_detectors(settings)
 
@@ -2443,14 +2488,17 @@ def _int_list(text: str) -> tuple[int, ...]:
     return tuple(int(item) for item in text.split(",") if item.strip())
 
 
-def r_runner_checks() -> dict:
-    """[RUN] §1 for R2 and R3: the C1 settings hash and the r0 identity lines.
+def r_runner_checks(code_blobs: Mapping[str, str | None]) -> dict:
+    """[RUN] §1 for R2 and R3: the C1 settings hash, the C1 ``inject.py`` blob
+    and the r0 identity lines.
 
     Raises:
-        inputs.InputError: For other settings or a changed r0 image (exit 2).
+        inputs.InputError: For other settings, another ``inject.py`` or a
+            changed r0 image (exit 2).
     """
     return {
         "settings": m33_inputs.assert_settings(CONFIDENCE, stage_b.CONF_AP, NMS_IOU),
+        "inject_blob": m33_inputs.assert_inject_blob(code_blobs),
         "r0_identity_sha256": m33_inputs.assert_r0_identity(),
     }
 
@@ -2475,7 +2523,7 @@ def run(settings: RunSettings, started: float) -> tuple[str, StageCounts]:
         sealed_pp=m33_inputs.assert_sealed_pp(start_tree["code_blobs"]),
     )
     if settings.is_band or settings.is_r2:
-        context = replace(context, r_checks=r_runner_checks())
+        context = replace(context, r_checks=r_runner_checks(start_tree["code_blobs"]))
     if settings.is_band:
         import m33_r3_band as band  # R3 pseudo bands (runner spec §3)
 

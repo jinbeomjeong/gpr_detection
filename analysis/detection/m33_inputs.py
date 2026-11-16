@@ -59,6 +59,10 @@ C0A_PIPELINE_BLOB = "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1"
 """``git rev-parse 53c4e16:src/gpr_detection/pipeline.py`` (C0a)."""
 PIPELINE_PATH = "src/gpr_detection/pipeline.py"
 """Repo-relative key of the PP implementation in ``code_blobs``."""
+C1_INJECT_BLOB = "2d88ff0a25c5cbc1bb7ca8698ba422c633f5b531"
+"""``git rev-parse 826aa41:src/gpr_detection/eval/inject.py`` (C1, S4)."""
+INJECT_PATH = "src/gpr_detection/eval/inject.py"
+"""Repo-relative key of the injection code (bands, ``band_conditions``)."""
 
 R3_OUT_ROOT = REPO / "runs" / "eval" / "m33" / "r3"
 R3_SMOKE_OUT_ROOT = REPO / "runs" / "eval" / "m33" / "r3_smoke"
@@ -179,6 +183,7 @@ BLOCKER_LINE_LIMIT = "line_limit"
 BLOCKER_PARTIAL_RECIPES = "partial_recipes"
 BLOCKER_PROVISIONAL = "provisional"
 BLOCKER_DIRTY_TREE = "dirty_tree"
+BLOCKER_NO_FLIP = "no_flip"
 """``judgment.blockers`` values: why a finished run is not a judgment input."""
 
 TREE_KEYS = ("head", "dirty", "problems", "code_blobs", "src_tree_id")
@@ -404,6 +409,21 @@ def assert_sealed_pp(
         "checks": checks,
         "result": "pass",
     }
+
+
+def assert_inject_blob(code_blobs: Mapping[str, str | None]) -> dict:
+    """R2 / R3: ``inject.py`` must be the C1 blob (verif S4, user 2026-11-16).
+
+    Args:
+        code_blobs: ``tree_state`` code blobs (``inject.py`` included).
+
+    Raises:
+        InputError: For another or an unmeasured blob (exit 2).
+    """
+    measured = code_blobs.get(INJECT_PATH)
+    if measured != C1_INJECT_BLOB:
+        raise InputError(f"{INJECT_PATH} blob {measured} != C1 {C1_INJECT_BLOB}")
+    return {"path": INJECT_PATH, "blob": measured, "result": "pass"}
 
 
 # --------------------------------------------------------- settings hash

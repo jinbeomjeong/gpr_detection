@@ -1,6 +1,6 @@
-# M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.2)
+# M3-3 J1 — 4TU 종단 판정 사전 등록 (초안 v0.3.3)
 
-- 상태: **초안 v0.3.2**(2026-11-15). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
+- 상태: **초안 v0.3.3**(2026-11-16). gpr-processing-expert가 v0.1을 썼다. cv-detection-expert가 공동 검토로 v0.2를 고쳤고, gpr-processing 재검토의 탐색 창 보완과 무결성 지적을 v0.3에 반영했다(X3). v0.3.1은 stats-design-expert 통계 검토의 보고 항목 추가(§2-4 p 도달 가능성·현장 단위 불확도)와 문구 정정(§1-1 3)이다. v0.3.2는 `placeholder_scan.py`와 맞추는 문구 정리다(설명 문장의 자리 이름에서 중괄호를 뺐고, C0b 자리를 값 하나씩 둘로 나눴다). v0.3.3은 C1 실행 전 감사 지적에 대한 사용자 결정(2026-11-16, C1 봉인 전, R1–R3·J1 결과 없음)으로 J1-2 단언 3에 R2 판정 가능성 조건 네 가지와 가중치 sha를 읽을 키를 더한 규칙 강화다(판정 불가 R2 입력 차단). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)은 바뀌지 않았다.
   - 봉인 순서는 [PLAN] §4 표다: … → C0b → C1 → R1 → R2 → R3 → **C2** → J1 판정.
   - 자리 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA는 **C2 커밋**에서 채운다. C1 실행 전 감사의 `placeholder_scan.py`는 이 세 이름을 허용 자리(`--allow`)로 받는다. C2 뒤에는 허용 없이 종료 0이어야 한다.
   - 자리 C0B(C0b `PPConfig` 해시)와 C0B_D0_GATE_SHA(C0b `d0_gate.json` sha256)는 C0b 값으로 C1에서 채운다. 자리마다 64자리 16진 값 하나만 넣는다. C1 감사의 `placeholder_scan.py` 허용 목록에는 두 이름을 넣지 않는다. C1에서 자리 C0B는 §1-2 표와 §1-3 명령줄 두 곳에서, 자리 C0B_D0_GATE_SHA는 §1-2 표에서 채운다. 그래서 채운 뒤 스캔이 종료 0이 된다.
@@ -193,10 +193,17 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 **J1-2 단언 목록**(cv 공동 검토 추가, 하나라도 어기면 종료 2. 단언 결과는 `depth_4tu_j1_verdict.json`의 `assertions`에 쓴다)
 1. 깨끗한 트리(`dirty` false). HEAD는 C2 커밋이거나 그 뒤의 문서 전용 커밋이다. §1-2 표의 blob·sha(`eval_depth_4tu.py`, `src` tree, J1-1·J1-2, 측선·중복·QC 상수, 4TU 메타 csv 4개)가 C2 값과 같다.
 2. 판정 입력 `j1_boxes_post.csv`의 sha가 C2 값과 같고, R2 `summary.json`의 `j1_inputs.folds["0"].post_sha256`과도 같다(키 구조는 [RS] §5).
-3. R2 `run_identity`
+3. R2 `summary.json`의 정체성과 판정 가능성
+   - **판정 가능성**(v0.3.3 추가). 넷 다 맞아야 하고, 하나라도 어긋나면 J1을 시작하지 않고 종료 2다.
+     - (가) `status == "ok"`.
+     - (나) `judgment.judgeable == true`.
+     - (다) 전체 실행: `full_run == true`이고, `judgment.blockers`가 빈 목록이며, `judgment.folds_run`이 `judgment.expected_folds`와 같고 둘 다 [0, 1, 2, 3, 4]다.
+     - (라) `j1_inputs.n_lines == 754`. R2 추론과 J1 박스 파일은 754측선 전체(`keep_both`)이고, 720은 R2 요약의 `keep_one` 주 집계일 뿐이다([RS] §5 `j1_inputs` 구조, R2 코드 `j1_inputs_record`). 최상위 `n_lines`도 754여야 한다.
    - 가중치 fold 0 sha = 7ead71c7fa62d85edb11f5614e78b11619062b455dca62f5cc66c93b2dcf8d92.
+     - 읽는 키(v0.3.3 명시): `j1_inputs.weights_sha256["0"]`와 `run_identity.inputs_sha256["0"]`이다. 두 값이 서로 같고 위 값과도 같아야 한다.
+     - `run_identity.weights_sha256`은 R2에서 빈 사전이므로 읽지 않는다. 빈 값으로 통과하는 일이 없게, 두 키 중 하나라도 없거나 비어 있으면 종료 2다.
    - r0 11측선 `line_image` sha·설정 해시(conf·병합·r0)가 C1 값과 같다.
-   - `PPConfig` 해시와 `pp_set_id`가 C0b 값과 같다.
+   - `PPConfig` 해시와 `pp_set_id`가 C0b 값과 같다(`j1_inputs.pp_config_sha256`·`j1_inputs.pp_set_id`).
    - R2 실행 당시 git HEAD가 C1 이후이고 `dirty` false다.
 4. 박스 파일 내용
    - `fold` 열이 모두 0이다.
@@ -240,3 +247,4 @@ conda run -n gpr-dev python -I analysis/processing/m33_j1_judge.py ^
 | 2026-11-15 | v0.3 초안 | gpr-processing 재검토: 단계 1 탐색 창 위쪽 경계를 $\max(k_0-0.5P,\ k_z+0.5P)$로 묶고 $[0, n_s-1]$로 자르며, 창이 비면 `window_above_zero`로 기록한다. 시험 (e)를 추가했다. 무결성 반영: 제목 판 번호, 봉인 순서와 C2 자리 처리(`placeholder_scan` 허용 → C2 뒤 0), 단언 2의 `j1_inputs.folds["0"]` 키, 단언 4의 `line_id` 분해 규칙, 단언 6 시점(단계 1 이전). 판단 규칙은 바뀌지 않았다 |
 | 2026-11-15 | v0.3.1 초안 | stats-design-expert 통계 검토 반영(판정 기준 불변). §1-1 3: $n_\text{pass}$는 matches csv 주 조합 행에서 세고 round(`pass_b`×388)과 단언, $k$ = round(`baseline_p`×1000)과 1e-6 단언([U3] §2-2와 읽는 곳 통일, C3). §2-4: p 도달 가능성 보고($k_\text{perfect}$, $n_\text{req}$·$A_\text{req}$, 초과 추정 $E_+$ = `false_est`, C1), 현장 하나씩 빼기·현장 부트스트랩(2,000회, `default_rng(20261115)`, 기준선은 같은 시행 재집계, C2). §1-4 보고용 난수. §5 J1-2 보고 계산 7항과 시험 (f)–(i). §6 공개 6(목표 경계는 현장 군집 미반영). 같은 날 무결성 정정(규칙 불변): J1-2 보고 계산 2의 summary 열 이름을 실제 이름 `baseline_pass_b_mean`·`baseline_pass_b_p025`·`baseline_pass_b_p975`로 고쳤다 |
 | 2026-11-15 | v0.3.2 초안 | 문구 정리, 기준 불변(C1 봉인 전, cv-detection-expert의 `placeholder_scan` 대조 지적). 상태 절 설명 문장의 자리 이름(C2·R2_J1_POST_SHA·R2_J1_PRE_SHA·C0B)에서 중괄호를 뺐다(설명 문장이 스캔에 걸리지 않게). §1-2의 C0b 행을 `PPConfig` 해시(자리 C0B)와 `d0_gate.json` sha256(자리 C0B_D0_GATE_SHA) 두 행으로 나눠 자리마다 값 하나로 했고, 두 자리는 C1에서 채우며 C1 감사 허용 목록에 넣지 않는다고 적었다. §1-2 제목에 C0b 두 행은 C1에서 채운다고 적었다. §1-2 아래 단언 문장의 "`PPConfig` 해시를 C2 값과"를 "C0b 값(자리 C0B, C1에서 채움)과"로 고쳤다(J1-2 단언 3과 같은 뜻). 값은 채우지 않았다. 같은 날 무결성 점검 반영(문구만): 상태 절에 자리별로 채울 곳(C0B는 §1-2 표와 §1-3 명령줄, C0B_D0_GATE_SHA는 §1-2 표)을 적었다. 같은 날 문구 정리, 기준 불변: §3 입력에 러너가 L0 박스 없는 채움 전용 박스도 싣지 않고 수를 `j1_inputs.folds[k].n_padding_only_dropped`로 보고한다는 문장([RS] §5, 후보 집합·B·$p$·$\Delta_B$ 불변)을, §4 5에 그 제외 수를 박스 수와 함께 적는다는 문구를 더했다 |
+| 2026-11-16 | v0.3.3 초안 | **규칙 강화(판정 불가 R2 입력 차단)**. 사용자 결정(2026-11-16, C1 실행 전 verif 감사 지적에 대해, C1 봉인 전, R1–R3·J1 결과 없음). 판정 기준(U-3: $p<0.05$, $n_\text{pass}\ge97$)과 후보 규칙은 그대로다. §5 J1-2 단언 3을 "R2 `summary.json`의 정체성과 판정 가능성"으로 넓혔다. 판정 가능성 네 가지를 더했고 하나라도 어긋나면 종료 2다: (가) `status == "ok"`, (나) `judgment.judgeable == true`, (다) `full_run == true`·`judgment.blockers` 빔·`judgment.folds_run` = `judgment.expected_folds` = [0..4], (라) `j1_inputs.n_lines == 754`(최상위 `n_lines`도 754, 키는 [RS] §5와 R2 `j1_inputs_record`). 가중치 fold 0 sha는 `j1_inputs.weights_sha256["0"]`와 `run_identity.inputs_sha256["0"]`에서 읽어 서로 같고 기댓값과 같아야 한다고 적었다. `run_identity.weights_sha256`은 R2에서 비어 있어 읽지 않고, 두 키가 없거나 비면 종료 2다. `PPConfig` 해시·`pp_set_id`의 읽는 키(`j1_inputs.*`)도 적었다. 남은 자리(C2·R2_J1_*)는 그대로다 |

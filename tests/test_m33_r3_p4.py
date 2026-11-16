@@ -8,6 +8,7 @@ every truth is scored on folds 0-4, so one position is 40 truth-folds.
 import csv
 import sys
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -297,6 +298,8 @@ def test_a_removal_in_the_recall_set_is_acted_unexposed(tmp_path) -> None:
     }
     assert document["pp_acted_by_rule"]["removed_d"] == 1
     assert document["pp_acted_lines"] == 1
+    assert document["pp_acted_lines_by_stratum"] == {"lt033": 1, "033_05": 0}
+    assert document["action_line_rate_upper95"] == 1.0  # 1 of 1 R line
     assert document["recall_delta"] < 0 and document["recall_delta_exposed"] is None
     (row,) = _rows(tmp_path / p4.ACTED_FILE)
     assert (row["set"], row["pp_action"], row["fold"]) == ("R", "removed_d", "0")
@@ -480,11 +483,117 @@ def test_ghosts_count_distinct_boxes_and_union_length_per_realization() -> None:
     assert p4.union_length([(1, 3), (2, 5), (8, 8)]) == 6
 
 
+def test_a_cell_emptied_by_rejections_is_reported_not_a_defect() -> None:
+    """Rejections are per realization (int16, scale, spacing), so a cell of a
+    stratum may be empty on the normal path: report only."""
+    full = _inputs({"lt033": 2, "033_05": 1})
+    kept = tuple(
+        t for t in full.truths if not (t.snr_db == 18.0 and t.lw_stratum == "lt033")
+    )
+    result = p4.evaluate_p4(replace(full, truths=kept))
+
+    cells = result.document["n_truth_folds_by_cell"]
+    assert cells["missing_cells_by_stratum"] == {
+        "lt033": ["snr18_pos", "snr18_neg"],
+        "033_05": [],
+    }
+    assert cells["cells_complete"] is False
+    assert result.defects == []
+
+
+def _no_box_in_fold_0(realization, index, fold):
+    return [] if fold == 0 else None
+
+
+def test_r_extent_counts_r_boxes_per_unit_and_lines_once() -> None:
+    """User 2026-11-16: boxes as ``pp_acted_boxes``, lines as a union."""
+    document = p4.evaluate_p4(
+        _inputs({"lt033": 2, "033_05": 1}, edit=_no_box_in_fold_0)
+    ).document
+    assert document["n_r_boxes"]["by_stratum"] == {"lt033": 2 * 8 * 4, "033_05": 8 * 4}
+    assert document["n_r_lines"] == {
+        "by_stratum": {"lt033": 2, "033_05": 1},
+        "total": 3,
+    }
+
+
+def test_clopper_pearson_upper_bound() -> None:
+    assert round(p4.clopper_pearson_upper(0, 53), 4) == 0.0672
+    assert round(p4.clopper_pearson_upper(0, 30), 4) == 0.1157
+    assert p4.clopper_pearson_upper(0, 0) is None
+    assert p4.clopper_pearson_upper(3, 3) == 1.0
+    assert p4.clopper_pearson_upper(1, 10) == pytest.approx(0.44501, abs=1e-5)
+
+
+@pytest.mark.parametrize(
+    ("n_r_lines", "note"),
+    [
+        (0, "상한 없음(R 없음)"),
+        (29, "R이 있는 측선이 적어 상한이 넓다(11.9 %)"),
+        (30, "보고 전용: Clopper-Pearson 양측 95 % 상한"),
+        (53, "보고 전용: Clopper-Pearson 양측 95 % 상한"),
+    ],
+)
+def test_action_line_rate_note_tells_the_three_cases(n_r_lines, note) -> None:
+    """User decision 2026-11-16 (runner spec): no R, few R lines, enough."""
+    upper95 = p4.clopper_pearson_upper(0, n_r_lines)
+    assert p4.action_line_rate_note(n_r_lines, upper95) == note
+
+
+def test_no_r_line_gives_no_upper_bound() -> None:
+    def no_box(realization, index, fold):
+        return []
+
+    document = p4.evaluate_p4(_inputs({"lt033": 1}, edit=no_box)).document
+    assert document["n_r_lines"]["total"] == 0
+    assert document["action_line_rate_upper95"] is None
+    assert document["action_line_rate_note"] == "상한 없음(R 없음)"
+
+
+def test_no_effect_has_no_acted_line_and_a_bound_from_the_r_lines() -> None:
+    document = p4.evaluate_p4(_inputs({"lt033": 3})).document
+    assert document["p4_status"] == "no_effect"
+    assert document["pp_acted_lines"] == 0
+    assert document["pp_acted_lines_by_stratum"] == {"lt033": 0, "033_05": 0}
+    expected = 1.0 - 0.025 ** (1.0 / 3)
+    assert document["action_line_rate_upper95"] == pytest.approx(expected, rel=1e-12)
+
+
+def test_recall_pre_uses_the_recall_delta_weighting() -> None:
+    """Fold mean of equal-weight SNR x polarity cells (length-weighted inside)."""
+    assert p4.evaluate_p4(_inputs({"lt033": 1})).document["recall_pre"] == 1.0
+    fold_0_empty = p4.evaluate_p4(_inputs({"lt033": 1}, edit=_no_box_in_fold_0))
+    assert fold_0_empty.document["recall_pre"] == pytest.approx(4 / 5)
+
+    def miss_one_cell(realization, index, fold):
+        return [] if realization.endswith(":snr0:p+1") else None
+
+    one_cell = p4.evaluate_p4(_inputs({"lt033": 2}, edit=miss_one_cell))
+    assert one_cell.document["recall_pre"] == pytest.approx(7 / 8)
+    mode = p4.StratumMode(one_cell.document["stratum_mode"])
+    units = p4._p4_units(_inputs({"lt033": 2}, edit=miss_one_cell))
+    assert one_cell.document["recall_pre"] == p4.mean_recall(
+        units, mode, FOLDS, after=False
+    )
+
+
 def test_the_report_columns_and_fold_list(tmp_path) -> None:
     document = p4.run_p4(_inputs({"lt033": 1}), tmp_path)
     header = (tmp_path / p4.ACTED_FILE).read_text(encoding="utf-8").splitlines()[0]
     assert header.split(",") == list(p4.ACTED_COLUMNS)
     assert document["folds"] == list(FOLDS)
     assert document["n_truth_folds_by_stratum"] == {"lt033": 8 * 5}
+    cells = document["n_truth_folds_by_cell"]
+    assert cells["expected_cells"] == list(p4.BAND_CELLS) and len(p4.BAND_CELLS) == 8
+    assert cells["by_stratum_cell_fold"]["lt033"]["snr18_neg"] == {
+        str(fold): 1 for fold in FOLDS
+    }
+    assert cells["missing_cells_by_stratum"] == {"lt033": []}
+    assert cells["cells_complete"] is True
+    assert document["n_r_boxes"]["total"] == 8 * 5
+    assert document["n_r_lines"] == {
+        "by_stratum": {"lt033": 1, "033_05": 0},
+        "total": 1,
+    }
     assert document["pp_set_id"] == "S3"
     assert document["pp_config_sha256"] == p4.PP_SETS[PPSetId.S3].sha256()

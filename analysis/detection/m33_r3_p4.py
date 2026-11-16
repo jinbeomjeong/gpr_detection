@@ -48,9 +48,10 @@ from statistics import fmean
 
 from m32_recipe_inputs import InputError
 from m32_recipe_match import grid_iou
+from scipy.stats import beta
 
 from gpr_detection.detect.base import PixelBox
-from gpr_detection.eval.inject import MEDIAN_WINDOW_TRACES
+from gpr_detection.eval.inject import MEDIAN_WINDOW_TRACES, band_conditions
 from gpr_detection.io.classes import DetectionClass
 from gpr_detection.io.radargram import GridBox
 from gpr_detection.pipeline import (
@@ -658,13 +659,26 @@ def recall_delta_pp(
     The before and after values go through the same arithmetic, so equal
     covered lengths give exactly 0.
     """
+    before = mean_recall(units, mode, folds, after=False)
+    after = mean_recall(units, mode, folds, after=True)
+    if before is None or after is None:
+        return None
+    return 100.0 * (after - before)
+
+
+def mean_recall(
+    units: Sequence[UnitResult], mode: StratumMode, folds: Sequence[int], after: bool
+) -> float | None:
+    """Horizontal recall (0-1) before or after PP, mean over the folds.
+
+    The weighting of :func:`recall_delta_pp`; ``recall_pre`` reports the
+    value before PP.
+    """
     if mode is StratumMode.NOT_EVALUABLE or not units:
         return None
     by_fold = {fold: [u for u in units if u.fold == fold] for fold in folds}
     used = [fold for fold in folds if by_fold[fold]]
-    before = fmean(_fold_recall(by_fold[fold], mode, after=False) for fold in used)
-    after = fmean(_fold_recall(by_fold[fold], mode, after=True) for fold in used)
-    return 100.0 * (after - before)
+    return fmean(_fold_recall(by_fold[fold], mode, after=after) for fold in used)
 
 
 def outside_segments(truth: BandTruthUnit, box: GridBox) -> list[tuple[int, int]]:
@@ -758,20 +772,25 @@ def _acted_row(unit: UnitResult, set_name: str, source: str, box: PPBox) -> dict
 
 
 def recall_set_acts(units: Iterable[UnitResult]) -> dict:
-    """``pp_acted_boxes``, ``pp_acted_by_rule`` and ``pp_acted_lines``."""
+    """``pp_acted_boxes``, ``pp_acted_by_rule`` and ``pp_acted_lines``.
+
+    ``pp_acted_lines`` counts the lines with a removal (a, b, d) in R, once
+    across the two strata; ``pp_acted_lines_by_stratum`` per stratum.
+    """
     per_stratum: Counter[str] = Counter()
     by_rule: Counter[str] = Counter()
-    lines = set()
+    lines: dict[str, set[str]] = {name: set() for name in P4_STRATA}
     for unit in units:
         for box in unit.recall_set:
             if box.action in REMOVED_IN_RECALL_SET:
                 per_stratum[unit.truth.lw_stratum] += 1
                 by_rule[box.action.value] += 1
-                lines.add(unit.truth.line_id)
+                lines[unit.truth.lw_stratum].add(unit.truth.line_id)
     return {
         "pp_acted_boxes": _per_stratum(per_stratum),
         "pp_acted_by_rule": {a.value: by_rule[a.value] for a in REMOVED_IN_RECALL_SET},
-        "pp_acted_lines": len(lines),
+        "pp_acted_lines": len(set().union(*lines.values())),
+        "pp_acted_lines_by_stratum": {name: len(lines[name]) for name in P4_STRATA},
     }
 
 
@@ -1015,6 +1034,115 @@ def plan_record(positions: Sequence[BandPosition], config: PPConfig) -> dict:
     }
 
 
+def cell_name(snr_db: float, polarity: int) -> str:
+    """``snr<dB>_pos`` / ``snr<dB>_neg``: one SNR x polarity cell."""
+    return f"snr{snr_db:g}_{'pos' if polarity > 0 else 'neg'}"
+
+
+BAND_CELLS = tuple(
+    cell_name(condition.snr_db, condition.polarity) for condition in band_conditions()
+)
+"""The 8 SNR x polarity cells of the R3 table (``inject.band_conditions``)."""
+
+
+def truth_cell_counts(
+    units: Sequence[UnitResult],
+    n_positions_by_stratum: Mapping[str, int],
+    folds: Sequence[int],
+) -> dict:
+    """Truth x fold units per stratum x cell x fold, and the empty cells.
+
+    Report only, not a defect: an injection is rejected per realization
+    (int16 rule, scale, spacing), and the higher SNR steps are rejected more
+    often, so a stratum with positions may lose a whole cell on the normal
+    path (verif audit item 5, 2026-11-16). Strata without positions list no
+    missing cells (``stratum_mode`` handles them).
+    """
+    counts: dict[str, dict[str, Counter[int]]] = {
+        name: {cell: Counter() for cell in BAND_CELLS} for name in P4_STRATA
+    }
+    for unit in units:
+        cell = cell_name(unit.truth.snr_db, unit.truth.polarity)
+        counts[unit.truth.lw_stratum][cell][unit.fold] += 1
+    by_cell = {
+        name: {
+            cell: {str(fold): cells[cell][fold] for fold in folds}
+            for cell in BAND_CELLS
+        }
+        for name, cells in counts.items()
+    }
+    missing = {
+        name: [cell for cell in BAND_CELLS if not sum(counts[name][cell].values())]
+        for name in P4_STRATA
+        if n_positions_by_stratum.get(name, 0) > 0
+    }
+    return {
+        "by_stratum_cell_fold": by_cell,
+        "expected_cells": list(BAND_CELLS),
+        "missing_cells_by_stratum": missing,
+        "cells_complete": not any(missing.values()),
+    }
+
+
+def recall_set_extent(units: Iterable[UnitResult]) -> dict:
+    """``n_r_boxes`` and ``n_r_lines``: the size of R before PP (user 2026-11-16).
+
+    ``n_r_boxes`` counts like ``pp_acted_boxes`` (a box in R of two truths
+    counts for each truth x fold unit). ``n_r_lines`` counts the lines with
+    at least one R box per stratum; the total is their union.
+    """
+    per_stratum: Counter[str] = Counter()
+    lines: dict[str, set[str]] = {name: set() for name in P4_STRATA}
+    for unit in units:
+        if unit.recall_set:
+            per_stratum[unit.truth.lw_stratum] += len(unit.recall_set)
+            lines[unit.truth.lw_stratum].add(unit.truth.line_id)
+    return {
+        "n_r_boxes": _per_stratum(per_stratum),
+        "n_r_lines": {
+            "by_stratum": {name: len(lines[name]) for name in P4_STRATA},
+            "total": len(set().union(*lines.values())),
+        },
+    }
+
+
+CLOPPER_PEARSON_TAIL = 0.025
+"""Two-sided 95 %: the upper bound leaves 2.5 % above."""
+
+
+def clopper_pearson_upper(n_events: int, n_trials: int) -> float | None:
+    """Two-sided 95 % Clopper-Pearson upper bound of ``n_events / n_trials``.
+
+    ``1 - 0.025^(1/n)`` for no event, the beta quantile otherwise, ``None``
+    for no trial.
+    """
+    if n_trials == 0:
+        return None
+    if n_events >= n_trials:
+        return 1.0
+    if n_events == 0:
+        return 1.0 - CLOPPER_PEARSON_TAIL ** (1.0 / n_trials)
+    tail = 1.0 - CLOPPER_PEARSON_TAIL
+    return float(beta.ppf(tail, n_events + 1, n_trials - n_events))
+
+
+FEW_R_LINES = 30
+"""Below this many R lines the upper bound is reported as wide."""
+
+
+def action_line_rate_note(n_r_lines: int, upper95: float | None) -> str:
+    """Note of ``action_line_rate_upper95`` (user decision 2026-11-16).
+
+    No R line, fewer than 30 R lines (the bound in % with one decimal) or
+    enough lines; the wording follows the runner spec.
+    """
+    if n_r_lines == 0 or upper95 is None:
+        return "상한 없음(R 없음)"
+    if n_r_lines < FEW_R_LINES:
+        return f"R이 있는 측선이 적어 상한이 넓다({100.0 * upper95:.1f} %)"
+    return "보고 전용: Clopper-Pearson 양측 95 % 상한"  # ASCII hyphen (RUF001)
+
+
 def evaluate_p4(inputs: P4Inputs) -> P4Result:
     """``p4_adoption_input`` of one R3 injected run ([RUN] §3-2).
 
@@ -1037,6 +1165,9 @@ def evaluate_p4(inputs: P4Inputs) -> P4Result:
         recall_acts["pp_acted_boxes"]["total"],
     )
     delta = recall_delta_pp(units, mode, inputs.folds)
+    r_extent = recall_set_extent(units)
+    n_r_lines = r_extent["n_r_lines"]["total"]
+    upper95 = clopper_pearson_upper(recall_acts["pp_acted_lines"], n_r_lines)
     artifacts = ghost_artifact_rows(units)
     unexplained = unexplained_ghosts(artifacts)
     structural_zero = None
@@ -1058,6 +1189,7 @@ def evaluate_p4(inputs: P4Inputs) -> P4Result:
             "tolerance_pp": RECALL_DELTA_TOLERANCE_PP,
         },
         "recall_delta_pass": recall_delta_passes(delta),
+        "recall_pre": mean_recall(units, mode, inputs.folds, after=False),
         "ghost_delta": None
         if mode is StratumMode.NOT_EVALUABLE
         else ghost_count(units, after=True) - ghost_count(units, after=False),
@@ -1070,8 +1202,14 @@ def evaluate_p4(inputs: P4Inputs) -> P4Result:
         "n_truth_folds_by_stratum": dict(
             sorted(Counter(u.truth.lw_stratum for u in units).items())
         ),
+        "n_truth_folds_by_cell": truth_cell_counts(
+            units, n_positions_by_stratum, inputs.folds
+        ),
+        **r_extent,
         **exposure_record,
         **recall_acts,
+        "action_line_rate_upper95": upper95,
+        "action_line_rate_note": action_line_rate_note(n_r_lines, upper95),
         "pp_acted_clip_recall_set": clip_record,
         "pp_acted_ghost_set": ghost_set_acts(units),
         "pp_acted_boxes_all": all_band_acts(inputs),

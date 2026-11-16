@@ -185,6 +185,7 @@ def test_r2_writes_the_r3_box_format_j1_files_and_summary(
         assert 1 <= row["n_folds_missed"] <= 1  # one fold in this run
     checks = summary["run_identity"]["r_checks"]
     assert checks["settings"]["settings_sha256"] == m33_inputs.R_SETTINGS_SHA256
+    assert checks["inject_blob"]["blob"] == m33_inputs.C1_INJECT_BLOB
     assert summary["pp_actions"]["by_fold"]["0"] == summary["pp_actions"]["total"]
     assert "0" in summary["pp_a_top_in_content"]["by_fold"]
     main = summary["tables"]["keep_one_720"]
@@ -239,6 +240,27 @@ def test_r2_line_list_sha_is_asserted(offline_r2, monkeypatch, tmp_path, capsys)
     monkeypatch.setattr(m33_inputs, "R2_LINES_SHA256_LF", "0" * 64)
     assert runner.main(_argv(offline_r2, tmp_path)) == 2
     assert _final(capsys)[0]["status"] == "input_error"
+
+
+def test_r2_refuses_another_inject_blob(offline_r2, monkeypatch, tmp_path, capsys):
+    """verif S4 (user 2026-11-16): R2 holds ``inject.py`` in its code blobs."""
+    monkeypatch.setattr(m33_inputs, "C1_INJECT_BLOB", "0" * 40)
+    assert runner.main(_argv(offline_r2, tmp_path)) == 2
+    assert _final(capsys)[0]["status"] == "input_error"
+    blobs = {m33_inputs.INJECT_PATH: "1" * 40}
+    with pytest.raises(inputs.InputError, match=r"inject\.py blob"):
+        m33_inputs.assert_inject_blob(blobs)
+    with pytest.raises(inputs.InputError, match=r"inject\.py blob"):
+        m33_inputs.assert_inject_blob({})
+
+
+def test_no_flip_blocks_a_full_r2_run_only(tmp_path) -> None:
+    full = ["--stage", "uninjected", "--out-root", str(tmp_path)]
+    r2_run = runner.parse_args([*full, "--lines", "x.csv", "--no-flip"])
+    assert r2_run.scope_blockers() == [m33_inputs.BLOCKER_NO_FLIP]
+    assert runner.parse_args([*full, "--lines", "x.csv"]).scope_blockers() == []
+    m32_run = runner.parse_args([*full, "--no-flip"])
+    assert m33_inputs.BLOCKER_NO_FLIP not in m32_run.scope_blockers()
 
 
 def test_r2_settings_run_r0_and_need_the_uninjected_stage(tmp_path) -> None:

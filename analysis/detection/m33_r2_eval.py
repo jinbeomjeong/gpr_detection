@@ -978,7 +978,9 @@ def run_r2(
     if not settings.scope_blockers():
         check_full_list(lines)
     runner.prepare_stage_dir(settings)
-    runner.check_resume_identity(settings, runner.settings_sha256(settings, hashes))
+    runner.check_resume_identity(
+        settings, runner.settings_sha256(settings, hashes), context.start_tree
+    )
     identity = runner.new_run_identity(settings, hashes, context)
     identity["tile_order"] = runner.TILE_ORDER
     detectors = runner.load_detectors(settings)

@@ -558,7 +558,9 @@ def run_uninjected_ids(
     hashes.update(runner.assert_weights(settings.run_root, settings.folds))
     lines = uninjected_ids_lines(settings, strata)
     runner.prepare_stage_dir(settings)
-    runner.check_resume_identity(settings, runner.settings_sha256(settings, hashes))
+    runner.check_resume_identity(
+        settings, runner.settings_sha256(settings, hashes), context.start_tree
+    )
     identity = runner.new_run_identity(settings, hashes, context)
     identity["tile_order"] = runner.TILE_ORDER
     detectors = runner.load_detectors(settings)
@@ -1005,14 +1007,21 @@ class C1bInputs:
 def read_c1b_inputs(settings: runner.RunSettings) -> C1bInputs:
     """Read the C1b record and assert the plan files against it.
 
+    The plan stage must have finished, not provisional, and judgeable for a
+    full injected run (verif 2026-11-16: no C1b from a non-judgeable plan).
+
     Raises:
-        inputs.InputError: For a missing record or file, or another LF sha.
+        inputs.InputError: For a missing record or file, another LF sha, or a
+            plan that failed, is provisional or is not judgeable.
     """
     if not settings.c1b_record.is_file():
         raise inputs.InputError(f"C1b record missing: {settings.c1b_record}")
     record = json.loads(settings.c1b_record.read_text(encoding="utf-8"))
     plan_dir = settings.out_root / "plan"
-    checked = {}
+    plan_report = plan_dir / "plan_report.json"
+    if require_upstream(plan_report, settings).get("provisional") is not False:
+        raise inputs.InputError(f"injected needs a non-provisional plan: {plan_report}")
+    checked = {"plan_report": inputs.sha256_file_lf(plan_report)}
     for name, file_name in (
         ("injection_table", "injection_table.csv"),
         ("positions", "positions.csv"),
@@ -1665,7 +1674,9 @@ def run_injected(
     lines = [refs[line_id] for line_id in by_line if line_id in refs]
     candidates = inputs.candidate_apexes()
     runner.prepare_stage_dir(settings)
-    runner.check_resume_identity(settings, runner.settings_sha256(settings, hashes))
+    runner.check_resume_identity(
+        settings, runner.settings_sha256(settings, hashes), context.start_tree
+    )
     identity = runner.new_run_identity(settings, hashes, context)
     identity["tile_order"] = runner.TILE_ORDER
     detectors = runner.load_detectors(settings)
