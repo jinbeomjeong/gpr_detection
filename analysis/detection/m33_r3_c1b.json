@@ -1,0 +1,13 @@
+{
+ "injection_table_sha256": "7a1242d6d28ccfd08c2e888c05f94746550049fbacbea137f88307f5fb25beb6",
+ "positions_sha256": "1a511378c7a0b646e266f4695a3c0338754120708fdd4cbdbfeff61e4afb3cfb",
+ "exclusions_sha256": "4369750153e2b3059884be74284c614a1007059a9d07fdfcad6914e31407a875",
+ "raw_sha256": {
+  "injection_table": "7a1242d6d28ccfd08c2e888c05f94746550049fbacbea137f88307f5fb25beb6",
+  "exclusions": "4369750153e2b3059884be74284c614a1007059a9d07fdfcad6914e31407a875"
+ },
+ "seed": 20261115,
+ "pp_set_id": "S3",
+ "pp_config_sha256": "eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f",
+ "provisional": false
+}
