@@ -35,6 +35,14 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 - 작업을 띄우기 전에 CPU·GPU·메모리 현황을 확인해 배치한다. **자원 유동 배분(2026-10-31)**: 메인 세션 작업과 서브에이전트가 띄우는 모든 서브프로세스는 시작 직전 `~/.claude/tools/cpu-scheduler/status.py`로 현황을 보고 규모를 정한다 — 여유(대상 코어 < 20 %, 다른 세션 예약 없음)면 최대(Normal, 필요한 만큼 병렬 — 단 독립 CPU 작업 3개 이상이면 배치표, GPU 허용), 일부 사용 중이면 빈 코어만 affinity·BelowNormal, 포화면 최소(단일 프로세스·1코어·BelowNormal·BLAS 스레드 1) 또는 대기. 긴 작업은 단계 사이에 다시 확인하고, 실행 중 프로세스의 affinity 변경은 사용자 승인 뒤에만. 에이전트 지시문에 그 시점 판단을 적는다. 무거운 작업이 겹치거나 GPU 작업(학습 등)을 띄울 때는 compute-scheduler-expert 배치표(CPU 묶음 + GPU 순서·batch·worker 권고)를 따른다. GPU는 한 번에 한 계열 작업만.
 - 30분 넘게 CPU 묶음·GPU를 점유하는 학습·변환은 전역 규칙의 세션 간 예약(`~/.claude/tools/cpu-scheduler/reserve.py`, make_runner `--reserve-owner gpr_detection:<작업> --mask <마스크> --reserve-ttl-min <가장 긴 단계보다 길게>`; `reserve.py add`를 직접 쓸 때도 `--ttl-min`을 같게, 기본 120분)을 따른다. 자원 대기 자동 시작은 `make_runner.py`(affinity·우선순위, 필요하면 `--job-*`로 Job 객체가 붙은 러너 .ps1 생성)에 대기 조건을 `--wait-args`(`wait_until.py` 조건)로 넣어 하고, 실행 중 현황은 `status.py`로 본다.
 
+## 사전 등록 판정 실행 규칙 (2026-11-17, M3-1–M3-3 운영에서 굳힌 것)
+판정 규칙을 먼저 커밋하고 그 규칙대로 한 번 실행해 판정하는 작업(D1·A1·D0·P4·J1 등)에 적용한다. 메인 세션과 모든 에이전트가 지킨다.
+- **블라인드**: 판정용 값은 stdout·로그에 찍지 않고 파일에만 쓴다. 실행 도구는 stdout 마지막 줄에 `status`·건수·출력 경로만 낸다. 메인 세션은 판정서 작성 전까지 종료 코드·마지막 줄만 본다(정체성 키가 필요하면 결과 json의 정체성 블록만 보고, 판정 입력·판정값 키는 열지 않는다). 판정서를 쓰는 에이전트가 결과를 처음 연다. 결과 경로는 통계 설계(stats-design-expert)에 `쓰면 안 되는 자료`로, 실행 감시(long-running-task-monitor)에 `블라인드 경로`로 넘긴다.
+- **실행 중 금지**: 본 실행이 끝날 때까지 커밋하지 않고 추적 파일을 바꾸지 않는다. `.claude/agent-memory/**`도 추적 파일이므로, 실행 중에는 프로젝트 에이전트를 부르지 않거나 메모리를 쓰지 않게 지시한다.
+- **실행 전 갖출 것**: 규칙 문서에 실패 처리표(종료 코드·`status`별로 다시 돌려도 되는지, 결과를 본 것으로 치는 시점, 보고 대상)가 있어야 한다. 규칙이 요구하는 건조 실행·사전 점검은 해석이 아니라 도구의 실제 코드 경로(예: J1 `--precheck`)로 둔다. 사전 점검 기록을 다시 만들면 이전 증거가 지워지므로, 판정 직전에 한 번 돌리고 사본을 남긴다.
+- **순서**: 도메인 에이전트(지표 의미) → stats-design-expert(통계 설계) → 봉인 커밋 → verif 실행 전 감사 → 본 실행 → 판정서(도메인 에이전트) → verif 판정 후 감사(독립 재집계) → integrity-checker → 커밋·push. verif 감사는 결론이 외부에 보고하는 판정인 실행에만 거친다. 진단·파라미터 선택 실행(예: M3-1 D1)은 판정 규칙을 결과 전에 커밋으로 고정하는 것만 하고 감사는 생략한다(사용자 결정 2026-11-13). 블라인드와 실행 중 금지는 둘 다에 적용한다.
+- 판정서에는 규칙 문서의 "판정서에 적을 것"과 계획 문서가 "판정서에 옮긴다"고 정한 문장을 빠짐없이 넣는다. 자동 생성 표를 그대로 옮기지 말고 결과 json에서 직접 확인한다. 결과를 본 뒤 정한 개정은 공개 사항으로 적는다.
+
 ## 전역 보조 도구 (2026-10-30)
 전역 에이전트마다 Python CLI 도구 폴더(`~/.claude/tools/<폴더>/`, 사용법은 각 README)가 생겼다. 공통 계약: 종료 코드 0/1/2/3, `--out` 보고서, stdout 마지막 줄 JSON, 입력 파일 불변, 인터프리터 `python-dev`(`-I -B`, `-B`가 없으면 도구 폴더에 `__pycache__`가 생긴다). 예외: `cpu-scheduler`는 stdout 전체가 JSON(`--out`은 JSON 사본, md 없음)이고 오류는 종료 1, `wait_until.py`는 0 충족 / 3 타임아웃 / 1 오류, `status.py`는 기본 텍스트 보드(`--json` 선택), `make_runner.py --out`은 러너 .ps1 경로다. 해당 에이전트에 일을 맡길 때 도구를 먼저 쓰게 하고, 메인 세션도 같은 점검을 할 때 이 도구를 쓴다. 도구 결함은 소유 에이전트(없으면 python-expert)에 넘긴다. 이 프로젝트에서 쓰는 것:
 
@@ -55,7 +63,7 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 | cv-detection-expert | claude-opus-5-5 / medium | gpr-dev, gpr-detr | 검출 학습 설정·평가·누수 점검·YOLO11m↔RF-DETR 이전 판정 |
 | gpr-dataset-curator | claude-sonnet-5-5 / medium | gpr-dev, gpr-label | 변환 실행·분할 매니페스트·라벨 감사·Label Studio·데이터셋 카드 |
 
-- 세 에이전트는 `src/`·`scripts/`를 고치지 않는다. 구현은 명세를 받아 python-expert가 한다.
+- 세 에이전트는 `src/`·`scripts/`를 고치지 않는다. 구현은 명세를 받아 python-expert가 한다(탐색·재집계 스크립트는 아래 위임 규칙의 예외).
 - 리포트 처리: `메인 세션 권고`(30분 넘는 학습·변환, Label Studio 서버)는 메인 세션이 띄운다(30분 넘으면 long-running-task-monitor 규칙). `설치함:`이 오면 사용자에게 알리고, 함께 온 툴체인 표 갱신 줄을 해당 정의 파일과 메모리 `gpr-toolchain`에 반영한다. `위임 필요`는 이어서 넘긴다.
 - 깊이 규약(2026-10-29 gprMax 검증, `docs/research/depth_physics.md`): 공기결합(4TU)은 지표 반사를 영점으로(4TU 실측 영점 사건은 대부분 포락선 피크가 하나인 단일 띠 — 759측선 중 709, 직접 결합·지표 반사가 합쳐진 것으로 해석 — 라 띠 포락선 피크가 영점이고, 메타 t0 두 값은 그 띠의 ± 엽이다. 사건이 2개 이상이면 장비 높이를 알 때 간격이 높이와 맞는 사건을, 모르면 첫 사건(합쳐진 띠, `air_first_event`)을 영점으로 쓴다 — 4TU는 높이 메타가 없어 두 사건 50측선 모두 첫 사건, 늦은 사건은 지표 아래 사건(EM 판정 E5), 2026-11-07 M2-9, `docs/processing/spec_depth_v1.md` v2.1 §4-2-1·§4-4·`docs/research/depth_physics.md` §7-2), v는 메타 εr 고정 또는 굴절 모델(곡률 피팅 금지 — 단 꼭짓점 후보 QC용 곡률 v 검사는 허용, 깊이에는 쓰지 않음, 2026-11-06 M2-9 C). 반경은 피팅 미지수로 넣지 않는다.
 
@@ -68,7 +76,7 @@ GPR B-scan에서 매설 관로를 검출하고, 관로마다 지표에서의 수
 | gprmax-acceleration | (기존) | gprMax 실행, electromagnetic-simulation-expert |
 
 ## 위임 규칙
-- `.py` 작성·수정은 전부 **python-expert**에 맡긴다(메인 세션이 직접 고치지 않는다).
+- `.py` 작성·수정은 전부 **python-expert**에 맡긴다(메인 세션이 직접 고치지 않는다). 예외는 프로젝트 에이전트가 자기 쓰기 범위(`analysis/processing/`·`analysis/detection/`·`analysis/data/`)에 두는 탐색·재집계 스크립트뿐이다. `src/`·`scripts/`와 판정·러너 도구(봉인 대상)는 예외 없이 python-expert가 쓴다.
 - gprMax 합성 데이터와 깊이 식의 물리 판정(t0, 공기층, 관경 보정)은 **electromagnetic-simulation-expert**가 한다.
 - 아키텍처·ADR(`docs/architecture/`)은 **add-architect**가 맡는다.
 - 선행 조사는 **web-research-expert**(모드는 전역 규칙대로 묻는다), 결과는 `docs/research/`에 둔다.

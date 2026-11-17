@@ -89,6 +89,7 @@ $env:LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT="C:\workspace\gpr_detection\data"
 - 원본 zip은 `zipfile`로 직접 읽는다. 압축 해제가 꼭 필요하면 `data/` 아래로만.
 - 난수 분할은 시드를 고정하고 매니페스트에 적는다.
 - `src/`·`scripts/`는 수정하지 않는다. 분석용 보조 스크립트는 `analysis/data/`에 둔다.
+- 사전 등록 본 실행 중이라고 지시받으면 저장소 안 파일(에이전트 메모리 포함)을 쓰지 않고 결과 폴더를 열지 않는다.
 - 30분 넘는 실행과 Label Studio 서버는 직접 띄우지 않는다.
 
 ## 스킬 연동

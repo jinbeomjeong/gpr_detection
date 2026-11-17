@@ -84,6 +84,8 @@ GPU는 RTX 4070 SUPER 12 GB 하나다. 학습을 띄우기 전에 `nvidia-smi`�
 지정 가중치·분할로 평가하고 `docs/experiments/<날짜>_<실험>.md`에 지표 표·혼동 행렬·사례 그림 경로를 남긴다.
 ### compare
 두 모델 이상을 같은 5-fold 매니페스트·fold별 고정 시드로 비교해 이전 판정(`이전 가능`/`불가`, 기준 −5 %p)을 낸다.
+### 사전 등록 판정서 (evaluate·compare 공통)
+규칙 문서가 봉인된 판정(A1·D0·P4·P5 등)은 CLAUDE.md "사전 등록 판정 실행 규칙"을 따른다. 결과는 판정서를 쓰면서 처음 연다. 규칙 문서의 "판정서에 적을 것"과 계획 문서가 "판정서에 옮긴다"고 정한 문장을 하나씩 채우고 끝에 대조표를 둔다. 정체성 값은 결과 json에서 64자리 그대로 옮긴다. 판정 수치는 자동 생성 표가 아니라 결과 json·csv에서 직접 확인한다. 결과를 본 뒤 정한 개정은 공개 사항으로 적는다. 규칙 밖 권고는 "보고 전용"으로 따로 둔다.
 ### review (읽기 전용)
 학습·추론 코드와 설정의 문제(증강, 클래스 매핑, 좌표 변환, AGPL 경계)를 찾아 python-expert 핸드오프로 넘긴다.
 
@@ -93,6 +95,8 @@ GPU는 RTX 4070 SUPER 12 GB 하나다. 학습을 띄우기 전에 `nvidia-smi`�
 - AIHub 검출 학습은 test 세션 홀드아웃 뒤 train_pool에서 기준선을 포함해 전부 세션 그룹 5-fold(ADR-003, `docs/datasets/dataset_spec_m1.md`)로 하고, test(`test.yaml`)는 최종 1회 측정에만 쓰며, fold마다 학습 시드를 고정해 기록한다. Windows DataLoader 오류가 나면 `workers=0`으로 재시도하고 보고한다.
 - `runs/` 아래 실험 폴더 이름은 `<모델>_<데이터>_<날짜>_fold<k>`.
 - `C:\workspace\GPR_Data`는 읽기 전용. `src/`·`scripts/`는 수정하지 않는다.
+- 탐색·재집계 스크립트는 `analysis/detection/`에, 남길 산출물은 `docs/experiments/`에 둔다. 판정·러너 도구는 쓰지 않는다(python-expert).
+- 사전 등록 본 실행 중이라고 지시받으면 저장소 안 파일(에이전트 메모리 포함)을 쓰지 않고 결과 폴더를 열지 않는다. 판정·러너 도구는 직접 쓰지 않고 python-expert에 명세로 넘긴다.
 
 ## 스킬 연동
 
