@@ -1,0 +1,497 @@
+{
+ "schema": "m33_j1_judge/1",
+ "status": "ok",
+ "kind": "report:signal",
+ "prefix": "depth_4tu_j1_signal",
+ "inputs": {
+  "boxes": null,
+  "boxes_sha256": null,
+  "r2_summary": "runs/eval/m33/r2/summary.json",
+  "pp_config_sha256": "eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f",
+  "candidates_csv": "docs/processing/fourtu_apex_candidates_v1.csv",
+  "candidates_sha256": "1afd23cfab30b12aa128a1abe9fa4053ab5126fd3513b8b4a1dcf539fb3ef268"
+ },
+ "candidate_counts": {
+  "n_candidates": 3615
+ },
+ "r2": null,
+ "assertions": [
+  {
+   "name": "J1-3.verdict_written_first",
+   "passed": true,
+   "detail": "depth_4tu_j1_verdict.json"
+  },
+  {
+   "name": "J1-3.no_report_output",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.c2_seal_filled",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "args.prefix",
+   "passed": true,
+   "detail": "depth_4tu_j1"
+  },
+  {
+   "name": "args.eval_out_dir",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.tree_clean",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.blob.scripts/eval_depth_4tu.py",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.sha_lf.scripts/eval_depth_4tu.py",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.blob.analysis/processing/m33_j1_candidates.py",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.sha_lf.analysis/processing/m33_j1_candidates.py",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.blob.analysis/processing/m33_j1_judge.py",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.sha_lf.analysis/processing/m33_j1_judge.py",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.blob.docs/processing/fourtu_lines_v1.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.sha_lf.docs/processing/fourtu_lines_v1.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.blob.docs/datasets/fourtu_duplicate_radargrams.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.sha_lf.docs/datasets/fourtu_duplicate_radargrams.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.blob.docs/processing/m29c_qc_constants.json",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.sha_lf.docs/processing/m29c_qc_constants.json",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.src_tree_id",
+   "passed": true,
+   "detail": "84b02beda30544960d4d2ac02cf461fe66556c4f"
+  },
+  {
+   "name": "1.head_is_c2_or_docs_only",
+   "passed": true,
+   "detail": "c2=b6d5d8f7d8d0afad5e21509c9915feddb46cc8a2; non-docs changes: []"
+  },
+  {
+   "name": "3.sealed_pp_c0b",
+   "passed": true,
+   "detail": "S3"
+  },
+  {
+   "name": "1.fourtu_meta.utilities_groundtruth.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.fourtu_meta.utilities_metadata_list.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.fourtu_meta.radargrams_index.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1.fourtu_meta.activities_metadata_ko.csv",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "args.boxes_is_fold0_post",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.status_ok",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.judgeable",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.full_run",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.no_blockers",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.all_folds",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.j1_n_lines_754",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.n_lines_754",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.fold0_weights_sha",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.settings_sha_c1",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.r0_11_lines_c1",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.pp_config_sha_c0b",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.pp_set_id_c0b",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "3.r2_head_after_c1",
+   "passed": true,
+   "detail": "68f4719db43d2d9c2ec45e10d8232ddd39597f44"
+  },
+  {
+   "name": "3.r2_tree_clean",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "signal.candidates_sha_u3",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "5.candidates_sha_unchanged",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1-1.3.one_main_row",
+   "passed": true,
+   "detail": "1"
+  },
+  {
+   "name": "1-1.3.n_gt_388",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1-1.3.n_pass_round_pass_b",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1-1.3.match_rows_n_pairs",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1-1.3.summary_n_pass",
+   "passed": true,
+   "detail": ""
+  },
+  {
+   "name": "1-1.3.k_integer",
+   "passed": true,
+   "detail": ""
+  }
+ ],
+ "tree": {
+  "head": "1a73ba84a6ce80a75171e17f8b7040e2245f26c3",
+  "dirty": false,
+  "problems": [],
+  "code_blobs": {
+   "scripts/eval_depth_4tu.py": "9289f6df5a96645305e469ebd18e1ddf9138bd2a",
+   "analysis/processing/m33_j1_candidates.py": "8c9b4c2f201c9389452dbdf1840ade53728f47c8",
+   "analysis/processing/m33_j1_judge.py": "e71a2f943777a552ba3618eaba2dd87149442a9a",
+   "docs/processing/fourtu_lines_v1.csv": "fbc6da72ab89e48b7463dd0becdfe3e38a7b40d7",
+   "docs/datasets/fourtu_duplicate_radargrams.csv": "b6516bbcf8f98b33256067528d4222d8efd5a0a6",
+   "docs/processing/m29c_qc_constants.json": "13f2fd3ac76d6996ac9c590a2cadcd988d34a376",
+   "analysis/processing/m33_j1_seal.py": "a7d46745947cfc8879777dbadbd088866976d7d8",
+   "analysis/detection/m33_inputs.py": "ababaa50bc0371f90c55b18b0f0e7192fc267a74",
+   "analysis/detection/m31_d1_common.py": "0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72",
+   "analysis/detection/m32_recipe_inputs.py": "7f4815c5582086408a56a2002bf51d6002826a62",
+   "analysis/detection/m32_aihub_perturb.py": "320ce955a7acbcd8956cde7901234cf61e19ba45",
+   "analysis/detection/m33_r2_lines.csv": "6cee87491bb9e0d63709e98e657e6f971977bd58",
+   "src/gpr_detection/pipeline.py": "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1"
+  },
+  "src_tree_id": "d0e54933f3a0c87cf2b8d43d255e97bd6bb97122",
+  "src_gpr_detection_tree_id": "84b02beda30544960d4d2ac02cf461fe66556c4f"
+ },
+ "eval_outputs_sha256": {
+  "raw": {
+   "depth_4tu_j1_signal_summary.csv": "473147958d792b7a898cf52bd3a38e7af49dd8522ff75903fcb8daa882d04421",
+   "depth_4tu_j1_signal_matches.csv": "cd47ac0552e4c859eeea5f8bf6670455662116608f4749c4f5c27b06def0fc71",
+   "depth_4tu_j1_signal_clusters.csv": "e2e2a2d5f4b274fa2557eb8511fa8c85094572015b4c3e87849ef0376c171834",
+   "depth_4tu_j1_signal_candidates.csv": "f38466b2633f49fb528ee8ea608e7568e7058fc7ad0392c4dadc603e0fb12b7e"
+  },
+  "lf": {
+   "depth_4tu_j1_signal_summary.csv": "a6dbc76a5dee3382dfd7702c5f0bd7a73e8d1abfd389f68f3814dec3fce65205",
+   "depth_4tu_j1_signal_matches.csv": "47f10038196b8806aa8c21dec4374407e7d21c3ff1b74bac667503de4f028474",
+   "depth_4tu_j1_signal_clusters.csv": "9ccfb4371ca75f14ff572f30efdb167b60ced2c1352ef8df5116f3f62d118e82",
+   "depth_4tu_j1_signal_candidates.csv": "95b1a76e01432d284297121521cdc3f4f434212006b2b641db250fff913c8f25"
+  }
+ },
+ "depth_run_diagnostics": {
+  "status": {
+   "ok": 3515,
+   "fit_failed": 100
+  },
+  "qc_verdict": {
+   "unknown": 1667,
+   "in": 1016,
+   "out": 932
+  },
+  "apex_at_record_end": {
+   "False": 3450,
+   "True": 165
+  },
+  "apex_on_trace_seam": {
+   "False": 3478,
+   "True": 137
+  },
+  "qc_excluded": {
+   "True": 2615,
+   "False": 1000
+  }
+ },
+ "main_result": {
+  "n_pass": 140,
+  "n_gt": 388,
+  "pass_b": 0.36082474226804123,
+  "k": 1000,
+  "p": 1.0,
+  "n_pairs": 184,
+  "pass_a": 0.7609,
+  "b_max": 0.4742268041237113,
+  "baseline_pass_a_mean": 0.9513,
+  "mae_m": 0.2096,
+  "bias_m": -0.1596,
+  "missed": 204,
+  "false_est": 21,
+  "n_est": 205
+ },
+ "substantive": {
+  "pass_b": 0.36082474226804123,
+  "baseline_pass_b_mean": 0.4511,
+  "baseline_pass_b_p025": 0.4381,
+  "baseline_pass_b_p975": 0.4639,
+  "delta_b": -0.09027525773195877
+ },
+ "report": {
+  "sites": [
+   1,
+   3,
+   4,
+   5,
+   6,
+   8,
+   10,
+   11,
+   12,
+   13
+  ],
+  "reachability": {
+   "n_pairs": 184,
+   "trial_pairs_constant": true,
+   "k_perfect": 0,
+   "perfect_observation_cannot_reach_p": false,
+   "t_50": 179,
+   "n_req": 180,
+   "a_req": 0.9782608695652174,
+   "n_req_exceeds_n_pairs": false,
+   "excess_estimates": 21,
+   "n_activities_more_estimates_than_gt": 13,
+   "n_single_gt_activities_with_estimate": 6
+  },
+  "leave_one_site_out": [
+   {
+    "site": 1,
+    "n_pass": 115,
+    "n_gt": 338,
+    "pass_b": 0.34023668639053256,
+    "baseline_pass_b_mean": 0.4156656804733727,
+    "delta_b": -0.07542899408284015,
+    "k": 1000
+   },
+   {
+    "site": 3,
+    "n_pass": 120,
+    "n_gt": 342,
+    "pass_b": 0.3508771929824561,
+    "baseline_pass_b_mean": 0.4424824561403509,
+    "delta_b": -0.0916052631578948,
+    "k": 1000
+   },
+   {
+    "site": 4,
+    "n_pass": 130,
+    "n_gt": 364,
+    "pass_b": 0.35714285714285715,
+    "baseline_pass_b_mean": 0.4537445054945056,
+    "delta_b": -0.09660164835164847,
+    "k": 1000
+   },
+   {
+    "site": 5,
+    "n_pass": 133,
+    "n_gt": 362,
+    "pass_b": 0.3674033149171271,
+    "baseline_pass_b_mean": 0.4586795580110497,
+    "delta_b": -0.09127624309392263,
+    "k": 1000
+   },
+   {
+    "site": 6,
+    "n_pass": 116,
+    "n_gt": 347,
+    "pass_b": 0.33429394812680113,
+    "baseline_pass_b_mean": 0.4328242074927954,
+    "delta_b": -0.09853025936599424,
+    "k": 1000
+   },
+   {
+    "site": 8,
+    "n_pass": 131,
+    "n_gt": 368,
+    "pass_b": 0.35597826086956524,
+    "baseline_pass_b_mean": 0.43986141304347826,
+    "delta_b": -0.08388315217391301,
+    "k": 1000
+   },
+   {
+    "site": 10,
+    "n_pass": 115,
+    "n_gt": 302,
+    "pass_b": 0.38079470198675497,
+    "baseline_pass_b_mean": 0.4713509933774835,
+    "delta_b": -0.09055629139072852,
+    "k": 1000
+   },
+   {
+    "site": 11,
+    "n_pass": 127,
+    "n_gt": 320,
+    "pass_b": 0.396875,
+    "baseline_pass_b_mean": 0.504284375,
+    "delta_b": -0.10740937500000003,
+    "k": 1000
+   },
+   {
+    "site": 12,
+    "n_pass": 135,
+    "n_gt": 369,
+    "pass_b": 0.36585365853658536,
+    "baseline_pass_b_mean": 0.4458780487804878,
+    "delta_b": -0.08002439024390245,
+    "k": 1000
+   },
+   {
+    "site": 13,
+    "n_pass": 138,
+    "n_gt": 380,
+    "pass_b": 0.3631578947368421,
+    "baseline_pass_b_mean": 0.4527421052631579,
+    "delta_b": -0.08958421052631577,
+    "k": 1000
+   }
+  ],
+  "site_bootstrap": {
+   "seed": 20261115,
+   "replicates": 2000,
+   "n_sites": 10,
+   "pass_b_p025": 0.2743394102245318,
+   "pass_b_p975": 0.45638619603943986,
+   "delta_b_p025": -0.14513465425531924,
+   "delta_b_p975": -0.04658025244495834
+  },
+  "note": "목표 경계(±9)는 짝을 독립으로 본 이항 1 SE이고 현장 군집을 반영하지 않는다. 현장이 10곳뿐이라 현장 부트스트랩 구간은 실제 불확도보다 좁게 나올 수 있다."
+ },
+ "report_failure": null,
+ "run": {
+  "started_at": "2026-11-16T15:15:20+09:00",
+  "finished_at": "2026-11-16T15:23:49+09:00",
+  "elapsed_s": 509.7,
+  "argv": [
+   "analysis/processing/m33_j1_judge.py",
+   "--boxes",
+   "runs/eval/m33/r2/fold0/j1_boxes_post.csv",
+   "--boxes-sha256",
+   "f6a63e667cf10f7e5c8f0f55bca08c6804622ed1bf1416f039fb487c4a8b8137",
+   "--pp-config-sha256",
+   "eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f",
+   "--prefix",
+   "depth_4tu_j1",
+   "--report",
+   "signal"
+  ],
+  "head": "1a73ba84a6ce80a75171e17f8b7040e2245f26c3",
+  "versions": {
+   "python": "3.13.18",
+   "numpy": "2.5.4",
+   "scipy": "1.18.1",
+   "pandas": "3.1.0"
+  }
+ }
+}

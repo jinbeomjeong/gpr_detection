@@ -262,8 +262,8 @@
 | R1 → R2 | 실행 | 메인 세션 러너, 예약, 블라인드. R2가 `j1_boxes_{post,pre}.csv`와 `summary.json` `j1_inputs`를 낸다 | long-running-task-monitor(30분 초과 시) |
 | R3 uninjected(IDS) → plan → **C1b** | 실행 후 주입 표 고정 | IDS 미주입 추론 → plan → R3 주입 표 sha(`m33_r3_c1b.json`, 규칙 변경 없음, M3-2 F2 방식) | 커밋 고정. **C1b 커밋 직전(injected 전) verif 확인**: 주입 표·위치·제외 표 sha가 plan 산출과 같고 plan `judgment`가 판정 가능인지 |
 | R3 injected | 실행 | 주입 실현 추론과 P4 | 같음. **P4·P5 판정서 커밋 직전 verif 판정 후 감사** |
-| **C2** | J1 실행 고정 | J1 문서의 자리 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA 채움: J1 후보 생성(J1-1)·판정 래퍼(J1-2) 코드 blob·sha, `eval_depth_4tu.py` blob, `src` tree, 측선·중복·QC 상수·4TU 메타 csv sha, **R2가 낸 `j1_boxes_post.csv`·`j1_boxes_pre.csv` sha**. 이 커밋 뒤 J1 문서에 남은 자리는 없어야 한다 | verif-protocol-auditor가 C2 차이를 확인한다(`placeholder_scan.py`는 `--allow` 없이 종료 0) |
-| J1 판정 | 판정 래퍼 → `depth_4tu_j1_verdict.json`. 뒤이어 보고 실행(pre, fold 1–4, 신호처리 후보) | 메인은 판정 전에 결과를 열지 않는다 | **verif 판정 후 감사**: 판정값, 단언 결과, 실행 PP 구성 sha = C0b, 박스 집합 = PP 후 |
+| **C2** | J1 실행 고정 | J1 문서의 자리 C2·R2_J1_POST_SHA·R2_J1_PRE_SHA 채움: J1 후보 생성(J1-1)·판정 래퍼(J1-2) 코드 blob·sha, `eval_depth_4tu.py` blob, `src` tree, 측선·중복·QC 상수·4TU 메타 csv sha, **R2가 낸 `j1_boxes_post.csv`·`j1_boxes_pre.csv` sha**. 이 커밋 뒤 J1 문서에 남은 자리는 없어야 한다. **상태: 완료**(C2 b6d5d8f가 2f75d3b를 대체, J1 v0.3.5 자리 채움 1a73ba8) | verif-protocol-auditor가 C2 차이를 확인한다(`placeholder_scan.py`는 `--allow` 없이 종료 0) |
+| J1 판정 | 판정 래퍼 → `depth_4tu_j1_verdict.json`. 뒤이어 보고 실행(pre, fold 1–4, 신호처리 후보) | 메인은 판정 전에 결과를 열지 않는다. **상태: 완료**(2026-11-16 실행, HEAD 1a73ba8): 불합격(둘 다) 35/388, 판정서 [`m33_j1_judgment.md`](../processing/m33_j1_judgment.md)(verif 판정 후 감사 차단 0) | **verif 판정 후 감사**: 판정값, 단언 결과, 실행 PP 구성 sha = C0b, 박스 집합 = PP 후 |
 | 마감 | 판정서·보고서 | `m33_*` 문서, §3-5 표, CHECKLIST | integrity-checker → 커밋 |
 | 채택 결정 | 사용자(QB (b)) | §3-5 항목(채택 근거 D0·P4, P5는 작용 확인)을 보고 PP 기본값을 정한다. 켜면 python-expert가 기본값을 바꾸고 결정 기록을 남긴다 | – |
 
