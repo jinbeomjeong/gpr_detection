@@ -49,3 +49,6 @@ analysis/data/out/pb*_std*.txt
 
 # pipe_band 재라벨 가져오기 파일(AIHub 라벨 박스 좌표 포함) - 로컬 전용
 labeling/pipe_band_relabel/local/
+
+# M3-3 ② 재집계 단위 파일(6.4 MB, m33_r3_recall_diag.py로 다시 만듦) - 로컬 전용
+analysis/processing/m33_r3_recall_diag_units.csv
