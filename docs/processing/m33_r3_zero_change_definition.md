@@ -3,7 +3,7 @@
 - 작성: gpr-processing-expert. M3-3 마감 전 3건 중 ①이다. **명세·판정 전용**이고 코드(`src/`·`scripts/`·`analysis/detection/`)는 고치지 않았다. 구현은 §5 명세로 python-expert에 넘긴다.
 - 대상: R3 injected 결과 `runs/eval/m33/r3/injected/`(C1 코드 커밋 `f4ad45e`, `m33_r3_band.py` blob `b499a456fe423b7d8a72fa516a0f2123ae3bd7f4`). P4 판정은 이미 공개됐다([`m33_p4p5_judgment.md`](../experiments/m33_p4p5_judgment.md) §3-3·§9-1). 그래서 이 결과를 열었다.
 - 판정 영향: **없다.** `zero_changed`·`period_changed`는 실현 행에만 쓰이고 `realization_counts`(summary의 세 키)만 읽는다(§1-3). P4 판정값과 J1 판정값은 이 보고 정의와 무관하다.
-- **사용자 결정 2026-11-20**: §7 질문 1은 갈래 **B**(봉인 러너·`src/` 불변, 갈래 A는 구현하지 않음), 질문 2는 대칭 키(`n_zero_changed`·`n_period_changed`가 새 정의, 이전 정의는 `n_zero_changed_exact`·`n_period_changed_exact`), 질문 3은 $\tau_z$ = 0.1 P·$\tau_P$ = 5 %(엄격 `>`, 규칙 이름·사건 수 변화는 보고만), 질문 4는 P4·P5 판정서 §10 공개(cv-detection-expert)·verif 감사 생략. 구현: [`m33_change_defs.py`](../../analysis/detection/m33_change_defs.py), [`m33_r3_change_report.py`](../../analysis/detection/m33_r3_change_report.py), 기준 해시 목록 [`m33_r3_result_hashes.csv`](../../analysis/detection/m33_r3_result_hashes.csv)(`r3/plan`·`r3/injected` 187개), 시험 `tests/test_m33_change_defs.py`.
+- **사용자 결정 2026-11-20**: §7 질문 1은 갈래 **B**(봉인 러너·`src/` 불변, 갈래 A는 구현하지 않음), 질문 2는 대칭 키(`n_zero_changed`·`n_period_changed`가 새 정의, 이전 정의는 `n_zero_changed_exact`·`n_period_changed_exact`), 질문 3은 $\tau_z$ = 0.1 P·$\tau_P$ = 5 %(엄격 `>`, 규칙 이름·사건 수 변화는 보고만), 질문 4는 P4·P5 판정서 §10 공개(cv-detection-expert)·verif 감사 생략. 구현: [`m33_change_defs.py`](../../analysis/detection/m33_change_defs.py), [`m33_r3_change_report.py`](../../analysis/detection/m33_r3_change_report.py), 기준 해시 목록 [`m33_r3_result_hashes.csv`](../../analysis/detection/m33_r3_result_hashes.csv)(`r3/plan`·`r3/injected` 187개), 시험 `tests/test_m33_change_defs.py`. 비교는 구현에서 곱 형태(영점 $|Delta k_z| > 0.1P$, 주기 $|Delta P| > 0.05P$)로 썼다 — 비 형태와는 경계 1 ulp 안에서만 다르다(P4·P5 판정서 §10-2).
 - 재집계 스크립트(읽기 전용, 이 문서와 함께 둠): [`m33_nzero_recount.py`](../../analysis/processing/m33_nzero_recount.py), [`m33_nzero_summary.py`](../../analysis/processing/m33_nzero_summary.py). 출력 `analysis/processing/m33_nzero/`(실현별·측선별 csv, `summary.json`).
 
 ## 0. 결론
@@ -289,7 +289,7 @@ conda run -n gpr-dev python -I -B analysis/detection/m33_r3_change_report.py --w
 
 **갈래 B 대조 기준**
 
-1. 원본 불변: `runs/eval/m33/r3/` 아래 모든 파일 sha256이 도구 시작·끝에서 같고, `uninjected_ids`는 [`m33_r3_upstream_hashes.csv`](../experiments/m33_r3_upstream_hashes.csv)(68행)와도 같다. **이 목록에는 `r3/plan`·`r3/injected`가 없다**(r2 798행 + `r3/uninjected_ids` 68행). 그래서 도구 실행 **전에** 메인 세션이 `r3/plan`·`r3/injected` 전 파일의 sha256 목록을 만들어 커밋해 두기를 권한다(예: `docs/experiments/m33_r3_result_hashes.csv`, 같은 열 `root,path,sha256,bytes,mtime_utc`). 그러면 도구의 시작 목록을 커밋된 기준과 대조할 수 있다(갈래 A도 이 목록이 비교 기준이 된다).
+1. 원본 불변: `runs/eval/m33/r3/` 아래 모든 파일 sha256이 도구 시작·끝에서 같고, `uninjected_ids`는 [`m33_r3_upstream_hashes.csv`](../experiments/m33_r3_upstream_hashes.csv)(68행)와도 같다. **이 목록에는 `r3/plan`·`r3/injected`가 없다**(r2 798행 + `r3/uninjected_ids` 68행). 그래서 도구 실행 **전에** 메인 세션이 `r3/plan`·`r3/injected` 전 파일의 sha256 목록을 만들어 커밋해 두기를 권한다(예: `docs/experiments/m33_r3_result_hashes.csv` — 실제 위치는 `analysis/detection/m33_r3_result_hashes.csv`, 같은 열 `root,path,sha256,bytes,mtime_utc`). 그러면 도구의 시작 목록을 커밋된 기준과 대조할 수 있다(갈래 A도 이 목록이 비교 기준이 된다).
 2. 재현: 실현 2,159개 전부에서 `exact` 플래그와 `(infer_i0, infer_i1)`가 저장값과 같다. `n_zero_changed_exact` = 2,159, `n_period_changed_exact` = 1,245.
 3. P4 판정값은 다시 계산하지 않으므로 기존 `r3/injected/summary.json`의 `p4_adoption_input`이 그대로 판정값이다(1 덕분에 바이트 불변).
 
@@ -315,7 +315,7 @@ P4·P5 판정서 [`m33_p4p5_judgment.md`](../experiments/m33_p4p5_judgment.md)�
 - 판정은 바뀌지 않는다. 근거는 §6-4.
 - 이 개정은 결과를 본 뒤 정한 보고 정의 변경이다(공개 사항).
 
-## 7. 확인 필요 질문
+## 7. 확인 필요 질문(결정됨 2026-11-20, 머리말 6행)
 
 1. **재실행 방식**: 사용자 결정(2026-11-20) "고친 코드로 R3 보고를 다시 실행"을 어느 갈래로 읽을까?
    - B(권고): 새 보고 도구(5-2)가 C1b 표로 주입 자료를 다시 만들어 영점·주기만 다시 잰다. 봉인 blob 불변, GPU 없음, `--workers 4`로 약 10–12분. P4는 다시 계산하지 않으므로 바이트 불변이 자명하다. E3 확장에서 러너를 다시 쓰면 그때 5-1 함수를 러너에 넣는다(E3 봉인에 포함).

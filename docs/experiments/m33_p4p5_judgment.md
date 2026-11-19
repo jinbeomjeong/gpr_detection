@@ -184,6 +184,63 @@
 
 - verif 판정 후 감사는 아래 1·2를 "판정 영향 없음"으로 판단했다. 후속 점검은 다음 담당에게 넘긴다: 1은 python-expert와 gpr-processing-expert, 2는 gpr-processing-expert.
 
-1. **`n_zero_changed` = 2,159(모든 실현)**: 주입 자료로 다시 잰 영점이 배경 영점과 "다르다"는 실현이 전부다. 영점 비교가 분수 샘플의 정확 일치라서 미세 변화까지 센 것으로 보인다. PP는 배경 영점을 쓰므로 판정에는 영향이 없다. 허용 오차를 둔 보고(예: ±0.5 P)로 바꿀지는 python-expert·gpr-processing-expert에 확인할 일이다(규칙 변경 아님, 보고 정의).
+1. **`n_zero_changed` = 2,159(모든 실현)**: 주입 자료로 다시 잰 영점이 배경 영점과 "다르다"는 실현이 전부다. 영점 비교가 분수 샘플의 정확 일치라서 미세 변화까지 센 것으로 보인다. PP는 배경 영점을 쓰므로 판정에는 영향이 없다. 허용 오차를 둔 보고(예: ±0.5 P)로 바꿀지는 python-expert·gpr-processing-expert에 확인할 일이다(규칙 변경 아님, 보고 정의). → **해결(2026-11-20): §10**(보고 정의 개정, 새 `n_zero_changed` 0/2,159, 판정 불변).
 2. **P4 재현율 수준**: IDS 의사 띠 PP 전 재현율 6.5 %(4TU 배경은 2.3 % 이하)는 AIHub crop 띠 재현율(N2-a′ 5 fold 61.3 %, [`2026-11-14_n2a2_baseline.md`](2026-11-14_n2a2_baseline.md))보다 훨씬 낮다. P4 판정에는 문제가 없으나(구조상 실패 불가 기준 1 %p를 넘음), 의사 띠 주입이 검출기에 거의 보이지 않는다는 뜻이라 R3 띠 측정의 해석(생존 비·SNR 축척)을 gpr-processing-expert가 보고 단계에서 검토하기를 권한다.
 3. **바닥 칸 −0.40 %p**(§3-2 2): PP 켬을 정할 때 사용자가 볼 위험 신호다. 규칙상 판정 대상이 아니다.
+
+## 10. 보고 정의 개정 (2026-11-20, `n_zero_changed`·`n_period_changed`)
+
+- 작성: 2026-11-20, cv-detection-expert. M3-3 마감 전 3건 중 ①의 공개다. **§1–§9의 판정·판정값은 바꾸지 않는다.** §3-3의 2,159·1,245는 이전(정확 일치) 정의의 값으로 그대로 둔다.
+- 근거 문서: [`m33_r3_zero_change_definition.md`](../processing/m33_r3_zero_change_definition.md)(gpr-processing-expert, §6-5 공개 문장 초안). 구현 커밋 039074c: [`m33_change_defs.py`](../../analysis/detection/m33_change_defs.py), [`m33_r3_change_report.py`](../../analysis/detection/m33_r3_change_report.py), 기준 해시 목록 [`m33_r3_result_hashes.csv`](../../analysis/detection/m33_r3_result_hashes.csv)(`r3/plan`·`r3/injected` 187개).
+
+### 10-1. 공개 사항: 결과를 본 뒤 정한 개정
+
+- **이 개정은 P4 결과(§3-3 `n_zero_changed` 2,159)를 본 뒤 정한 보고 정의 변경이다.** 판정 규칙([PLAN] §3-5, [RUN] v0.3.6)은 바꾸지 않았다. 두 키는 판정 입력이 아닌 보고값이다.
+- 개정 사유: 이전 정의는 주입 실현에서 다시 잰 영점(분수 샘플, 포락선 피크의 포물선 세분값)과 배경 영점을 **부동소수 정확 일치(`!=`)**로 비교했다. 띠가 DC 제거·dewow·밴드패스·Hilbert 포락선을 거쳐 영점 구간에 새는 1차 섭동(띠 진폭에 선형)까지 "바뀜"으로 셌다. 주기도 정확 일치 비교라 rfft bin 한 칸(0.26–2.1 %)부터 셌다. 두 정의가 서로 다른 분해능을 센 것이다(근거 문서 §1·§3-3).
+- 사용자 결정(2026-11-20): 갈래 B(봉인 러너 `m32_recipe_eval.py`·`m33_r3_band.py`와 `src/`는 고치지 않고 별도 보고 도구로 다시 냄), 키 대칭(`n_zero_changed`·`n_period_changed`가 새 정의, 이전 정의는 `n_zero_changed_exact`·`n_period_changed_exact`), 이 §10으로 공개, verif 감사 생략(판정 결론이 없는 보고 실행, 2026-11-13 결정).
+
+### 10-2. 새 정의
+
+| 키 | 정의 | 경계 |
+|---|---|---|
+| `n_zero_changed` | 영점 사건 라벨(`zero_event_label`)이 다르거나, 한쪽만 `zero_failed`이거나, $|\Delta k_z| > 0.1\,P$ | 엄격 `>`. 규칙 이름·초기 사건 수 변화는 넣지 않고 따로 보고(`n_zero_rule_changed`·`n_zero_events_changed`) |
+| `n_period_changed` | $|P^{inj} - P| > 0.05\,P$ 또는 $P^{inj}$ 측정 실패 | 엄격 `>`. 구현은 곱 형태. 비 형태 $|P^{inj}/P - 1| > 0.05$와는 경계에서 1 ulp만 다르고, 2,159실현에서 두 형태의 수가 같다(아래 재집계 140 = 140) |
+| `n_zero_changed_exact`·`n_period_changed_exact` | 이전 정의(정확 일치) | §3-3에 공개한 값의 정의 |
+
+$\tau_z$ = 0.1 P는 영점 표준 불확도 $\sigma_z$(0.15–0.25 ns)와 같은 크기, $\tau_P$ = 5 %는 `inject.PERIOD_CHECK_TOLERANCE`와 같은 값이다(근거 문서 §3-2·§3-3).
+
+### 10-3. 결과 (`runs/eval/m33/r3_change_report/summary.json`에서 직접)
+
+- 실행: 2026-11-20 01:46:11–01:52:57(+09:00), `status` `ok`, 종료 0, `elapsed_s` 408.3, `--workers 4`, CPU만. HEAD `039074ca538972d6c69c71335034264c59701e4e`, `dirty` false. 161측선(4TU 105, IDS GZ 56), 실현 2,159개(4TU 1,303, IDS 856 = `main_400` 808 + `report_other` 48). 주입은 C1b 표의 결정적 값(시드 20261115, 잡음 없음).
+- 대상 injected 실행: `run_id` `b42c4a70-53da-4db7-b7ba-bb6c0f70a493`, `git_head` `e5b108fbd308a13a169737003ba8454b3cc4226b`, `src_tree_id` `d0e54933f3a0c87cf2b8d43d255e97bd6bb97122`. 입력 `injected_summary` sha256 `af3d09425e555cc19896fc79f76b73e8514955f6be7abc9dd857a0888db71117`(§2와 같음), `c1b_record` `65eec135dc5d8ed7874b63d734d84de9f840374c38a07642571caed51caddbb8`(§2와 같음), `plan_report` `0387d78ed77ed3dbb068ea9bf539e7f2a6fe286ce3eb13af6780b25d71b2a046`(§2와 같음).
+
+| 범위 | 실현 | `n_zero_changed_exact` | **`n_zero_changed`** | `n_zero_label_changed` | `n_zero_rule_changed` | `n_zero_events_changed` | `n_period_changed_exact` | **`n_period_changed`** | `n_period_failed` |
+|---|---|---|---|---|---|---|---|---|---|
+| 전체 | 2,159 | 2,159 | **0** | 0 | 2 | 12 | 1,245 | **140** | 0 |
+| 4TU | 1,303 | 1,303 | 0 | 0 | 2 | 12 | 807 | 93 | 0 |
+| IDS GZ | 856 | 856 | 0 | 0 | 0 | 0 | 438 | 47 | 0 |
+| IDS `main_400`(= P4 범위 `p4_scope_gz_ids_main_400`) | 808 | 808 | 0 | 0 | 0 | 0 | 413 | 47 | 0 |
+| IDS `report_other` | 48 | 48 | 0 | 0 | 0 | 0 | 25 | 0 | 0 |
+
+- **이전 값 재현**: `n_zero_changed_exact` 2,159, `n_period_changed_exact` 1,245로 §3-3 공개값과 같다. 실현별로도 `reproduction.reproduced` true — 실현 id 집합 2,159 = 2,159(빠짐·초과 0), 영점·주기 정확 일치 플래그와 추론 트레이스 범위(`infer_i0`, `infer_i1`)의 저장값 불일치 0. 같은 주입 자료를 다시 만들었다는 뜻이다.
+- **영점 크기**: $|\Delta k_z|/P$ 분위수 0 % 2.11e-12, 50 % 2.89e-6, 90 % 1.10e-4, 99 % 1.46e-3, 100 % **0.01177**(4TU). IDS 최대 0.00222. $|\Delta t_z|$ 최댓값 **0.0321 ns**(4TU), IDS 0.00408 ns. 문턱 0.1 P의 약 1/8이다.
+- **주기 크기**: $|\Delta P|/P$ 분위수 50 % 0.58 %, 90 % 3.66 %, 99 % 21.1 %, 100 % **50.0 %**(IDS).
+- **영 시험**(`null_test`): 161측선 모두 배경을 같은 경로로 다시 잰 영점·주기가 `context` 값과 정확히 같다(`zero_not_equal_lines`·`period_not_equal_lines`·`line_zero_differs_lines` 모두 빈 목록, `passed` true). 비교 경로 자체는 치우치지 않았다.
+- **r3/ 파일 sha 불변**: 도구가 시작 때 잰 `runs/eval/m33/r3/` 전 파일 255개의 sha256이 추적 해시 목록(`m33_r3_result_hashes.csv` 187 + [`m33_r3_upstream_hashes.csv`](m33_r3_upstream_hashes.csv)의 `r3/uninjected_ids` 68)과 같았고(어기면 종료 2), 끝에서 다시 잰 목록도 같다(`end_checks.tree_changes` 빈 값). 코드 blob 16개도 시작 = 끝(`code_blob_changes`·`code_blob_unmeasured` 빈 값), `m33_r3_band.py` blob `b499a456fe423b7d8a72fa516a0f2123ae3bd7f4`는 C1 봉인값과 같다.
+- **독립 재집계**(이 판정서 작성자, [`m33_p4p5_s10_check.py`](../../analysis/detection/m33_p4p5_s10_check.py), `realizations.csv` 원 열에서 다시 셈): 새 `n_zero_changed` 0, `n_period_changed` 140(곱 형태·비 형태 모두 140), `_exact` 2,159·1,245, 라벨·실패 변화 0, 규칙 변화 2, 사건 수 변화 12, 저장값 일치 2,159/2,159(영점·주기·추론 범위). 시작·끝 트리 목록 255개 = 추적 목록 255개. summary.json과 모두 같다.
+- 출력 파일 sha256(2026-11-20, `runs/` 아래라 git 밖 — 보존되지 않음): `summary.json` `69b5c9b8ab5f38b7528b1ca369f6b6726b3e2f3db3555d0a966b697fd2f5704c`, `realizations.csv` `bf199e39d45aba1695d1257daf90792184fe12c3aca524a23ba364388de8c041`, `lines.csv` `26b98646400548e71ebb1c3178cadffd58468642b4651cb8e4e299c477566dd2`, `r3_tree_sha256_start.csv` = `_end.csv` `c9c599f85f4f789bdffb3de551d2addc0266d19fc9861af53f6643180b041187`.
+
+### 10-4. P4·P5·J1 판정값이 바뀌지 않는 근거
+
+1. **구조**: `zero_changed`·`period_changed`는 실현 행에만 쓰이고 `realization_counts`(보고 키)만 읽는다. P4 입력(`p4_inputs`·`match_units`·`evaluate_p4_value`)은 이 값을 읽지 않는다. PP의 영점은 배경 측선 값이다(근거 문서 §1-3, [RUN] §3-1 4).
+2. **봉인 러너·결과 불변**: 보고 도구는 봉인 러너와 `src/`를 import만 하고 고치지 않았다(blob 시작 = 끝, C1 봉인값과 같음). 추론·PP·생존 비를 돌리지 않았다. `runs/eval/m33/r3/` 255개 파일이 실행 전후 추적 목록과 같으므로 P4 판정값이 든 `r3/injected/summary.json`(`p4_adoption_input`)은 바이트 그대로다.
+3. **다시 계산하지 않음**: P4(`no_effect`, `recall_delta` 0.0 %p)·P5(0, 구조상 0)·J1(불합격, [`m33_j1_judgment.md`](../processing/m33_j1_judgment.md))은 다시 계산하지 않았다. P5 입력(R1)과 J1 입력(R2 박스 `r2/fold0/j1_boxes_post.csv` 등)은 이 도구가 읽거나 쓰지 않으며, J1 봉인 목록(`m33_j1_seal.py` `SEALED_BLOBS`)에 `analysis/detection/` 파일은 없다(근거 문서 §6-3).
+
+### 10-5. 남은 관찰 (②로 넘김)
+
+- 주기 > 5 % 실현은 몇 측선에 몰린다(이 판정서 재집계): 4TU 93실현이 41/105측선, IDS 47실현이 21/56측선이고 IDS는 `LID10074`·`LID10001` 두 측선이 각 6실현이다. 이런 실현은 배경과 다른 L1 세로 축척으로 추론됐다. **②(R3 의사 띠 재현율 검토)에서 본다.** 판정에는 영향이 없다(박스와 정답이 같은 영상 좌표에서 비교됨).
+
+## 문서 이력
+
+- 2026-11-16: 작성(P4·P5 판정, §1–§9). verif 판정 후 감사·integrity 반영.
+- 2026-11-20: §10 추가(`n_zero_changed`·`n_period_changed` 보고 정의 개정 공개, 결과를 본 뒤 정한 개정). §9-1에 해결 위치 표시. 판정·판정값 변경 없음.
