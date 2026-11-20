@@ -1,0 +1,40 @@
+{
+ "schema": "m33_e3x_seal2/1",
+ "pool_csv_sha256_lf": "06f0078374704d8ce95e3bdc499caa3d967feeb25eecf8d24a623ea544007c11",
+ "plan_files_sha256_lf": {
+  "hyperbola_positions.csv": "ad4ac3b544b2a0dc3a9aaa71f85d99ee106564e67c403fa2e3a8f9e5c2b1eaff",
+  "band_positions.csv": "6817075541fda4fcc5dccd45168b21b7d3ffd6e43aa96629a43b55a1c8af415e",
+  "band_arms.csv": "66aad2fba14d6161286b8eefaf7088c76c2e1c172a153f83df00db8cec8db609",
+  "lines.csv": "a079a5cc2488878e1bbf80a76651ea15ac7fb4269e3ad6f4a6d90f530b69a75b",
+  "exclusions.csv": "4369750153e2b3059884be74284c614a1007059a9d07fdfcad6914e31407a875"
+ },
+ "plan_report_sha256_lf": "eaa9682414b61d1f35d52ada3923bd1877c5d251badf683f98d4e81ef8136c50",
+ "code_blobs": {
+  "analysis/detection/m33_e3x.py": "b601daf6d54d5717ae5386c5a1bdd4288f0c1e0b",
+  "analysis/detection/m33_e3x_place.py": "e22665181b010e45e0a8fdb5ecfe5efcf84e64d0",
+  "analysis/detection/m33_e3x_pool.py": "a3452bd59c7886a0944a1c217714b5cf1b2c3e93",
+  "analysis/detection/m33_e3x_judge.py": "0da693fda4ded97212b31c5831ebcbf3be9eb5c4",
+  "analysis/detection/m31_d1_common.py": "0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72",
+  "analysis/detection/m32_aihub_perturb.py": "320ce955a7acbcd8956cde7901234cf61e19ba45",
+  "analysis/detection/m32_pipe_responses.py": "5d065b3a807b41df04ff81098df86ba9ec747f58",
+  "analysis/detection/m32_recipe_eval.py": "ded84a93b95003a5920bf41f73ad1d0436b9ef14",
+  "analysis/detection/m32_recipe_inputs.py": "7f4815c5582086408a56a2002bf51d6002826a62",
+  "analysis/detection/m32_recipe_match.py": "7e17f060947073dbfcf4e3701a6e0505bffa9547",
+  "analysis/detection/m33_change_defs.py": "7a411d644f28275daaa4076ae9bd5456fd15e945",
+  "analysis/detection/m33_inputs.py": "ababaa50bc0371f90c55b18b0f0e7192fc267a74",
+  "analysis/detection/m33_r3_band.py": "b499a456fe423b7d8a72fa516a0f2123ae3bd7f4",
+  "analysis/detection/m33_r3_p4.py": "888f3dc9ac209400c71bbb29cf337cc4581f8f3b",
+  "src/gpr_detection/preprocess/to_image.py": "233e47ef22f825dc24449b7e5567fe8a47719d9a",
+  "src/gpr_detection/eval/inject.py": "2d88ff0a25c5cbc1bb7ca8698ba422c633f5b531",
+  "src/gpr_detection/pipeline.py": "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1",
+  "src/gpr_detection/detect/yolo.py": "505ff04d228c9e41272144fc263b7912b7568065"
+ },
+ "src_tree_id": "d0e54933f3a0c87cf2b8d43d255e97bd6bb97122",
+ "plan_head": "38c05cbf69f179f94bcb7ae25082dd4e01dca8ae",
+ "plan_run_id": "aea5035a-31ff-4f02-855d-d6b4d1bf89b1",
+ "seeds": {
+  "pool": 20261120,
+  "plan": 20261122,
+  "texture": 20261123
+ }
+}
