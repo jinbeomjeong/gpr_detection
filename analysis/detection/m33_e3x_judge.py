@@ -1,7 +1,7 @@
 """M3-3 pre-close item 3 (E3x) judgment tool: units -> estimates -> CI -> decision.
 
 Spec: ``docs/processing/m33_e3x_plan.md`` v0.3 (seal 1, 72b0140) §3 and
-appendix A-4, with the statistics review
+appendix A-4 (v0.5: the input paths and identity below), with the statistics review
 ``docs/processing/m33_e3x_stats_review.md`` S1-S6 and its additional review
 (boundary rules (1)-(5), check 1 (d)).
 
@@ -30,13 +30,24 @@ matches the current code blobs, ``src`` tree and plan tables. The
 un-injected 0.001 records are used when present (R-d baseline), else
 ``report_only.rd_baseline`` is ``null``.
 
-Outputs (``runs/eval/m33/e3x/judgment/``, refused if it exists):
+v0.5 (plan §5-1, §5-4, A-4): the inputs are the retry folders
+``runs/eval/m33/e3x_retry/injected`` and ``e3x_retry/uninjected001`` and the
+output is ``e3x_retry/judgment`` (``e3x_retry<k>`` for a later try).
+Refused before anything is read (exit 2): an injected, un-injected or
+output folder under the first-try root ``runs/eval/m33/e3x`` (the first
+try's un-injected output is never the R-d baseline, v5-3). The injected run and
+the un-injected run (when its ``summary.json`` exists) must both carry the
+given seal record's sha (``run_identity.seal2.seal_record_sha256_lf``) and
+its code blobs (v5-3).
+
+Outputs (``runs/eval/m33/e3x_retry/judgment/``, refused if it exists):
 ``judgment.json`` and ``units_<ID>.csv`` per hypothesis. Stdout carries no
 estimate; its last line is ``{"status", "out_dir", "n_hypotheses",
 "elapsed_s"}``.
 
 Exit codes: 0 ``ok``; 2 ``input_error`` (input refused, injected not
-judgeable, output exists); 3 ``error``.
+judgeable, output exists, a first-try folder, runs of another identity);
+3 ``error``.
 """
 
 import argparse
@@ -101,9 +112,9 @@ HH2_MIN_MODELS = 12
 HH1_OFF_REJECTION_MAX = 0.20
 HH3_REJECTION_MAX = 0.30
 HYPOTHESES = ("HH1", "HH2", "HH3", "HB1", "HB1b", "HB2")
-DEFAULT_INJECTED = e3x.DEFAULT_OUT_ROOT / "injected"
-DEFAULT_UNINJECTED = e3x.DEFAULT_OUT_ROOT / "uninjected001"
-DEFAULT_OUT = e3x.DEFAULT_OUT_ROOT / "judgment"
+DEFAULT_INJECTED = e3x.RETRY_OUT_ROOT / "injected"
+DEFAULT_UNINJECTED = e3x.RETRY_OUT_ROOT / "uninjected001"
+DEFAULT_OUT = e3x.RETRY_OUT_ROOT / "judgment"
 EXIT_CODES = {"ok": 0, "input_error": 2, "error": 3}
 
 logger = logging.getLogger("m33_e3x_judge")
@@ -1922,6 +1933,52 @@ def fold_agreement(
 # ================================================================== inputs
 
 
+def assert_retry_paths(injected: Path, uninjected: Path, out_dir: Path) -> None:
+    """Refuse first-try folders as inputs or output (v0.5, A-4).
+
+    Path checks only: nothing under the refused folders is opened, listed
+    or hashed. Which retry folders belong together is not decided from the
+    paths; :func:`assert_run_identities` asserts one seal record and one set
+    of code blobs.
+
+    Raises:
+        inputs.InputError: For a folder under ``runs/eval/m33/e3x``.
+    """
+    named = {"injected": injected, "uninjected": uninjected, "out": out_dir}
+    first_try = [name for name, path in named.items() if e3x.is_first_try_path(path)]
+    if first_try:
+        raise inputs.InputError(f"first-try folder refused for {first_try}")
+
+
+def _seal_identity(summary: Mapping) -> tuple[str | None, dict | None]:
+    identity = summary.get("run_identity") or {}
+    seal = identity.get("seal2") or {}
+    return seal.get("seal_record_sha256_lf"), identity.get("code_blobs")
+
+
+def assert_run_identities(
+    injected_summary: Mapping, uninjected_dir: Path, record: Path
+) -> None:
+    """Injected and un-injected runs of the given seal record and its blobs (v5-3).
+
+    The un-injected run is checked when its ``summary.json`` exists (it is
+    optional: without it the R-d baseline is ``null``).
+
+    Raises:
+        inputs.InputError: For a run of another seal record or code blobs.
+    """
+    seal = json.loads(record.read_text(encoding="utf-8"))
+    expected = (inputs.sha256_file_lf(record), seal.get("code_blobs"))
+    if _seal_identity(injected_summary) != expected:
+        raise inputs.InputError("injected run is not of the given seal record")
+    summary_path = uninjected_dir / "summary.json"
+    if not summary_path.is_file():
+        return
+    uninjected = json.loads(summary_path.read_text(encoding="utf-8"))
+    if _seal_identity(uninjected) != expected:
+        raise inputs.InputError("un-injected run is not of the given seal record")
+
+
 def read_inputs(
     injected: Path, record: Path, plan_dir: Path
 ) -> tuple[dict, list, list]:
@@ -1989,9 +2046,11 @@ def write_units(out_dir: Path, tables: Mapping[str, Sequence]) -> dict[str, str]
 def run(args: argparse.Namespace) -> dict:
     """Judge the injected run; returns the ``judgment.json`` document."""
     out_dir: Path = args.out
+    assert_retry_paths(args.injected, args.uninjected, out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise inputs.InputError(f"output exists: {out_dir}")
     summary, hyperbola, band = read_inputs(args.injected, args.seal_record, args.plan)
+    assert_run_identities(summary, args.uninjected, args.seal_record)
     planned = planned_band_counts(args.plan)
     baseline = None
     baseline_path = args.uninjected / "uninjected001_records.csv"
@@ -2081,9 +2140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--injected", type=Path, default=DEFAULT_INJECTED)
     parser.add_argument("--uninjected", type=Path, default=DEFAULT_UNINJECTED)
-    parser.add_argument(
-        "--plan", type=Path, default=e3x.DEFAULT_OUT_ROOT / e3x.PLAN_DIR
-    )
+    parser.add_argument("--plan", type=Path, default=e3x.SEALED_PLAN_DIR)
     parser.add_argument("--seal-record", type=Path, default=e3x.SEAL2_RECORD)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args(argv)

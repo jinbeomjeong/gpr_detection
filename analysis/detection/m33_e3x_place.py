@@ -1,9 +1,12 @@
 """M3-3 pre-close item 3 (E3x): placement and field transforms (pure functions).
 
-Spec: ``docs/processing/m33_e3x_plan.md`` v0.4 (v0.3 was seal 1, 72b0140), §2-3
-(hyperbola positions, ``r_edge`` of the on/off difference field), §2-4 (band
-rows by a pure vertical shift with one re-measured correction, one end taper
-per position), §2-7 (texture fields) and appendix A-2.
+Spec: ``docs/processing/m33_e3x_plan.md`` v0.5 (v0.3 was seal 1, 72b0140; v0.4
+seal 2, 729d19c; v0.5 seal 2 r1), §2-3 (hyperbola positions, ``r_edge`` of
+the on/off difference field), §2-4 (band rows by a pure vertical shift with
+one re-measured correction, one end taper per position), §2-7 (texture
+fields) and appendix A-2. v0.5 changes only the texture check (the jitter
+energy identity of the length-n DFT and the ``r_N`` bound, record fields)
+and docstrings; every realization is bit for bit the v0.4 one.
 
 Nothing here reads a file or runs a detector; the runner ``m33_e3x.py`` and
 the tests share these definitions. Two pieces are copies of analysis scripts
@@ -39,7 +42,7 @@ import math
 import zlib
 from collections import Counter, deque
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from enum import StrEnum
 
 import numpy as np
@@ -82,6 +85,31 @@ AMPLITUDE_TEXTURE_DB = 2.5
 JITTER_PERIODS = (0.1, 0.2)
 KERNEL_HALF_WIDTH_SIGMAS = 4.0
 """The Gaussian kernel is cut at +-4 standard deviations (weight < 3.4e-4)."""
+JITTER_ENERGY_IDENTITY_TOL = 1e-12
+"""Largest ``|E'(x)/E - 1 + r_N sin^2(pi delta(x))|`` of a jittered column (v0.5)."""
+JITTER_NYQUIST_FRACTION_MAX = 1e-6
+"""Largest Nyquist-bin energy fraction ``r_N`` of an apex column (v0.5)."""
+JITTER_CUTOFF_CYCLES_PER_SAMPLE = 0.4
+"""0.8 Nyquist: the record field ``jitter_above_cutoff_fraction`` counts above it."""
+LINEAR_SHIFT_PAD_FACTOR = 4
+"""The wrap-free reference shift works on a 4n zero-padded column."""
+TEXTURE_ASSERTED_FIELDS = (
+    "w_mean",
+    "w_sd",
+    "amplitude_mean_square",
+    "jitter_sd",
+    "jitter_energy_identity",
+    "jitter_nyquist_fraction",
+)
+"""``TextureCheck`` fields that :meth:`TextureCheck.passes` asserts (§5-2 5)."""
+TEXTURE_RECORD_ONLY_FIELDS = (
+    "jitter_above_cutoff_fraction",
+    "jitter_wrap_rel",
+    "jitter_start_step_rel",
+    "jitter_delay_absmax_box_P",
+    "jitter_delay_absmax_taper_P",
+)
+"""``TextureCheck`` fields that are recorded but never asserted (§5-2 5)."""
 
 JUDGED_SNR_DB = (12.0, 18.0)
 MANIPULATED_MIN_DB = 0.0
@@ -1000,9 +1028,16 @@ def time_jitter(
 ) -> np.ndarray:
     """The apex column delayed by ``delta(x)`` per band column (FFT phase shift).
 
-    A circular phase rotation over the column length: the column is already
-    low-passed to 0.8 Nyquist, so the band-limited shift is exact and its
-    energy is kept.
+    A circular phase rotation over the length-n DFT of the column (``rfft`` ->
+    ``exp(-i 2 pi f delta)`` -> ``irfft``, length n). The column is cut from
+    the line grid, so it is not strictly band-limited in that DFT (v0.5,
+    plan §2-7):
+
+    * for even n the Nyquist bin keeps only its real part after the rotation,
+      so the energy of a shifted column is ``E'/E = 1 - r_N sin^2(pi delta)``
+      (``r_N``: :func:`nyquist_fraction`); for odd n the energy is kept;
+    * the shift is circular, so the last ``|delta|`` rows wrap round to the
+      other end of the column.
 
     Returns:
         ``[n_rows, len(w)]``: one shifted copy of ``column`` per band column.
@@ -1040,50 +1075,170 @@ def jittered_band(
     return replace(band, field=shifted * weights[None, :])
 
 
+def _parseval_weights(n_rows: int) -> np.ndarray:
+    """``rfft`` bin weights of Parseval's sum: 1 for bin 0 and Nyquist, else 2."""
+    weights = np.full(n_rows // 2 + 1, 2.0)
+    weights[0] = 1.0
+    if n_rows % 2 == 0:
+        weights[-1] = 1.0
+    return weights
+
+
+def nyquist_fraction(column: np.ndarray) -> float:
+    """``r_N = (|X_{n/2}|^2 / n) / E`` of a column; 0 for an odd length (§2-7)."""
+    n_rows = column.shape[0]
+    if n_rows % 2:
+        return 0.0
+    spectrum = np.fft.rfft(np.asarray(column, dtype=np.float64))
+    energy = float(np.sum(np.asarray(column, dtype=np.float64) ** 2))
+    return float(abs(spectrum[-1]) ** 2 / n_rows) / energy
+
+
+def above_cutoff_fraction(column: np.ndarray) -> float:
+    """Parseval energy of the bins above 0.8 Nyquist over the column energy."""
+    values = np.asarray(column, dtype=np.float64)
+    n_rows = values.shape[0]
+    spectrum = np.fft.rfft(values)
+    above = np.fft.rfftfreq(n_rows) > JITTER_CUTOFF_CYCLES_PER_SAMPLE
+    weighted = _parseval_weights(n_rows)[above] * np.abs(spectrum[above]) ** 2
+    return float(np.sum(weighted) / n_rows) / float(np.sum(values**2))
+
+
+def linear_time_jitter(
+    column: np.ndarray, w: np.ndarray, sigma_periods: float, period_samples: float
+) -> np.ndarray:
+    """:func:`time_jitter` without the wrap: the same rotation on a 4n zero pad.
+
+    The column sits at rows ``[n, 2n)`` of a ``4n`` zero column; the result
+    is cropped back to those rows (record field ``jitter_wrap_rel`` only).
+    """
+    n_rows = column.shape[0]
+    padded = np.zeros(LINEAR_SHIFT_PAD_FACTOR * n_rows)
+    padded[n_rows : 2 * n_rows] = column
+    shifted = time_jitter(padded, w, sigma_periods, period_samples)
+    return shifted[n_rows : 2 * n_rows]
+
+
+def start_step_fraction(column: np.ndarray) -> float:
+    """``|x|`` of the first non-zero row over ``max |x|`` (0 for a zero column)."""
+    nonzero = np.flatnonzero(column)
+    if nonzero.size == 0:
+        return 0.0
+    return float(abs(column[nonzero[0]]) / np.max(np.abs(column)))
+
+
+def _absmax(values: np.ndarray) -> float:
+    return float(np.max(np.abs(values))) if values.size else 0.0
+
+
 @dataclass(frozen=True)
 class TextureCheck:
-    """Precheck 5 errors of one position's texture fields (relative)."""
+    """Precheck 5 errors and record values of one position's textures (v0.5).
+
+    Asserted (:meth:`passes`): ``w_mean``, ``w_sd``, ``amplitude_mean_square``
+    and ``jitter_sd`` (relative errors, 1e-12), ``jitter_energy_identity``
+    (per sigma, ``max_x |E'(x)/E - 1 + r_N sin^2(pi delta(x))|`` over every
+    band column, ``JITTER_ENERGY_IDENTITY_TOL``) and
+    ``jitter_nyquist_fraction`` (``r_N``, ``JITTER_NYQUIST_FRACTION_MAX``).
+
+    Recorded only (never in :meth:`passes`): ``jitter_above_cutoff_fraction``,
+    ``jitter_wrap_rel`` (per sigma: max |circular - linear shift| over
+    max |column|), ``jitter_start_step_rel`` and the largest ``|delta|`` in
+    periods on the box columns and on the taper columns (outside the flat
+    columns), per sigma.
+    """
 
     w_mean: float
     w_sd: float
     amplitude_mean_square: float
     jitter_sd: dict[float, float]
-    jitter_energy: dict[float, float]
+    jitter_energy_identity: dict[float, float]
+    jitter_nyquist_fraction: float
+    jitter_above_cutoff_fraction: float
+    jitter_wrap_rel: dict[float, float]
+    jitter_start_step_rel: float
+    jitter_delay_absmax_box_P: dict[float, float]
+    jitter_delay_absmax_taper_P: dict[float, float]
 
     def passes(self) -> bool:
-        """Every error within its precheck 5 tolerance."""
+        """Every asserted error within its precheck 5 tolerance (bounds included)."""
         return (
             self.w_mean <= 1e-12
             and self.w_sd <= 1e-12
             and self.amplitude_mean_square <= 1e-12
             and all(value <= 1e-12 for value in self.jitter_sd.values())
-            and all(value <= 1e-9 for value in self.jitter_energy.values())
+            and all(
+                value <= JITTER_ENERGY_IDENTITY_TOL
+                for value in self.jitter_energy_identity.values()
+            )
+            and self.jitter_nyquist_fraction <= JITTER_NYQUIST_FRACTION_MAX
         )
+
+    def as_record(self) -> dict[str, float]:
+        """Flat values for json: ``name``, or ``name@<sigma>`` for a per-sigma field."""
+        record = {}
+        for name, value in asdict(self).items():
+            if isinstance(value, dict):
+                for sigma, item in value.items():
+                    record[f"{name}@{sigma:g}"] = float(item)
+            else:
+                record[name] = float(value)
+        return record
+
+
+def _energy_identity_residual(
+    column: np.ndarray, shifted: np.ndarray, delays: np.ndarray, r_n: float
+) -> float:
+    """``max_x |E'(x)/E - 1 + r_N sin^2(pi delta(x))|`` (plan §2-7 identity)."""
+    ratio = np.sum(shifted**2, axis=0) / float(np.sum(column**2))
+    return float(np.max(np.abs(ratio - 1.0 + r_n * np.sin(np.pi * delays) ** 2)))
+
+
+def _taper_delays(delays: np.ndarray, flat_columns: tuple[int, int]) -> np.ndarray:
+    first, last = flat_columns
+    return np.concatenate([delays[:first], delays[last + 1 :]])
 
 
 def texture_check(
     band: inject.BandPatch, w: np.ndarray, multipliers: np.ndarray, period: float
 ) -> TextureCheck:
-    """Plan §5-2 precheck 5 on one position (also asserted in the main run)."""
+    """Plan §5-2 precheck 5 (v0.5) on one position (also asserted in the main run).
+
+    The jitter energy is checked against the length-n DFT identity of
+    :func:`time_jitter` (the even-n Nyquist loss), not against the unshifted
+    energy; ``r_N`` itself is bounded by ``JITTER_NYQUIST_FRACTION_MAX``.
+    The realization is unchanged: this only reads the fields.
+    """
     first, last = band.flat_columns
+    box_first, box_last = band.box_columns
     flat_w = w[first : last + 1]
     flat_m = multipliers[first : last + 1]
     column = apex_column(band)
-    energy = float(np.sum(column**2))
-    jitter_sd, jitter_energy = {}, {}
+    r_n = nyquist_fraction(column)
+    peak = float(np.max(np.abs(column)))
+    jitter_sd, identity, wrap, box_delay, taper_delay = {}, {}, {}, {}, {}
     for sigma in JITTER_PERIODS:
-        delays = jitter_delays(w, sigma, period)[first : last + 1]
+        all_delays = jitter_delays(w, sigma, period)
+        delays = all_delays[first : last + 1]
         jitter_sd[sigma] = abs(float(delays.std()) / (sigma * period) - 1.0)
         shifted = time_jitter(column, w, sigma, period)
-        jitter_energy[sigma] = float(
-            np.max(np.abs(np.sum(shifted**2, axis=0) / energy - 1.0))
-        )
+        identity[sigma] = _energy_identity_residual(column, shifted, all_delays, r_n)
+        linear = linear_time_jitter(column, w, sigma, period)
+        wrap[sigma] = float(np.max(np.abs(shifted - linear))) / peak
+        box_delay[sigma] = _absmax(all_delays[box_first : box_last + 1]) / period
+        taper_delay[sigma] = _absmax(_taper_delays(all_delays, (first, last))) / period
     return TextureCheck(
         w_mean=abs(float(flat_w.mean())),
         w_sd=abs(float(flat_w.std()) - 1.0),
         amplitude_mean_square=abs(float(np.mean(flat_m**2)) - 1.0),
         jitter_sd=jitter_sd,
-        jitter_energy=jitter_energy,
+        jitter_energy_identity=identity,
+        jitter_nyquist_fraction=r_n,
+        jitter_above_cutoff_fraction=above_cutoff_fraction(column),
+        jitter_wrap_rel=wrap,
+        jitter_start_step_rel=start_step_fraction(column),
+        jitter_delay_absmax_box_P=box_delay,
+        jitter_delay_absmax_taper_P=taper_delay,
     )
 
 

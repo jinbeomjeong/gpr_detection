@@ -1,13 +1,14 @@
 # M3-3 마감 전 ③ — E3 확장 실험(E3x) 설계와 사전 등록 규칙 초안
 
-- 상태: **v0.4(2026-11-20, gpr-processing-expert). 봉인 1(커밋 72b0140, v0.3) 뒤, 봉인 2 전의 새 판.** 봉인 2에서 이 판이 효력을 갖는다.
+- 상태: **v0.5(2026-11-20, gpr-processing-expert). 봉인 2(커밋 729d19c, v0.4)와 injected 1회차 `e3x_defect`(결과 미열람) 뒤의 새 판.** 봉인 2 r1(봉인 2 새 판)에서 이 판이 효력을 갖는다. v0.4는 봉인 2에서 효력을 가졌고 1회차 실행의 규칙이다.
 - 판 이력(상세는 끝의 변경 이력)
   - v0.1(2026-11-20): 최초 초안.
   - v0.2(2026-11-20): EM 검토([EMV] [`m33_e3x_em_review.md`](m33_e3x_em_review.md))와 cv 검토([CVV] [`../experiments/m33_e3x_cv_review.md`](../experiments/m33_e3x_cv_review.md))의 수정 문장, 사용자 결정 1–7(아래 첫 표)을 반영.
   - v0.3(2026-11-20): 통계 검토([STV] [`m33_e3x_stats_review.md`](m33_e3x_stats_review.md))의 수정 문장 S1–S6과 사용자 결정 v3-1–v3-8(아래 둘째 표)을 반영. 이어서 §9 질문 1을 해소해 [STV] 추가 검토의 경계 수정 문장을 반영(v3-9). 이동 한도 12 P에 맞춰 설계 집계를 다시 돌렸고(§2-4), stats가 넘긴 지표 의미 항목은 §3-7에 적었다. **봉인 1(72b0140)은 이 판이다.**
-  - **v0.4(2026-11-20): plan 1회차(run_id `e3689ada-4071-4f2a-9d5f-d9defc68b64c`, 종료 1 `e3x_defect`)에서 드러난 두 결함과 두 문구 모호를 사용자 결정 v4-1–v4-5(아래 셋째 표)로 고침.** 띠 이동의 원래 위 끝 재측정 보정(§2-4), $r_\text{edge}$ 차 장 정의(§2-3), 짧은 팔 중심(§2-4), T 조건 단위(§2-4), 병합 시험 보강(A-5 13). 결과 전·검출 무관 개정이다(plan 단계는 검출기를 쓰지 않고, 블라인드 경로는 만들어지지 않았다). 진단: [PDD] [`analysis/processing/m33_e3x_plandefect_diag.py`](../../analysis/processing/m33_e3x_plandefect_diag.py)·[`m33_e3x_plandefect_diag2.py`](../../analysis/processing/m33_e3x_plandefect_diag2.py)와 출력 `m33_e3x_plandefect_diag*.json`·`*.csv`(plan 표·배경 측선·응답 라이브러리만 읽음, 봉인 2에 넣음).
-- 남은 순서: 봉인 1(완료, 72b0140) → python-expert 구현 → pool 실행 → plan 1회차(`e3x_defect`, §4 공개 19·20) → **v0.4(이 판)** → python-expert v0.4 구현 변경 → plan 재실행(§5-4: 봉인 2 전 재실행 허용) → **봉인 2(이 문서 v0.4 + 구현 blob + 배경 목록 `m33_e3x_pool.csv` + plan 표 + [PDD] 진단 파일)** → stats-design-expert `[모드] 평가`(새 plan 수 기반 MDE, §6 8항) → precheck → verif 실행 전 감사 → 본 실행(GPU, 메인 세션) → 판정 도구 → 판정서(gpr-processing-expert) → verif 판정 후 감사.
-- 코드(`src/`·`scripts/`·`analysis/detection/`)는 고치지 않았다. v0.4에서는 진단 스크립트 둘([PDD], 위)을 더 썼다(plan 표·배경 측선·응답 라이브러리만 읽음, 검출 출력 없음, 난수 없음). v0.3까지는 설계용 집계 스크립트 하나만 썼다: [`analysis/processing/m33_e3x_design_feasibility.py`](../../analysis/processing/m33_e3x_design_feasibility.py) → `m33_e3x_design_feasibility.json`(M3-2 단계 C와 R3의 로컬 plan 표(`runs/**/plan/positions.csv`, 저장소 밖, 판정 완료 자료)와 `m32_stageA_lines_ids.csv`만 읽음, 검출 출력 없음, 입력 sha256은 json `inputs`에 기록). v0.3에서 띠 이동 한도 적격 집계(`band_shift_limit_eligibility`, 8 P·12 P)를 더하고 입력 sha256·슬래시 경로를 넣어 다시 돌렸다(스키마 `m33_e3x_design_feasibility/2`, 기존 키 값은 그대로). 두 파일은 봉인 1 커밋에 넣는다(사용자 결정 2026-11-20). sha256: 스크립트 `7f4ef8d8fa2bcf76acd34afdc0fcc9a249a1bba5a9ba0b3fc9fdb2cabf019c4d`, json `3dcfb7eac028e6760f49803401cec5341dd55d312592961cb07642a532a19d0c`. v0.2의 4TU 활동 겹침 수(§2-1)는 `analysis/detection/m33_r2_lines.csv`·`analysis/processing/m32_stageA_lines_4tu.csv`를 scratchpad 스크립트로 센 값이다(검출 출력 없음).
+  - **v0.4(2026-11-20): plan 1회차(run_id `e3689ada-4071-4f2a-9d5f-d9defc68b64c`, 종료 1 `e3x_defect`)에서 드러난 두 결함과 두 문구 모호를 사용자 결정 v4-1–v4-5(아래 셋째 표)로 고침.** 띠 이동의 원래 위 끝 재측정 보정(§2-4), $r_\text{edge}$ 차 장 정의(§2-3), 짧은 팔 중심(§2-4), T 조건 단위(§2-4), 병합 시험 보강(A-5 13). 결과 전·검출 무관 개정이다(plan 단계는 검출기를 쓰지 않고, 블라인드 경로는 만들어지지 않았다). 진단: [PDD] [`analysis/processing/m33_e3x_plandefect_diag.py`](../../analysis/processing/m33_e3x_plandefect_diag.py)·[`m33_e3x_plandefect_diag2.py`](../../analysis/processing/m33_e3x_plandefect_diag2.py)와 출력 `m33_e3x_plandefect_diag*.json`·`*.csv`(plan 표·배경 측선·응답 라이브러리만 읽음, 봉인 2에 넣음). **봉인 2(729d19c)는 이 판이다.**
+  - **v0.5(2026-11-20): injected 1회차(HEAD d720fe3, 종료 1 `e3x_defect`, 3,119 s, 결과 미열람)의 실패 단언 `texture_check`(필드 `jitter_energy`)를 사용자 결정 v5-1–v5-6(아래 넷째 표)으로 고침.** 시간 흔들림 에너지 단언을 해석적 손실 식과 물리 한계로 바꾸었다(§2-7, §5-2 5, A-2, A-5 4). CPU 구현 단언 전부를 전 측선 precheck 10으로 넓혔다(§5-2). 재시도 경로를 `runs/eval/m33/e3x_retry/`로 정했다(§5-1, §5-4). 공개 22–28을 더했다(§4). 판정 가설·판정 규칙·문턱·시드·실현(비트)·plan 표는 바꾸지 않았다. 근거: [TDR] [`m33_e3x_texture_defect_review.md`](m33_e3x_texture_defect_review.md), [EMC] [`m33_e3x_texture_em_check.md`](m33_e3x_texture_em_check.md).
+- 남은 순서: 봉인 1(완료, 72b0140) → python-expert 구현 → pool 실행 → plan 1회차(`e3x_defect`, §4 공개 19·20) → **v0.4(이 판)** → python-expert v0.4 구현 변경 → plan 재실행(§5-4: 봉인 2 전 재실행 허용) → **봉인 2(이 문서 v0.4 + 구현 blob + 배경 목록 `m33_e3x_pool.csv` + plan 표 + [PDD] 진단 파일)** → stats-design-expert `[모드] 평가`(새 plan 수 기반 MDE, §6 8항) → precheck → verif 실행 전 감사 → 본 실행 1회차(injected `e3x_defect`, §4 공개 22) → **v0.5(이 판)** → python-expert v0.5 구현 → integrity-checker → **봉인 2 r1**(이 문서 v0.5 + 새 blob + `m33_e3x_seal2_r1.json`, plan 표·`m33_e3x_pool.csv`는 봉인 2 sha 그대로 재사용, 사용자 결정 v5-5) → precheck r1(1–10, 사본) → verif 실행 전 감사 재확인 → uninjected001 재시도(`e3x_retry/`, v5-3) → injected 재시도(`e3x_retry/`) → 판정 도구 → 판정서(gpr-processing-expert) → verif 판정 후 감사. stats MDE 평가(d720fe3)는 plan 표가 같으므로 다시 하지 않는다(v0.5는 보고 전용 R-c 단언과 실행 경로만 바꿈).
+- 코드(`src/`·`scripts/`·`analysis/detection/`)는 고치지 않았다. v0.5에서는 진단 스크립트 둘([TDR] [`analysis/processing/m33_e3x_texture_defect/`](../../analysis/processing/m33_e3x_texture_defect/) `wrap_scan.py`·`w_scan.py`, 저장소 밖 python-expert 진단 `texture_scan.py`를 import)을 더 썼다(plan 표·precheck plan 표·배경 측선·응답 라이브러리만 읽음, 검출 출력 없음, 새 난수 없음). v0.4에서는 진단 스크립트 둘([PDD], 위)을 더 썼다(plan 표·배경 측선·응답 라이브러리만 읽음, 검출 출력 없음, 난수 없음). v0.3까지는 설계용 집계 스크립트 하나만 썼다: [`analysis/processing/m33_e3x_design_feasibility.py`](../../analysis/processing/m33_e3x_design_feasibility.py) → `m33_e3x_design_feasibility.json`(M3-2 단계 C와 R3의 로컬 plan 표(`runs/**/plan/positions.csv`, 저장소 밖, 판정 완료 자료)와 `m32_stageA_lines_ids.csv`만 읽음, 검출 출력 없음, 입력 sha256은 json `inputs`에 기록). v0.3에서 띠 이동 한도 적격 집계(`band_shift_limit_eligibility`, 8 P·12 P)를 더하고 입력 sha256·슬래시 경로를 넣어 다시 돌렸다(스키마 `m33_e3x_design_feasibility/2`, 기존 키 값은 그대로). 두 파일은 봉인 1 커밋에 넣는다(사용자 결정 2026-11-20). sha256: 스크립트 `7f4ef8d8fa2bcf76acd34afdc0fcc9a249a1bba5a9ba0b3fc9fdb2cabf019c4d`, json `3dcfb7eac028e6760f49803401cec5341dd55d312592961cb07642a532a19d0c`. v0.2의 4TU 활동 겹침 수(§2-1)는 `analysis/detection/m33_r2_lines.csv`·`analysis/processing/m32_stageA_lines_4tu.csv`를 scratchpad 스크립트로 센 값이다(검출 출력 없음).
 - 입력 근거
   - [Y0] [`m33_y0_detection_diag.md`](m33_y0_detection_diag.md) §0·§5(권고 2·7·8)·§7
   - [R2R] [`m33_r3_band_recall_review.md`](m33_r3_band_recall_review.md) §0·§2-3·§2-4·§4·§5
@@ -16,6 +17,7 @@
   - [PLAN] [`../experiments/m33_cross_domain_plan.md`](../experiments/m33_cross_domain_plan.md) §2-3·§3-4
   - [EMR] [`m32_em_review.md`](m32_em_review.md) 부록 D(띠 모드 물리)
   - [EMV] EM 검토(위), [CVV] cv 검토(위), [STV] 통계 검토(위, 항목 1–12·수정 문장 S1–S6·사용자 결정 절·추가 검토)
+  - [TDR] [`m33_e3x_texture_defect_review.md`](m33_e3x_texture_defect_review.md)(injected 1회차 질감 단언 결함 검토, v0.5), [EMC] [`m33_e3x_texture_em_check.md`](m33_e3x_texture_em_check.md)(그 EM 확인, §4 수정 문구)
   - [CVR] [`../experiments/m32_cv_review.md`](../experiments/m32_cv_review.md) 부록 B-4(M3-2 cv 검토, 일대일 일치 규칙)
   - 코드: `src/gpr_detection/eval/inject.py`, `src/gpr_detection/pipeline.py`, `analysis/detection/m33_r3_band.py`, `m32_recipe_eval.py`, `m32_recipe_match.py`, `analysis/processing/m33_y0_diag_infer.py`(E3 테이퍼 제거 구현)
 - 깊이(m)는 이 실험에서 쓰지 않는다(검출 진단). 4TU 깊이표는 열지 않는다.
@@ -56,6 +58,17 @@
 | v4-4 | §2-4 절차 1의 T 조건이 측선 단위로 적혀 있음 | $L_\text{long}+2T>N$·$L_\text{short}\le T$는 **(측선, 모델)** 단위 | §2-4 |
 | v4-5 | (cv 권고, 규칙 문구 아님) 병합 출력 보존 시험 | A-5 시험 13에 두 줄 추가. 단언 "적중 ⇒ 최고 점수 > 0.25"는 설계 요구로 유지 | A-5 13 |
 
+**사용자 결정(2026-11-20, injected 1회차 `e3x_defect` 뒤, v0.5, [TDR] Q1–Q5·[EMC] Q-a·Q-b)**
+
+| # | 문제(injected 1회차) | 결정 | 반영 |
+|---|---|---|---|
+| v5-1 | `texture_check.jitter_energy`가 5위치에서 실패(짝수 길이 열의 나이퀴스트 빈 손실, $r_N\le1.03\times10^{-8}$) | [TDR] Q1 **(b2)**: 실현은 그대로 두고, 단언을 해석적 손실 식(모든 열, 1e-12)과 $r_N\le10^{-6}$으로 바꿈 | §2-7, §5-2 5, A-2, A-5 4 |
+| v5-2 | precheck 2측선이 결함을 못 잡음(두 측선 $r_N$ e-17–e-18) | CPU 구현 단언 전부를 전 측선 precheck 10으로, GPU 항목 전에(사용자 결정 2026-11-20) | §5-2 10, §5-4 |
+| v5-3 | 1회차 uninjected001 출력의 정체성이 옛 blob | [TDR] Q2 (가): uninjected001도 `runs/eval/m33/e3x_retry/`에서 다시 돌림 | §5-1, §5-4, A-4 |
+| v5-4 | 질감장 평탄 열 정규화의 실현 성질([TDR] §1-4, [EMC] §3) | [TDR] Q3 (가): 모형 유지 + 공개 26([EMC] §4-3 문안) | §2-7, §1-2 R-c, §4 공개 26 |
+| v5-5 | plan 표 재사용 근거 | [TDR] Q5: diff 근거로 재사용. 질감 코드는 plan 경로에 없다. plan을 다시 돌리지 않는다 | §0 머리, §5-4, A-1 |
+| v5-6 | EM 확인([TDR] Q4) 뒤 남은 질문 | [EMC] Q-a: 공개 27(합성 창 절단의 기존 성질)을 넣음. Q-b: $r_N$ 한계 $10^{-6}$ 유지, 근거 문장은 [EMC] §4-2대로 | §2-4, §2-7, §4 공개 25·27 |
+
 ## 0. 요약
 
 | 묶음 | 무엇을 바꾸나 | 판정 가설 | 보고 전용 |
@@ -91,7 +104,7 @@
 |---|---|---|---|
 | R-a | 띠 SNR 24 dB | 방향을 미리 정할 근거가 없다(18 dB까지 포화 없음, [R2R] §2-2) | 24 − 18 dB 짝 차와 95 % CI(아래 보고 전용 구간 규칙). CI 상한 < 0이면 "24 dB에서 포화 시작", 하한 > 0이면 "24 dB까지 포화 없음" |
 | R-b | 같은 실현을 $P^*$ 4.2 px로 다시 영상화(레시피 `e3x_p42`) | 운용 레시피가 아니다([R2R] §4 2) | §2-6 차이의 차 $I_{px}$ |
-| R-c | 띠 질감 H7: (i) 진폭 질감 σ_g 2.5 dB, (ii) 시간 흔들림 σ_δ 0.1 P, (iii) 0.2 P | 질감 모형이 가정이다([R2R] §4 7) | 질감 − 평탄 짝 차와 측정 $coh$를 갈래마다 낸다. (i)의 차 95 % CI가 ±δ 안이면 "**AGC 뒤 실효 0.5–0.9 dB의 진폭 질감**은 무관". (iii)의 CI 하한 > 0이면 "AIHub 수준 $coh$의 시간 질감이 재현율을 올린다(H7 지지, 추정)", 상한 < 0이면 "내린다", 그 밖이면 "시간 질감 효과는 정하지 못함". $coh$는 대비와 섞여 있으므로 $c_\text{lat}$과 함께 낸다 |
+| R-c | 띠 질감 H7: (i) 진폭 질감 σ_g 2.5 dB, (ii) 시간 흔들림 σ_δ 0.1 P, (iii) 0.2 P | 질감 모형이 가정이다([R2R] §4 7) | 질감 − 평탄 짝 차와 측정 $coh$를 갈래마다 낸다. (i)의 차 95 % CI가 ±δ 안이면 "**AGC 뒤 실효 0.5–0.9 dB의 진폭 질감**은 무관". (iii)의 CI 하한 > 0이면 "AIHub 수준 $coh$의 시간 질감이 재현율을 올린다(H7 지지, 추정)", 상한 < 0이면 "내린다", 그 밖이면 "시간 질감 효과는 정하지 못함". $coh$는 대비와 섞여 있으므로 $c_\text{lat}$과 함께 낸다. (v0.5, 문구 표지만 붙고 매핑은 그대로) (ii)·(iii)의 문장에는 "실현은 주로 굽거나 기운 띠이고, 정답 행은 흔들리지 않은 열 기준이다(공개 26)"를 붙인다 |
 | R-d | 정답 자리 최고 점수(conf 0.001, **병합 전 타일 박스**)와 같은 자리의 **주입 전 기준값**(미주입 측선 0.001 추론) | [Y0] §5 5, [R2R] §0 H3 미확인 | 정의는 §3-1. 놓친 단위의 최고 점수를 `no_box` / ≤ 0.01 / (0.01, 0.1] / (0.1, 0.25] / (0.25, 1](병합·배정 손실)로 나눈 비율. (0.1, 0.25]가 과반이면 "약하게 봤다", `no_box`와 ≤ 0.01의 합이 과반이면 "못 봤다". 같은 구간 분포를 주입 전 기준값으로도 내고, 주입 뒤 − 주입 전 짝 차를 함께 낸다 |
 | R-e | 6 dB(쌍곡선), 배경별 효과, fold별 방향 일치 수, PP S3 값과 S3에서 결정 라벨이 달라지는 가설 수, 영점·주기 변경 수([ZD] 키), 생존 진폭 비, 주기 > 5 % 바뀐 단위를 뺀 민감도, HH1 전 단위 값, HH1 조작 층의 SNR별 값(12 dB 단위만·18 dB 단위만), $|r_\text{edge}(p)+s|<1.5$ dB인 경계 단위를 뺀 HH1 민감도, 음성 대조 위치에서 켬·끔 팔의 `period_inj`가 다른 단위 수, 이동량 \|Δ\| ≤ 4 P 대 > 4 P와 ≤ 8 P(v0.2 한도) 대 > 8 P 민감도(이동량은 보정 뒤 $n_2$, §2-4), 구간·모델별 이동량 분포, R3 공유 활동을 뺀 4TU 민감도(§2-1), 개구 끝 열 ±1 P 안 conf > 0.25 박스 수(켬/끔) | 판정 가설의 보조 | 판정 문구를 바꾸지 않는다. 단 §3-3의 조작 점검 규칙(음성 대조, HB1 대비)은 판정서 문구에 붙고, 음성 대조 $|\hat\Delta_\text{neg}|\ge 0.05$만은 HH1 라벨을 바꾼다 |
 | R-f | 쌍곡선 모델 선택표(§3-5 규칙) | [Y0] §5 권고 2·8의 산출물이다 | 규칙은 §3-5에 고정 |
@@ -211,7 +224,7 @@ $$
 | $v_\text{line}$ | `inject.line_velocity_m_per_ns`(메타 εr, 없으면 0.1 m/ns **가정**) | m/ns |
 
 - 구현은 `dataclasses.replace(response, reference_time_ns=…)` 뒤 기존 `build_response_patch` → `build_band_patch(taper_traces=T_pos)` 경로다. `top_depth_m`는 바꾸지 않는다. 정렬·리샘플·꼭짓점 행·정답 상자·창 끝 테이퍼·구역 판정은 기존 코드가 다시 계산한다. `src/`는 바뀌지 않는다.
-- **이동의 성질**([EMV] 1절): 이동은 꼭짓점 열의 정수 샘플 평행 이동이다. 파형(H 맞춤, $P_\text{line}$ Gabor)과 국소 SNR은 모든 구간에서 같다. 2.5D 가중은 원래 깊이 값으로 남고, 그 오차는 정답 상자 아래 끝에서 ≤ 0.5 dB(원래 깊이 중앙), 최악 1.1 dB다. 정답 −20 dB 경계는 약 0.03 P(0.2 px) 움직여 판정 영향이 없다. HB1·HB1b는 **같은 파형·같은 국소 SNR에서 세로 행의 효과**를 잰다. 실제 깊이 증가에 따르는 SNR 감소와 주파수 하강(Q 30에서 28 → 90 px 약 9 %)은 포함하지 않는다. 관–지표 다중 반사는 2Δt가 아니라 Δt만 움직이지만 크기가 ≤ −21 dB(2.5D 뒤)라 12–18 dB에서 σ 아래다.
+- **이동의 성질**([EMV] 1절): 이동은 꼭짓점 열의 정수 샘플 평행 이동이다. 파형(H 맞춤, $P_\text{line}$ Gabor)과 국소 SNR은 모든 구간에서 같다. 2.5D 가중은 원래 깊이 값으로 남고, 그 오차는 정답 상자 아래 끝에서 ≤ 0.5 dB(원래 깊이 중앙), 최악 1.1 dB다. 정답 −20 dB 경계는 약 0.03 P(0.2 px) 움직여 판정 영향이 없다. HB1·HB1b는 **같은 파형·같은 국소 SNR에서 세로 행의 효과**를 잰다. 실제 깊이 증가에 따르는 SNR 감소와 주파수 하강(Q 30에서 28 → 90 px 약 9 %)은 포함하지 않는다. 관–지표 다중 반사는 2Δt가 아니라 Δt만 움직이지만 크기가 ≤ −21 dB(2.5D 뒤)라 12–18 dB에서 σ 아래다. (v0.5, [EMC] §2-3) "같은 파형"은 **띠 정답 구간**에 대한 말이다. 응답 장은 합성 창 [0, `window_ns`] 밖을 0으로 둔다. 그래서 창 시작 계단(최대 1.8 % A, 정답 위 끝보다 ≥ 2.08 P 위)과 창 끝 1 P 감쇠(정답 아래 끝보다 ≥ 3.37 P 아래)가 기록 안에 드는지는 행마다 다르다(창 끝이 기록 안인 비율 28 px 83/101 → 68 px 21/101). 둘 다 정답 상자 밖이라 재현율·덮임에 들어가지 않는다(공개 27). HB2(같은 행의 긴 팔 대 짧은 팔)는 이 꼬리가 같다.
 - **테이퍼를 위치마다 고정한 이유**([EMV] 2절): $d'$로 T를 다시 정하면 4TU 28 → 90 px에서 T가 14 → 24트레이스로 바뀌어 긴 팔 평탄 비율 0.83 → 0.70, 짧은 팔 0.53 → 0.42가 된다. 덮임에 몇 %p가 들어가 δ와 같은 크기로 세로 행 효과와 섞인다. 또 모델 εr 깊이와 측선 속도를 섞는 식이 된다. 실제 더 깊은 띠는 끝 전이가 $\sqrt{d'/d}$배 길다는 것은 공개한다(§4).
 - **이동 한도 12 P는 설계 상수(모델 적격 범위)이며 물리 한도가 아니다**(사용자 결정 v3-4, [STV] 8, [EMV] 3절: 순수 이동에서 띠 장은 이동량과 무관하고, 2.5D 오차는 12 P 이동에서도 ≤ 1.2 dB).
   - 명목 $P^\ast$ 6 px에서 28·47·68 px 모두에 들려면 원래 $y_1^{(0)}$이 약 [−4, 100] px(8 P였다면 [20, 76])여야 하고, 90 px에는 원래 $y_1^{(0)}$ ≥ 약 18 px(8 P였다면 42 px)인 모델이 들어온다.
@@ -298,8 +311,38 @@ $$
 | flat | 평탄 열(끝 테이퍼 밖, `flat_columns`). 평균·표준편차는 **평탄 열 위에서** 정규화한다(그러면 평탄 열에서 표준편차가 정확히 1) | [EMV] 5절 구현 위험 |
 
 - (i) 진폭 질감: $g(x)=\sigma_g w(x)$, $\sigma_g$ = 2.5 dB(**가정**, 2–3 dB의 가운데), $m(x)=10^{g/20}\big/\sqrt{\overline{10^{g/10}}_\text{flat}}$를 띠 장의 열에 곱한다. 평탄 열 평균 제곱 1이라 SNR 정의(평탄 구간 σ·신호 진폭)가 그대로다. 부수 효과: 로그정규 배율의 중앙값이 −0.73 dB, 평균이 −0.36 dB가 되어, 질감 − 평탄 짝 차에 약 −0.7 ~ −1.4 %p의 진폭 몫이 섞인다(R3 기울기 12 → 18 dB 약 1.9 %p/dB 기준, [EMV] 5절, 공개).
-- (ii)·(iii) 시간 흔들림: $\delta(x)=\sigma_\delta P_\text{line} w(x)$ 샘플, $\sigma_\delta \in \{0.1, 0.2\}$ P. 꼭짓점 열을 열마다 $\delta(x)$만큼 대역 제한 위상 이동한다(FFT 위상 회전. 이미 0.8 나이퀴스트 저역통과가 걸린 열이라 정확함). 진폭은 그대로라 SNR 정의가 바뀌지 않는다. 정답 세로 범위는 흔들리지 않은 열 기준으로 둔다.
-- 예측([EMV] 5절 계산, 4TU AGC 창, 60회 중앙값): r0의 트레이스별 AGC(8/$f_c$)가 진폭 배율을 대부분 상쇄한다. 띠 안 진폭 질감(표본 약 1.9 dB)의 실효값은 12 dB에서 약 0.9 dB, 18 dB에서 약 0.5 dB다. 상자 $coh$는 평탄 대비 0.01–0.035만 낮아진다(12 dB 0.78 → 0.74, 18 dB 0.94 → 0.92). AIHub 수준(0.28)은 진폭 질감으로는 닿지 않는다. 시간 흔들림은 AGC가 지우지 못해, 0.1 P에서 0.57(12 dB)·0.68(18 dB), 0.2 P에서 0.21·0.23으로 AIHub 수준에 닿는다. 원인 후보는 지면결합 안테나 아래 지표 요철·들뜸, 속도 불균질, 관 처짐이다(추정). $coh$는 대비에도 끌린다. [R2R] §2-3 주입 0–6 dB(대비가 AIHub 수준)에서 이미 $coh$ 0.38–0.54였으므로, "0.90 대 0.28"의 상당 부분은 대비 차다.
+- (ii)·(iii) 시간 흔들림(v0.5 개정): $\delta(x)=\sigma_\delta P_\text{line} w(x)$ 샘플, $\sigma_\delta \in \{0.1, 0.2\}$ P.
+  - 방법: 꼭짓점 열(평탄 팔과 같은 열, 길이 $n$ 행)을 띠 열마다 $\delta(x)$만큼 **그 열 길이의 원형 DFT에서 위상 회전**으로 옮긴다(`rfft` → $e^{-i2\pi f\delta}$ → `irfft`, 길이 $n$).
+  - 대역 제한: 열은 합성 영역에서 파형 교체 필터의 Gabor 목표($k$ 1.3)로 사실상 대역 제한된다(0.6 나이퀴스트 위 목표 크기 약 1e-100). 0.8 나이퀴스트 저역통과는 작동하지 않는 조건이다.
+  - 누설: 측선 격자에서는 합성 창 [0, `window_ns`] 밖을 0으로 둔다. 그래서 창 시작 행(합성 시각 0)과 창 끝에 계단이 생기고, 열이 기록 끝을 넘으면 열 끝이 비주기 경계가 된다. 길이 $n$ 원형 DFT에서는 엄밀히 대역 제한이 아니다. $r_N$은 이 계단의 교대합 경계항으로 설명된다([EMC] §1-2·§2-1).
+  - v0.4의 "이미 0.8 나이퀴스트 저역통과가 걸린 열이라 정확함"은 [EMV] 5절이 계산 없이 쓴 틀린 전제였다(공개 22). 그래서 두 가지가 생긴다.
+    - (1) $n$이 짝수면 나이퀴스트 빈이 회전 뒤 실수부만 남는다. 열 에너지가 아래 식만큼 정확히 준다. 표본 격자에서 지연된 나이퀴스트 성분의 성질이다($\cos\pi(k-\delta)=\cos\pi k\cos\pi\delta$, 정수 $k$).
+    - (2) 원형 이동이라 열 끝 $\lvert\delta\rvert$ 행이 반대쪽 끝으로 돈다.
+  - 크기: injected 1회차 전 측선 진단([TDR] §1)에서 $r_N\le1.03\times10^{-8}$였다(진폭 −4.5e-8 dB 이하). 돈 성분은 꼭짓점 열 최대의 0.75 % 이하였다(−42 dB, 판정 SNR의 σ보다 24 dB 이상 아래). 아래 끝 잔여가 큰 위치(0.91 %)는 열이 기록 끝을 넘은 행이라 평탄 팔에는 들어가지 않는다([EMC] §2-2). 둘 다 물리적으로 무시한다.
+  - 이득은 흔들리지 않은 열의 $A$(`signal_amplitude`)로 정하므로 SNR 정의는 바뀌지 않는다. 정답 세로 범위는 흔들리지 않은 열 기준으로 둔다.
+
+$$
+\frac{E'(x)}{E}=1-r_N\sin^2\!\big(\pi\delta(x)\big),\qquad
+r_N=\frac{|X_{n/2}|^2/n}{E}\ (n\ \text{짝수}),\quad r_N=0\ (n\ \text{홀수}),\qquad E=\sum_k x[k]^2
+$$
+
+| 기호 | 뜻 | 단위 |
+|---|---|---|
+| $x[k]$, $n$ | 띠의 꼭짓점 열(`apex_column(band)`, 단계 (1)–(3) 전 합성 장)과 그 행 수 | 진폭, 샘플 |
+| $X_m$ | $x$의 `rfft` 계수($m=0..\lfloor n/2\rfloor$) | 진폭 |
+| $E$, $E'(x)$ | 이동 전 열 에너지, 띠 열 $x$의 이동 뒤 에너지 | 진폭² |
+| $r_N$ | 나이퀴스트 빈 에너지 비(파스발 가중 1) | – |
+| $\delta(x)$ | 띠 열 $x$의 지연 | 샘플 |
+
+  - 단언(§5-2 5): 모든 띠 열에서 $\lvert E'(x)/E-1+r_N\sin^2(\pi\delta(x))\rvert\le10^{-12}$, 그리고 $r_N\le10^{-6}$.
+    - 항등식 문턱 1e-12: 이론적으로 0인 양의 반올림 잔차다. float64 합의 최악 상대 오차($n\varepsilon\approx8\times10^{-14}$)의 10배 이상이고, 관측 최대 7.5e-15의 약 130배다.
+    - $r_N\le10^{-6}$([EMC] §4-2): 흔들림이 줄이는 열 에너지를 $10^{-6}$(진폭 −4.3e-6 dB) 이하로 묶는다. $r_N\approx(s/2)^2/(nE)$($s$ = 계단 높이)이므로 이 한계는 열 최대의 약 11–29 % 계단에 해당한다. 따라서 큰 절단이나 구현 결함만 잡고, 절단이 보이지 않는다는 보장은 하지 않는다. 절단 크기는 기록 항목(원형 이동 차, 시작 계단)으로 본다. 관측 최대 1.03e-8은 약 1.4 % 계단에 해당한다.
+    - 두 문턱은 진단 분포를 본 뒤 정한 구현 단언이고 판정 문턱이 아니다(공개 25).
+  - **실현 성질**(v0.5, 공개 26, [EMC] §3):
+    - 평탄 구간이 핵 표준편차의 약 3.6배(3.1–3.9, 과정 상관 SD의 약 2.5배)뿐이다. 그래서 위치마다 δ(x)는 주로 완만한 굽음·기울기다(상자 열 δ 분산의 중앙 약 56 %가 1차 추세). 이 성질은 정규화 방식과 무관한 기하의 성질이다.
+    - $w$를 평탄 열 위에서 정규화하므로 모든 위치에서 평탄 열 δ의 SD가 정확히 σ_δ다. 분산이 작게 뽑힌 실현은 최대 약 12배 증폭된다. 평탄 밖으로 외삽된 |δ|도 커진다(σ_δ 0.2에서 상자 열 최대 중앙 0.39 P·최대 1.17 P, 테이퍼 열 최대 1.69 P).
+    - $coh$는 고정 상자의 행 평균으로 재므로 기울기도 무작위 흔들림만큼 $coh$를 낮춘다. 그러나 검출기에게는 기운 띠도 일관된 띠다. 그래서 이 갈래는 "거친 띠"보다 "굽거나 기운 띠"의 효과에 가깝다.
+- 예측([EMV] 5절 계산, 4TU AGC 창, 60회 중앙값): r0의 트레이스별 AGC(8/$f_c$)가 진폭 배율을 대부분 상쇄한다. 띠 안 진폭 질감(표본 약 1.9 dB)의 실효값은 12 dB에서 약 0.9 dB, 18 dB에서 약 0.5 dB다. 상자 $coh$는 평탄 대비 0.01–0.035만 낮아진다(12 dB 0.78 → 0.74, 18 dB 0.94 → 0.92). AIHub 수준(0.28)은 진폭 질감으로는 닿지 않는다. 시간 흔들림은 AGC가 지우지 못해, 0.1 P에서 0.57(12 dB)·0.68(18 dB), 0.2 P에서 0.21·0.23으로 AIHub 수준에 닿는다. 원인 후보는 지면결합 안테나 아래 지표 요철·들뜸, 속도 불균질, 관 처짐이다(추정). $coh$는 대비에도 끌린다. [R2R] §2-3 주입 0–6 dB(대비가 AIHub 수준)에서 이미 $coh$ 0.38–0.54였으므로, "0.90 대 0.28"의 상당 부분은 대비 차다. (v0.5, 공개 26) 이 예측 계산의 정규화 기준은 기록에 없다(띠 안 표본 질감이 명목의 약 0.76배였다). 구현은 평탄 열 SD를 명목에 맞추므로, 띠 안 실효 흔들림이 예측 계산보다 약 1.15–1.3배 크다(추정). 그래서 시간 흔들림 $coh$는 예측보다 낮을 수 있다(잡음 없는 대리 계산에서 σ_δ 0.2는 약 0.7배, [EMC] §3).
 
 ## 3. 판정 규칙
 
@@ -476,7 +519,7 @@ $$
   6. R-c 진폭 질감은 r0 AGC 뒤 실효 0.5–0.9 dB다. $coh$는 대비와 섞여 있다. 평탄 열 평균 제곱 정규화로 진폭 질감 갈래에 −0.7 ~ −1.4 %p의 진폭 몫이 섞인다.
   7. IDS 배경은 가설을 만든 R3와 같은 53측선이다. 4TU 배경은 새 측선이지만 최대 24측선이 R3와 활동을 공유한다(plan 보고에 실제 수). 결론은 이 배경 집합에 대한 것이다.
   8. $P^*$ 4.2(0.70배)는 확인 축척 범위(0.74) 밖이다(R-b).
-  9. 설계 집계에 M3-2 단계 C와 R3의 로컬 plan 표(저장소 밖, 판정 완료 자료, 검출 출력 아님, 입력 sha256은 feasibility json `inputs`), R2 측선 목록을 읽었다. 통계 검토(stats-design-expert)는 분산 근거로 판정이 끝난 공개 자료 `runs/eval/m32_recipe_v2/injected/r0/fold*/inj_matches.csv`(단계 C R1, 2026-11-15 판정 완료)와 `analysis/processing/m33_r3_recall_diag_units.csv`(R3, P4 공개)를 읽었다([STV] 오염 보고). E3x 결과는 누구도 열지 않았다(v0.3 작성 때 `runs/eval/m33/e3x*` 폴더 없음. v0.4 작성 때 `runs/eval/m33/e3x/`에는 검출 무관 `plan/`만 있었고 §5-3 블라인드 경로는 하나도 없었다. v0.4 진단 [PDD]는 plan 표·배경 측선·응답 라이브러리만 읽었다).
+  9. 설계 집계에 M3-2 단계 C와 R3의 로컬 plan 표(저장소 밖, 판정 완료 자료, 검출 출력 아님, 입력 sha256은 feasibility json `inputs`), R2 측선 목록을 읽었다. 통계 검토(stats-design-expert)는 분산 근거로 판정이 끝난 공개 자료 `runs/eval/m32_recipe_v2/injected/r0/fold*/inj_matches.csv`(단계 C R1, 2026-11-15 판정 완료)와 `analysis/processing/m33_r3_recall_diag_units.csv`(R3, P4 공개)를 읽었다([STV] 오염 보고). E3x 결과는 누구도 열지 않았다(v0.3 작성 때 `runs/eval/m33/e3x*` 폴더 없음. v0.4 작성 때 `runs/eval/m33/e3x/`에는 검출 무관 `plan/`만 있었고 §5-3 블라인드 경로는 하나도 없었다. v0.4 진단 [PDD]는 plan 표·배경 측선·응답 라이브러리만 읽었다. v0.5 작성 때의 열람 범위는 공개 23·25).
   10. 판정 구간은 Satterthwaite t 구간이다(v3-1). 시뮬레이션에서 백분위 층화 군집 부트스트랩 구간(99.17 %)은 IDS 유효 존 수가 약 6.5로 작아 선형 5가설 결합 거짓 주장이 약 0.094(목표 0.05)였고, Satterthwaite는 0.041(0.036–0.048)이었다. 대가로 MDE가 약 10–33 % 크다. BCa는 과소 포괄이라 쓰지 않았다. 수준은 정확히 $1-0.05/6$이고 `negligible`도 같은 구간을 쓴다(CI 교정 여유 때문에 유지, [STV] 2).
   11. $|M^\ast_e|$, HH1·HH3·음성 대조 대상 위치 수, HH3 30 dB 거부 비율의 분모는 $M^\ast$에 의존하므로 결과 의존이다. HH3은 선택 통계에 한 팔이 들어가 원리상 편향될 수 있으나 시뮬레이션 편향 +0.0009로 무시할 만하다.
   12. 검정력(시뮬레이션 추정, [STV]): HH1 `negligible`은 사실상 닿기 어렵다(Δ = 0에서도 확률 0.08–0.17). HH1 결과는 사실상 `confirmed_*` 또는 `inconclusive`다. HH2는 참값이 약 0.65를 넘어야 확인될 가능성이 크다. plan 수 기반 MDE는 판정서 §6 8항에 적는다.
@@ -489,6 +532,48 @@ $$
   19. **plan 1회차와 v0.4 개정(결과 전·검출 무관)**: 봉인 1(v0.3, 72b0140) 뒤 구현으로 돌린 plan 1회차(run_id `e3689ada-4071-4f2a-9d5f-d9defc68b64c`, 2026-11-20, CPU, 검출기 없음)가 종료 1 `e3x_defect`로 끝났다. 원인은 띠 세로 이동의 `shift_mismatch` 7건(목표와 차 1.03–1.48 샘플, M01 4·M08 2·M09 1, 원래 위 끝이 기록 위 끝 0.8–2.5 P)이다. 진단([PDD]): 장의 평행 이동은 정확했고(상대 1.8e-14), 원래 패치의 위 끝 재측정만 단계 (1)–(3)의 기록 시작 경계 처리와 합성 창 잘림 때문에 1 샘플 달랐다. v0.4는 재측정 보정 1회($n_2$)와 팔 사이 평행 이동 단언을 넣고 1 샘플 단언을 유지했다(§2-4, 사용자 결정 v4-1). 이 개정으로 띠 선택이 바뀔 수 있어 plan을 다시 돌린다(§5-4). plan 1회차 표는 봉인 대상이 아니다.
   20. **v0.3 $r_\text{edge}$ 식 결함과 v0.4 정정**: v0.3 식(개구 테이퍼 열에서 비테이퍼 포락선 최대)은 가중 ≈ 1인 안쪽 테이퍼 열(±0.9 m)의 날개를 재서 조작 강도를 +0.5 ~ +9.6 dB(중앙 +3.9) 과대로 쟀다. 구현은 문구를 그대로 따랐다. v0.4는 켬·끔 차 장 $f_\text{unt}(1-w)$의 포락선 최대(모든 행·열)로 정의를 고쳤다(§2-3, 사용자 결정 v4-2). plan 1회차 위치 144개(쌍곡선 위치 선택은 $r_\text{edge}$와 무관)를 두 정의로 잰 층 수(M* 조건 전): 조작 층 112 → 105위치(군집 40 → 37), {12, 18}/{18} 109/3 → 49/56, 회색 띠 12 → 7, 음성 대조 20 → 32위치(군집 16 → 22, 모델 M12·M14·M17 일부 → M01·M12·M14·M17). v0.4 값은 [EMV] 4절 참고표와 [STV] 시뮬레이션의 층 가정(음성 대조 약 32위치·24군집)에 맞는다. 통계 재검토는 봉인 전에 하지 않고 봉인 2 뒤 `[모드] 평가`(새 plan 수, §6 8항)에서 반영한다. 판정 규칙·문턱(0 dB, −6 dB, §3-2–§3-4)은 바꾸지 않았다.
   21. v0.4의 문구 명시(규칙 의미 변경 없음): 짧은 팔 중심 −0.5 트레이스(열 수 홀짝이 다른 위치, plan 1회차 98위치 중 80), T 조건의 (측선, 모델) 단위 적용(plan 1회차 해당 0건), 병합 출력 보존 시험(A-5 13, cv 권고).
+  22. **injected 1회차 실패와 v0.5 개정(결과 미열람)**
+      - 실행: 봉인 2(`729d19ced8674039efac0cfe906fcb41f45c31e3`) 뒤 본 실행(HEAD `d720fe369322cfe2e63b0ef7eaa34ce338c59647`, injected run_id `73fe0456-29e6-438f-bb56-a6c915158f2d`(UUID 36자, 1회차 `summary.json` `run_identity.run_id`를 메인 세션이 정체성 키만 읽어 그대로 옮김))의 injected 단계가 종료 1 `e3x_defect`(3,119 s)로 끝났다.
+      - 실패 단언: 질감 단언 `texture_check`의 하위 필드 `jitter_energy`(σ_δ 0.1·0.2 둘 다) 하나였다.
+      - 위치: 4TU `010.18/Path2` b00·b01, 4TU `011.16/Profile_6453` b00, IDS `pipe/1030_181230AB/LID10001` b00·b01.
+      - 원인: 짝수 길이 꼭짓점 열의 나이퀴스트 빈 에너지 손실($r_N\sin^2(\pi\delta)$, $r_N\le1.03\times10^{-8}$)이다. 단언의 전제("0.8 나이퀴스트 저역통과가 걸린 열이라 정확함")가 틀렸다. 이 전제는 [EMV] 5절 문장에서 왔고, 설계자가 v0.2 §2-7에 검증 없이 옮겼다. EM 검토도 그 문장에 근거 계산을 붙이지 않았다([EMC]).
+      - 1회차 폴더 `runs/eval/m33/e3x/injected/`와 1회차 `runs/eval/m33/e3x/uninjected001/`(있으면)은 열지 않고 남겼다. 재시도는 v0.5(봉인 2 r1)로 `runs/eval/m33/e3x_retry/`에서 했다.
+      - 판정 가설·규칙·문턱·시드·실현 비트·plan 표는 바꾸지 않았다.
+  23. **원인 확인 열람 범위**
+      - 무엇을 열었나: python-expert가 원인을 확인하려고 1회차 injected 폴더의 `summary.json`·`parts\*.json`에서 `defects` 키의 0이 아닌 키 이름과 `line_id`만 스크립트로 출력했다. 재현율·적중·덮임·점수·대비·영점 키는 출력하지 않았다.
+      - 공개하는 이유: 이 열람은 §5-3이 메인 세션에 허용한 범위(종료 코드·마지막 줄·`run_identity`·`judgeable`)를 넘는다. `defects` 이름 자체는 §5-4가 "단언 이름 공개"로 정한 정보다.
+      - 결과 열람으로 치지 않는 근거: 0이 아닌 키가 `texture_check`뿐이었다는 출력은 검출 의존 단언(`hit_without_operating_box` 등)이 0이었다는 것도 알려 준다. 그러나 이 단언들은 구현이 맞으면 늘 0인 값이라 판정 정보가 아니다. 판단은 gpr-processing-expert가 했고 verif 재확인 대상이다.
+      - 증거: 원본 스크립트(`defect_names.py`)와 stdout 파일은 남아 있지 않다. 스크립트는 scratchpad 정리 때(2026-11-20 15:25:31) 지워졌고, stdout은 도구 출력으로만 받았다. 다시 돌리지 않았다. 열람은 두 건이다. 하나는 결과 폴더 파일 이름 목록(15:24:03–04)이고, 다른 하나는 `defect_names.py` 실행(15:24:15 명령, 15:24:29 결과)이다. 두 건 모두 python-expert 서브에이전트 transcript에서 전사했다. 전사본은 저장소 밖 `C:\Users\jinbeom\.claude\runners\gpr_detection-m33_e3x\diag_texture_20261120\h6_disclosure23\`에 있다.
+        - `reconstructed_from_transcript.md`: 스크립트 본문·명령·stdout·시각, "재실행 아님·transcript 전사". sha256 `2010ea043753a7d7e83be66b3e2389105300f3e8d9d29d2664bc500af5877fae`
+        - `transcript_excerpt_lines_50_52_54_55_59_60.jsonl`: 원 transcript 해당 6행 원문 사본. sha256 `fed36bbadff4040e290a63b9c1c20d6761c07179ad5aa0119254f2d0b3cb5905`
+  24. **precheck 표본 한계**
+      - v0.4 precheck는 질감 단언을 precheck 2측선에서만 돌렸다. 그 두 측선의 $r_N$은 e-17–e-18이라 결함을 잡을 수 없었다(본 표본에서 실패한 위치는 e-8–e-9).
+      - 실행 전 감사도 precheck에 음성 대조·회색 층 위치가 없다고 기록했다.
+      - v0.5는 CPU 구현 단언 다섯을 전 측선 precheck 10으로 넓혔다. 검출이 필요한 단언은 여전히 precheck 2측선(6·9번)과 본 실행에서만 확인한다.
+  25. **진단 CPU 재계산(검출 없음)**
+      - 무엇을 돌렸나: 원인 확인과 수정안 비교를 위해 다음을 돌렸다.
+        - (i) python-expert `texture_scan.py`(155측선 질감 단언 재계산과 (a) 모의, 226.6 s, 저장소 밖 `C:\Users\jinbeom\.claude\runners\gpr_detection-m33_e3x\diag_texture_20261120\`)
+        - (ii) gpr-processing-expert `wrap_scan.py`·`w_scan.py`([TDR], `analysis/processing/m33_e3x_texture_defect/`)
+        - (iii) electromagnetic-simulation-expert `edge_scan.py`·`leak_attrib.py`·`norm_mc.py`([EMC] §5, 스크립트는 지웠고 sha만 남음)
+      - 읽은 것: 모두 plan 표·precheck plan 표·배경 측선·응답 라이브러리만 읽었다. 영상·추론·박스는 만들지 않았다. 출력은 합성 장의 에너지 지수, 지연 크기, 절단 크기다.
+      - 문턱: v0.5의 두 문턱(항등식 1e-12, $r_N\le10^{-6}$)은 이 분포를 본 뒤 정했다. 판정 문턱이 아니라 구현 단언이다. $r_N$ 한계는 큰 절단·구현 결함만 잡는다(§2-7).
+  26. **시간 흔들림 실현 성질**([EMC] §4-3)
+      - 굽음·기울기: 평탄 구간이 핵 표준편차의 약 3.6배(3.1–3.9, 과정 상관 SD의 약 2.5배)뿐이다. 그래서 위치마다 δ(x)는 주로 완만한 굽음·기울기다(상자 열 δ 분산의 중앙 약 56 %가 1차 추세). 이 성질은 정규화 방식과 무관하다.
+      - 정규화의 효과: $w$를 평탄 열 위에서 정규화하므로 모든 위치에서 평탄 열 δ의 SD가 정확히 σ_δ이고, 평탄 밖으로 외삽된 |δ|가 커진다. σ_δ 0.2에서 상자 열 최대는 중앙 0.39 P·최대 1.17 P, 테이퍼 열 최대는 1.69 P다.
+      - [EMV] 예측과의 관계: [EMV] 5절 coh 예측 계산의 정규화 기준은 기록에 없다(띠 안 표본 질감은 명목의 약 0.76배). EM 확인 몬테카를로(101위치 기하)에서 띠 전체(L+T) 정규화는 0.86배였다. 그래서 구현의 띠 안 실효 흔들림은 예측 계산보다 약 1.15–1.3배 크다(추정).
+      - coh: 예측(0.2 P에서 0.21–0.23)보다 낮을 수 있다(잡음 없는 대리 계산에서 약 0.7배, [EMC] §3). coh는 고정 상자의 행 평균으로 재므로 기울기도 무작위 흔들림만큼 coh를 낮춘다. 그러나 검출기에게는 기운 띠도 일관된 띠다. 따라서 이 갈래는 "거친 띠"보다 "굽거나 기운 띠"의 효과에 가깝다.
+      - 덮임 판정 몫: 정답 세로 범위는 흔들리지 않은 열 기준이다. 그래서 짝 차에는 "정답 행에서 벗어난 띠"의 덮임 판정 몫(시간 겹침 ≥ 정답 높이 50 %, 상자 열 최대 1.17 P에서 겹침 약 51 %)이 섞일 수 있다.
+  27. **합성 창 절단(기존 성질, 판정 무관)**([EMC] §4-6)
+      - 응답 장은 합성 창 [0, `window_ns`] 밖을 0으로 둔다. 기록 안에는 두 가지가 있다.
+        - (i) 창 시작 계단: 행에 따라 34–100 %의 팔에서 기록 안에 있고, 최대 1.8 % A이며, 정답 위 끝보다 ≥ 2.08 P 위다.
+        - (ii) 창 끝의 1 P 감쇠: 정답 아래 끝보다 ≥ 3.37 P 아래다. 감쇠 전 꼬리는 `09.2/Path7` 두 위치에서 최대 0.143 A이고 나머지는 −24 dB 아래다.
+      - 둘 다 정답 상자 밖이라 재현율·덮임 지표에 들어가지 않는다.
+      - 다만 창 끝이 기록 안에 있는 비율은 행에 따라 다르다(28 px 83/101, 47 px 63/101, 68 px 21/101). 그래서 HB1·HB1b의 "같은 파형"은 정답 구간에 대한 말이다(§2-4).
+      - R3·단계 C에도 같은 성질이 있었다.
+  28. **재시도 출력 루트와 v0.4 잠재 결함(봉인 2 r1 전, 결과 무관)**
+      - v0.5 재시도 명령은 `--out-root runs/eval/m33/e3x_retry`를 준다(§5-1). v0.5 러너는 1회차 루트를 detection 단계 출력으로 받으면 거부한다.
+      - v0.4 러너는 plan 표를 `--out-root` 아래(`<out-root>/plan/`)에서 찾았다. 그래서 v0.4로 `--out-root e3x_retry`를 주었다면 `e3x_retry/plan`이 없어 종료 2로 멈췄을 것이다. v0.4의 §5-4 재시도 경로(`e3x_retry/`)가 코드로는 실행될 수 없었던 잠재 결함이다.
+      - v0.5 구현은 plan을 봉인 경로 `SEALED_PLAN_DIR`(`runs/eval/m33/e3x/plan/`, 봉인 2 sha)에서 읽도록 고쳤다. python-expert 구현 보고에서 드러났고 결과와 무관하다.
 
 ## 5. 실행 규칙
 
@@ -498,34 +583,48 @@ $$
 |---|---|---|---|---|
 | pool | `analysis/detection/m33_e3x_pool.py` | CPU 1 | < 1분 | `analysis/detection/m33_e3x_pool.csv`(봉인 2) |
 | plan | `analysis/detection/m33_e3x.py --stage plan --workers N` | CPU N(배치표대로) | 30–60분(R3 plan 161측선 1,645 s. 이번은 행마다 이동 패치를 다시 만듦) | `runs/eval/m33/e3x/plan/` |
-| precheck | `--precheck` | GPU 1 + CPU 2 | 5–10분 | `runs/eval/m33/e3x_precheck/` |
-| uninjected001 | `--stage uninjected001` | GPU 1 + CPU N | 약 3–5분(R3 IDS 60측선 r0 × 5 fold 34 s, conf 0.001은 박스가 많아 더 걸림) | `runs/eval/m33/e3x/uninjected001/` |
-| injected | `--stage injected --workers N` | GPU 1 + CPU N | N = 5면 약 50–75분, N = 1이면 약 2.5–3 h | `runs/eval/m33/e3x/injected/` |
-| judge | `analysis/detection/m33_e3x_judge.py` | CPU 1 | < 30분(가설 6 + 음성 대조 + 보고 전용 재계산, B 20,000, 배경별 부분 복제 포함, 추정) | `runs/eval/m33/e3x/judgment/` |
+| precheck | `--precheck` | GPU 1 + CPU 2(10번은 CPU N 가능) | 1회차 1,610 s + 10번(1 프로세스 약 10–15분, 작업자 4개면 약 3–5분, 추정, [TDR] §4-2) | 1회차 `runs/eval/m33/e3x_precheck/`; v0.5 `runs/eval/m33/e3x_precheck_r<k>/`(k = 1부터) |
+| uninjected001 | `--stage uninjected001`(v0.5: `--out-root runs/eval/m33/e3x_retry`) | GPU 1 + CPU N | 약 3–5분(R3 IDS 60측선 r0 × 5 fold 34 s, conf 0.001은 박스가 많아 더 걸림) | 1회차 `runs/eval/m33/e3x/uninjected001/`; v0.5 `runs/eval/m33/e3x_retry/uninjected001/` |
+| injected | `--stage injected --workers N`(v0.5: `--out-root runs/eval/m33/e3x_retry`) | GPU 1 + CPU N | N = 5면 약 50–75분, N = 1이면 약 2.5–3 h(1회차 3,119 s) | 1회차 `runs/eval/m33/e3x/injected/`(실패, 미열람 보존); v0.5 `runs/eval/m33/e3x_retry/injected/` |
+| judge | `analysis/detection/m33_e3x_judge.py` | CPU 1 | < 30분(가설 6 + 음성 대조 + 보고 전용 재계산, B 20,000, 배경별 부분 복제 포함, 추정) | v0.5 `runs/eval/m33/e3x_retry/judgment/`(입력은 `e3x_retry/`의 injected·uninjected001만) |
 
-- 순서: 봉인 2 → precheck(사본) → verif 실행 전 감사 → uninjected001 → injected → judge. uninjected001은 plan(봉인 2) 뒤에 돌리므로 배치에 영향을 줄 수 없다.
+- 순서(v0.5): 봉인 2 r1 → precheck r1(사본) → verif 실행 전 감사 재확인 → uninjected001(`e3x_retry/`) → injected(`e3x_retry/`) → judge. uninjected001은 plan(봉인 2) 뒤에 돌리므로 배치에 영향을 줄 수 없다. 1회차 출력은 판정 입력으로 쓰지 않는다(사용자 결정 v5-3).
+- 재시도도 부분 출력으로 끝나면 그 폴더를 열지 않고 남기고 `runs/eval/m33/e3x_retry2/`(k = 2, 3, …)에서 다시 한다(§5-4).
+- (v0.5) 재시도 명령에는 `--out-root runs/eval/m33/e3x_retry`(차수 k ≥ 2는 `e3x_retry<k>`)를 준다. v0.5 러너는 1회차 루트(`runs/eval/m33/e3x`)를 detection 단계 출력으로 받으면 거부한다. plan 표는 `--out-root`와 무관하게 봉인 경로 `SEALED_PLAN_DIR`(`runs/eval/m33/e3x/plan/`)에서 읽는다(공개 28).
 - 시간 근거: R3 injected 2,159실현 2,148 s, 단계별 주입 525 · 단면·영점 508 · L1 574 · 추론 477 s(실현당 CPU 약 0.75 s, GPU 약 0.22 s, `runs/eval/m33/r3/injected/summary.json` `timings`). 이번은 추론 약 7,950회다. conf 0.001 추론은 박스가 많아 NMS가 조금 느릴 수 있다(추정). CPU가 병목이므로 작업자 수가 시간을 정한다.
 - VRAM: R3 예약 최대 1,918 MB → 약 2 GB(같은 모델·batch 64·256 px 타일). 메모리: CPU 작업자당 약 0.5 GB.
 - 30분을 넘는 단계(plan·injected)는 메인 세션 러너(`make_runner.py --gpu-log --gpu-counters`), 세션 간 예약(`--reserve-owner gpr_detection:m33_e3x --reserve-ttl-min 180`), 15분 간격 감시(블라인드 경로 §5-3)를 따른다. 작업자 수는 시작 직전 `status.py`와 compute-scheduler-expert 배치표로 정한다.
 
 ### 5-2. precheck (도구의 실제 코드 경로)
 
-`m33_e3x.py --precheck`가 본 실행과 같은 함수로 precheck 측선 2개(§2-1)에 모든 팔(끝 처리, 행, 길이, 질감 세 갈래, `e3x_p42`, 미주입 0.001)을 만들어 다음을 확인한다. 하나라도 어기면 `precheck_failed`, 종료 1이다.
+`m33_e3x.py --precheck`가 본 실행과 같은 함수로 precheck 측선 2개(§2-1)에 모든 팔(끝 처리, 행, 길이, 질감 세 갈래, `e3x_p42`, 미주입 0.001)을 만들어 1–9번을 확인한다. v0.5부터는 10번을 본 표본 153측선과 precheck 2측선 전부에서 CPU로 확인한다. 실행 순서는 **1(실패 시 그 자리에서 종료 1, 10번과 2–9번은 돌리지 않음) → precheck plan 준비 → 10 → 3 → 2, 4–9**다(사용자 결정 2026-11-20, 구현 순서와 같음). 10번이 실패하면 3번과 2, 4–9번(GPU 포함)을 돌리지 않는다. 하나라도 어기면 `precheck_failed`, 종료 1이다. 1회차 precheck(v0.4)는 1–9번만 돌았다.
 
 | # | 확인 |
 |---|---|
-| 1 | r0 정체 11측선(`m33_inputs.R0_IDENTITY_LINES`), 설정 해시(`R_SETTINGS_SHA256`), 가중치 sha 5개, `inject.py` blob, **src tree id = 봉인 2 상수**, E3x 코드 blob = 봉인 2 상수, `pp_set_id` S3·`PPConfig` sha = C0b |
+| 1 | r0 정체 11측선(`m33_inputs.R0_IDENTITY_LINES`), 설정 해시(`R_SETTINGS_SHA256`), 가중치 sha 5개, `inject.py` blob, **src tree id = 봉인 2 상수**, E3x 코드 blob = 봉인 2 상수(v0.5: 봉인 2 r1 기록 `m33_e3x_seal2_r1.json`), `pp_set_id` S3·`PPConfig` sha = C0b |
 | 2 | 영 시험: 배경 그대로의 영점·주기 재측정이 배경 값과 완전히 같다([ZD] §5-2 2) |
 | 3 | 세로 이동(v0.4): 모든 (위치, 행)에서 보정 뒤 정답 위 끝 $k_1'(n_2)$가 목표의 1 샘플 안, (측선, 모델)의 모든 팔(따라서 한 위치의 모든 팔)에서 $k_1'(n_2)-n_2$가 같은 정수, 이동량 \|$n_2$\|가 12 P 이하, 한 위치의 모든 팔에서 T가 같다. `shift_correction_samples`·`shift_step_samples`를 precheck 보고에 낸다 |
 | 4 | 끝 처리 끔 장은 개구 테이퍼 열 밖에서 켬 장과 비트 단위로 같다. 위치마다 기록한 $r_\text{edge}(p)$가 같은 위치의 실제 켬·끔 주입 장의 차(측선에 더하기 전 패치 장, 단계 (1)–(3) 뒤 포락선)에서 다시 잰 값과 같다(상대 1e-9, v0.4) |
-| 5 | 질감: 평탄 열 위에서 $w$의 평균 0·표준편차 1(상대 오차 1e-12), 진폭 질감 평탄 열 평균 제곱 1(1e-12), 시간 흔들림 $\operatorname{std}_\text{flat}(\delta) = \sigma_\delta P_\text{line}$(1e-12), 시간 흔들림 열의 에너지가 원 열과 같다(상대 1e-9) |
+| 5 | 질감(v0.5): 평탄 열 위에서 $w$의 평균 0·표준편차 1(상대 오차 1e-12), 진폭 질감 평탄 열 평균 제곱 1(1e-12), 시간 흔들림 $\operatorname{std}_\text{flat}(\delta) = \sigma_\delta P_\text{line}$(1e-12), **시간 흔들림 열 에너지가 §2-7 식과 같다(모든 띠 열, $\lvert E'(x)/E-1+r_N\sin^2(\pi\delta(x))\rvert\le10^{-12}$)**, **나이퀴스트 빈 에너지 비 $r_N\le10^{-6}$**. 기록(단언 아님): 위치별 $r_N$, 0.8 나이퀴스트 위 에너지 비, 원형 이동과 선형(4n 영 채움) 이동의 차 최대(꼭짓점 열 최대 대비), 열 시작 계단(첫 0 아닌 행의 값 / 열 최대), 상자 열·테이퍼 열의 $\max\lvert\delta\rvert$(P). v0.4의 "에너지가 원 열과 같다(상대 1e-9)"는 없앴다 |
 | 6 | precheck 측선 2개의 모든 팔·fold 0–4에서 conf 0.001 경로(병합 전 > 0.25)와 **같은 `run_jobs` 묶음의 conf 0.25 경로**가 타일 박스(클래스·점수·좌표)와 병합 박스에서 비트 단위로 같다 |
 | 7 | `--workers 1`과 `2`의 출력 바이트가 같다 |
 | 8 | stdout에 지표가 없다(마지막 줄 키만, 아래 5-3) |
 | 9 | Ultralytics `NMS time limit` 경고 수를 logging handler로 세어 0이 아니면 `e3x_defect`(본 실행도 같음). 0.001 출력이 300개(max_det)인 타일 수를 세고, 0.25 초과 박스가 300개인 타일이 있으면 `e3x_defect` |
+| 10 | **전 측선 CPU 구현 단언**(v0.5). 본 표본 153측선과 precheck 2측선 모두에서, injected 단계 `build_line`이 세는 CPU 단언 다섯을 **같은 함수·같은 순서**로 계산한다. 영상화(영 시험의 배경 영상 1장만 예외)·추론·박스는 만들지 않는다. 하나라도 어기면 `precheck_failed`. 단언 다섯은 다음과 같다. **건수 가드**: 단언마다 검사 수가 plan 표에서 센 기대 수와 같고 0보다 크다 |
+|  | `shift_mismatch`: 띠 팔 재구성과 plan 정답 상자 일치(`rebuild_arm`) |
+|  | `off_differs_from_on`: 끝 처리 끔 장이 개구 테이퍼 열 밖에서 켬과 비트 단위로 같다(모든 쌍곡선 실현, `inject_realization`·`inject_untapered`·`_off_matches_on`) |
+|  | `r_edge_differs_from_plan`: 상대 1e-9(조작 층·회색 띠·음성 대조 위치 모두) |
+|  | `texture_check`: 5번 전 필드(질감 위치 전부, `_Textures.of`를 `band_entries`와 같은 순서로) |
+|  | `zero_test`: 측선마다 |
 
 - precheck 측선은 본 표본 밖이라 그 값은 판정 값을 드러내지 않는다. 그래도 메인 세션은 종료 코드와 마지막 줄만 본다.
-- precheck 폴더가 있으면 거부한다(덮어쓰지 않음). 본 실행 직전에 한 번 돌리고 폴더 사본(`runs/eval/m33/e3x_precheck_copy/`)을 남긴다(CLAUDE.md 사전 등록 실행 규칙).
+- 10번은 검출기를 쓰지 않는다. 본 표본 측선에서 돌려도 판정 값이 드러나지 않는다(합성 장의 구현 단언과 그 오차·기록 항목뿐).
+  - 기록 `cpu_assertions.json`: `run_identity`, 단언별 `n_checked`·`n_expected`·`n_failed`, 실패 목록(측선, 위치 또는 실현 id, 단언, 오차), 5번 기록 항목의 분포.
+  - 기록 `cpu_assertions_lines.csv`: 측선별 단언 수·실패 수·시간.
+  - stdout: 10번 요약 줄(`precheck`(값 `"10_cpu_assertions"`)·`status`·`n_lines`·`n_checks`·`n_failed`·`elapsed_s`의 6키, 수만)을 따로 내고, 마지막 줄은 §5-3 키 집합을 따른다. 10번 기록은 검출 값이 아니므로 verif 감사가 열어도 된다. 메인 세션은 종료 코드·마지막 줄만 본다.
+- 10번이 injected 단계의 단언을 대신하지는 않는다. 본 실행도 같은 단언을 다시 센다(`e3x_defect`). 검출이 필요한 단언(적중 ⇒ 최고 점수 > 0.25, 덮임 단언, NMS 경고, 0.25 초과 박스 300개 타일)은 블라인드 때문에 CPU precheck로 옮길 수 없다. precheck 2측선(6·9번)과 본 실행에서만 확인한다(공개 24).
+- 10번은 `build_line`을 영상 생성 없이 부르는 경로다(같은 본체에서 영상·띠 실현 단계만 건너뜀). 단언 계산부를 복사한 별도 함수는 쓰지 않는다. A-5 시험 4가 precheck 2측선에서 두 경로의 `defects`·검사 수가 같음을 단언한다.
+- precheck 폴더는 시도마다 새로 만든다(v0.5: `runs/eval/m33/e3x_precheck_r1/`, 실패하면 `_r2` …). 폴더가 있으면 거부한다(덮어쓰지 않음). 1회차 폴더(`e3x_precheck/`, `e3x_precheck_copy/`)는 지우지도 덮어쓰지도 않는다(이전 증거). verif 실행 전 감사 재확인 직전에 한 번 돌린다. 끝나면 폴더째 사본(`e3x_precheck_r<k>_copy/`)과 두 폴더의 파일별 sha256(LF) 목록을 남긴다(CLAUDE.md 사전 등록 실행 규칙). `run_identity.started_at`은 실제 시작 시각이다.
 - #6의 근거([CVV] Q1): NMS 후보 거름과 최고 클래스 거름은 모두 엄격 `>`이고 클래스별 탐욕 NMS라 0.25 초과 박스의 생존은 0.25 초과 박스끼리만으로 정해진다. 병합은 낮은 점수 박스가 섞이면 대표·연결·띠 자르기가 달라지므로 거름은 병합 전이어야 한다. 점수가 같은 같은 클래스 박스가 겹칠 때의 CUDA 정렬 불안정은 #6만 잡는다.
 
 ### 5-3. 블라인드 출력
@@ -533,7 +632,8 @@ $$
 - 재현율·적중·덮임·점수·대비·추정량·CI·결정은 **파일에만** 쓴다. 미주입 0.001 추론(R-d 기준값)도 같다.
 - stdout: 단계, 측선·위치·실현·추론·타일 수, 경과 시간, 경로, sha, NMS 경고·max_det 카운터(수만). 마지막 줄 `{"status","out_dir","n_lines","n_positions","n_realizations","n_inferences","elapsed_s"}`(판정 도구는 `{"status","out_dir","n_hypotheses","elapsed_s"}`). Ultralytics 로거는 끄되 WARNING은 handler로 센다.
 - 메인 세션은 판정서 작성 전까지 종료 코드·마지막 줄·`run_identity` 블록·`judgment.judgeable`만 본다. 판정 입력(`records_*.csv`, `units_*.csv`), 미주입 0.001 기록, `judgment.json`의 결정·추정량 키는 열지 않는다.
-- **블라인드 경로**(감시·통계 검토에 넘김): `runs/eval/m33/e3x/uninjected001/`, `runs/eval/m33/e3x/injected/`, `runs/eval/m33/e3x/judgment/`, `runs/eval/m33/e3x_retry/`, `runs/eval/m33/e3x_precheck*/`.
+- **블라인드 경로**(감시·통계 검토에 넘김): `runs/eval/m33/e3x/uninjected001/`, `runs/eval/m33/e3x/injected/`(1회차, 열지 않고 보존), `runs/eval/m33/e3x/judgment/`, `runs/eval/m33/e3x_retry*/`, `runs/eval/m33/e3x_precheck*/`.
+  - 예외(v0.5): 진행 파일 `progress.json`(위치: `e3x_precheck_r<k>/`, 그리고 `e3x_retry/` 또는 `e3x_retry<k>/`(k ≥ 2)의 `uninjected001/`·`injected/`)은 감시에서 읽어도 된다. 키는 `stage`·`done`·`total`·`unit`·`started_at`·`updated_at`뿐이다. `total`은 plan 측선 수이고 판정값이 없다(보고 전용, 도구 근거 `m33_e3x.py` 모듈 docstring "Progress file" 절, A-3). 블라인드 경로에서 이 파일 말고는 읽지 않는다.
 - **결과를 본 것으로 치는 시점**: 누구든 위 블라인드 경로의 기록 파일이나 `judgment/`의 결정·추정량을 연 때. 그 뒤의 규칙 변경은 새 판(개정)으로만 하고 "결과 뒤 개정"으로 공개하며, 판정은 원판 규칙으로 낸다.
 
 ### 5-4. 실패 처리표
@@ -544,12 +644,14 @@ $$
 | plan | 1/2/3 | `not_judgeable`/`input_error`/`error` | 원인을 고쳐 다시. 코드를 고치면 봉인 2 전이므로 그대로 진행 | 아니다 | 이력만 |
 | plan | 1 | `e3x_defect`(구현 단언 실패: `shift_mismatch` — 위 끝 1 샘플 단언 또는 팔 사이 평행 이동 단언 `arm_offsets_not_parallel`, §2-4) | 원인을 고쳐 다시(봉인 2 전. 규칙 문구를 고치면 새 판, 코드만 고치면 그대로 진행) | 아니다(검출 무관) | 이력과 공개(plan 1회차는 §4 공개 19) |
 | precheck | 0 | `ok` | – | 아니다 | 판정서에 precheck 사본 경로·sha |
-| precheck | 1 | `precheck_failed` | 본 실행 금지. 코드 수정 → 새 blob → 봉인 2 새 판 → verif 실행 전 감사 재확인 → 새 폴더 `e3x_precheck_r<k>` | 아니다 | 실패 항목 번호·원인 공개 |
+| precheck | 1 | `precheck_failed`(v0.5: 10번 전 측선 CPU 단언 포함) | 본 실행 금지. 코드 수정 → 새 blob → 봉인 2 새 판(r<k+1>) → verif 실행 전 감사 재확인 → 새 폴더 `e3x_precheck_r<k+1>` | 아니다 | 실패 항목 번호·원인 공개 |
 | uninjected001 | 2(출력 폴더 생성 전) | `input_error` | 원인을 고쳐 같은 명령으로 다시 | 아니다 | 이력 |
 | uninjected001 | 1/2/3(부분 출력 있음) | `not_judgeable`/`e3x_defect`/`input_error`/`error` | 그 폴더는 열지 않고 남긴다. `runs/eval/m33/e3x_retry/uninjected001/`에서 다시(코드를 고쳤으면 봉인 2 새 판 → verif 재확인). 판정 가설에는 쓰이지 않으므로 injected를 막지 않는다. 다만 R-d 기준값이 없으면 판정서에 "기준값 없음"을 공개한다 | 열지 않았다면 아니다 | 공개 |
 | injected | 2(출력 폴더 생성 전) | `input_error` | 원인을 고쳐 같은 명령으로 다시 | 아니다 | 이력 |
 | injected | 1/2/3(부분 출력 있음) | `not_judgeable`/`e3x_defect`/`input_error`/`error` | 그 폴더는 열지 않고 남긴다. 예비 폴더 `runs/eval/m33/e3x_retry/`에서 다시. 코드를 고쳤으면 새 blob → 봉인 2 새 판 → verif 재확인 | 열지 않았다면 아니다 | 실패 폴더·종료 코드·원인 공개 |
-| injected | 1 | `e3x_defect`(구현 단언 실패: 영 시험, `shift_mismatch`, 끝 처리·질감 단언, 적중 ⇒ 최고 점수 > 0.25, NMS time-limit 경고, 0.25 초과 박스 300개 타일, 덮임·짝 단언) | 같음 | 같음 | 단언 이름 공개 |
+| injected | 1 | `e3x_defect`(구현 단언 실패: 영 시험, `shift_mismatch`, 끝 처리·질감 단언, 적중 ⇒ 최고 점수 > 0.25, NMS time-limit 경고, 0.25 초과 박스 300개 타일, 덮임·짝 단언) | 같음 | 같음 | 단언 이름 공개. 1회차(2026-11-20): `texture_check`의 `jitter_energy`(σ_δ 0.1·0.2), 5위치, 공개 22 |
+| injected·uninjected001 재시도(v0.5) | 0/1/2/3 | (위와 같음) | `runs/eval/m33/e3x_retry/`(`uninjected001/`, `injected/`, `judgment/`)에서 봉인 2 r1로 한 번씩 돈다. 재시도도 부분 출력으로 끝나면 그 폴더는 열지 않고 남긴다. 그다음 `runs/eval/m33/e3x_retry2/`(k = 2, 3, …)에서 다시 돈다. 코드를 고쳤으면 새 blob → 봉인 2 새 판 → verif 재확인을 거친다. 재시도 `ok`는 다시 돌리지 않는다 | 열지 않았다면 아니다 | 이전 시도의 폴더·종료 코드·실패 단언 이름 |
+| 실패 폴더 열람(v0.5) | – | – | 이전 시도 폴더는 원인 확인을 위해서라도 기록 파일을 열지 않는다. 예외는 `summary.json`·`parts\*.json`의 `defects` 키(0이 아닌 키 이름)와 `line_id`뿐이다. 이 예외 열람은 스크립트로 하고, 스크립트·stdout·실행 시각·sha256을 남겨 공개한다(공개 23). 재시도 결과와 비교하려고 이전 시도 폴더를 열거나 해시하지 않는다 | 이 범위면 아니다(verif가 재확인) | 열람 범위 공개 |
 | injected | 3 | `error`(GPU 메모리 부족 포함) | 같음(`--resume`은 같은 HEAD·blob·src tree에서만, [RUN] §1 (5)) | 같음 | 같음 |
 | injected | 0 | `ok` | 다시 돌리지 않는다(한 번만) | 아니다(기록을 열기 전까지) | – |
 | judge | 0 | `ok` | 다시 돌리지 않는다 | 판정서 작성자가 처음 연다 | 판정서 |
@@ -569,14 +671,19 @@ $$
 ## 6. 판정서에 적을 것
 
 1. 실행 정체성: HEAD·src tree id·코드 blob·입력 sha(64자리 그대로), 가중치 sha, 설정 해시, `pp_set_id`·`PPConfig` sha, `run_id`, 시작·끝 시각, 단계별 시간, VRAM 최대, 작업자 수, NMS 경고 수(0이어야 함)·max_det 타일 수.
-2. 판정 가능성 블록(`judgeable`, `blockers`, fold 0–4)과 실패·재실행 이력(§5-4).
+2. 판정 가능성 블록(`judgeable`, `blockers`, fold 0–4)과 실패·재실행 이력(§5-4). 판정 입력 injected·uninjected001의 재시도 폴더 차수(같지 않으면 둘 다, A-4).
+   - (v0.5) injected 1회차의 정체성(run_id, HEAD·blob·src tree, 시작·끝 시각, 3,119 s, 64자리 그대로), 실패 단언 이름과 위치 5개.
+   - 1회차 injected·uninjected001 폴더를 열지 않았다는 확인, 원인 확인 열람 범위와 그 증거 경로·sha(공개 23).
+   - 봉인 2 r1 기록(`m33_e3x_seal2_r1.json`)의 `supersedes`와 plan 재사용 근거.
+   - precheck r1과 그 사본의 경로·파일별 sha256. 10번 `cpu_assertions.json`의 단언별 검사 수·실패 수 포함.
+   - 판정 입력이 `e3x_retry/`의 uninjected001·injected뿐이라는 확인(재집계 범위와 함께).
 3. plan 수: 배경별 측선·군집·위치, **실제로 뽑힌** R3 공유 4TU 활동·측선 수, 모델별 위치(배경별), 띠 행별·길이별 위치, 거부 사유별 수, 세로 이동량 분포(P, 행·모델별, 12 P 한도, 보정 뒤 $n_2$), 재측정 보정량 `shift_correction_samples`·계단 `shift_step_samples`의 분포(v0.4), 짧은 팔 중심 −0.5 트레이스 위치 수, 빠진 행과 사유, HB1b 모델 구성(HB1과 비교), HH1 조작 층·회색 띠·음성 대조 위치 수(모델 조건 전·후), 모델별 $r_\text{edge}$와 $S_p^\text{edge}$ 구성({12, 18} / {18}), M02·M07·M08의 위치별 $r_\text{edge}(p)$, 가설별 $G_g$·$G_{\text{eff},g}$.
 4. 가설별: $\hat\Delta$(또는 $\hat\eta^2_p$), 판정 구간(방식 Satterthwaite, 수준 정확히 $1-0.05/6$, $\nu$, 배경별 $v_g$·$\nu_g$; HH2는 기본 구간), 배경별 값, 위치·군집 수, $M^\ast$·$M^\ast_e$ 구성, δ, 바닥 양 $F$와 `floor` 여부, 결정 라벨, 판정서 문구(§3-3), `single_background`·`single_cluster_background`·`degenerate_ci` 여부, 조작 점검 결과(음성 대조 $\hat\Delta_\text{neg}$·구간·(a)–(d) 중 어느 것, HB1 대비), 재집계 범위(기록 csv에서 다시 셈 / json에서 옮김).
 5. §3-6 대응표에 따른 마감 판정서 문장 변경안.
 6. 보고 전용 R-a–R-g 값과 미리 고정한 해석 규칙의 적용 결과(95 % CI는 "다중 비교 보정 없음", 문구 '추정'; R-d 주입 전 기준값 포함, S3에서 라벨이 달라지는 가설 수, R3 공유 활동 제외 민감도, HH1 SNR별·경계 단위 제외 값, 이동량 ≤ 8 P 민감도, 판정 가설의 백분위 구간, HH2 $\omega^2_p$·$M^\ast$만 $\eta^2_p$).
 7. [ZD] 키(`n_zero_changed`·`n_zero_changed_exact`·`n_period_changed`·`n_period_changed_exact` 등)와 주기 > 5 % 단위를 뺀 민감도. R-b 레시피별 `compression`과 실제 행.
 8. plan 수 기반 MDE(보고 전용). 절차: 봉인 2 뒤, 본 실행 결과를 열기 전에 메인 세션이 stats-design-expert를 `[모드] 평가`로 불러 `runs/eval/m33/e3x/plan/`(v0.4로 다시 돌린 plan, 봉인 2 sha)의 위치·측선·군집·모델·배경 표로(v0.4 $r_\text{edge}$ 정의로 바뀐 HH1 조작 층·음성 대조 수는 이 평가에서 처음 반영한다. 봉인 전 통계 재검토는 하지 않았다, 사용자 결정 v4-2) [STV] 시뮬레이터를 plan 구조 고정으로 돌려 가설별 Satterthwaite MDE80을 낸다(§3-4). 판정서에는 그 보고의 경로·sha·가설별 MDE80과, 그 계산이 결과 개봉 전이었다는 시각 근거를 적는다.
-9. 공개 사항(§4)과, 결과를 본 뒤 읽은 자료·정한 개정.
+9. 공개 사항(§4, v0.5의 22–28 포함)과, 결과를 본 뒤 읽은 자료·정한 개정. v0.5는 결과 미열람 개정이다(본 실행 1회차 뒤라는 점을 함께 적음).
 10. 판정서 끝에 이 절과 §4·§5-3·§5-4 항목의 대조표.
 
 ## 7. 가정·한계
@@ -589,6 +696,7 @@ $$
 - $r_\text{edge}$의 모델별 값([EMV] 4절)은 합성 격자·H 필터 전 추정(±3 dB)이다. 층 배정은 측선 격자에서 다시 잰 값으로 한다.
 - 통계 성질(가족 오류율, MDE, `negligible` 확률)은 [STV] 시뮬레이션의 생성 모형(잠재 문턱, 정규 군집 효과, 띠 잡음 크기 가정)에 기댄 추정이다. [STV]는 12 P에서 90 px 적격 비율을 0.95로 가정했으나 v0.3 로컬 plan 표(판정 완료 자료) 재집계는 0.70–0.77이다(§2-4). 위치 수는 비슷하게 예상되지만, 실제 MDE는 plan 수로 다시 계산한다(§6 8항).
 - 이 실험의 결론은 N2-a′ 검출기와 r0 영상화에 대한 것이다.
+- (v0.5) R-c 시간 흔들림 갈래는 위치마다 주로 굽거나 기운 띠다(평탄 구간이 상관 길이와 비슷함). 원형 이동·합성 창 절단의 부수 성분은 판정 SNR의 σ보다 24 dB 이상 아래다(§2-7, 공개 26·27).
 
 ## 8. 위임 필요 (요약 — 상세는 보고서)
 
@@ -596,10 +704,13 @@ $$
 - python-expert: 구현(부록 A, v0.3에서 A-2·A-4·A-5 갱신). v0.4 변경: A-2(`band_shift_for` 보정 1회·팔 사이 단언, `r_edge_db` 차 장), A-3 띠 기록 열, A-5 시험 2·3·5·13, §5-2 precheck 3·4, 그 뒤 plan 재실행.
 - verif-protocol-auditor(실행 전 감사 때): 판정 도구의 구간 방식이 §3-3(Satterthwaite, HH2 기본 구간)과 같은지, 수준 상수가 정확한 분수 $1-0.05/6$인지 대조([STV] 위임).
 - EM·cv·stats 검토는 이 판에 반영했다([EMV], [CVV], [STV]).
+- (v0.5) python-expert: A-2 `texture_check` v0.5 필드와 `time_jitter` docstring, §5-2 10(전 측선 CPU 단언·건수 가드·`cpu_assertions.*`·`started_at`), 재시도 경로(`e3x_retry/`, 판정 도구 입력 경로), `m33_e3x_seal2_r1.json`, A-5 시험 4, 공개 23 증거 보존. 상세는 [TDR] §9 핸드오프. plan은 다시 돌리지 않는다(v5-5).
+- (v0.5) stats-design-expert: 다시 부르지 않는다. R-c는 보고 전용이고, plan 표가 같아 MDE 평가(d720fe3) 입력도 같다.
+- (v0.5) verif-protocol-auditor(실행 전 감사 재확인): blob diff가 질감 단언·precheck 10·재시도 경로에 한정되는지, 바뀐 함수가 plan 경로에 없는지, precheck r1 10번의 건수 가드, 공개 23 열람이 결과 열람이 아닌지, 재시도 경로 블라인드를 본다.
 
 ## 9. 확인 필요 질문
 
-v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH1 조작 층, 대체 경로 없음), v3-4(12 P)로 정해졌다.
+v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH1 조작 층, 대체 경로 없음), v3-4(12 P)로 정해졌다. v0.5의 질문([TDR] Q1–Q5, [EMC] Q-a·Q-b)은 사용자 결정 v5-1–v5-6으로 정해졌다.
 
 남은 질문은 없다.
 
@@ -620,6 +731,8 @@ v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH
 | `analysis/detection/m33_e3x_place.py` | 배치·변형 함수: 쌍곡선 round-robin 선택(§2-3), $r_\text{edge}$, 띠 이동·중심 선택(§2-4), `shifted_response`, `band_length_traces`, `texture_field`, `amplitude_texture`, `time_jitter` |
 | `analysis/detection/m33_e3x_judge.py` | 판정 도구(§3): 단위 → 추정량 → 층화 군집 부트스트랩 → 결정·조작 점검 → `judgment.json`·`units_<가설>.csv` |
 | `tests/test_m33_e3x.py` | 시험(A-5) |
+| `analysis/detection/m33_e3x_seal2_r1.json`(v0.5) | 봉인 2 r1 기록. 키는 `m33_e3x_seal2.json`과 같다. 더하는 키는 셋이다. `supersedes`(옛 기록 경로·sha256(LF)·커밋 `729d19ced8674039efac0cfe906fcb41f45c31e3`), `plan_code_blobs`(plan을 만든 옛 blob, 봉인 2 값 그대로), `plan_reuse`(바뀐 함수 목록과 그 함수가 plan 경로에서 불리지 않는다는 근거). plan 표·`plan_report.json`·`m33_e3x_pool.csv` sha는 봉인 2 값 그대로다. 옛 `m33_e3x_seal2.json`은 고치지 않는다 |
+| `analysis/detection/m33_e3x_seal2_r1_draft.py`(v0.5) | 보조 도구: 봉인 2 r1 기록 초안 생성과 `--check`(대조). 실행 경로(pool·plan·precheck·uninjected001·injected·judge) 밖이다. 봉인 blob 단언 대상이 아니다(`code_paths`에서 제외). 봉인 2 r1 커밋에는 포함한다(사용자 결정 2026-11-20) |
 
 - 재사용(import만, 고치지 않음): `m32_recipe_eval`(측선 적재·제외·가중치·`run_jobs`·`predict_tiles`·`tile_line_boxes`), `pipeline`(`merge_line_boxes`, `line_boxes_to_grid`, `apply_pp`, `pp_decision`), `m32_recipe_match`(`match_one_to_one`, `apex_hit_d3`, `box_contains_apex`), `m33_r3_band`(`inference_tiles`, `tile_trace_range`, `content_of`, `sealed_config`; 덮임은 같은 정의를 병합 전 거른 박스에 적용), `m33_inputs`(정체·설정·트리·판정 가능성), `m33_change_defs`(`zero_change`, `period_change`), `m32_pipe_responses.load_library`.
 - `m33_y0_diag_infer.inject_without_taper`와 `m33_r3_band_contrast`의 $c_\text{lat}$·$c_\text{vert}$·$coh$ 계산은 `analysis/processing/` 파일이라 E3x 모듈로 **옮겨 쓰고**(같은 식, 시험으로 원 함수와 같은 값을 단언) 봉인 목록에 넣는다.
@@ -637,7 +750,13 @@ v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH
 - `band_length_traces(context, length_periods) -> int`: $\lceil \ell P_\ell \tau_x \rceil$.
 - `texture_field(n_columns, flat_columns, period_traces, corr_periods, rng) -> np.ndarray`: §2-7 $w$(가우스 핵 σ = $\ell_c$ 트레이스, FFT 필터, 평탄 열 위 평균 0·표준편차 1).
 - `amplitude_texture(w, flat_columns, sigma_db) -> np.ndarray`: $m(x)$.
-- `time_jitter(column, w, sigma_periods, period_samples) -> np.ndarray`: 열마다 FFT 위상 회전으로 $\delta(x)$ 샘플 이동.
+- `time_jitter(column, w, sigma_periods, period_samples) -> np.ndarray`: 열마다 길이 $n$ 원형 DFT 위상 회전으로 $\delta(x)$ 샘플 이동한다(계산은 v0.4와 같고 실현 비트 불변). v0.5: docstring의 "already low-passed … exact and its energy is kept"를 §2-7 식(짝수 $n$의 나이퀴스트 손실, 원형 이동)으로 고친다.
+- `texture_check`·`TextureCheck`(v0.5, §5-2 5): 필드 `jitter_energy`를 둘로 나눈다.
+  - `jitter_energy_identity`: σ마다 모든 띠 열의 $\max_x\lvert E'(x)/E-1+r_N\sin^2(\pi\delta(x))\rvert$, 통과 ≤ 1e-12.
+  - `jitter_nyquist_fraction`: $r_N$(σ와 무관한 한 값), 통과 ≤ 1e-6. $r_N$은 `rfft` 파스발 가중(0번·나이퀴스트 1, 나머지 2)으로 계산하고, 홀수 $n$이면 0.
+  - 기록 필드(통과 판정에 안 씀): `jitter_above_cutoff_fraction`(0.8 나이퀴스트 위 에너지 비), `jitter_wrap_rel`(σ마다 원형 이동 − 4n 영 채움 선형 이동 차의 최대 / 열 최대), `jitter_start_step_rel`(첫 0 아닌 행의 |값| / 열 최대), `jitter_delay_absmax_box_P`·`jitter_delay_absmax_taper_P`(σ마다).
+  - 다른 필드(`w_mean`, `w_sd`, `amplitude_mean_square`, `jitter_sd`)와 문턱은 그대로다.
+  - 상수는 `JITTER_ENERGY_IDENTITY_TOL = 1e-12`, `JITTER_NYQUIST_FRACTION_MAX = 1e-6`이다.
 - `plan_hyperbola_positions(contexts, patches, targets, seed)`: §2-3 round-robin, 측선당 ≤ 4, 묶음 ≤ 2.
 - `plan_band_positions_e3x(context, library, seed)`: §2-4 절차 1–5.
 
@@ -649,10 +768,15 @@ v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH
 - 영점·주기 변경 열([ZD] §5-1): `dk_zero_samples, dk_zero_over_p, zero_label_changed, zero_failed_changed, zero_rule_changed, zero_events_changed, zero_changed, zero_changed_exact, dp_samples, dp_rel, period_failed, period_changed, period_changed_exact`.
 - 대비·$coh$([R2R] §1-2 정의): L1 회색 영상(추론 입력)에서 정답 상자로 잼. `_bg` 값은 같은 상자를 주입 전 배경 영상에서 잼. 검출기와 무관.
 - `realizations.csv`, `rejections.csv`, `truths.csv`, `summary.json`(정체성, 판정 가능성, 건수, [ZD] 요약 키, NMS·max_det 카운터, 시간·자원).
+- (v0.5) `progress.json`(진행 파일, 보고 전용, 판정값 없음): precheck 폴더(`e3x_precheck_r<k>/`)와, `e3x_retry/` 또는 `e3x_retry<k>/`(k ≥ 2)의 `uninjected001/`·`injected/`에 둔다. 키는 `stage`·`done`·`total`·`unit`·`started_at`·`updated_at`뿐이고 `total`은 plan 측선 수다. 측선 단위로 원자적으로 다시 쓴다(`m33_e3x.py` 모듈 docstring "Progress file"). §5-3 블라인드 경로의 유일한 열람 예외다.
 
 ### A-4. 판정 도구
 
-- 입력 단언: injected `summary.json`의 `judgment.judgeable` true, 코드 blob·plan 표 sha = 봉인 2 값. 아니면 종료 2. uninjected001은 있으면 R-d 기준값에 쓰고, 없으면 `report_only.rd_baseline` = `null`.
+- 입력 단언: injected `summary.json`의 `judgment.judgeable` true, 코드 blob·plan 표 sha = 봉인 2 값(v0.5: 봉인 2 r1 기록 값). 아니면 종료 2. uninjected001은 있으면 R-d 기준값에 쓰고, 없으면 `report_only.rd_baseline` = `null`.
+- (v0.5) 입력 경로는 `runs/eval/m33/e3x_retry/injected/`·`e3x_retry/uninjected001/`이고 출력은 `e3x_retry/judgment/`다. 1회차 폴더(`runs/eval/m33/e3x/injected/`·`uninjected001/`)는 입력 후보에서 빼고 읽지 않는다.
+  - injected와 uninjected001은 서로 다른 재시도 차수 폴더에 있어도 된다(예: `e3x_retry/`와 `e3x_retry2/`, 사용자 결정 2026-11-20). 조건은 두 `run_identity`의 봉인 기록 sha와 코드 blob이 같은 것이다(v5-3). 다르면 종료 2다.
+  - 판정서에는 두 입력의 폴더 차수를 공개한다. uninjected001은 보고 전용 R-d 기준값만 주므로 차수가 달라도 판정 가설에는 영향이 없다.
+  - 입력 폴더가 1회차 경로이면 종료 2다.
 - 단위 표를 가설마다 `units_<ID>.csv`로 쓰고(재집계 근거), §3-2·§3-3대로 추정량·CI·결정·조작 점검을 낸다.
 - 부트스트랩: 배경별로 군집을 복원 추출(`default_rng(20261121)` 생성기 하나, 뽑는 순서는 §3-3), B = 20,000. 가설마다 군집 집합은 대상 위치가 있는 군집. $M^\ast$·$M^\ast_e$·층·바닥 양 $F$·`single_background`는 전체 자료에서 한 번 정해 복제에 넘긴다(복제 안에서 다시 정하지 않음).
 - 상수: `CI_LEVEL = 1 - 0.05/6`, `TAIL = 0.05/12`(소수 반올림값 금지), `REPORT_CI_LEVEL = 0.95`, `DELTA = 0.05`, `FLOOR = 0.10`, `NEG_FAIL = 0.05`, `NEG_FLAG = 0.02`, `NEG_MIN_POSITIONS = 10`, `NEG_MIN_CLUSTERS = 5`, `SHIFT_LIMIT_P = 12`.
@@ -669,7 +793,11 @@ v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH
 | 1 | `shifted_response`: Δt 0이면 원 응답과 같은 패치(비트 단위). Δt가 정수 샘플이면 꼭짓점 행이 Δt/dt만큼 늘고, **겹치는 행에서 max\|차\| ≤ 1e-9·max\|장\|**(행 수는 다를 수 있음. `_band_limited_resample` 위상이 `row·dt − shift`로 계산되어 비트 단위로 같지 않고 `_patch_rows`가 행 수를 바꿈, [EMV] 1절) |
 | 2 | `band_shift_for`(v0.4): (a) 목표 28·47·68·90 px에서 보정 뒤 위 끝이 1 샘플 안. (b) **얕은 원래 위치**: 원래 −20 dB 위 끝이 기록 시작 1 P 안이고 원래 패치 재측정 계단이 ≠ 0인 응답(예: [PDD] `pipe/1030_190118AC/LID10001` M01, 원래 위 끝 0.80 P, 계단 +1. 측선 자료를 읽을 수 없는 시험 환경이면 같은 성질의 합성 fixture)에서도 보정 뒤 1 샘플 안. (c) 보정 경로: 계단이 0인 사례에서 $n_2=n_1$, 계단이 ±1인 사례에서 $n_2-n_1$이 손 계산 값과 같고 띠를 두 번 만든다(보정은 한 번뿐). (d) \|$n_2$\| = 12 P는 허용, 12 P 초과는 `SHIFT_LIMIT`, $n_1$은 한도 안이고 $n_2$만 한도 밖인 fixture도 `SHIFT_LIMIT`. (e) 인위로 위 끝을 2 샘플 어긋나게 한 경우 `SHIFT_MISMATCH` |
 | 3 | 끝 테이퍼 T가 한 위치의 모든 행·팔에서 같고 원 응답 `band_taper_traces` 값과 같음. `top_depth_m`가 바뀌지 않음. 팔 사이 평행 이동 단언(v0.4): (측선, 모델)의 모든 팔(90 px 포함)에서 $k_1'(n_2)-n_2$가 같고, 한 팔의 `row0`를 인위로 1 바꾼 fixture에서 그 모델이 `arm_offsets_not_parallel`로 빠지고 `shift_mismatch`로 세어짐. 짧은 팔 중심: 열 수 홀짝이 같으면 긴 팔 중심, 다르면 긴 팔 중심 − 0.5 |
-| 4 | `texture_field`: 평탄 열 평균 0·표준편차 1, 시드 고정 재현. 생성기 단위 확인(열 ≥ 1,000개)에서 자기상관 표준편차가 $\sqrt2\,\ell_c$에 ±10 % 안. `amplitude_texture` 평탄 열 평균 제곱 1. `time_jitter`: 정수 이동에서 `np.roll`과 1e-9 안, 열 에너지 보존 |
+| 4 | (v0.5) `texture_field`: 평탄 열 평균 0·표준편차 1, 시드 고정 재현. 생성기 단위 확인(열 ≥ 1,000개)에서 자기상관 표준편차가 $\sqrt2\,\ell_c$에 ±10 % 안. `amplitude_texture` 평탄 열 평균 제곱 1. `time_jitter`: 정수 이동에서 `np.roll`과 1e-9 안, $\delta=0$에서 원 열과 1e-12 안 |
+|  | **에너지 식**: 홀수 길이 열에서 모든 δ에 에너지가 보존된다(1e-12). 짝수 길이 손 계산 fixture(예: $n=64$, 저주파 펄스 + $a(-1)^k$)에서 $E'/E=1-r_N\sin^2(\pi\delta)$(1e-12)이고, δ = 0.5 샘플에서 손실이 $r_N$과 같다. 열 시작 행에 계단을 둔 fixture에서 $r_N$이 계단 경계항 근사 $(s/2)^2/(nE)$와 같은 자릿수다 |
+|  | **문턱**: $r_N>10^{-6}$ fixture에서 `texture_check`가 실패하고, $r_N\le10^{-6}$이면 통과한다. 나이퀴스트 빈을 0으로 만들고 비교하는 구현(b1형)을 흉내 낸 fixture에서 항등식 단언이 실패한다 |
+|  | **precheck 10**: precheck 2측선에서 10번이 세는 단언별 실패 수·검사 수가 `build_line`의 `defects`·검사 수와 같다. 검사 수 0인 fixture에서 건수 가드가 실패한다. 실행 순서 1 → precheck plan 준비 → 10 → 3 → 2, 4–9를 지킨다. 1번이 실패하면 10번과 2–9번을, 10번이 실패하면 3번과 2, 4–9번을 부르지 않는다(모의 실패 fixture 둘) |
+|  | **재시도 경로**: 판정 도구가 1회차 경로나 정체성이 다른 injected·uninjected001 짝을 받으면 종료 2 |
 | 5 | 끝 처리 끔: 개구 테이퍼 열 밖은 켬과 비트 단위로 같음, 이득 같음. `r_edge_db`(v0.4)가 손으로 만든 장에서 정답값이다: 개구 테이퍼 열 안에서 진폭이 바깥으로 줄어드는 장에서 값이 차 장 $f_\text{unt}(1-w)$의 최대(바깥 열 쪽)와 같고, v0.3 식(테이퍼 열의 비테이퍼 최대, 안쪽 열)과 다르다. 최대가 꼭짓점보다 여러 P 늦은 행(끝 날개 도달)에 있어도 잡힌다(모든 행). 차 장이 개구 테이퍼 열 밖에서 0 |
 | 6 | round-robin 배치: 시드 고정 재현, 측선당 ≤ 4, 모델 목표 수, 간격 규칙 |
 | 7 | 띠 배치: 같은 위치의 모든 팔이 같은 모델·중심·T, 둘째 위치 간격 |
@@ -697,3 +825,5 @@ v0.2의 질문 1–3은 사용자 결정 v3-8(4TU 표본 현안 유지), v3-6(HH
 | 2026-11-20 | v0.3(보완) | §9 질문 1 해소(사용자 결정 v3-9: 보완 (a)(b)(c) 채택). [STV] 추가 검토 수정 문장 반영: §3-3 경계 (1)–(5)(음성 대조 $G_g<2$ → `not_run`, $\nu_g=\max(G_{\text{eff},g}-1,1)$, `zero_variance_background`, `degenerate_ci`에서 $\hat\Delta\ne0$ → `inconclusive`), 점검 1 (d)(두 배경 합친 서로 다른 군집 수, $G_g<2$ → `not_run`, 약한 점검 공개), A-4 (1)·A-5 시험 8에 4사례 추가. 봉인 1에 설계 집계 스크립트·json 포함(사용자 결정) |
 | 2026-11-20 | v0.3(정합) | integrity-checker 지적 반영: 봉인 1은 규칙 문서(이 문서, feasibility py·json, 검토 문서)와 4TU 표본 규칙·`POOL_SEED`, `m33_e3x_pool.csv`는 구현 뒤 만들어 봉인 2(§0 머리, §2-1, §5-1, A-1). 산식 720 − 176 = 544(177측선 중 `keep_one` 176). §2-1 "공개 4" → "공개 7". [CVR] 입력 근거 추가. feasibility 입력을 "로컬 plan 표(저장소 밖, 판정 완료 자료)"로 고치고 json `inputs`에 입력 sha256·슬래시 경로를 넣어 재실행(값 불변, sha 갱신) |
 | 2026-11-20 | v0.4 | 봉인 1(72b0140, v0.3) 뒤, 봉인 2 전 새 판. 사유: plan 1회차(run_id `e3689ada-4071-4f2a-9d5f-d9defc68b64c`, 종료 1 `e3x_defect`, `shift_mismatch` 7건)와 진단 [PDD]에서 드러난 결함 둘·문구 모호 둘, 사용자 결정 v4-1–v4-5. 결과 전·검출 무관(블라인드 경로 없음). 변경: §2-4 원래 위 끝 재측정 보정 1회($n_1 \to n_2$, 1 샘플 단언 유지, 팔 사이 평행 이동 단언 추가, 12 P 한도·이동량 민감도는 $n_2$), §2-3 $r_\text{edge}$를 켬·끔 차 장 $f_\text{unt}(1-w)$ 포락선의 모든 행·열 최대로 정정(v0.3 식은 안쪽 테이퍼 열을 골라 +0.5 ~ +9.6 dB 과대)과 측선 격자 재측정 참고값, §2-4 짧은 팔 중심 −0.5 트레이스 명시, §2-4 절차 1 T 조건을 (측선, 모델) 단위로, §1-2 R-e·§3-3 점검 1 (d)·§3-4·§3-7 (iv)(v)·§6 3·8 수치와 문구 갱신, §4 공개 2·9·14·15 갱신과 19–21 추가, §5-2 precheck 3·4, 부록 A-2(`band_shift_for`, 팔 사이 단언, `r_edge_db`)·A-3(띠 이동 기록 열, `r_edge_db` 정의)·A-5 시험 2·3·5·13, §8. 판정 규칙·문턱·시드는 바꾸지 않음. 통계 재검토는 봉인 2 뒤 `[모드] 평가`에서 새 plan 수로 반영. 같은 날 integrity 지적 반영(결과 전, 판 번호 유지): §5-4 plan 행에 `e3x_defect`, §3-7 (iv) $M^\ast$ 뒤 {18} 비중을 약 53 %(47/88)로 정정, §2-4 $n_2$ 재빌드 실패 문장, 팔 사이 단언 범위를 (측선, 모델)의 모든 팔(90 px 포함)과 사유 `arm_offsets_not_parallel`로, A-2 시그니처(`row_shift_for`·`band_shift_for`의 `taper_traces`·`length_traces`, 반환 `(RowShift, BandPatch)`, $d'$는 `d_prime_m`), A-3 열 `hit_s3`·`model_group`·`coverage_s3`, §2-4 계단 사례 내역 명시(46개 중 8개 = M01 4·M08 2·M06 1·M09 1), §3-7 (v) 모델 안 범위 0.1–6.3 dB |
+| 2026-11-20 | v0.5 | 봉인 2(729d19c, v0.4)와 injected 1회차(HEAD d720fe3, 종료 1 `e3x_defect`, 3,119 s, 결과 미열람) 뒤의 새 판. 사유: `texture_check`의 `jitter_energy` 단언 실패. 짝수 길이 열의 나이퀴스트 빈 손실 $r_N\sin^2(\pi\delta)$, $r_N\le1.03\times10^{-8}$([TDR]). 사용자 결정 v5-1–v5-6. EM 확인 [EMC] §4 문구 반영. 변경: §2-7 시간 흔들림(전제 정정, 대역 제한 근거 = Gabor 목표, 누설 = 합성 창 시작·끝 계단, 손실 식과 기호 표, 원형 이동, 두 단언과 $r_N$ 한계 근거, 실현 성질)과 예측 문단 보탬, §1-2 R-c 문구 표지, §2-4 "같은 파형" 범위(정답 구간), §4 공개 9 보탬과 22–27 추가, §5-1 표·순서(precheck r<k>, `e3x_retry/`), §5-2 1·5·10과 문단(전 측선 CPU 단언, GPU 전, 건수 가드, 기록·사본), §5-3 블라인드 경로(`e3x_retry*`), §5-4 precheck 행·1회차 단언 이름·재시도 행·실패 폴더 열람 행, §6 2·9항, §7, §8, §9, A-1 `m33_e3x_seal2_r1.json`, A-2 `time_jitter`·`texture_check`, A-4 입력 경로·정체성 단언, A-5 시험 4. 판정 가설·판정 규칙·문턱·시드·실현 비트·plan 표·pool 표는 바꾸지 않음. stats 재평가 없음 |
+| 2026-11-20 | v0.5(구현 정합) | 봉인 2 r1 전, 판 번호 유지. python-expert v0.5 구현 보고(시험 48 통과, skip 0, precheck 10 dry 실패 0)와 사용자 결정(2026-11-20) 반영. 진행 파일 `progress.json` 블라인드 예외(§5-3, A-3). 재시도 명령 `--out-root runs/eval/m33/e3x_retry`와 plan을 `SEALED_PLAN_DIR`에서 읽는다는 문장(§5-1), v0.4 잠재 결함 공개 28. 10번 stdout 요약 줄과 마지막 줄 구분(§5-2). precheck 실행 순서 1(실패 시 중단) → precheck plan 준비 → 10 → 3 → 2, 4–9(§5-2, A-5 4). injected·uninjected001 재시도 차수가 달라도 됨(정체성 같음 조건, 판정서에 차수 공개, A-4, §6 2). A-1 보조 도구 `m33_e3x_seal2_r1_draft.py`(실행 경로 밖, blob 단언 제외, 봉인 2 r1 커밋에 포함). 판정 가설·규칙·문턱·실현은 바꾸지 않음 |

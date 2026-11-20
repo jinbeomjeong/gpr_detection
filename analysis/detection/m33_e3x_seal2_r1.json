@@ -1,0 +1,1402 @@
+{
+ "schema": "m33_e3x_seal2/2",
+ "pool_csv_sha256_lf": "06f0078374704d8ce95e3bdc499caa3d967feeb25eecf8d24a623ea544007c11",
+ "plan_files_sha256_lf": {
+  "hyperbola_positions.csv": "ad4ac3b544b2a0dc3a9aaa71f85d99ee106564e67c403fa2e3a8f9e5c2b1eaff",
+  "band_positions.csv": "6817075541fda4fcc5dccd45168b21b7d3ffd6e43aa96629a43b55a1c8af415e",
+  "band_arms.csv": "66aad2fba14d6161286b8eefaf7088c76c2e1c172a153f83df00db8cec8db609",
+  "lines.csv": "a079a5cc2488878e1bbf80a76651ea15ac7fb4269e3ad6f4a6d90f530b69a75b",
+  "exclusions.csv": "4369750153e2b3059884be74284c614a1007059a9d07fdfcad6914e31407a875"
+ },
+ "plan_report_sha256_lf": "eaa9682414b61d1f35d52ada3923bd1877c5d251badf683f98d4e81ef8136c50",
+ "code_blobs": {
+  "analysis/detection/m33_e3x.py": "d13d6e770fffd359b4f3dd7f38f699d1ecdd8460",
+  "analysis/detection/m33_e3x_place.py": "0f1491a1e5cc6369f90dac3cf02f376106090ea3",
+  "analysis/detection/m33_e3x_pool.py": "a3452bd59c7886a0944a1c217714b5cf1b2c3e93",
+  "analysis/detection/m33_e3x_judge.py": "d9ed14b675fcdce8d467a3b6643b4545ec12bcb5",
+  "analysis/detection/m31_d1_common.py": "0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72",
+  "analysis/detection/m32_aihub_perturb.py": "320ce955a7acbcd8956cde7901234cf61e19ba45",
+  "analysis/detection/m32_pipe_responses.py": "5d065b3a807b41df04ff81098df86ba9ec747f58",
+  "analysis/detection/m32_recipe_eval.py": "ded84a93b95003a5920bf41f73ad1d0436b9ef14",
+  "analysis/detection/m32_recipe_inputs.py": "7f4815c5582086408a56a2002bf51d6002826a62",
+  "analysis/detection/m32_recipe_match.py": "7e17f060947073dbfcf4e3701a6e0505bffa9547",
+  "analysis/detection/m33_change_defs.py": "7a411d644f28275daaa4076ae9bd5456fd15e945",
+  "analysis/detection/m33_inputs.py": "ababaa50bc0371f90c55b18b0f0e7192fc267a74",
+  "analysis/detection/m33_r3_band.py": "b499a456fe423b7d8a72fa516a0f2123ae3bd7f4",
+  "analysis/detection/m33_r3_p4.py": "888f3dc9ac209400c71bbb29cf337cc4581f8f3b",
+  "src/gpr_detection/preprocess/to_image.py": "233e47ef22f825dc24449b7e5567fe8a47719d9a",
+  "src/gpr_detection/eval/inject.py": "2d88ff0a25c5cbc1bb7ca8698ba422c633f5b531",
+  "src/gpr_detection/pipeline.py": "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1",
+  "src/gpr_detection/detect/yolo.py": "505ff04d228c9e41272144fc263b7912b7568065"
+ },
+ "src_tree_id": "d0e54933f3a0c87cf2b8d43d255e97bd6bb97122",
+ "plan_head": "38c05cbf69f179f94bcb7ae25082dd4e01dca8ae",
+ "plan_run_id": "aea5035a-31ff-4f02-855d-d6b4d1bf89b1",
+ "seeds": {
+  "pool": 20261120,
+  "plan": 20261122,
+  "texture": 20261123
+ },
+ "supersedes": {
+  "path": "analysis/detection/m33_e3x_seal2.json",
+  "sha256_lf": "94c671edb27ba5077551855b529aa4d5370bb8e0c8dbc36ea6b0d49b518bb776",
+  "commit": "729d19ced8674039efac0cfe906fcb41f45c31e3"
+ },
+ "plan_code_blobs": {
+  "analysis/detection/m33_e3x.py": "b601daf6d54d5717ae5386c5a1bdd4288f0c1e0b",
+  "analysis/detection/m33_e3x_place.py": "e22665181b010e45e0a8fdb5ecfe5efcf84e64d0",
+  "analysis/detection/m33_e3x_pool.py": "a3452bd59c7886a0944a1c217714b5cf1b2c3e93",
+  "analysis/detection/m33_e3x_judge.py": "0da693fda4ded97212b31c5831ebcbf3be9eb5c4",
+  "analysis/detection/m31_d1_common.py": "0ba0675c8fc6bd632ed2b1e6794702b60f9b5d72",
+  "analysis/detection/m32_aihub_perturb.py": "320ce955a7acbcd8956cde7901234cf61e19ba45",
+  "analysis/detection/m32_pipe_responses.py": "5d065b3a807b41df04ff81098df86ba9ec747f58",
+  "analysis/detection/m32_recipe_eval.py": "ded84a93b95003a5920bf41f73ad1d0436b9ef14",
+  "analysis/detection/m32_recipe_inputs.py": "7f4815c5582086408a56a2002bf51d6002826a62",
+  "analysis/detection/m32_recipe_match.py": "7e17f060947073dbfcf4e3701a6e0505bffa9547",
+  "analysis/detection/m33_change_defs.py": "7a411d644f28275daaa4076ae9bd5456fd15e945",
+  "analysis/detection/m33_inputs.py": "ababaa50bc0371f90c55b18b0f0e7192fc267a74",
+  "analysis/detection/m33_r3_band.py": "b499a456fe423b7d8a72fa516a0f2123ae3bd7f4",
+  "analysis/detection/m33_r3_p4.py": "888f3dc9ac209400c71bbb29cf337cc4581f8f3b",
+  "src/gpr_detection/preprocess/to_image.py": "233e47ef22f825dc24449b7e5567fe8a47719d9a",
+  "src/gpr_detection/eval/inject.py": "2d88ff0a25c5cbc1bb7ca8698ba422c633f5b531",
+  "src/gpr_detection/pipeline.py": "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1",
+  "src/gpr_detection/detect/yolo.py": "505ff04d228c9e41272144fc263b7912b7568065"
+ },
+ "plan_reuse": {
+  "method": "top-level definitions whose ast source segment differs from the seal 2 blob; reachability over a static graph of the names each definition refers to (own module, place.<name>), annotations included",
+  "plan_roots": [
+   "m33_e3x:main",
+   "m33_e3x:parse_args",
+   "m33_e3x:run",
+   "m33_e3x:start_context",
+   "m33_e3x:run_plan",
+   "m33_e3x:print_final_line"
+  ],
+  "dispatch_edges": {
+   "m33_e3x:run": [
+    "m33_e3x:start_context",
+    "m33_e3x:run_plan"
+   ]
+  },
+  "old_blobs": {
+   "analysis/detection/m33_e3x.py": "b601daf6d54d5717ae5386c5a1bdd4288f0c1e0b",
+   "analysis/detection/m33_e3x_place.py": "e22665181b010e45e0a8fdb5ecfe5efcf84e64d0"
+  },
+  "changed": [
+   {
+    "name": "m33_e3x:CPU_ASSERTIONS",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 241,
+       "in": null
+      },
+      {
+       "line": 3671,
+       "in": "_cpu_check_worker"
+      },
+      {
+       "line": 3672,
+       "in": "_cpu_check_worker"
+      },
+      {
+       "line": 3720,
+       "in": "cpu_assertion_guard"
+      },
+      {
+       "line": 3726,
+       "in": "cpu_assertion_guard"
+      },
+      {
+       "line": 3737,
+       "in": "cpu_assertion_counts"
+      },
+      {
+       "line": 3791,
+       "in": "_cpu_line_columns"
+      },
+      {
+       "line": 3807,
+       "in": "cpu_line_rows"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:CPU_ASSERTIONS_JSON",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 251,
+       "in": null
+      },
+      {
+       "line": 3845,
+       "in": "run_cpu_assertions"
+      },
+      {
+       "line": 3885,
+       "in": "cpu_assertion_file_hashes"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:CPU_ASSERTIONS_LINES",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 252,
+       "in": null
+      },
+      {
+       "line": 3840,
+       "in": "run_cpu_assertions"
+      },
+      {
+       "line": 3885,
+       "in": "cpu_assertion_file_hashes"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:CpuAssertionJobs",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3630,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3656,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3819,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:DEFAULT_PRECHECK_DIR",
+    "status": "changed",
+    "reachable_from_plan": true,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 154,
+       "in": null
+      },
+      {
+       "line": 4061,
+       "in": "parse_args"
+      }
+     ]
+    },
+    "note": "argparse default of --precheck-dir only (parse_args); the plan stage never reads settings.precheck_dir: Settings.stage_dir returns out_root/plan when precheck is False"
+   },
+   {
+    "name": "m33_e3x:GPU_PRECHECK_CHECKS",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 253,
+       "in": null
+      },
+      {
+       "line": 3963,
+       "in": "run_precheck"
+      },
+      {
+       "line": 3979,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:LineCpuChecks",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3659,
+       "in": "_cpu_check_worker"
+      },
+      {
+       "line": 3668,
+       "in": "_cpu_check_worker"
+      },
+      {
+       "line": 3681,
+       "in": "cpu_check_results"
+      },
+      {
+       "line": 3683,
+       "in": "cpu_check_results"
+      },
+      {
+       "line": 3685,
+       "in": "cpu_check_results"
+      },
+      {
+       "line": 3707,
+       "in": "cpu_assertion_guard"
+      },
+      {
+       "line": 3733,
+       "in": "cpu_assertion_counts"
+      },
+      {
+       "line": 3760,
+       "in": "texture_positions"
+      },
+      {
+       "line": 3780,
+       "in": "failure_rows"
+      },
+      {
+       "line": 3797,
+       "in": "cpu_line_rows"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:LineRealizations",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2457,
+       "in": "build_line"
+      },
+      {
+       "line": 2501,
+       "in": "build_line"
+      },
+      {
+       "line": 2538,
+       "in": "_line_worker"
+      },
+      {
+       "line": 2586,
+       "in": "hyperbola_fold_fields"
+      },
+      {
+       "line": 2686,
+       "in": "line_records"
+      },
+      {
+       "line": 2723,
+       "in": "_entry_fold_rows"
+      },
+      {
+       "line": 3073,
+       "in": "evaluate_lines"
+      },
+      {
+       "line": 3140,
+       "in": "_built_lines"
+      },
+      {
+       "line": 3503,
+       "in": "_precheck_conf_paths"
+      },
+      {
+       "line": 3991,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:PLAN_COUNT_TABLES",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3534,
+       "in": null
+      },
+      {
+       "line": 3620,
+       "in": "_plan_source"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:PLAN_SOURCE_MAIN",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 249,
+       "in": null
+      },
+      {
+       "line": 3650,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3653,
+       "in": "cpu_assertion_jobs"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:PLAN_SOURCE_PRECHECK",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 250,
+       "in": null
+      },
+      {
+       "line": 3651,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3654,
+       "in": "cpu_assertion_jobs"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:PROGRESS_FILE",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 162,
+       "in": null
+      },
+      {
+       "line": 3032,
+       "in": "run_injected"
+      },
+      {
+       "line": 3321,
+       "in": "run_uninjected001"
+      },
+      {
+       "line": 3830,
+       "in": "run_cpu_assertions"
+      },
+      {
+       "line": 4009,
+       "in": "run_precheck"
+      },
+      {
+       "line": 4023,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:PROGRESS_RETRY_S",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 164,
+       "in": null
+      },
+      {
+       "line": 420,
+       "in": "Progress"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:PROGRESS_WRITE_ATTEMPTS",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 163,
+       "in": null
+      },
+      {
+       "line": 413,
+       "in": "Progress"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:Progress",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3031,
+       "in": "run_injected"
+      },
+      {
+       "line": 3074,
+       "in": "evaluate_lines"
+      },
+      {
+       "line": 3320,
+       "in": "run_uninjected001"
+      },
+      {
+       "line": 3507,
+       "in": "_precheck_conf_paths"
+      },
+      {
+       "line": 3680,
+       "in": "cpu_check_results"
+      },
+      {
+       "line": 3829,
+       "in": "run_cpu_assertions"
+      },
+      {
+       "line": 4008,
+       "in": "run_precheck"
+      },
+      {
+       "line": 4023,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:RECORD_PERCENTILE",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 264,
+       "in": null
+      },
+      {
+       "line": 3755,
+       "in": "_distribution"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:SEAL2_RECORD",
+    "status": "changed",
+    "reachable_from_plan": true,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 156,
+       "in": null
+      },
+      {
+       "line": 4070,
+       "in": "parse_args"
+      }
+     ]
+    },
+    "note": "argparse default of --seal-record only (parse_args); the plan stage never reads settings.seal_record: tracked_inputs adds it only when settings.precheck or the stage is not plan"
+   },
+   {
+    "name": "m33_e3x:SEALED_PLAN_DIR",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 160,
+       "in": null
+      },
+      {
+       "line": 786,
+       "in": "assert_seal2"
+      },
+      {
+       "line": 2997,
+       "in": "detector_stage_inputs"
+      },
+      {
+       "line": 3643,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3645,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3653,
+       "in": "cpu_assertion_jobs"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_Tee",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3972,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_Textures",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2258,
+       "in": "textured"
+      },
+      {
+       "line": 2292,
+       "in": "band_entries"
+      },
+      {
+       "line": 2309,
+       "in": "band_entries"
+      },
+      {
+       "line": 2342,
+       "in": "_band_realization"
+      },
+      {
+       "line": 2525,
+       "in": "_texture_failures"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_close_precheck",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3965,
+       "in": "run_precheck"
+      },
+      {
+       "line": 3983,
+       "in": "run_precheck"
+      },
+      {
+       "line": 4044,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_cpu_check_worker",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3694,
+       "in": "cpu_check_results"
+      },
+      {
+       "line": 3699,
+       "in": "cpu_check_results"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_cpu_line_columns",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3841,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_display_path",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3618,
+       "in": "_plan_source"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_distribution",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3777,
+       "in": "texture_distributions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_failure",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2006,
+       "in": "r_edge_failures"
+      },
+      {
+       "line": 2494,
+       "in": "build_line"
+      },
+      {
+       "line": 2495,
+       "in": "build_line"
+      },
+      {
+       "line": 2500,
+       "in": "build_line"
+      },
+      {
+       "line": 2527,
+       "in": "_texture_failures"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_local_time",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3959,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_plan_source",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3653,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3654,
+       "in": "cpu_assertion_jobs"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_precheck_conf_paths",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 4018,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:_texture_failures",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2497,
+       "in": "build_line"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:arm_id",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2306,
+       "in": "band_entries"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:assert_retry_output",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3022,
+       "in": "run_injected"
+      },
+      {
+       "line": 3311,
+       "in": "run_uninjected001"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:assert_seal2",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2992,
+       "in": "detector_stage_inputs"
+      },
+      {
+       "line": 3494,
+       "in": "_precheck_identity"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:band_entries",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2479,
+       "in": "build_line"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:build_line",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2539,
+       "in": "_line_worker"
+      },
+      {
+       "line": 3662,
+       "in": "_cpu_check_worker"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:cpu_assertion_counts",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3834,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:cpu_assertion_file_hashes",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3975,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:cpu_assertion_guard",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3833,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:cpu_assertion_jobs",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3973,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:cpu_check_results",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3832,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:cpu_line_rows",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3842,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:detector_stage_inputs",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3024,
+       "in": "run_injected"
+      },
+      {
+       "line": 3313,
+       "in": "run_uninjected001"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:evaluate_lines",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3034,
+       "in": "run_injected"
+      },
+      {
+       "line": 4000,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:failure_rows",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3856,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:hyperbola_entries",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2476,
+       "in": "build_line"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:is_first_try_path",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 369,
+       "in": "assert_retry_output"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:planned_check_counts",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3644,
+       "in": "cpu_assertion_jobs"
+      },
+      {
+       "line": 3647,
+       "in": "cpu_assertion_jobs"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:r_edge_failures",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2496,
+       "in": "build_line"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:run_cpu_assertions",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3974,
+       "in": "run_precheck"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:run_injected",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 4105,
+       "in": null
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:run_precheck",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 4113,
+       "in": "run"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:run_uninjected001",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 4104,
+       "in": null
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:texture_distributions",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3861,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x:texture_positions",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3838,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x_place:JITTER_CUTOFF_CYCLES_PER_SAMPLE",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 92,
+       "in": null
+      },
+      {
+       "line": 1102,
+       "in": "above_cutoff_fraction"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:JITTER_ENERGY_IDENTITY_TOL",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 88,
+       "in": null
+      },
+      {
+       "line": 1171,
+       "in": "TextureCheck"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:JITTER_NYQUIST_FRACTION_MAX",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 90,
+       "in": null
+      },
+      {
+       "line": 1174,
+       "in": "TextureCheck"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:LINEAR_SHIFT_PAD_FACTOR",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 94,
+       "in": null
+      },
+      {
+       "line": 1116,
+       "in": "linear_time_jitter"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:TEXTURE_ASSERTED_FIELDS",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 96,
+       "in": null
+      }
+     ],
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3858,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x_place:TEXTURE_RECORD_ONLY_FIELDS",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 105,
+       "in": null
+      }
+     ],
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 3859,
+       "in": "run_cpu_assertions"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x_place:TextureCheck",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1204,
+       "in": "texture_check"
+      },
+      {
+       "line": 1230,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 1812,
+       "in": "LineRealizations"
+      },
+      {
+       "line": 2234,
+       "in": "_Textures"
+      },
+      {
+       "line": 3568,
+       "in": "LineCpuChecks"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x_place:_absmax",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1228,
+       "in": "texture_check"
+      },
+      {
+       "line": 1229,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:_energy_identity_residual",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1225,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:_parseval_weights",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1103,
+       "in": "above_cutoff_fraction"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:_taper_delays",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1229,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:above_cutoff_fraction",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1237,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:linear_time_jitter",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1226,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:nyquist_fraction",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1217,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:start_step_fraction",
+    "status": "added",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1239,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   },
+   {
+    "name": "m33_e3x_place:texture_check",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [],
+     "analysis/detection/m33_e3x.py": [
+      {
+       "line": 2251,
+       "in": "_Textures"
+      }
+     ]
+    }
+   },
+   {
+    "name": "m33_e3x_place:time_jitter",
+    "status": "changed",
+    "reachable_from_plan": false,
+    "references": {
+     "analysis/detection/m33_e3x_place.py": [
+      {
+       "line": 1074,
+       "in": "jittered_band"
+      },
+      {
+       "line": 1118,
+       "in": "linear_time_jitter"
+      },
+      {
+       "line": 1224,
+       "in": "texture_check"
+      }
+     ],
+     "analysis/detection/m33_e3x.py": []
+    }
+   }
+  ],
+  "reachable_changed": [
+   "m33_e3x:DEFAULT_PRECHECK_DIR",
+   "m33_e3x:SEAL2_RECORD"
+  ],
+  "n_plan_path_definitions": 158
+ }
+}

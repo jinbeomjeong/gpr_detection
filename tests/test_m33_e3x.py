@@ -24,6 +24,7 @@ import m33_e3x as e3x
 import m33_e3x_judge as judge
 import m33_e3x_place as place
 import m33_e3x_pool as pool
+import m33_e3x_seal2_r1_draft as seal_draft
 
 from gpr_detection.detect.base import PixelBox
 from gpr_detection.eval import inject
@@ -314,6 +315,98 @@ def test_4b_texture_check_passes_on_a_real_band(helpers, long_context):
     m = place.amplitude_texture(w, band.flat_columns, 2.5)
     check = place.texture_check(band, w, m, long_context.period_samples)
     assert check.passes(), check
+    column = place.apex_column(band)
+    assert check.jitter_nyquist_fraction == place.nyquist_fraction(column)
+    assert set(check.jitter_energy_identity) == set(place.JITTER_PERIODS)
+    record = check.as_record()
+    assert record["jitter_wrap_rel@0.2"] == check.jitter_wrap_rel[0.2]
+    assert 0 < record["jitter_start_step_rel"] <= 1
+
+
+NYQUIST_FIXTURE_ROWS = 64
+
+
+def _nyquist_column(amplitude: float, n_rows: int = NYQUIST_FIXTURE_ROWS):
+    """Low-frequency pulse + ``a (-1)^k``: ``r_N`` close to ``a^2 n / E``."""
+    k = np.arange(n_rows)
+    pulse = np.exp(-(((k - n_rows / 2) / 6.0) ** 2)) * np.cos(2 * np.pi * k / 16.0)
+    return pulse + amplitude * (-1.0) ** k
+
+
+def test_4c_time_jitter_energy_identity_wrap_and_step():
+    # delta = 0 gives the column back.
+    column = _nyquist_column(1e-3)
+    still = place.time_jitter(column, np.zeros(3), 0.2, 10.0)
+    assert np.abs(still - column[:, None]).max() <= 1e-12
+    # Odd length: no Nyquist bin, the energy is kept for every delay.
+    odd = np.random.default_rng(3).standard_normal(63)
+    moved = place.time_jitter(odd, np.linspace(-2.0, 2.0, 9), 1.0, 1.0)
+    energy = np.sum(moved**2, axis=0) / np.sum(odd**2)
+    assert place.nyquist_fraction(odd) == 0.0
+    assert np.abs(energy - 1).max() <= 1e-12
+    # Even length: E'/E = 1 - r_N sin^2(pi delta); delta = 0.5 loses r_N.
+    delays = np.array([0.0, 0.25, 0.5, 0.75, 1.3, -0.4])
+    r_n = place.nyquist_fraction(column)
+    hand = 1e-3**2 * NYQUIST_FIXTURE_ROWS / np.sum(column**2)
+    assert abs(r_n / hand - 1) <= 1e-6
+    shifted = place.time_jitter(column, delays, 1.0, 1.0)
+    ratio = np.sum(shifted**2, axis=0) / np.sum(column**2)
+    assert np.abs(ratio - 1 + r_n * np.sin(np.pi * delays) ** 2).max() <= 1e-12
+    assert abs((1 - ratio[2]) - r_n) <= 1e-12
+    # Start step: r_N has the order of the boundary term (s/2)^2 / (n E).
+    t = np.arange(512)
+    stepped = np.exp(-t / 20.0) * np.cos(2 * np.pi * t / 40.0)
+    approx = (stepped[0] / 2) ** 2 / (t.size * np.sum(stepped**2))
+    assert 0.5 <= place.nyquist_fraction(stepped) / approx <= 2.0
+    assert place.start_step_fraction(stepped) == 1.0
+    # The linear (4n zero pad) shift has no wrap: an integer delay moves the
+    # column down and leaves zeros above it.
+    linear = place.linear_time_jitter(stepped, np.array([3.0]), 1.0, 1.0)[:, 0]
+    assert np.abs(linear[:3]).max() <= 1e-12
+    assert np.abs(linear[3:] - stepped[:-3]).max() <= 1e-9
+
+
+def _band_fixture(helpers, long_context):
+    plan = place.plan_band_positions_e3x(long_context, {"M12": helpers._response()})
+    band = plan.positions[0].arm_of(47.0, place.LONG_ARM).band
+    w = place.texture_field(
+        band.n_columns,
+        band.flat_columns,
+        long_context.period_traces,
+        3.0,
+        place.texture_rng("x"),
+    )
+    return band, w, place.amplitude_texture(w, band.flat_columns, 2.5)
+
+
+def test_4d_texture_check_nyquist_bound_and_b1_mock(helpers, long_context, monkeypatch):
+    band, w, m = _band_fixture(helpers, long_context)
+    period = long_context.period_samples
+    columns = {"over": _nyquist_column(1e-3), "under": _nyquist_column(1e-4)}
+    monkeypatch.setattr(place, "apex_column", lambda _band: columns["over"])
+    over = place.texture_check(band, w, m, period)
+    assert over.jitter_nyquist_fraction > place.JITTER_NYQUIST_FRACTION_MAX
+    assert max(over.jitter_energy_identity.values()) <= 1e-12
+    assert not over.passes()
+    monkeypatch.setattr(place, "apex_column", lambda _band: columns["under"])
+    under = place.texture_check(band, w, m, period)
+    assert 1e-8 < under.jitter_nyquist_fraction <= place.JITTER_NYQUIST_FRACTION_MAX
+    assert under.passes(), under
+    # A shift that drops the Nyquist bin (b1-type defect) loses r_N on every
+    # column whatever the delay: the identity catches it, the r_N bound not.
+    sealed = place.time_jitter
+
+    def nyquist_dropped(column, w_, sigma, period_):
+        spectrum = np.fft.rfft(column)
+        spectrum[-1] = 0.0
+        flat = np.fft.irfft(spectrum, n=column.shape[0])
+        return sealed(flat, w_, sigma, period_)
+
+    monkeypatch.setattr(place, "time_jitter", nyquist_dropped)
+    broken = place.texture_check(band, w, m, period)
+    assert broken.jitter_nyquist_fraction == under.jitter_nyquist_fraction
+    assert max(broken.jitter_energy_identity.values()) > 1e-12
+    assert not broken.passes()
 
 
 # ------------------------------------------------------- 5 end treatment
@@ -1069,6 +1162,53 @@ def test_runner_settings_and_pre_seal_problems(tmp_path):
     )
 
 
+SEAL2_R1 = REPO / "analysis" / "detection" / "m33_e3x_seal2_r1.json"
+
+
+def test_seal2_r1_record_supersedes_seal2_and_keeps_the_plan():
+    old = json.loads(seal_draft.SEAL2.read_text("utf-8"))
+    record = json.loads(SEAL2_R1.read_text("utf-8"))
+    assert e3x.SEAL2_RECORD == SEAL2_R1
+    assert set(old) | {"supersedes", "plan_code_blobs", "plan_reuse"} == set(record)
+    assert record["supersedes"] == {
+        "path": "analysis/detection/m33_e3x_seal2.json",
+        "sha256_lf": inputs.sha256_file_lf(seal_draft.SEAL2),
+        "commit": "729d19ced8674039efac0cfe906fcb41f45c31e3",
+    }
+    for key in (
+        "pool_csv_sha256_lf",
+        "plan_files_sha256_lf",
+        "plan_report_sha256_lf",
+        "src_tree_id",
+        "plan_head",
+        "plan_run_id",
+        "seeds",
+    ):
+        assert record[key] == old[key], key
+    assert record["plan_code_blobs"] == old["code_blobs"]
+    assert set(record["code_blobs"]) == set(old["code_blobs"])
+    assert record["code_blobs"] != old["code_blobs"]
+    reuse = record["plan_reuse"]
+    assert set(reuse["reachable_changed"]) <= set(seal_draft.REACHABLE_NOTES)
+
+
+def test_seal2_r1_reachability_graph_on_a_small_module():
+    old = seal_draft.top_level_definitions(
+        "A = 1\ndef plan():\n    return helper()\ndef helper():\n    return A\n"
+        "def other():\n    return 2\n"
+    )
+    new = seal_draft.top_level_definitions(
+        "A = 2\ndef plan():\n    return helper()\ndef helper():\n    return A\n"
+        "def other():\n    return 3\ndef added():\n    return place.x\n"
+    )
+    assert seal_draft.changed_names(old, new) == ["A", "added", "other"]
+    graph = seal_draft.reference_graph({"m33_e3x": new, "m33_e3x_place": {}})
+    reach = seal_draft.reachable(graph, ["m33_e3x:plan"])
+    assert reach == {"m33_e3x:plan", "m33_e3x:helper", "m33_e3x:A"}
+    source = "def plan():\n    return helper()\ndef helper():\n    return 1\n"
+    assert seal_draft.references(source, "helper", None) == [{"line": 2, "in": "plan"}]
+
+
 # ------------------------------------------------------ offline end to end
 
 
@@ -1209,6 +1349,7 @@ def test_offline_plan_realizations_records_and_judge(offline, capsys):
 def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_path):
     assert e3x.run_plan(offline.settings, 0.0, offline.context)[0] == "ok"
     plan_dir = offline.settings.stage_dir
+    monkeypatch.setattr(e3x, "SEALED_PLAN_DIR", plan_dir)
     record = tmp_path / "seal2.json"
     record.write_bytes((plan_dir / "seal2_record_draft.json").read_bytes())
     argv = [
@@ -1234,6 +1375,17 @@ def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_pa
     assert status == "ok" and counts.n_inferences > 0
     summary = json.loads((settings.stage_dir / "summary.json").read_text("utf-8"))
     assert summary["judgment"]["judgeable"] and not summary["defects"].get("zero_test")
+    progress = json.loads((settings.stage_dir / "progress.json").read_text("utf-8"))
+    assert set(progress) == {
+        "stage",
+        "done",
+        "total",
+        "unit",
+        "started_at",
+        "updated_at",
+    }
+    assert progress["stage"] == "injected" and progress["done"] == progress["total"]
+    assert not (settings.stage_dir / "progress.json.tmp").exists()
     monkeypatch.setattr(
         judge.m33_inputs,
         "git_blobs",
@@ -1254,9 +1406,62 @@ def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_pa
     assert (tmp_path / "judgment" / "units_HB1.csv").is_file()
     with pytest.raises(inputs.InputError):
         judge.run(args)  # the output folder exists
+    # v5-3: an un-injected run of another seal record is refused.
+    other = tmp_path / "uninjected001"
+    other.mkdir()
+    foreign = {"run_identity": {"seal2": {"seal_record_sha256_lf": "0" * 64}}}
+    (other / "summary.json").write_text(json.dumps(foreign), encoding="utf-8")
+    with pytest.raises(inputs.InputError, match="un-injected run"):
+        judge.run(replace_namespace(args, uninjected=other, out=tmp_path / "j2"))
+    # An un-injected run of the same seal record and blobs is accepted.
+    own = json.loads((settings.stage_dir / "summary.json").read_text("utf-8"))
+    (other / "summary.json").write_text(json.dumps(own), encoding="utf-8")
+    judge.assert_run_identities(own, other, record)
     (plan_dir / "band_arms.csv").write_text("changed\n", encoding="utf-8")
     with pytest.raises(inputs.InputError):
         e3x.assert_seal2(settings, offline.context)
+
+
+def replace_namespace(namespace: SimpleNamespace, **changes) -> SimpleNamespace:
+    return SimpleNamespace(**{**vars(namespace), **changes})
+
+
+def test_first_try_outputs_are_refused(offline, tmp_path, capsys):
+    first_try = e3x.parse_args(["--stage", "injected", "--device", "cpu"])
+    assert first_try.stage_dir == e3x.DEFAULT_OUT_ROOT / "injected"
+    for run_stage in (e3x.run_injected, e3x.run_uninjected001):
+        with pytest.raises(inputs.InputError, match="first-try output refused"):
+            run_stage(first_try, 0.0, offline.context)
+    retry = e3x.parse_args(
+        ["--stage", "injected", "--out-root", str(e3x.RETRY_OUT_ROOT)]
+    )
+    assert not e3x.is_first_try_path(retry.stage_dir)
+    e3x.assert_retry_output(retry)
+    argv = [
+        "--injected",
+        str(e3x.DEFAULT_OUT_ROOT / "injected"),
+        "--uninjected",
+        str(tmp_path / "uninjected001"),
+        "--out",
+        str(tmp_path / "judgment"),
+    ]
+    assert judge.main(argv) == 2
+    assert json.loads(capsys.readouterr().out.splitlines()[-1])["status"] == (
+        "input_error"
+    )
+    assert not (tmp_path / "judgment").exists()
+    injected = tmp_path / "injected"
+    with pytest.raises(inputs.InputError, match="first-try folder"):
+        judge.assert_retry_paths(
+            injected, e3x.DEFAULT_OUT_ROOT / "uninjected001", tmp_path / "judgment"
+        )
+    with pytest.raises(inputs.InputError, match="first-try folder"):
+        judge.assert_retry_paths(
+            injected, tmp_path / "uninjected001", e3x.DEFAULT_OUT_ROOT / "judgment"
+        )
+    judge.assert_retry_paths(
+        injected, tmp_path / "uninjected001", tmp_path / "judgment"
+    )
 
 
 class InProcessPool:
@@ -1282,8 +1487,11 @@ class InProcessPool:
         return future
 
 
-def test_offline_precheck_runs_every_check(offline, monkeypatch, tmp_path, capsys):
+@pytest.fixture
+def precheck_run(offline, monkeypatch, tmp_path):
+    """Offline precheck: the plan line as the main line, two precheck lines."""
     assert e3x.run_plan(offline.settings, 0.0, offline.context)[0] == "ok"
+    monkeypatch.setattr(e3x, "SEALED_PLAN_DIR", offline.settings.stage_dir)
     record = tmp_path / "seal2.json"
     record.write_bytes(
         (offline.settings.stage_dir / "seal2_record_draft.json").read_bytes()
@@ -1300,7 +1508,7 @@ def test_offline_precheck_runs_every_check(offline, monkeypatch, tmp_path, capsy
             "shares_r3_activity": True,
             "role": "precheck",
         }
-        for line_id in ("01.1/Path3", "01.1/Path4")
+        for line_id in ("01.1/Path4", "01.1/Path5")  # Path3 is the main line
     ]
     pool.write_pool(pool_csv, rows)
     record_data = json.loads(record.read_text("utf-8"))
@@ -1322,6 +1530,8 @@ def test_offline_precheck_runs_every_check(offline, monkeypatch, tmp_path, capsy
     monkeypatch.setattr(e3x, "ProcessPoolExecutor", InProcessPool)
     argv = [
         "--precheck",
+        "--workers",
+        "2",
         "--out-root",
         str(offline.settings.out_root),
         "--pool",
@@ -1333,11 +1543,133 @@ def test_offline_precheck_runs_every_check(offline, monkeypatch, tmp_path, capsy
         "--precheck-dir",
         str(tmp_path / "pre"),
     ]
-    settings = e3x.parse_args(argv)
-    status, _ = e3x.run_precheck(settings, 0.0, base)
-    document = json.loads((tmp_path / "pre" / "precheck.json").read_text("utf-8"))
-    assert status == "ok", document["checks"]
-    assert all(document["checks"].values())
-    assert not e3x.METRIC_WORDS.search(capsys.readouterr().out)
+    return SimpleNamespace(settings=e3x.parse_args(argv), context=base)
+
+
+def _csv_rows(path: Path) -> dict[str, dict[str, str]]:
+    return {row["line_id"]: row for row in inputs.read_csv(path)}
+
+
+def test_offline_precheck_runs_every_check(precheck_run, offline, capsys):
+    settings = precheck_run.settings
+    status, _ = e3x.run_precheck(settings, 0.0, precheck_run.context)
+    pre = settings.stage_dir
+    document = json.loads((pre / "precheck.json").read_text("utf-8"))
+    cpu = json.loads((pre / e3x.CPU_ASSERTIONS_JSON).read_text("utf-8"))
+    assert status == "ok", (document["checks"], cpu["guard_problems"])
+    assert all(document["checks"].values()) and document["not_run"] == []
+    assert list(document["checks"])[:2] == ["1_identity", "10_cpu_assertions"]
+    assert set(document["checks"]) == {
+        "1_identity",
+        "10_cpu_assertions",
+        *e3x.GPU_PRECHECK_CHECKS,
+    }
+    stdout = capsys.readouterr().out
+    assert not e3x.METRIC_WORDS.search(stdout)
+    summary = json.loads(
+        next(line for line in stdout.splitlines() if "10_cpu_assertions" in line)
+    )
+    assert set(summary) == {
+        "precheck",
+        "status",
+        "n_lines",
+        "n_checks",
+        "n_failed",
+        "elapsed_s",
+    }
+    assert summary["n_lines"] == 3 and summary["n_failed"] == 0
+    assert cpu["passed"] and not cpu["guard_problems"] and not cpu["failures"]
+    for key, counts in cpu["assertions"].items():
+        assert counts["n_checked"] == counts["n_expected"] > 0, key
+    assert cpu["run_identity"]["started_at"] == e3x._local_time(0.0)
+    assert cpu["texture_positions"] and cpu["texture_distribution"]
+    # Same counts as the full build_line on the two precheck lines (A-5 4).
+    rows = _csv_rows(pre / e3x.CPU_ASSERTIONS_LINES)
+    lines = e3x.precheck_pool(settings)
+    plans = e3x.read_plan(pre / "plan", lines, inputs.CandidateApexes({}, {}))
+    for plan in plans:
+        full = e3x.build_line(plan, offline.library, offline.library)
+        row = rows[plan.line.line_id]
+        assert row["plan_source"] == "precheck"
+        for key in e3x.CPU_ASSERTIONS:
+            assert int(row[f"{key}_failed"]) == full.defects[key] == 0, key
+            assert int(row[f"{key}_checked"]) == full.n_checked[key], key
+            assert row[f"{key}_checked"] == row[f"{key}_expected"], key
+    progress = json.loads((pre / "progress.json").read_text("utf-8"))
+    assert progress["stage"] == "precheck_6" and progress["done"] == progress["total"]
     with pytest.raises(inputs.InputError):
-        e3x.run_precheck(settings, 0.0, base)  # the folder exists
+        e3x.run_precheck(settings, 0.0, precheck_run.context)  # the folder exists
+
+
+def test_offline_precheck10_failure_skips_the_gpu_checks(precheck_run, monkeypatch):
+    def no_detector(*_):
+        raise AssertionError("a GPU check ran after check 10 failed")
+
+    monkeypatch.setattr(e3x, "load_detectors", no_detector)
+    monkeypatch.setattr(e3x, "zero_test_passes", lambda context: False)
+    settings = precheck_run.settings
+    status, counts = e3x.run_precheck(settings, 0.0, precheck_run.context)
+    assert status == "precheck_failed" and counts.n_inferences == 0
+    pre = settings.stage_dir
+    document = json.loads((pre / "precheck.json").read_text("utf-8"))
+    assert document["checks"] == {"1_identity": True, "10_cpu_assertions": False}
+    assert document["not_run"] == list(e3x.GPU_PRECHECK_CHECKS)
+    assert not (pre / "w1").exists()
+    cpu = json.loads((pre / e3x.CPU_ASSERTIONS_JSON).read_text("utf-8"))
+    assert cpu["assertions"]["zero_test"]["n_failed"] == 3
+    assert {f["assertion"] for f in cpu["failures"]} == {"zero_test"}
+
+
+def test_offline_precheck1_failure_stops_before_every_other_check(
+    precheck_run, monkeypatch
+):
+    def seal_differs(*_):
+        raise inputs.InputError("seal-2 record differs: ['code_blobs']")
+
+    def must_not_run(*_):
+        raise AssertionError("a check ran after check 1 failed")
+
+    monkeypatch.setattr(e3x, "assert_seal2", seal_differs)
+    for name in ("_precheck_plan", "cpu_assertion_jobs", "load_detectors"):
+        monkeypatch.setattr(e3x, name, must_not_run)
+    settings = precheck_run.settings
+    status, counts = e3x.run_precheck(settings, 0.0, precheck_run.context)
+    assert status == "precheck_failed" and counts == e3x.Counts()
+    pre = settings.stage_dir
+    document = json.loads((pre / "precheck.json").read_text("utf-8"))
+    assert document["checks"] == {"1_identity": False}
+    assert document["not_run"] == ["10_cpu_assertions", *e3x.GPU_PRECHECK_CHECKS]
+    assert document["run_identity"]["started_at"] == e3x._local_time(0.0)
+    assert not (pre / e3x.CPU_ASSERTIONS_JSON).exists()
+    assert not (pre / "plan").exists() and not (pre / "w1").exists()
+
+
+def test_offline_precheck10_equals_build_line_and_guards_counts(offline):
+    assert e3x.run_plan(offline.settings, 0.0, offline.context)[0] == "ok"
+    plan_dir = offline.settings.stage_dir
+    plans = e3x.read_plan(plan_dir, [offline.line], inputs.CandidateApexes({}, {}))
+    full = e3x.build_line(plans[0], offline.library, offline.library)
+    cpu = e3x.build_line(plans[0], offline.library, offline.library, images=False)
+    assert cpu.entries == () and full.entries
+    assert cpu.defects == full.defects
+    assert cpu.n_checked == full.n_checked
+    assert cpu.texture_checks == full.texture_checks
+    assert cpu.texture_details == full.texture_details
+    expected = e3x.planned_check_counts(plan_dir, [offline.line.line_id])
+    assert expected[offline.line.line_id] == dict(full.n_checked)
+    assert all(full.n_checked[key] > 0 for key in e3x.CPU_ASSERTIONS)
+    e3x._init_line_worker()
+    result = e3x._cpu_check_worker((plans[0], "main"))
+    assert result.n_failed == {key: full.defects[key] for key in e3x.CPU_ASSERTIONS}
+    assert not e3x.cpu_assertion_guard([result], expected)
+    # The guard: a line with no checks, a missing line, a wrong count.
+    empty = replace(result, n_checked=dict.fromkeys(e3x.CPU_ASSERTIONS, 0))
+    zero_plan = {result.line_id: dict.fromkeys(e3x.CPU_ASSERTIONS, 0)}
+    problems = e3x.cpu_assertion_guard([empty], zero_plan)
+    assert len(problems) == len(e3x.CPU_ASSERTIONS)
+    assert all(problem.endswith("no check") for problem in problems)
+    assert e3x.cpu_assertion_guard([], expected)
+    more = {**expected, "other/line": expected[result.line_id]}
+    assert e3x.cpu_assertion_guard([result], more)
+    off_by_one = replace(result, n_checked={**result.n_checked, "texture_check": 0})
+    assert e3x.cpu_assertion_guard([off_by_one], expected)

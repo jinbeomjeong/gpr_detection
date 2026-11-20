@@ -1,12 +1,20 @@
 """M3-3 pre-close item 3 (E3x) runner: plan, un-injected 0.001 and injected stages.
 
-Spec: ``docs/processing/m33_e3x_plan.md`` v0.4 (seal 1 was v0.3 at 72b0140;
-v0.4 changes the band shift to one re-measured correction with the
-arm-parallel check, and ``r_edge`` to the on/off difference field) §2, §3-1,
-§5 and appendix A; cv conditions ``docs/experiments/m33_e3x_cv_review.md``;
-EM conditions ``docs/processing/m33_e3x_em_review.md``. Common M3-3 runner
+Spec: ``docs/processing/m33_e3x_plan.md`` v0.5 (seal 1 was v0.3 at 72b0140;
+seal 2 was v0.4 at 729d19c; v0.5 takes effect at seal 2 r1) §2, §3-1, §5 and
+appendix A; cv conditions ``docs/experiments/m33_e3x_cv_review.md``; EM
+conditions ``docs/processing/m33_e3x_em_review.md``; v0.5 review
+``docs/processing/m33_e3x_texture_defect_review.md`` §10. Common M3-3 runner
 rules (full precision, sealed PP, judgeability, end tree, LF sha) come from
 ``m33_inputs`` and ``m32_recipe_eval``.
+
+v0.5 (after the injected first try ended ``e3x_defect``): the texture check
+uses the length-n DFT energy identity (``m33_e3x_place.texture_check``); the
+precheck runs check 10 (the five CPU assertions on every pool line) right
+after check 1 and before the GPU checks 2-9; the detector stages write only
+to a retry root (``runs/eval/m33/e3x_retry``, then ``e3x_retry<k>``); the
+seal record is ``m33_e3x_seal2_r1.json`` and the plan tables are still
+read from ``runs/eval/m33/e3x/plan`` (``SEALED_PLAN_DIR``, seal 2 sha).
 
 Stages (folders under ``--out-root``, default ``runs/eval/m33/e3x``)
 
@@ -28,8 +36,22 @@ Stages (folders under ``--out-root``, default ``runs/eval/m33/e3x``)
    ``e3x_p42`` re-imaging), one conf 0.001 inference in shared batches of 64,
    the operating boxes cut **before** the merge (``score > 0.25``), merge, S0
    (judgment) and S3 (report) from the same merged boxes.
-4. ``--precheck`` (GPU) -> ``runs/eval/m33/e3x_precheck/`` (refused if it
-   exists): §5-2 checks 1-9 on the two precheck lines of the pool.
+4. ``--precheck --workers N`` (GPU) -> ``runs/eval/m33/e3x_precheck_r1/``
+   (``--precheck-dir`` for ``_r<k>``; refused if the folder exists): §5-2
+   check 1, then check 10 (CPU, N workers, every pool line, writes
+   ``cpu_assertions.json`` and ``cpu_assertions_lines.csv``), then checks
+   3 and 2, 4-9 on the two precheck lines. A failed check 1 stops there
+   (exit 1); a failed check 10 skips 3 and 2, 4-9.
+
+Detector stages (2, 3) refuse an output folder under the first-try root
+``runs/eval/m33/e3x`` (exit 2, nothing read there); a v0.5 run passes
+``--out-root runs/eval/m33/e3x_retry`` (``e3x_retry<k>`` for a later try).
+
+Progress file (blind exception, value free): ``progress.json`` in the stage
+folder (precheck: the precheck folder) with only ``stage``, ``done``,
+``total``, ``unit``, ``started_at`` and ``updated_at``; ``total`` is the
+planned line count. It is rewritten atomically after every line of check 10,
+of the precheck GPU passes, of ``uninjected001`` and of ``injected``.
 
 Pre-seal-2 plan: the plan runs before the seal-2 commit, while the E3x code
 and the pool list are not tracked yet. For the plan stage only, ``not
@@ -55,16 +77,19 @@ exit  status               meaning
                            ``shift_mismatch``, end-treatment or texture
                            check, hit without a 0.25 box, NMS time limit,
                            a tile with 300 boxes over 0.25, coverage)
-1     ``precheck_failed``  ``--precheck``: a §5-2 check failed
+1     ``precheck_failed``  ``--precheck``: a §5-2 check failed (check 10
+                           included: an assertion or its count guard)
 2     ``input_error``      input refused (sha, seal record, tree, sealed PP,
-                           folds, output exists) or the tree changed
+                           folds, output exists, an output folder under the
+                           first-try root) or the tree changed
 3     ``error``            internal error (GPU memory included)
 ====  ===================  ==================================================
 
 Diagnostic arguments (never in a formal run, they make it not judgeable or
 are refused there): ``--folds``, ``--only-lines``, ``--allow-dirty``,
-``--overwrite`` (plan only, before seal 2), ``--out-root`` (only for the
-retry folder ``runs/eval/m33/e3x_retry``), ``--precheck-dir``,
+``--overwrite`` (plan only, before seal 2), ``--out-root`` (in a formal run
+only the retry folder ``runs/eval/m33/e3x_retry`` or ``e3x_retry<k>``),
+``--precheck-dir`` (in a formal run only ``e3x_precheck_r<k>``),
 ``--run-root``, ``--r2-root``, ``--r3-root``, ``--seal-record``.
 """
 
@@ -82,8 +107,9 @@ import sys
 import time
 from collections import Counter, deque
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from itertools import islice
 from pathlib import Path
@@ -125,10 +151,17 @@ REPO = inputs.REPO
 SCHEMA = "m33_e3x/1"
 DEFAULT_OUT_ROOT = REPO / "runs" / "eval" / "m33" / "e3x"
 RETRY_OUT_ROOT = REPO / "runs" / "eval" / "m33" / "e3x_retry"
-DEFAULT_PRECHECK_DIR = REPO / "runs" / "eval" / "m33" / "e3x_precheck"
-SEAL2_RECORD = REPO / "analysis" / "detection" / "m33_e3x_seal2.json"
+DEFAULT_PRECHECK_DIR = REPO / "runs" / "eval" / "m33" / "e3x_precheck_r1"
+"""v0.5 precheck folder (a new ``_r<k>`` per try; the first try's is kept)."""
+SEAL2_RECORD = REPO / "analysis" / "detection" / "m33_e3x_seal2_r1.json"
+"""Seal 2 r1 record (v0.5); ``m33_e3x_seal2.json`` stays as the first try's."""
 R3_UNINJECTED_IDS = m33_inputs.R3_OUT_ROOT / runner.BAND_UNINJECTED_DIR
 PLAN_DIR = "plan"
+SEALED_PLAN_DIR = DEFAULT_OUT_ROOT / PLAN_DIR
+"""Plan tables of seal 2, reused by seal 2 r1 (user decision v5-5)."""
+PROGRESS_FILE = "progress.json"
+PROGRESS_WRITE_ATTEMPTS = 3
+PROGRESS_RETRY_S = 0.05
 
 CONF_AP = m33_inputs.CONF_AP
 CONF_OPERATING = m33_inputs.CONF_OPERATING
@@ -204,6 +237,31 @@ METRIC_WORDS = re.compile(
     re.IGNORECASE,
 )
 """Words stdout must not carry (§5-3); the precheck asserts it (check 8)."""
+
+CPU_ASSERTIONS = (
+    "shift_mismatch",
+    "off_differs_from_on",
+    "r_edge_differs_from_plan",
+    "texture_check",
+    "zero_test",
+)
+"""The ``build_line`` defect keys precheck 10 counts on every line (§5-2 10)."""
+PLAN_SOURCE_MAIN = "main"
+PLAN_SOURCE_PRECHECK = "precheck"
+CPU_ASSERTIONS_JSON = "cpu_assertions.json"
+CPU_ASSERTIONS_LINES = "cpu_assertions_lines.csv"
+GPU_PRECHECK_CHECKS = (
+    "2_zero_test",
+    "3_shift",
+    "4_off_on_equal",
+    "5_textures",
+    "6_conf_paths_equal",
+    "7_workers_bytes_equal",
+    "8_stdout_blind",
+    "9_nms_and_maxdet",
+)
+"""Checks 2-9: not run when check 10 fails (plan §5-2, v0.5)."""
+RECORD_PERCENTILE = 90
 
 logger = logging.getLogger("m33_e3x")
 
@@ -291,6 +349,76 @@ class Counts:
     n_positions: int = 0
     n_realizations: int = 0
     n_inferences: int = 0
+
+
+def is_first_try_path(path: Path) -> bool:
+    """``path`` is the first-try root ``runs/eval/m33/e3x`` or lies inside it."""
+    return path.resolve().is_relative_to(DEFAULT_OUT_ROOT.resolve())
+
+
+def assert_retry_output(settings: Settings) -> None:
+    """Refuse a detector stage writing under the first-try root (v0.5, §5-4).
+
+    The first try's ``uninjected001/`` and ``injected/`` are kept unopened;
+    a retry writes to ``runs/eval/m33/e3x_retry`` (``e3x_retry<k>``).
+    Checked before any input is read or any folder is made.
+
+    Raises:
+        inputs.InputError: For an output folder under the first-try root.
+    """
+    if is_first_try_path(settings.stage_dir):
+        raise inputs.InputError(
+            f"first-try output refused: {settings.stage_dir} "
+            f"(use --out-root {RETRY_OUT_ROOT})"
+        )
+
+
+def _local_time(epoch_s: float) -> str:
+    """Local time of an epoch, ISO 8601 with the UTC offset (as ``local_now``)."""
+    # From an aware UTC time: a naive one goes through mktime, which Windows
+    # refuses near the epoch.
+    moment = datetime.fromtimestamp(epoch_s, tz=UTC).astimezone()
+    return moment.isoformat(timespec="seconds")
+
+
+@dataclass
+class Progress:
+    """Value-free progress file of a long stage (agent rule 12; plan §5-3 blind).
+
+    The file holds only ``stage``, ``done``, ``total``, ``unit``,
+    ``started_at`` and ``updated_at``. ``total`` is the planned count fixed
+    before the run (plan lines); no judged input, metric or per-class count
+    goes in. Each update replaces the file atomically (temporary file, then
+    ``Path.replace``); a failed write is logged and the run goes on.
+    """
+
+    path: Path
+    stage: str
+    total: int
+    unit: str = "lines"
+    started_at: str = field(default_factory=common.local_now)
+
+    def update(self, done: int) -> None:
+        """Rewrite the file with ``done`` of ``total``."""
+        document = {
+            "stage": self.stage,
+            "done": done,
+            "total": self.total,
+            "unit": self.unit,
+            "started_at": self.started_at,
+            "updated_at": common.local_now(),
+        }
+        temporary = self.path.with_name(f"{self.path.name}.tmp")
+        failure: OSError | None = None
+        for _ in range(PROGRESS_WRITE_ATTEMPTS):
+            try:
+                common.write_json(temporary, document)
+                temporary.replace(self.path)
+                return
+            except OSError as error:  # a reader may hold the file (Windows)
+                failure = error
+                time.sleep(PROGRESS_RETRY_S)
+        logger.warning("progress file not updated: %s", type(failure).__name__)
 
 
 # ============================================================ code and tree
@@ -644,6 +772,10 @@ def seal2_draft(
 def assert_seal2(settings: Settings, context: Context) -> dict:
     """The tracked seal-2 record against the pool, the plan, the code and ``src``.
 
+    v0.5: the record is seal 2 r1 (``SEAL2_RECORD``) and the plan tables are
+    read from ``SEALED_PLAN_DIR`` whatever ``--out-root`` is (a retry root
+    has no plan of its own).
+
     Raises:
         inputs.InputError: For a missing record or any other value (exit 2).
     """
@@ -651,7 +783,7 @@ def assert_seal2(settings: Settings, context: Context) -> dict:
     if not path.is_file():
         raise inputs.InputError(f"seal-2 record missing: {path}")
     record = json.loads(path.read_text(encoding="utf-8"))
-    plan_dir = settings.out_root / PLAN_DIR
+    plan_dir = SEALED_PLAN_DIR
     problems = []
     if inputs.sha256_file_lf(settings.pool_csv) != record.get("pool_csv_sha256_lf"):
         problems.append("pool_csv")
@@ -1673,6 +1805,11 @@ class LineRealizations:
     off_on_equal: Mapping[str, bool]
     zero_test: bool
     r_edge_matches: Mapping[str, bool] = field(default_factory=dict)
+    n_checked: Mapping[str, int] = field(default_factory=dict)
+    """Checks made per ``CPU_ASSERTIONS`` key (precheck 10 count guard, v0.5)."""
+    failed_items: tuple[dict, ...] = ()
+    """``{"assertion", "item_id", "error"}`` of each failed CPU check (v0.5)."""
+    texture_details: Mapping[str, place.TextureCheck] = field(default_factory=dict)
 
 
 def zero_and_period_fields(
@@ -1791,8 +1928,14 @@ def hyperbola_entries(
     plan: LinePlan,
     context: inject.LineContext,
     responses: Mapping[str, inject.PipeResponse],
+    images: bool = True,
 ) -> tuple[list[ImageEntry], dict[str, bool]]:
-    """On and off arms of every group, SNR and polarity (plan §2-3)."""
+    """On and off arms of every group, SNR and polarity (plan §2-3).
+
+    Args:
+        images: ``False`` (precheck 10): the on / off fields and their check
+            only, in the same order; no arm image (no entries).
+    """
     patches = hyperbola_patches(plan, context, responses)
     entries, equal = [], {}
     for group in sorted({h.group for h in plan.hyperbolas}):
@@ -1805,9 +1948,10 @@ def hyperbola_entries(
                 equal[specs[0].realization_id] = _off_matches_on(
                     context, on, off, patches
                 )
-                entries += _hyperbola_arm_entries(
-                    plan, context, pairs, on, off, patches
-                )
+                if images:
+                    entries += _hyperbola_arm_entries(
+                        plan, context, pairs, on, off, patches
+                    )
     return entries, equal
 
 
@@ -1837,6 +1981,34 @@ def r_edge_matches(
             R_EDGE_RELATIVE_TOLERANCE * abs(recorded)
         )
     return found
+
+
+def r_edge_failures(
+    plan: LinePlan,
+    context: inject.LineContext,
+    patches: Mapping[tuple[str, float], inject.ResponsePatch],
+    matches: Mapping[str, bool],
+) -> list[dict]:
+    """Error records of the positions :func:`r_edge_matches` failed (precheck 10).
+
+    ``error`` holds the re-measured and the planned ``r_edge_db`` (``None``
+    when the patch could not be built); the pass rule stays the one of
+    :func:`r_edge_matches`.
+    """
+    failures = []
+    for h in plan.hyperbolas:
+        if matches.get(h.position_id, True):
+            continue
+        patch = patches.get((h.model, inject.K_MAIN))
+        measured = None if patch is None else place.r_edge_db(patch, context)
+        recorded = float(h.row["r_edge_db"])
+        error = {"measured_db": measured, "planned_db": recorded}
+        failures.append(_failure("r_edge_differs_from_plan", h.position_id, error))
+    return failures
+
+
+def _failure(assertion: str, item_id: str, error: object = None) -> dict:
+    return {"assertion": assertion, "item_id": item_id, "error": error}
 
 
 def hyperbola_patches(
@@ -2050,10 +2222,16 @@ def _band_static(arm: PlannedArm, texture: str, recipe: str, spec) -> dict:
 
 @dataclass
 class _Textures:
-    """Shared noise field and amplitude multipliers of each band position."""
+    """Shared noise field and amplitude multipliers of each band position.
+
+    The first arm that asks for a position's fields (``band_entries`` order)
+    also gives its texture check: ``checks`` keeps the pass flag, ``details``
+    the whole ``TextureCheck`` (precheck 10 record, v0.5).
+    """
 
     fields: dict[str, tuple[np.ndarray, np.ndarray]] = field(default_factory=dict)
     checks: dict[str, bool] = field(default_factory=dict)
+    details: dict[str, place.TextureCheck] = field(default_factory=dict)
 
     def of(self, built: BuiltArm, period_traces: float, period: float):
         key = built.planned.position_id
@@ -2070,7 +2248,9 @@ class _Textures:
                 w, band.flat_columns, place.AMPLITUDE_TEXTURE_DB
             )
             self.fields[key] = (w, m)
-            self.checks[key] = place.texture_check(band, w, m, period).passes()
+            check = place.texture_check(band, w, m, period)
+            self.details[key] = check
+            self.checks[key] = check.passes()
         return self.fields[key]
 
 
@@ -2098,29 +2278,46 @@ def band_conditions(arm: str, row_px: float) -> list[tuple[str, float, int]]:
     return conditions
 
 
+def arm_id(arm: PlannedArm) -> str:
+    """``<position>:<arm><row px>`` of one planned arm (precheck 10 failures)."""
+    return f"{arm.position_id}:{arm.arm}{arm.row_px:g}"
+
+
 def band_entries(
     plan: LinePlan,
     context: inject.LineContext,
     responses: Mapping[str, inject.PipeResponse],
     background_images: Mapping[str, DetectionImage],
-) -> tuple[list[ImageEntry], int, _Textures]:
-    """Every band realization of a line; returns ``(entries, mismatches, textures)``."""
+    images: bool = True,
+) -> tuple[list[ImageEntry], list[str], _Textures]:
+    """Every band realization of a line: ``(entries, mismatched arms, textures)``.
+
+    Args:
+        images: ``False`` (precheck 10): the arms are rebuilt and every
+            textured condition asks ``textured`` for its band in the same
+            order, so ``_Textures.of`` runs the texture checks exactly as in
+            the main run; no realization, image or contrast is made.
+    """
     built: dict[tuple[float, str], list[BuiltArm]] = {}
-    mismatches = 0
+    mismatched = []
     for arm in plan.arms:
         band = rebuild_arm(context, responses[arm.model], arm)
         if band is None:
-            mismatches += 1
+            mismatched.append(arm_id(arm))
             continue
         built.setdefault((arm.row_px, arm.arm), []).append(BuiltArm(arm, band))
     textures = _Textures()
     section = None
-    if not context.background.amplitude_processed:
+    if images and not context.background.amplitude_processed:
         section = inject.background_step4_section(context)
     entries = []
     for (row_px, arm_name), arms in sorted(built.items()):
         arms = sorted(arms, key=lambda a: a.planned.position_id)
         for texture, snr_db, polarity in band_conditions(arm_name, row_px):
+            if not images:
+                for built_arm in arms:
+                    textured(built_arm, texture, textures, context)
+                continue
             entries += _band_realization(
                 plan,
                 context,
@@ -2132,7 +2329,7 @@ def band_entries(
                 section,
                 background_images,
             )
-    return entries, mismatches, textures
+    return entries, mismatched, textures
 
 
 def _band_realization(
@@ -2256,29 +2453,51 @@ def build_line(
     plan: LinePlan,
     hyperbola_library: responses_io.ResponseLibrary,
     band_library: responses_io.ResponseLibrary,
+    images: bool = True,
 ) -> LineRealizations:
-    """Every realization image of one line, with the CPU-side checks."""
+    """Every realization image of one line, with the CPU-side checks.
+
+    Args:
+        images: ``False`` is precheck 10 (v0.5): the same body counts the five
+            CPU assertions (``CPU_ASSERTIONS``) through the same calls in the
+            same order, but makes no realization image, background image,
+            band realization or contrast (the zero test still makes its one
+            background image); ``entries`` is then empty.
+    """
     line = runner.load_line(plan.line.ref)
     context = inject.prepare_line_context(line.radargram, plan.exclusions)
-    background = {
-        recipe: make_detection_image(line.radargram, config)
-        for recipe, config in RECIPE_CONFIGS.items()
-    }
+    background = {}
+    if images:
+        background = {
+            recipe: make_detection_image(line.radargram, config)
+            for recipe, config in RECIPE_CONFIGS.items()
+        }
     hyperbola_responses = line_responses(hyperbola_library, line, HYPERBOLA_MODELS)
-    hyperbolas, equal = hyperbola_entries(plan, context, hyperbola_responses)
-    edge_checks = r_edge_matches(
-        plan, context, hyperbola_patches(plan, context, hyperbola_responses)
-    )
-    bands, mismatches, textures = band_entries(
-        plan, context, line_responses(band_library, line, BAND_MODELS), background
+    hyperbolas, equal = hyperbola_entries(plan, context, hyperbola_responses, images)
+    patches = hyperbola_patches(plan, context, hyperbola_responses)
+    edge_checks = r_edge_matches(plan, context, patches)
+    bands, mismatched, textures = band_entries(
+        plan,
+        context,
+        line_responses(band_library, line, BAND_MODELS),
+        background,
+        images,
     )
     defects = Counter()
-    defects["shift_mismatch"] = mismatches
+    defects["shift_mismatch"] = len(mismatched)
     defects["off_differs_from_on"] = sum(not value for value in equal.values())
     defects["texture_check"] = sum(not value for value in textures.checks.values())
     zero_ok = zero_test_passes(context)
     defects["zero_test"] = int(not zero_ok)
     defects["r_edge_differs_from_plan"] = sum(not v for v in edge_checks.values())
+    failures = [
+        *(_failure("shift_mismatch", item) for item in mismatched),
+        *(_failure("off_differs_from_on", k) for k, ok in equal.items() if not ok),
+        *r_edge_failures(plan, context, patches, edge_checks),
+        *_texture_failures(textures),
+    ]
+    if not zero_ok:
+        failures.append(_failure("zero_test", plan.line.line_id))
     return LineRealizations(
         plan=plan,
         line_fields=_line_fields(plan),
@@ -2291,7 +2510,24 @@ def build_line(
         off_on_equal=equal,
         r_edge_matches=edge_checks,
         zero_test=zero_ok,
+        n_checked={
+            "shift_mismatch": len(plan.arms),
+            "off_differs_from_on": len(equal),
+            "r_edge_differs_from_plan": len(edge_checks),
+            "texture_check": len(textures.checks),
+            "zero_test": 1,
+        },
+        failed_items=tuple(failures),
+        texture_details=dict(textures.details),
     )
+
+
+def _texture_failures(textures: _Textures) -> list[dict]:
+    return [
+        _failure("texture_check", key, textures.details[key].as_record())
+        for key, passed in textures.checks.items()
+        if not passed
+    ]
 
 
 def _init_line_worker() -> None:
@@ -2754,10 +2990,11 @@ def detector_stage_inputs(settings: Settings, context: Context) -> StageInputs:
     """Pool, seal-2 record, plan and weights of a detector stage."""
     hashes = pool_input_hashes(settings)
     seal = assert_seal2(settings, context)
+    hashes["seal_record"] = seal["seal_record_sha256_lf"]
     hashes.update(seal["plan_files_sha256_lf"])
     hashes.update(runner.assert_weights(settings.run_root, settings.folds))
     plans = read_plan(
-        settings.out_root / PLAN_DIR,
+        SEALED_PLAN_DIR,
         background_pool(settings),
         inputs.candidate_apexes(),
     )
@@ -2782,6 +3019,7 @@ def run_injected(
     settings: Settings, started: float, context: Context
 ) -> tuple[str, Counts]:
     """Build, infer and record every realization of the plan (§5-1)."""
+    assert_retry_output(settings)
     _, config = sealed_config(context)
     staged = detector_stage_inputs(settings, context)
     prepare_stage_dir(settings)
@@ -2790,8 +3028,11 @@ def run_injected(
     identity["seal2"] = staged.seal
     detectors = load_detectors(settings, CONF_AP)
     counter = attach_nms_counter()
+    progress = Progress(
+        settings.stage_dir / PROGRESS_FILE, Stage.INJECTED.value, len(staged.plans)
+    )
     parts, defects = evaluate_lines(
-        settings, staged.plans, detectors, counter, config, started
+        settings, staged.plans, detectors, counter, config, started, progress=progress
     )
     status = STATUS_OK if not sum(defects.values()) else STATUS_DEFECT
     status, judgment = close_run(settings, context, identity, status)
@@ -2830,11 +3071,14 @@ def evaluate_lines(
     config: PPConfig,
     started: float,
     keep_built: list[LineRealizations] | None = None,
+    progress: Progress | None = None,
 ) -> tuple[list[dict], Counter]:
     """CPU realizations in workers, GPU inference here, one part per line.
 
     Args:
         keep_built: When given, every built line is appended (precheck).
+        progress: When given, updated after every line (reused parts count
+            as done).
     """
     head = runner.recorded_head(settings)  # type: ignore[arg-type]
     parts: dict[str, dict] = {}
@@ -2845,6 +3089,8 @@ def evaluate_lines(
             todo.append(plan)
         else:
             parts[plan.line.line_id] = reused
+    if progress is not None:
+        progress.update(len(parts))
     for number, built in enumerate(_built_lines(settings, todo), start=1):
         if keep_built is not None:
             keep_built.append(built)
@@ -2871,6 +3117,8 @@ def evaluate_lines(
         }
         runner._write_part(_part_path(settings, built.plan.line), part)
         parts[built.plan.line.line_id] = part
+        if progress is not None:
+            progress.update(len(parts))
         print(
             f"injected {number}/{len(todo)}: {part['n_inferences']} images, "
             f"{part['seconds']} s (elapsed {time.time() - started:.0f} s)",
@@ -3060,6 +3308,7 @@ def run_uninjected001(
     settings: Settings, started: float, context: Context
 ) -> tuple[str, Counts]:
     """conf 0.001 on the background lines, best scores at the planned truths."""
+    assert_retry_output(settings)
     _, config = sealed_config(context)
     staged = detector_stage_inputs(settings, context)
     prepare_stage_dir(settings)
@@ -3068,10 +3317,17 @@ def run_uninjected001(
     identity["seal2"] = staged.seal
     detectors = load_detectors(settings, CONF_AP)
     counter = attach_nms_counter()
+    progress = Progress(
+        settings.stage_dir / PROGRESS_FILE,
+        Stage.UNINJECTED001.value,
+        len(staged.plans),
+    )
+    progress.update(0)
     parts = []
     for number, plan in enumerate(staged.plans, start=1):
         part = uninjected_line(plan, detectors, counter, settings, config)
         parts.append(part)
+        progress.update(number)
         print(
             f"uninjected001 {number}/{len(staged.plans)}: {part['n_tiles']} tiles",
             flush=True,
@@ -3248,10 +3504,13 @@ def _precheck_conf_paths(
     detectors: tuple[Mapping[int, object], Mapping[int, object]],
     counter: WarningCounter,
     config: PPConfig,
+    progress: Progress | None = None,
 ) -> bool:
     """Check 6 on every arm image and the un-injected image of each line."""
     low, operating = detectors
-    for line in built:
+    for number, line in enumerate(built):
+        if progress is not None:
+            progress.update(number)
         radargram = runner.load_line(line.plan.line.ref).radargram
         background = make_detection_image(radargram, RECIPE_CONFIGS[RECIPE_R0])
         entries = [entry for entry in line.entries if entry.image is not None]
@@ -3264,33 +3523,469 @@ def _precheck_conf_paths(
         second = infer_entries(entries, operating, counter)
         if not conf_paths_equal(entries, first, second, line.zero, config):
             return False
+    if progress is not None:
+        progress.update(len(built))
     return True
+
+
+# ------------------------------------------- precheck 10: CPU assertions
+
+
+PLAN_COUNT_TABLES = (
+    "hyperbola_positions.csv",
+    "band_positions.csv",
+    "band_arms.csv",
+    "exclusions.csv",
+)
+"""Plan tables precheck 10 reads (the precheck plan has no ``lines.csv``)."""
+
+
+@dataclass(frozen=True)
+class CpuAssertionJobs:
+    """Precheck 10 input: every line with its plan, and the planned counts.
+
+    Attributes:
+        jobs: ``(plan, source)`` per line; ``source`` is ``main`` (sealed
+            plan) or ``precheck`` (the precheck folder's plan).
+        expected: Planned checks per line and ``CPU_ASSERTIONS`` key.
+        sources: Plan folder and table sha (LF) per source.
+    """
+
+    jobs: tuple[tuple[LinePlan, str], ...]
+    expected: dict[str, dict[str, int]]
+    sources: dict[str, dict]
+
+
+@dataclass(frozen=True)
+class LineCpuChecks:
+    """Precheck 10 result of one line (``build_line(..., images=False)``)."""
+
+    line_id: str
+    plan_source: str
+    n_checked: dict[str, int]
+    n_failed: dict[str, int]
+    failures: tuple[dict, ...]
+    textures: dict[str, place.TextureCheck]
+    seconds: float
+
+
+def planned_check_counts(
+    plan_dir: Path, line_ids: Sequence[str]
+) -> dict[str, dict[str, int]]:
+    """Checks each CPU assertion must make per line, counted on the plan tables.
+
+    ``shift_mismatch``: band arms; ``off_differs_from_on``: hyperbola groups
+    x ``HYPERBOLA_SNR_DB`` x polarities; ``r_edge_differs_from_plan``:
+    hyperbola positions; ``texture_check``: band positions with a long arm at
+    a textured row (``band_conditions``: long arm, 47 or 68 px);
+    ``zero_test``: one per line. Read from the csv rows, not from
+    ``read_plan``, so the guard does not trust the reader it checks.
+    """
+    hyperbolas = inputs.read_csv(plan_dir / "hyperbola_positions.csv")
+    arms = inputs.read_csv(plan_dir / "band_arms.csv")
+    conditions = len(HYPERBOLA_SNR_DB) * len(POLARITIES)
+    counts = {}
+    for line_id in line_ids:
+        line_hyperbolas = [row for row in hyperbolas if row["line_id"] == line_id]
+        line_arms = [row for row in arms if row["line_id"] == line_id]
+        textured_positions = {
+            row["position_id"]
+            for row in line_arms
+            if row["length_arm"] == place.LONG_ARM
+            and float(row["bin_target_px"]) in place.IN_RANGE_ROWS_PX
+        }
+        counts[line_id] = {
+            "shift_mismatch": len(line_arms),
+            "off_differs_from_on": len({r["group"] for r in line_hyperbolas})
+            * conditions,
+            "r_edge_differs_from_plan": len(line_hyperbolas),
+            "texture_check": len(textured_positions),
+            "zero_test": 1,
+        }
+    return counts
+
+
+def _display_path(path: Path) -> str:
+    """Repo-relative posix path when inside the repository, else absolute."""
+    resolved = path.resolve()
+    if resolved.is_relative_to(REPO.resolve()):
+        return resolved.relative_to(REPO.resolve()).as_posix()
+    return str(resolved)
+
+
+def _plan_source(plan_dir: Path) -> dict:
+    return {
+        "plan_dir": _display_path(plan_dir),
+        "files_sha256_lf": {
+            name: inputs.sha256_file_lf(plan_dir / name) for name in PLAN_COUNT_TABLES
+        },
+    }
+
+
+def cpu_assertion_jobs(
+    settings: Settings,
+    precheck_plans: Sequence[LinePlan],
+    precheck_plan_dir: Path,
+    candidates: inputs.CandidateApexes,
+) -> CpuAssertionJobs:
+    """The 153 background lines (sealed plan) and the two precheck lines.
+
+    Raises:
+        inputs.InputError: When a line id is in both sets (the counts are
+            kept per line id).
+    """
+    main_lines = background_pool(settings)
+    shared = {line.line_id for line in main_lines} & {
+        plan.line.line_id for plan in precheck_plans
+    }
+    if shared:
+        raise inputs.InputError(f"lines both background and precheck: {sorted(shared)}")
+    main_plans = read_plan(SEALED_PLAN_DIR, main_lines, candidates)
+    expected = planned_check_counts(
+        SEALED_PLAN_DIR, [line.line_id for line in main_lines]
+    )
+    expected |= planned_check_counts(
+        precheck_plan_dir, [plan.line.line_id for plan in precheck_plans]
+    )
+    jobs = [(plan, PLAN_SOURCE_MAIN) for plan in main_plans]
+    jobs += [(plan, PLAN_SOURCE_PRECHECK) for plan in precheck_plans]
+    sources = {
+        PLAN_SOURCE_MAIN: _plan_source(SEALED_PLAN_DIR),
+        PLAN_SOURCE_PRECHECK: _plan_source(precheck_plan_dir),
+    }
+    return CpuAssertionJobs(tuple(jobs), expected, sources)
+
+
+def _cpu_check_worker(job: tuple[LinePlan, str]) -> LineCpuChecks:
+    plan, source = job
+    line_started = time.perf_counter()
+    built = build_line(
+        plan,
+        _WORKER["hyperbola"],  # type: ignore[arg-type]
+        _WORKER["band"],  # type: ignore[arg-type]
+        images=False,
+    )
+    return LineCpuChecks(
+        line_id=plan.line.line_id,
+        plan_source=source,
+        n_checked={key: int(built.n_checked[key]) for key in CPU_ASSERTIONS},
+        n_failed={key: int(built.defects.get(key, 0)) for key in CPU_ASSERTIONS},
+        failures=tuple(built.failed_items),
+        textures=dict(built.texture_details),
+        seconds=time.perf_counter() - line_started,
+    )
+
+
+def cpu_check_results(
+    workers: int, jobs: Sequence[tuple[LinePlan, str]], progress: Progress
+) -> list[LineCpuChecks]:
+    """Precheck 10 over the lines (``workers`` processes), in job order."""
+    found: list[LineCpuChecks] = []
+
+    def finished(result: LineCpuChecks) -> None:
+        found.append(result)
+        progress.update(len(found))
+        print(f"precheck 10: {len(found)}/{len(jobs)} lines", flush=True)
+
+    progress.update(0)
+    if workers == 1:
+        _init_line_worker()
+        for job in jobs:
+            finished(_cpu_check_worker(job))
+    else:
+        with ProcessPoolExecutor(
+            max_workers=workers, initializer=_init_line_worker
+        ) as executor:
+            futures = [executor.submit(_cpu_check_worker, job) for job in jobs]
+            for future in as_completed(futures):
+                finished(future.result())
+    order = {plan.line.line_id: index for index, (plan, _) in enumerate(jobs)}
+    return sorted(found, key=lambda result: order[result.line_id])
+
+
+def cpu_assertion_guard(
+    results: Sequence[LineCpuChecks], expected: Mapping[str, Mapping[str, int]]
+) -> list[str]:
+    """Count guard of precheck 10: problems (empty when the counts are right).
+
+    Every line of the plan is checked, every line makes exactly its planned
+    number of checks per assertion, and every assertion makes at least one
+    check over all lines (an empty set is not a pass).
+    """
+    problems = []
+    if sorted(r.line_id for r in results) != sorted(expected):
+        problems.append("checked lines differ from the planned lines")
+    for result in results:
+        planned = expected.get(result.line_id, {})
+        for key in CPU_ASSERTIONS:
+            if result.n_checked.get(key) != planned.get(key):
+                problems.append(
+                    f"{key} {result.line_id}: checked {result.n_checked.get(key)}"
+                    f" planned {planned.get(key)}"
+                )
+    for key in CPU_ASSERTIONS:
+        if sum(result.n_checked.get(key, 0) for result in results) <= 0:
+            problems.append(f"{key}: no check")
+    return problems
+
+
+def cpu_assertion_counts(
+    results: Sequence[LineCpuChecks], expected: Mapping[str, Mapping[str, int]]
+) -> dict[str, dict[str, int]]:
+    """``n_checked``, ``n_expected`` and ``n_failed`` per assertion (all lines)."""
+    counts = {}
+    for key in CPU_ASSERTIONS:
+        counts[key] = {
+            "n_checked": sum(r.n_checked[key] for r in results),
+            "n_expected": sum(planned.get(key, 0) for planned in expected.values()),
+            "n_failed": sum(r.n_failed[key] for r in results),
+        }
+    return counts
+
+
+def _distribution(values: Sequence[float]) -> dict:
+    """Minimum, median, 90th percentile (``numpy`` linear) and maximum."""
+    if not values:
+        return {"n": 0}
+    array = np.asarray(values, dtype=np.float64)
+    return {
+        "n": int(array.size),
+        "min": float(array.min()),
+        "median": float(np.median(array)),
+        "p90": float(np.percentile(array, RECORD_PERCENTILE)),
+        "max": float(array.max()),
+    }
+
+
+def texture_positions(results: Sequence[LineCpuChecks]) -> list[dict]:
+    """Every texture position's ``TextureCheck`` values (errors and records)."""
+    rows = []
+    for result in results:
+        for position_id, check in sorted(result.textures.items()):
+            rows.append(
+                {"line_id": result.line_id, "position_id": position_id}
+                | check.as_record()
+            )
+    return rows
+
+
+def texture_distributions(rows: Sequence[Mapping]) -> dict[str, dict]:
+    """:func:`_distribution` of every ``TextureCheck`` value over the positions."""
+    if not rows:
+        return {}
+    names = [name for name in rows[0] if name not in ("line_id", "position_id")]
+    return {name: _distribution([float(row[name]) for row in rows]) for name in names}
+
+
+def failure_rows(results: Sequence[LineCpuChecks]) -> list[dict]:
+    """Every failed check: line, assertion, item id and error value."""
+    rows = []
+    for result in results:
+        for failure in result.failures:
+            rows.append({"line_id": result.line_id, **failure})
+    return rows
+
+
+def _cpu_line_columns() -> tuple[str, ...]:
+    columns = ["line_id", "plan_source"]
+    for key in CPU_ASSERTIONS:
+        columns += [f"{key}_checked", f"{key}_expected", f"{key}_failed"]
+    return (*columns, "n_checks", "n_failed", "seconds")
+
+
+def cpu_line_rows(
+    results: Sequence[LineCpuChecks], expected: Mapping[str, Mapping[str, int]]
+) -> list[dict]:
+    """``cpu_assertions_lines.csv`` rows: counts and seconds per line."""
+    rows = []
+    for result in results:
+        planned = expected.get(result.line_id, {})
+        row: dict[str, object] = {
+            "line_id": result.line_id,
+            "plan_source": result.plan_source,
+        }
+        for key in CPU_ASSERTIONS:
+            row[f"{key}_checked"] = result.n_checked[key]
+            row[f"{key}_expected"] = planned.get(key)
+            row[f"{key}_failed"] = result.n_failed[key]
+        row["n_checks"] = sum(result.n_checked.values())
+        row["n_failed"] = sum(result.n_failed.values())
+        row["seconds"] = result.seconds
+        rows.append(row)
+    return rows
+
+
+def run_cpu_assertions(
+    settings: Settings, cpu_jobs: CpuAssertionJobs, identity: Mapping
+) -> bool:
+    """Precheck 10 (§5-2, v0.5): counts, guard, the two record files, one line.
+
+    Writes ``cpu_assertions.json`` and ``cpu_assertions_lines.csv`` to the
+    precheck folder; stdout gets the progress lines and one summary line
+    with counts only. Returns ``True`` when no assertion failed and the
+    count guard holds.
+    """
+    started = time.perf_counter()
+    progress = Progress(
+        settings.stage_dir / PROGRESS_FILE, "precheck_10", len(cpu_jobs.jobs)
+    )
+    results = cpu_check_results(settings.workers, cpu_jobs.jobs, progress)
+    problems = cpu_assertion_guard(results, cpu_jobs.expected)
+    counts = cpu_assertion_counts(results, cpu_jobs.expected)
+    n_failed = sum(item["n_failed"] for item in counts.values())
+    passed = not problems and n_failed == 0
+    elapsed_s = time.perf_counter() - started
+    positions = texture_positions(results)
+    write_rows(
+        settings.stage_dir / CPU_ASSERTIONS_LINES,
+        _cpu_line_columns(),
+        cpu_line_rows(results, cpu_jobs.expected),
+    )
+    write_json(
+        settings.stage_dir / CPU_ASSERTIONS_JSON,
+        {
+            "schema": "m33_e3x_cpu_assertions/1",
+            "status": STATUS_OK if passed else STATUS_PRECHECK_FAILED,
+            "passed": passed,
+            "run_identity": {**identity, "finished_at": common.local_now()},
+            "plan_sources": cpu_jobs.sources,
+            "workers": settings.workers,
+            "n_lines": len(results),
+            "assertions": counts,
+            "guard_problems": problems,
+            "failures": failure_rows(results),
+            "texture_fields": {
+                "asserted": list(place.TEXTURE_ASSERTED_FIELDS),
+                "record_only": list(place.TEXTURE_RECORD_ONLY_FIELDS),
+            },
+            "texture_distribution": texture_distributions(positions),
+            "texture_positions": positions,
+            "elapsed_s": elapsed_s,
+        },
+    )
+    summary = {
+        "precheck": "10_cpu_assertions",
+        "status": STATUS_OK if passed else STATUS_PRECHECK_FAILED,
+        "n_lines": len(results),
+        "n_checks": sum(item["n_checked"] for item in counts.values()),
+        "n_failed": n_failed,
+        "elapsed_s": round(elapsed_s, 1),
+    }
+    print(json.dumps(summary), flush=True)
+    return passed
+
+
+def cpu_assertion_file_hashes(folder: Path) -> dict[str, dict[str, str]]:
+    """Raw and LF sha256 of the two precheck 10 record files."""
+    return {
+        name: {
+            "raw": inputs.sha256_file(folder / name),
+            "lf": inputs.sha256_file_lf(folder / name),
+        }
+        for name in (CPU_ASSERTIONS_JSON, CPU_ASSERTIONS_LINES)
+    }
+
+
+class _Tee(io.TextIOBase):
+    """Writes to several text streams (check 10 output also reaches check 8)."""
+
+    def __init__(self, *streams: io.TextIOBase) -> None:
+        super().__init__()
+        self.streams = streams
+
+    def write(self, text: str) -> int:
+        for stream in self.streams:
+            stream.write(text)
+        return len(text)
+
+    def flush(self) -> None:
+        for stream in self.streams:
+            stream.flush()
+
+
+# ------------------------------------------------------------ precheck run
+
+
+def _close_precheck(
+    settings: Settings, context: Context, identity: dict, report: Mapping
+) -> str:
+    """Measure the end tree and write ``precheck.json``; returns the status."""
+    checks = report["checks"]
+    status = STATUS_OK if all(checks.values()) else STATUS_PRECHECK_FAILED
+    status, judgment = close_run(settings, context, identity, status)
+    write_json(
+        settings.stage_dir / "precheck.json",
+        {
+            "schema": SCHEMA,
+            "stage": "precheck",
+            "status": status,
+            "judgment": judgment,
+            **report,
+            "run_identity": {**identity, "finished_at": common.local_now()},
+        },
+    )
+    failed = [name for name, passed in checks.items() if not passed]
+    print(f"precheck failed items: {failed}", flush=True)
+    return status
 
 
 def run_precheck(
     settings: Settings, started: float, context: Context
 ) -> tuple[str, Counts]:
-    """§5-2 checks 1-9 on the two precheck lines (refuses an existing folder).
+    """§5-2 check 1, check 10, then checks 2-9 (v0.5; refuses an existing folder).
 
-    The folder holds ``plan/`` (the two lines planned with the main-plan
-    functions), ``w1/`` and ``w2/`` (records with one and two workers) and
-    ``precheck.json``. Running it again needs a new folder
-    (``--precheck-dir runs/eval/m33/e3x_precheck_r<k>``); keep a copy of the
-    folder made right before the main run (plan §5-2).
+    Order: 1 -> precheck plan -> 10 -> 3 -> 2, 4-9. A failed check 1 stops
+    right there (no precheck plan, no check 10, no check 2-9); a failed
+    check 10 skips checks 3 and 2, 4-9 (no detector is loaded). Either way
+    ``precheck.json`` lists the checks not run in ``not_run`` and the status
+    is ``precheck_failed`` (exit 1).
+
+    The folder holds ``plan/`` (the two precheck lines planned with the
+    main-plan functions), ``cpu_assertions.json`` and
+    ``cpu_assertions_lines.csv`` (check 10 on every pool line), ``w1/`` and
+    ``w2/`` (records with one and two workers), ``progress.json`` and
+    ``precheck.json``. Running again
+    needs a new folder (``--precheck-dir runs/eval/m33/e3x_precheck_r<k>``):
+    a folder that exists, even empty, is refused. Keep a copy of the folder
+    made right before the main run (plan §5-2).
     """
+    if settings.stage_dir.exists():
+        raise inputs.InputError(f"output exists: {settings.stage_dir}")
     _, config = sealed_config(context)
     prepare_stage_dir(settings)
     checks: dict[str, bool] = {}
     checks["1_identity"], hashes = _precheck_identity(settings, context)
+    identity = new_identity(settings, context, hashes)
+    identity["started_at"] = _local_time(started)
+    if not checks["1_identity"]:
+        report = {
+            "checks": checks,
+            "not_run": ["10_cpu_assertions", *GPU_PRECHECK_CHECKS],
+        }
+        return _close_precheck(settings, context, identity, report), Counts()
     lines = precheck_pool(settings)
     plan_dir = settings.stage_dir / PLAN_DIR
     plan_info = _precheck_plan(settings, lines, plan_dir)
+    candidates = inputs.candidate_apexes()
+    plans = read_plan(plan_dir, lines, candidates)
+    captured = io.StringIO()
+    with contextlib.redirect_stdout(_Tee(sys.stdout, captured)):
+        cpu_jobs = cpu_assertion_jobs(settings, plans, plan_dir, candidates)
+        checks["10_cpu_assertions"] = run_cpu_assertions(settings, cpu_jobs, identity)
+    cpu_files = cpu_assertion_file_hashes(settings.stage_dir)
+    if not checks["10_cpu_assertions"]:
+        report = {
+            "checks": checks,
+            "not_run": list(GPU_PRECHECK_CHECKS),
+            "cpu_assertions_sha256": cpu_files,
+            "shift_summary": shift_summary(plan_info),
+        }
+        status = _close_precheck(settings, context, identity, report)
+        return status, Counts(len(lines), 0, 0, 0)
     checks["3_shift"] = shift_check(plan_info)
-    plans = read_plan(plan_dir, lines, inputs.candidate_apexes())
     low = load_detectors(settings, CONF_AP)
     operating = load_detectors(settings, CONF_OPERATING)
     counter = attach_nms_counter()
-    captured = io.StringIO()
     outputs: dict[int, dict[str, str]] = {}
     defects: dict[int, dict[str, int]] = {}
     built: list[LineRealizations] = []
@@ -3310,13 +4005,22 @@ def run_precheck(
                 config,
                 started,
                 built if workers == 1 else None,
+                Progress(
+                    settings.stage_dir / PROGRESS_FILE,
+                    f"precheck_w{workers}",
+                    len(plans),
+                ),
             )
             outputs[workers] = write_record_files(
                 run_settings.stage_dir, parts, settings.folds
             )
             defects[workers] = dict(found)
         checks["6_conf_paths_equal"] = _precheck_conf_paths(
-            built, (low, operating), counter, config
+            built,
+            (low, operating),
+            counter,
+            config,
+            Progress(settings.stage_dir / PROGRESS_FILE, "precheck_6", len(built)),
         )
     checks["2_zero_test"] = all(line.zero_test for line in built)
     checks["4_off_on_equal"] = all(
@@ -3329,25 +4033,15 @@ def run_precheck(
     checks["9_nms_and_maxdet"] = not any(
         found.get(key, 0) for found in defects.values() for key in NMS_DEFECT_KEYS
     )
-    status = STATUS_OK if all(checks.values()) else STATUS_PRECHECK_FAILED
-    identity = new_identity(settings, context, hashes)
-    status, judgment = close_run(settings, context, identity, status)
-    write_json(
-        settings.stage_dir / "precheck.json",
-        {
-            "schema": SCHEMA,
-            "stage": "precheck",
-            "status": status,
-            "judgment": judgment,
-            "checks": checks,
-            "defect_counts": {f"w{k}": v for k, v in defects.items()},
-            "shift_summary": shift_summary(plan_info),
-            "outputs_sha256": {f"w{k}": v for k, v in outputs.items()},
-            "run_identity": {**identity, "finished_at": common.local_now()},
-        },
-    )
-    failed = [name for name, passed in checks.items() if not passed]
-    print(f"precheck failed items: {failed}", flush=True)
+    report = {
+        "checks": checks,
+        "not_run": [],
+        "cpu_assertions_sha256": cpu_files,
+        "defect_counts": {f"w{k}": v for k, v in defects.items()},
+        "shift_summary": shift_summary(plan_info),
+        "outputs_sha256": {f"w{k}": v for k, v in outputs.items()},
+    }
+    status = _close_precheck(settings, context, identity, report)
     n_images = sum(len(line.entries) for line in built)
     return status, Counts(len(lines), 0, n_images, n_images)
 
