@@ -1,0 +1,3490 @@
+{
+ "schema": "m33_e3x_design_feasibility/2",
+ "inputs": [
+  {
+   "path": "runs/eval/m32_recipe_v2/plan/positions.csv",
+   "sha256": "8eba3e3f60315ca09e18560fae4577a9001f439b00a741cb8e9c6676972680a3"
+  },
+  {
+   "path": "runs/eval/m33/r3/plan/positions.csv",
+   "sha256": "1a511378c7a0b646e266f4695a3c0338754120708fdd4cbdbfeff61e4afb3cfb"
+  },
+  {
+   "path": "analysis/processing/m32_stageA_lines_ids.csv",
+   "sha256": "a52e467dfed80e64885b3ced9e5fb5e9e9617305b39e7d7e1d44e4d1f5bedfb3"
+  }
+ ],
+ "inputs_note": "runs/** plan tables are local (outside git), judged material; no detector output read",
+ "r3_plan_report_present": true,
+ "hyperbola_stage_c_main_cell": {
+  "K7_P1_D060": {
+   "4tu": {
+    "positions": 32,
+    "lines": 22
+   }
+  },
+  "K7_P1_D110_S002": {
+   "4tu": {
+    "positions": 13,
+    "lines": 11
+   }
+  },
+  "K7_P1_D150_S003": {
+   "4tu": {
+    "positions": 14,
+    "lines": 9
+   }
+  },
+  "K7_PVC_D070": {
+   "4tu": {
+    "positions": 22,
+    "lines": 15
+   }
+  },
+  "M01": {
+   "4tu": {
+    "positions": 12,
+    "lines": 6
+   },
+   "gz_ids": {
+    "positions": 40,
+    "lines": 22
+   }
+  },
+  "M02": {
+   "4tu": {
+    "positions": 5,
+    "lines": 4
+   },
+   "gz_ids": {
+    "positions": 9,
+    "lines": 8
+   }
+  },
+  "M03": {
+   "4tu": {
+    "positions": 2,
+    "lines": 2
+   },
+   "gz_ids": {
+    "positions": 16,
+    "lines": 11
+   }
+  },
+  "M04": {
+   "4tu": {
+    "positions": 16,
+    "lines": 13
+   },
+   "gz_ids": {
+    "positions": 12,
+    "lines": 7
+   }
+  },
+  "M05": {
+   "4tu": {
+    "positions": 11,
+    "lines": 10
+   },
+   "gz_ids": {
+    "positions": 10,
+    "lines": 6
+   }
+  },
+  "M06": {
+   "4tu": {
+    "positions": 7,
+    "lines": 6
+   },
+   "gz_ids": {
+    "positions": 10,
+    "lines": 6
+   }
+  },
+  "M07": {
+   "4tu": {
+    "positions": 12,
+    "lines": 10
+   },
+   "gz_ids": {
+    "positions": 16,
+    "lines": 12
+   }
+  },
+  "M08": {
+   "4tu": {
+    "positions": 10,
+    "lines": 9
+   },
+   "gz_ids": {
+    "positions": 7,
+    "lines": 7
+   }
+  },
+  "M09": {
+   "4tu": {
+    "positions": 10,
+    "lines": 7
+   },
+   "gz_ids": {
+    "positions": 5,
+    "lines": 4
+   }
+  },
+  "M10": {
+   "4tu": {
+    "positions": 13,
+    "lines": 10
+   },
+   "gz_ids": {
+    "positions": 12,
+    "lines": 8
+   }
+  },
+  "M11": {
+   "4tu": {
+    "positions": 5,
+    "lines": 5
+   },
+   "gz_ids": {
+    "positions": 13,
+    "lines": 5
+   }
+  },
+  "M12": {
+   "4tu": {
+    "positions": 35,
+    "lines": 24
+   }
+  },
+  "M14": {
+   "4tu": {
+    "positions": 72,
+    "lines": 43
+   },
+   "gz_ids": {
+    "positions": 21,
+    "lines": 17
+   }
+  },
+  "M15": {
+   "4tu": {
+    "positions": 23,
+    "lines": 9
+   }
+  },
+  "M16": {
+   "4tu": {
+    "positions": 2,
+    "lines": 2
+   },
+   "gz_ids": {
+    "positions": 6,
+    "lines": 6
+   }
+  },
+  "M17": {
+   "4tu": {
+    "positions": 57,
+    "lines": 40
+   },
+   "gz_ids": {
+    "positions": 28,
+    "lines": 16
+   }
+  },
+  "M18": {
+   "4tu": {
+    "positions": 7,
+    "lines": 5
+   }
+  },
+  "M19": {
+   "4tu": {
+    "positions": 14,
+    "lines": 10
+   },
+   "gz_ids": {
+    "positions": 11,
+    "lines": 6
+   }
+  }
+ },
+ "band_r3_geometry": {
+  "assumptions": {
+   "truth_height_P_median": 2.412109375,
+   "apex_minus_y1_P_median": 1.215323112538038,
+   "y1_min": "zero_px + (2 P - (apex - y1)) ; zone (b)",
+   "y1_max": "y_bot_px - 1 P - truth height ; C3-6 main cell",
+   "long_P": 13.0,
+   "short_P": 6.0,
+   "lw_max": 0.45
+  },
+  "truth_height_P": {
+   "n": 544,
+   "min": 2.3037109374999987,
+   "p05": 2.3583984375,
+   "p50": 2.412109375,
+   "p95": 2.7626953124999996,
+   "max": 6.671875
+  },
+  "apex_minus_y1_P": {
+   "n": 544,
+   "min": 0.7814727390825311,
+   "p05": 0.8201301085283585,
+   "p50": 1.2154088249934278,
+   "p95": 1.286119347755056,
+   "max": 1.4673886718261784
+  },
+  "lines_with_positions": 161,
+  "bins_reachable_lines": {
+   "4tu||37_57": 105,
+   "4tu||57_79": 105,
+   "4tu||ge79": 95,
+   "4tu||lt37": 103,
+   "gz_ids|main_400|37_57": 51,
+   "gz_ids|main_400|57_79": 44,
+   "gz_ids|main_400|ge79": 22,
+   "gz_ids|main_400|lt37": 53,
+   "gz_ids|report_other|37_57": 2,
+   "gz_ids|report_other|57_79": 2,
+   "gz_ids|report_other|ge79": 2,
+   "gz_ids|report_other|lt37": 3
+  },
+  "bins_reachable_lines_long_ok": {
+   "4tu||37_57": 98,
+   "4tu||57_79": 98,
+   "4tu||ge79": 91,
+   "4tu||lt37": 96,
+   "gz_ids|main_400|37_57": 47,
+   "gz_ids|main_400|57_79": 40,
+   "gz_ids|main_400|ge79": 18,
+   "gz_ids|main_400|lt37": 48,
+   "gz_ids|report_other|37_57": 2,
+   "gz_ids|report_other|57_79": 2,
+   "gz_ids|report_other|ge79": 2,
+   "gz_ids|report_other|lt37": 3
+  },
+  "bins_reachable_lines_long_and_short_ok": {
+   "4tu||37_57": 98,
+   "4tu||57_79": 98,
+   "4tu||ge79": 91,
+   "4tu||lt37": 96,
+   "gz_ids|main_400|37_57": 47,
+   "gz_ids|main_400|57_79": 40,
+   "gz_ids|main_400|ge79": 18,
+   "gz_ids|main_400|lt37": 48,
+   "gz_ids|report_other|37_57": 2,
+   "gz_ids|report_other|57_79": 2,
+   "gz_ids|report_other|ge79": 2,
+   "gz_ids|report_other|lt37": 3
+  },
+  "lines_all_four_bins": {
+   "4tu|": 93,
+   "gz_ids|main_400": 22,
+   "gz_ids|report_other": 2
+  },
+  "lines_all_four_bins_long_ok": {
+   "4tu|": 89,
+   "gz_ids|main_400": 18,
+   "gz_ids|report_other": 2
+  },
+  "lines_three_low_bins_long_ok": {
+   "4tu|": 96,
+   "gz_ids|main_400": 40,
+   "gz_ids|report_other": 2
+  },
+  "ids_y1_max_px": {
+   "n": 56,
+   "min": 15.52734375,
+   "p05": 43.44705882352941,
+   "p50": 73.47274999999999,
+   "p95": 158.5558969665272,
+   "max": 237.94315245478037
+  },
+  "fourtu_y1_max_px": {
+   "n": 105,
+   "min": 64.46695243362832,
+   "p05": 72.52734374999999,
+   "p50": 98.57026336477988,
+   "p95": 192.52734375,
+   "max": 232.50709384273
+  },
+  "lines": {
+   "02.5/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 206,
+    "y1_min_px": 7.511719702319484,
+    "y1_max_px": 93.52734375,
+    "l_long_traces": 86,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "02.5/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 195,
+    "y1_min_px": 7.869119101837861,
+    "y1_max_px": 100.48495729813665,
+    "l_long_traces": 82,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "03.1/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 108,
+    "y1_min_px": 15.06234337448087,
+    "y1_max_px": 107.5672514619883,
+    "l_long_traces": 69,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "04.7/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 212,
+    "y1_min_px": 14.299355614440298,
+    "y1_max_px": 103.60956325301204,
+    "l_long_traces": 79,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "04.7/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 239,
+    "y1_min_px": 14.139348729171282,
+    "y1_max_px": 97.48387738853503,
+    "l_long_traces": 84,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.7/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 223,
+    "y1_min_px": 15.018177557883647,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 87,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "06.1/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 255,
+    "y1_min_px": 11.40109923209532,
+    "y1_max_px": 101.44309413580247,
+    "l_long_traces": 73,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.1/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 12186,
+    "y1_min_px": 15.678575314289516,
+    "y1_max_px": 183.52734375,
+    "l_long_traces": 77,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.4/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1892,
+    "y1_min_px": 33.19146775723313,
+    "y1_max_px": 107.5672514619883,
+    "l_long_traces": 73,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.5/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 398,
+    "y1_min_px": 15.122809381216097,
+    "y1_max_px": 86.57506555944057,
+    "l_long_traces": 73,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.5/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 462,
+    "y1_min_px": 13.83624964916493,
+    "y1_max_px": 68.58469012605042,
+    "l_long_traces": 88,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "09.6/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 994,
+    "y1_min_px": 31.59919758330512,
+    "y1_max_px": 108.52734375,
+    "l_long_traces": 73,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.7/Path5": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 13540,
+    "y1_min_px": 17.812134196321722,
+    "y1_max_px": 89.57376700680271,
+    "l_long_traces": 71,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.10/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 246,
+    "y1_min_px": 18.3778366152921,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 83,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.15/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 14516,
+    "y1_min_px": 15.593995108038438,
+    "y1_max_px": 100.48495729813665,
+    "l_long_traces": 68,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.1/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1120,
+    "y1_min_px": 32.80842512658525,
+    "y1_max_px": 192.52734375,
+    "l_long_traces": 66,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.5/Profile_6050": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 2424,
+    "y1_min_px": 30.09768134615432,
+    "y1_max_px": 175.50119731800768,
+    "l_long_traces": 68,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.17/Profile_6409": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 742,
+    "y1_min_px": 40.13980141101274,
+    "y1_max_px": 232.50709384273,
+    "l_long_traces": 56,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": false
+   },
+   "011.17/Profile_6410": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 686,
+    "y1_min_px": 38.98666312788425,
+    "y1_max_px": 222.52734374999997,
+    "l_long_traces": 58,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": false
+   },
+   "012.1/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 256,
+    "y1_min_px": 15.32096227239731,
+    "y1_max_px": 86.57506555944057,
+    "l_long_traces": 91,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "013.5/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 191,
+    "y1_min_px": 12.182828650726023,
+    "y1_max_px": 64.46695243362832,
+    "l_long_traces": 116,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "01.3/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 506,
+    "y1_min_px": 14.825416045375402,
+    "y1_max_px": 100.48495729813665,
+    "l_long_traces": 81,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.3/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 507,
+    "y1_min_px": 14.925026056376579,
+    "y1_max_px": 102.52734374999999,
+    "l_long_traces": 79,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.4/Path10": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 319,
+    "y1_min_px": 10.513794880038553,
+    "y1_max_px": 82.47753193430658,
+    "l_long_traces": 95,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.5/Path5": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 419,
+    "y1_min_px": 11.739205980991787,
+    "y1_max_px": 95.57137096774194,
+    "l_long_traces": 83,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.6/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 415,
+    "y1_min_px": 11.398572212922197,
+    "y1_max_px": 106.48696375739645,
+    "l_long_traces": 77,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.2/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 261,
+    "y1_min_px": 15.050901272946428,
+    "y1_max_px": 102.52734374999999,
+    "l_long_traces": 80,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.5/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 454,
+    "y1_min_px": 14.05145789334254,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 83,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.6/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 818,
+    "y1_min_px": 16.131349377951523,
+    "y1_max_px": 88.48028017241379,
+    "l_long_traces": 75,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.8/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 215,
+    "y1_min_px": 17.464474787228383,
+    "y1_max_px": 107.4470588235294,
+    "l_long_traces": 77,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.10/Path7": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 217,
+    "y1_min_px": 17.77165080470646,
+    "y1_max_px": 98.57026336477988,
+    "l_long_traces": 82,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.10/Path11": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 201,
+    "y1_min_px": 15.120273780643137,
+    "y1_max_px": 67.46901709401709,
+    "l_long_traces": 112,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "010.10/Path13": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 204,
+    "y1_min_px": 17.03888605555066,
+    "y1_max_px": 86.57506555944057,
+    "l_long_traces": 91,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.11/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 568,
+    "y1_min_px": 16.180308169132093,
+    "y1_max_px": 98.57026336477988,
+    "l_long_traces": 68,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.11/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 515,
+    "y1_min_px": 15.823975982439375,
+    "y1_max_px": 92.57253725165563,
+    "l_long_traces": 72,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.11/Path7": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 514,
+    "y1_min_px": 17.62189529201908,
+    "y1_max_px": 109.605783045977,
+    "l_long_traces": 62,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.14/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 668,
+    "y1_min_px": 16.3650074859453,
+    "y1_max_px": 93.52734375,
+    "l_long_traces": 86,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.20/Path7": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 453,
+    "y1_min_px": 15.130886396105623,
+    "y1_max_px": 97.48387738853503,
+    "l_long_traces": 72,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.21/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 272,
+    "y1_min_px": 15.331615224572527,
+    "y1_max_px": 95.43871753246754,
+    "l_long_traces": 71,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.21/Path11": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 330,
+    "y1_min_px": 13.082287537798194,
+    "y1_max_px": 72.52734374999999,
+    "l_long_traces": 88,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "010.23/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 435,
+    "y1_min_px": 13.797632821167884,
+    "y1_max_px": 86.57506555944057,
+    "l_long_traces": 67,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.1/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1062,
+    "y1_min_px": 32.648920318123466,
+    "y1_max_px": 192.52734375,
+    "l_long_traces": 66,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.2/Profile_6070": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 428,
+    "y1_min_px": 31.16533849046296,
+    "y1_max_px": 183.52734375,
+    "l_long_traces": 69,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.3/Profile_6028": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 575,
+    "y1_min_px": 29.440671507271375,
+    "y1_max_px": 165.52734374999997,
+    "l_long_traces": 76,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.3/Profile_6029": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 554,
+    "y1_min_px": 29.789283569794378,
+    "y1_max_px": 167.47275000000002,
+    "l_long_traces": 75,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.4/Profile_6629": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 446,
+    "y1_min_px": 29.23704845956342,
+    "y1_max_px": 172.5007903696498,
+    "l_long_traces": 73,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.6/Profile_6042": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 888,
+    "y1_min_px": 30.935989351734968,
+    "y1_max_px": 181.57789351851852,
+    "l_long_traces": 66,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.6/Profile_6044": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 828,
+    "y1_min_px": 29.958130408265674,
+    "y1_max_px": 174.52734375,
+    "l_long_traces": 68,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.9/Profile_6612": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 362,
+    "y1_min_px": 33.46048015421598,
+    "y1_max_px": 191.47894503546098,
+    "l_long_traces": 67,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.10/Profile_6398": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 577,
+    "y1_min_px": 34.406105480598775,
+    "y1_max_px": 203.48154362416108,
+    "l_long_traces": 68,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.11/Profile_6133": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 467,
+    "y1_min_px": 31.45029759440426,
+    "y1_max_px": 181.57789351851852,
+    "l_long_traces": 69,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.12/Profile_6147": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 812,
+    "y1_min_px": 30.55812172003297,
+    "y1_max_px": 173.47444282945736,
+    "l_long_traces": 73,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.14/Profile_6164": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 583,
+    "y1_min_px": 31.597418134311788,
+    "y1_max_px": 176.5532913498099,
+    "l_long_traces": 76,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.15/Profile_6386": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 6866,
+    "y1_min_px": 32.5652385843866,
+    "y1_max_px": 189.52734374999997,
+    "l_long_traces": 72,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "011.16/Profile_6454": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 431,
+    "y1_min_px": 30.0822271479445,
+    "y1_max_px": 167.47275000000002,
+    "l_long_traces": 75,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "012.1/Path5": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 264,
+    "y1_min_px": 15.661235337189655,
+    "y1_max_px": 92.57253725165563,
+    "l_long_traces": 86,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "012.1/Path7": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 257,
+    "y1_min_px": 14.280259783105684,
+    "y1_max_px": 77.42235576923078,
+    "l_long_traces": 101,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "012.3/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 557,
+    "y1_min_px": 15.430864542693108,
+    "y1_max_px": 91.48154362416106,
+    "l_long_traces": 88,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "012.3/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1594,
+    "y1_min_px": 15.432171577866686,
+    "y1_max_px": 91.48154362416106,
+    "l_long_traces": 88,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "012.7/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 11928,
+    "y1_min_px": 12.757949499903894,
+    "y1_max_px": 76.47444282945737,
+    "l_long_traces": 102,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "013.1/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 233,
+    "y1_min_px": 14.103814005674948,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 83,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "013.1/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 2397,
+    "y1_min_px": 15.520555053953906,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 83,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "02.5/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 160,
+    "y1_min_px": 8.431842825454055,
+    "y1_max_px": 107.4470588235294,
+    "l_long_traces": 77,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "02.5/Path20": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 192,
+    "y1_min_px": 8.193928870623784,
+    "y1_max_px": 98.57026336477988,
+    "l_long_traces": 82,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "02.6/Path14": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 121,
+    "y1_min_px": 8.700973235440296,
+    "y1_max_px": 101.56921012269939,
+    "l_long_traces": 80,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "02.7/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 422,
+    "y1_min_px": 7.181216193899697,
+    "y1_max_px": 74.58107775590551,
+    "l_long_traces": 108,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "02.7/Path6": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 435,
+    "y1_min_px": 7.764378962074394,
+    "y1_max_px": 95.57137096774194,
+    "l_long_traces": 89,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "02.7/Path8": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 462,
+    "y1_min_px": 7.829562137184937,
+    "y1_max_px": 95.57137096774194,
+    "l_long_traces": 89,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "03.1/Path13": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 200,
+    "y1_min_px": 13.55910217301895,
+    "y1_max_px": 95.43871753246754,
+    "l_long_traces": 77,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "03.7/Path7": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 195,
+    "y1_min_px": 14.013207337646556,
+    "y1_max_px": 99.52734375,
+    "l_long_traces": 74,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.2/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 5712,
+    "y1_min_px": 13.93872715097007,
+    "y1_max_px": 98.57026336477988,
+    "l_long_traces": 86,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.4/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 224,
+    "y1_min_px": 13.29243504479751,
+    "y1_max_px": 96.52734374999999,
+    "l_long_traces": 88,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.7/Path5": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 204,
+    "y1_min_px": 14.757889109217519,
+    "y1_max_px": 100.48495729813665,
+    "l_long_traces": 86,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "06.1/Path8": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 231,
+    "y1_min_px": 11.833562583178654,
+    "y1_max_px": 106.48696375739645,
+    "l_long_traces": 70,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "06.2/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 230,
+    "y1_min_px": 14.32926585761464,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 75,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "06.3/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 249,
+    "y1_min_px": 11.304699564953484,
+    "y1_max_px": 102.52734374999999,
+    "l_long_traces": 72,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "06.5/Path8": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 133,
+    "y1_min_px": 13.221913779213153,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 75,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "06.6/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 177,
+    "y1_min_px": 12.386070687218513,
+    "y1_max_px": 103.48598484848485,
+    "l_long_traces": 72,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "07.1/Path9": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 248,
+    "y1_min_px": 10.633364276359028,
+    "y1_max_px": 101.44309413580247,
+    "l_long_traces": 81,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "08.3/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 327,
+    "y1_min_px": 12.244789421449841,
+    "y1_max_px": 97.48387738853503,
+    "l_long_traces": 72,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "08.3/Path5": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 333,
+    "y1_min_px": 25.435690927317083,
+    "y1_max_px": 208.50496926229508,
+    "l_long_traces": 37,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "08.4/Path7": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 233,
+    "y1_min_px": 13.8779937550167,
+    "y1_max_px": 101.44309413580247,
+    "l_long_traces": 70,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "08.7/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 293,
+    "y1_min_px": 11.575930286514144,
+    "y1_max_px": 101.56921012269939,
+    "l_long_traces": 69,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.2/Path6": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 533,
+    "y1_min_px": 13.620620806424203,
+    "y1_max_px": 80.57789351851852,
+    "l_long_traces": 78,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.5/Path5": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1044,
+    "y1_min_px": 14.524149585282903,
+    "y1_max_px": 72.52734374999999,
+    "l_long_traces": 85,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "09.5/Path6": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1268,
+    "y1_min_px": 15.010971704306124,
+    "y1_max_px": 89.57376700680271,
+    "l_long_traces": 71,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.6/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 1272,
+    "y1_min_px": 12.699156279366605,
+    "y1_max_px": 91.48154362416106,
+    "l_long_traces": 71,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "09.7/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 3164,
+    "y1_min_px": 12.206084262365177,
+    "y1_max_px": 72.52734374999999,
+    "l_long_traces": 85,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "09.7/Path6": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 4938,
+    "y1_min_px": 19.722343453379697,
+    "y1_max_px": 96.52734374999999,
+    "l_long_traces": 67,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.1/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 306,
+    "y1_min_px": 12.769103492323804,
+    "y1_max_px": 103.48598484848485,
+    "l_long_traces": 79,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.1/Path3": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 306,
+    "y1_min_px": 12.626234857508013,
+    "y1_max_px": 101.44309413580247,
+    "l_long_traces": 80,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.1/Path6": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 307,
+    "y1_min_px": 12.00905847167939,
+    "y1_max_px": 93.52734375,
+    "l_long_traces": 85,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.1/Path10": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 294,
+    "y1_min_px": 12.234877434611034,
+    "y1_max_px": 98.57026336477988,
+    "l_long_traces": 81,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.1/Path11": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 311,
+    "y1_min_px": 12.642816995041263,
+    "y1_max_px": 103.48598484848485,
+    "l_long_traces": 79,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "01.1/Path12": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 305,
+    "y1_min_px": 12.78411015656971,
+    "y1_max_px": 107.4470588235294,
+    "l_long_traces": 77,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "03.8/Path11": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 219,
+    "y1_min_px": 15.49334085644713,
+    "y1_max_px": 98.44096123417722,
+    "l_long_traces": 75,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.3/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 4648,
+    "y1_min_px": 14.281808757416774,
+    "y1_max_px": 101.44309413580247,
+    "l_long_traces": 85,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.8/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 3136,
+    "y1_min_px": 13.726867514816988,
+    "y1_max_px": 103.48598484848485,
+    "l_long_traces": 84,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "05.10/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 2249,
+    "y1_min_px": 13.81448705242299,
+    "y1_max_px": 103.60956325301204,
+    "l_long_traces": 83,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "08.3/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 337,
+    "y1_min_px": 12.510385468365115,
+    "y1_max_px": 91.48154362416106,
+    "l_long_traces": 76,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.14/Path2": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 713,
+    "y1_min_px": 17.169862249753457,
+    "y1_max_px": 102.52734374999999,
+    "l_long_traces": 80,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "010.14/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 681,
+    "y1_min_px": 16.841547147020748,
+    "y1_max_px": 95.57137096774194,
+    "l_long_traces": 84,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "012.1/Path4": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 245,
+    "y1_min_px": 15.325705485108356,
+    "y1_max_px": 89.43386130136986,
+    "l_long_traces": 90,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "012.3/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 581,
+    "y1_min_px": 15.534753893635816,
+    "y1_max_px": 93.52734375,
+    "l_long_traces": 86,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "013.5/Path1": {
+    "dataset": "4tu",
+    "stratum": "",
+    "time_window_ns": null,
+    "n_traces": 197,
+    "y1_min_px": 12.795874446021385,
+    "y1_max_px": 67.64300847457628,
+    "l_long_traces": 110,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1.15_200115AB/LID10002": {
+    "dataset": "gz_ids",
+    "stratum": "report_other",
+    "time_window_ns": 40.0,
+    "n_traces": 6823,
+    "y1_min_px": 9.05160071732879,
+    "y1_max_px": 31.428442028985508,
+    "l_long_traces": 127,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_181230AB/LID10001": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 128.0,
+    "n_traces": 936,
+    "y1_min_px": 16.15473962672878,
+    "y1_max_px": 151.5866847826087,
+    "l_long_traces": 121,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190118AA/LID10074": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 20.0,
+    "n_traces": 772,
+    "y1_min_px": 10.740417092140518,
+    "y1_max_px": 45.52734375,
+    "l_long_traces": 50,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10077": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 20.0,
+    "n_traces": 426,
+    "y1_min_px": 12.119075257781269,
+    "y1_max_px": 50.599177631578954,
+    "l_long_traces": 46,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10078": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 20.0,
+    "n_traces": 617,
+    "y1_min_px": 11.473220597485618,
+    "y1_max_px": 44.60578304597701,
+    "l_long_traces": 50,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AC/LID10008": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 25.0,
+    "n_traces": 542,
+    "y1_min_px": 10.74949665200512,
+    "y1_max_px": 48.52734375,
+    "l_long_traces": 59,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AC/LID10024": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 25.0,
+    "n_traces": 199,
+    "y1_min_px": 12.435912134886618,
+    "y1_max_px": 63.52734375,
+    "l_long_traces": 49,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AC/LID10026": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 25.0,
+    "n_traces": 273,
+    "y1_min_px": 11.411750735649306,
+    "y1_max_px": 52.45699097938144,
+    "l_long_traces": 57,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190117AI/LID10016": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 910,
+    "y1_min_px": 11.845775835428924,
+    "y1_max_px": 67.64300847457628,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190117AI/LID10031": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 219,
+    "y1_min_px": 11.994433633547569,
+    "y1_max_px": 62.58882319819819,
+    "l_long_traces": 59,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190117AI/LID10039": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 451,
+    "y1_min_px": 12.185668157889207,
+    "y1_max_px": 64.46695243362832,
+    "l_long_traces": 58,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190117AI/LID10058": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 442,
+    "y1_min_px": 12.491886629971674,
+    "y1_max_px": 69.52734375,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10009": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 408,
+    "y1_min_px": 11.873739951511329,
+    "y1_max_px": 62.58882319819819,
+    "l_long_traces": 59,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10021": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 349,
+    "y1_min_px": 12.723384554017597,
+    "y1_max_px": 69.52734375,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10027": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 358,
+    "y1_min_px": 13.50958002851487,
+    "y1_max_px": 75.52734375,
+    "l_long_traces": 51,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10032": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 385,
+    "y1_min_px": 12.725915323999947,
+    "y1_max_px": 66.52734375,
+    "l_long_traces": 57,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10041": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 520,
+    "y1_min_px": 12.848149155083231,
+    "y1_max_px": 71.58282520325203,
+    "l_long_traces": 53,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10042": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 661,
+    "y1_min_px": 12.973582393516063,
+    "y1_max_px": 79.47603383458647,
+    "l_long_traces": 49,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190118AA/LID10043": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 423,
+    "y1_min_px": 12.217535559141357,
+    "y1_max_px": 66.52734375,
+    "l_long_traces": 57,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10047": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 536,
+    "y1_min_px": 12.0892770740927,
+    "y1_max_px": 61.65142045454545,
+    "l_long_traces": 59,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10053": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 268,
+    "y1_min_px": 12.166215914821759,
+    "y1_max_px": 68.58469012605042,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10055": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 519,
+    "y1_min_px": 12.52941771242753,
+    "y1_max_px": 73.47274999999999,
+    "l_long_traces": 53,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10060": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 377,
+    "y1_min_px": 11.519751538570837,
+    "y1_max_px": 58.462351190476184,
+    "l_long_traces": 63,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10062": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 274,
+    "y1_min_px": 13.090144609409348,
+    "y1_max_px": 73.63566468253967,
+    "l_long_traces": 52,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10063": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 330,
+    "y1_min_px": 11.469747050951842,
+    "y1_max_px": 60.52734375,
+    "l_long_traces": 61,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AA/LID10067": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 263,
+    "y1_min_px": 11.065081968303211,
+    "y1_max_px": 66.52734375,
+    "l_long_traces": 57,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AC/LID10034": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 758,
+    "y1_min_px": 12.09532992779264,
+    "y1_max_px": 73.47274999999999,
+    "l_long_traces": 53,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AD/LID10002": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 848,
+    "y1_min_px": 13.34981144418606,
+    "y1_max_px": 83.4284420289855,
+    "l_long_traces": 48,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190118AD/LID10012": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 521,
+    "y1_min_px": 12.931819017329477,
+    "y1_max_px": 73.47274999999999,
+    "l_long_traces": 53,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AD/LID10013": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 740,
+    "y1_min_px": 12.848317352898155,
+    "y1_max_px": 75.52734375,
+    "l_long_traces": 51,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AD/LID10022": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 1246,
+    "y1_min_px": 10.777373673113676,
+    "y1_max_px": 66.52734375,
+    "l_long_traces": 57,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/190321A_190321AG/LID10003": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 30.0,
+    "n_traces": 103,
+    "y1_min_px": 7.8990488401346255,
+    "y1_max_px": 15.52734375,
+    "l_long_traces": 137,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1.15_200116AB/LID10002": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 6665,
+    "y1_min_px": 15.638821462649501,
+    "y1_max_px": 102.52734374999999,
+    "l_long_traces": 53,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190117AI/LID10005": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 302,
+    "y1_min_px": 14.891964660589023,
+    "y1_max_px": 105.52734375,
+    "l_long_traces": 52,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190118AC/LID10001": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 1103,
+    "y1_min_px": 7.786217524808569,
+    "y1_max_px": 46.45066713483146,
+    "l_long_traces": 98,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190118AC/LID10004": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 841,
+    "y1_min_px": 5.916727619644018,
+    "y1_max_px": 92.57253725165563,
+    "l_long_traces": 58,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190118AC/LID10006": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 671,
+    "y1_min_px": 10.530452192186544,
+    "y1_max_px": 107.4470588235294,
+    "l_long_traces": 52,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190313AA/LID10002": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 3107,
+    "y1_min_px": 9.679839161499224,
+    "y1_max_px": 43.44705882352941,
+    "l_long_traces": 103,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190313AA/LID10004": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 40.0,
+    "n_traces": 362,
+    "y1_min_px": 8.35067555266901,
+    "y1_max_px": 33.52734375,
+    "l_long_traces": 121,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37"
+    ],
+    "all_four_bins": false
+   },
+   "pipe/1030_190302AA/LID10003": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 157,
+    "y1_min_px": 15.6012966499577,
+    "y1_max_px": 124.49198510362694,
+    "l_long_traces": 57,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190319AA/LID10002": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 173,
+    "y1_min_px": 15.949947516442627,
+    "y1_max_px": 115.60233516483515,
+    "l_long_traces": 60,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190319AA/LID10005": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 109,
+    "y1_min_px": 17.316145221119548,
+    "y1_max_px": 125.45699097938143,
+    "l_long_traces": 57,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190319AA/LID10007": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 126,
+    "y1_min_px": 14.392757047030344,
+    "y1_max_px": 95.57137096774194,
+    "l_long_traces": 70,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190319AA/LID10009": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 105,
+    "y1_min_px": 15.441204031477678,
+    "y1_max_px": 107.5672514619883,
+    "l_long_traces": 64,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_190319AA/LID10018": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 89,
+    "y1_min_px": 19.20599607463684,
+    "y1_max_px": 143.4647362385321,
+    "l_long_traces": 50,
+    "long_ok": false,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200112AB/LID10002": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 371,
+    "y1_min_px": 16.160449502810778,
+    "y1_max_px": 127.59627525252526,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200112AC/LID10006": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 258,
+    "y1_min_px": 14.504522631355604,
+    "y1_max_px": 106.48696375739645,
+    "l_long_traces": 65,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200112AC/LID10009": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 213,
+    "y1_min_px": 16.322384630437416,
+    "y1_max_px": 127.59627525252526,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200112AC/LID10014": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 181,
+    "y1_min_px": 15.344230207257514,
+    "y1_max_px": 113.45066713483146,
+    "l_long_traces": 62,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200113AA/LID10013": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 50.0,
+    "n_traces": 2786,
+    "y1_min_px": 17.405585376171512,
+    "y1_max_px": 134.56031099033817,
+    "l_long_traces": 53,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200601AB/LID10005": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 60.0,
+    "n_traces": 445,
+    "y1_min_px": 17.836242367187687,
+    "y1_max_px": 158.5558969665272,
+    "l_long_traces": 55,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/2020wate_200601AB/LID10007": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 60.0,
+    "n_traces": 563,
+    "y1_min_px": 18.24084309958876,
+    "y1_max_px": 161.47094524793388,
+    "l_long_traces": 54,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_181030AG/LID10001": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 96.0,
+    "n_traces": 2346,
+    "y1_min_px": 22.356074676855492,
+    "y1_max_px": 236.6961325966851,
+    "l_long_traces": 58,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1030_181030BA/LID10001": {
+    "dataset": "gz_ids",
+    "stratum": "main_400",
+    "time_window_ns": 96.0,
+    "n_traces": 828,
+    "y1_min_px": 21.81499856449483,
+    "y1_max_px": 237.94315245478037,
+    "l_long_traces": 54,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1.15_200116AC/LID10003": {
+    "dataset": "gz_ids",
+    "stratum": "report_other",
+    "time_window_ns": 40.0,
+    "n_traces": 7419,
+    "y1_min_px": 16.518113966351414,
+    "y1_max_px": 113.56546787709497,
+    "l_long_traces": 58,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   },
+   "pipe/1.15_200115AF/LID10003": {
+    "dataset": "gz_ids",
+    "stratum": "report_other",
+    "time_window_ns": 40.0,
+    "n_traces": 7993,
+    "y1_min_px": 18.602432229861275,
+    "y1_max_px": 147.52734375,
+    "l_long_traces": 59,
+    "long_ok": true,
+    "short_ok": true,
+    "bins": [
+     "lt37",
+     "37_57",
+     "57_79",
+     "ge79"
+    ],
+    "all_four_bins": true
+   }
+  }
+ },
+ "band_shift_limit_eligibility": {
+  "definition": {
+   "draw": "R3 main-cell position (line, model) at native depth",
+   "shift_P": "abs(target_px - truth_y1_px) / period_px",
+   "row_reachable": "y1_min_px <= target_px <= y1_max_px (band_geometry lines)",
+   "three_rows_ok": "rows 28,47,68 reachable and within limit, long_ok and short_ok",
+   "four_rows_ok": "three_rows_ok and row 90 reachable and within limit",
+   "native_range_nominal_P6": {
+    "8P": {
+     "three_rows_native_y1_px": [
+      20.0,
+      76.0
+     ],
+     "row90_native_y1_min_px": 42.0
+    },
+    "12P": {
+     "three_rows_native_y1_px": [
+      -4.0,
+      100.0
+     ],
+     "row90_native_y1_min_px": 18.0
+    }
+   }
+  },
+  "limit_8P": {
+   "draws": {
+    "4tu|": 351,
+    "gz_ids|main_400": 148,
+    "gz_ids|report_other": 45
+   },
+   "draws_three_rows_ok": {
+    "4tu|": 232,
+    "gz_ids|main_400": 73,
+    "gz_ids|report_other": 26
+   },
+   "draws_four_rows_ok": {
+    "4tu|": 29,
+    "gz_ids|main_400": 19,
+    "gz_ids|report_other": 16
+   },
+   "frac_row90_given_three": {
+    "4tu|": 0.125,
+    "gz_ids|main_400": 0.2602739726027397,
+    "gz_ids|report_other": 0.6153846153846154
+   },
+   "lines_with_three_rows_draw": {
+    "4tu|": 73,
+    "gz_ids|main_400": 26,
+    "gz_ids|report_other": 2
+   },
+   "lines_with_four_rows_draw": {
+    "4tu|": 19,
+    "gz_ids|main_400": 9,
+    "gz_ids|report_other": 2
+   },
+   "models_three_rows_ok": {
+    "4tu|": {
+     "M14": 23,
+     "M05": 20,
+     "K7_P1_D060": 19,
+     "M12": 17,
+     "M17": 17,
+     "M07": 16,
+     "M11": 13,
+     "M02": 12,
+     "K7_PVC_D070": 12,
+     "K7_P1_D110_S002": 12,
+     "M09": 11,
+     "M16": 9,
+     "M08": 9,
+     "M06": 8,
+     "M18": 8,
+     "M19": 6,
+     "M04": 6,
+     "M10": 5,
+     "M03": 4,
+     "K7_P1_D150_S003": 4,
+     "M01": 1
+    },
+    "gz_ids|main_400": {
+     "M10": 13,
+     "M03": 8,
+     "M09": 8,
+     "M05": 8,
+     "M14": 8,
+     "M02": 6,
+     "M17": 4,
+     "M16": 4,
+     "M08": 4,
+     "M11": 3,
+     "M06": 2,
+     "M07": 2,
+     "M01": 2,
+     "M19": 1
+    },
+    "gz_ids|report_other": {
+     "M14": 7,
+     "M11": 5,
+     "M16": 4,
+     "M02": 2,
+     "M08": 2,
+     "M01": 1,
+     "M17": 1,
+     "M09": 1,
+     "M03": 1,
+     "M06": 1,
+     "M05": 1
+    }
+   },
+   "models_four_rows_ok": {
+    "4tu|": {
+     "M19": 6,
+     "M18": 6,
+     "K7_P1_D110_S002": 5,
+     "M04": 5,
+     "K7_P1_D150_S003": 3,
+     "M03": 2,
+     "K7_PVC_D070": 1,
+     "M05": 1
+    },
+    "gz_ids|main_400": {
+     "M10": 11,
+     "M03": 5,
+     "M16": 3
+    },
+    "gz_ids|report_other": {
+     "M11": 5,
+     "M16": 4,
+     "M02": 2,
+     "M08": 2,
+     "M03": 1,
+     "M06": 1,
+     "M05": 1
+    }
+   },
+   "shift_P_four_rows": {
+    "4tu|": {
+     "n": 116,
+     "min": 0.06755719866071429,
+     "p05": 0.4417201450892857,
+     "p50": 3.559744698660714,
+     "p95": 7.613201203893444,
+     "max": 7.802734375
+    },
+    "gz_ids|main_400": {
+     "n": 76,
+     "min": 0.09618803879310345,
+     "p05": 0.5348307291666655,
+     "p50": 3.3977774784482757,
+     "p95": 7.1806640625,
+     "max": 7.873046875000001
+    },
+    "gz_ids|report_other": {
+     "n": 64,
+     "min": 0.10566552005597014,
+     "p05": 0.5935532299440298,
+     "p50": 3.4034733558768657,
+     "p95": 7.860992887126866,
+     "max": 7.904694059001866
+    }
+   }
+  },
+  "limit_12P": {
+   "draws": {
+    "4tu|": 351,
+    "gz_ids|main_400": 148,
+    "gz_ids|report_other": 45
+   },
+   "draws_three_rows_ok": {
+    "4tu|": 260,
+    "gz_ids|main_400": 92,
+    "gz_ids|report_other": 27
+   },
+   "draws_four_rows_ok": {
+    "4tu|": 182,
+    "gz_ids|main_400": 71,
+    "gz_ids|report_other": 27
+   },
+   "frac_row90_given_three": {
+    "4tu|": 0.7,
+    "gz_ids|main_400": 0.7717391304347826,
+    "gz_ids|report_other": 1.0
+   },
+   "lines_with_three_rows_draw": {
+    "4tu|": 78,
+    "gz_ids|main_400": 28,
+    "gz_ids|report_other": 2
+   },
+   "lines_with_four_rows_draw": {
+    "4tu|": 60,
+    "gz_ids|main_400": 16,
+    "gz_ids|report_other": 2
+   },
+   "models_three_rows_ok": {
+    "4tu|": {
+     "M14": 31,
+     "M17": 28,
+     "M05": 20,
+     "K7_P1_D060": 19,
+     "M12": 17,
+     "M07": 16,
+     "M09": 13,
+     "M11": 13,
+     "M02": 12,
+     "K7_PVC_D070": 12,
+     "K7_P1_D110_S002": 12,
+     "M16": 9,
+     "M08": 9,
+     "M06": 8,
+     "K7_P1_D150_S003": 8,
+     "M18": 8,
+     "M19": 6,
+     "M04": 6,
+     "M10": 5,
+     "M03": 4,
+     "M01": 4
+    },
+    "gz_ids|main_400": {
+     "M10": 13,
+     "M05": 9,
+     "M03": 8,
+     "M09": 8,
+     "M14": 8,
+     "M04": 8,
+     "M01": 7,
+     "M02": 6,
+     "M19": 5,
+     "M17": 4,
+     "M16": 4,
+     "M08": 4,
+     "M07": 3,
+     "M11": 3,
+     "M06": 2
+    },
+    "gz_ids|report_other": {
+     "M14": 7,
+     "M11": 5,
+     "M16": 4,
+     "M02": 2,
+     "M08": 2,
+     "M01": 1,
+     "M17": 1,
+     "M09": 1,
+     "M19": 1,
+     "M03": 1,
+     "M06": 1,
+     "M05": 1
+    }
+   },
+   "models_four_rows_ok": {
+    "4tu|": {
+     "M14": 25,
+     "M17": 19,
+     "M05": 15,
+     "K7_P1_D060": 14,
+     "M12": 12,
+     "M09": 12,
+     "M07": 10,
+     "M16": 8,
+     "M11": 8,
+     "K7_PVC_D070": 8,
+     "M08": 7,
+     "K7_P1_D150_S003": 7,
+     "M19": 6,
+     "M18": 6,
+     "M02": 5,
+     "K7_P1_D110_S002": 5,
+     "M04": 5,
+     "M06": 4,
+     "M10": 3,
+     "M03": 2,
+     "M01": 1
+    },
+    "gz_ids|main_400": {
+     "M10": 12,
+     "M04": 8,
+     "M14": 7,
+     "M05": 5,
+     "M19": 5,
+     "M02": 5,
+     "M03": 5,
+     "M16": 4,
+     "M09": 4,
+     "M08": 4,
+     "M07": 3,
+     "M01": 3,
+     "M17": 3,
+     "M11": 2,
+     "M06": 1
+    },
+    "gz_ids|report_other": {
+     "M14": 7,
+     "M11": 5,
+     "M16": 4,
+     "M02": 2,
+     "M08": 2,
+     "M01": 1,
+     "M17": 1,
+     "M09": 1,
+     "M19": 1,
+     "M03": 1,
+     "M06": 1,
+     "M05": 1
+    }
+   },
+   "shift_P_four_rows": {
+    "4tu|": {
+     "n": 728,
+     "min": 0.018229166666666668,
+     "p05": 0.3534526209677419,
+     "p50": 4.393352838951772,
+     "p95": 11.35279732696281,
+     "max": 11.972215996413937
+    },
+    "gz_ids|main_400": {
+     "n": 284,
+     "min": 0.04180743243243243,
+     "p05": 0.2835066511824324,
+     "p50": 4.068726373487904,
+     "p95": 10.683088184457963,
+     "max": 11.78676871366279
+    },
+    "gz_ids|report_other": {
+     "n": 108,
+     "min": 0.10566552005597014,
+     "p05": 0.5935532299440298,
+     "p50": 3.9409325443097014,
+     "p95": 8.4375,
+     "max": 11.225983121501866
+    }
+   }
+  }
+ }
+}
