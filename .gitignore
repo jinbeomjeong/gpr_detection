@@ -22,6 +22,8 @@ Thumbs.db
 # Claude Code 실행 중 생기는 파일
 .claude/*.lock
 .claude/settings.local.json
+# 사전 등록 실행 중 블라인드 경로 목록(blind_guard 훅, 판정 끝나면 비움)
+.claude/blind_paths.json
 
 # 데이터 가공본 리더(가공본 제공처 작성, 라이선스 미표기) — 공개 저장소 제외, 로컬에서 복사해 사용
 src/gpr_detection/io/_vendor/sgy_radarmap.py
