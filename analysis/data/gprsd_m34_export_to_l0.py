@@ -11,7 +11,9 @@ L0 GridBox (closed, outward rounding, ADR-004 decision 1/8):
   floor(t1+1e-6) .. ceil(t2-1e-6)-1, zero width -> 1 cell.
 Hard stop: any task with a non-empty `predictions` list (plan 5-3: no pre-annotation).
 QA (cv convention docs/experiments/m34_gprsd_box_convention.md 3-6): warnings,
-not rejections, except the ERROR rows.
+not rejections, except the ERROR rows. `truncated` hyperbola boxes get no
+apex-centre or top/bottom margin WARNs (convention 3-4: they are not redrawn);
+convert_summary counts them as `truncated_rows_skipped_margin_qa`.
 """
 
 from __future__ import annotations
@@ -393,15 +395,18 @@ def convert(
                             "apex_off_centre_gt_0.15_width",
                             f"{(atf - 0.5 * (tmin + tmax)) / width_tr:+.2f}",
                         )
+                    # truncated boxes are not redrawn (convention 3-4/3-6), so
+                    # margin WARNs would only pollute the redraw list; the
+                    # skipped rows are counted in convert_summary instead
                     top = (asf - smin) / period
                     bot = (smax - asf) / period
-                    if top < 0.6 or top > 1.5:
+                    if not trunc and (top < 0.6 or top > 1.5):
                         flag(
                             "WARN",
                             "top_margin_outside_0.6-1.5P",
                             f"{top:.2f}P (P={period})",
                         )
-                    if bot < 3.0 or bot > 9.0:
+                    if not trunc and (bot < 3.0 or bot > 9.0):
                         flag("WARN", "bottom_outside_3-9P", f"{bot:.2f}P (P={period})")
             elif assigned.get(rid):
                 flag("WARN", "apex_on_non_hyperbola")
@@ -504,6 +509,31 @@ def count_shallow_top_margin(
         if top_margin_p < min_ratio:
             count += 1
     return count
+
+
+def count_truncated_margin_qa_skips(rows: list[dict]) -> int:
+    """Count apex-bearing, truncated hyperbola boxes that skipped the margin WARNs.
+
+    These are exactly the rows for which ``convert`` would otherwise have run the
+    top-margin and bottom-length checks (an apex is assigned) but did not, because
+    truncated boxes are not redrawn (convention 3-4/3-6). Information only.
+    """
+    count = 0
+    for row in rows:
+        if row["class"] != "pipe_hyperbola" or "truncated" not in row["flags"]:
+            continue
+        if row["apex_sample_f"] == "":  # no apex -> margin checks never ran
+            continue
+        count += 1
+    return count
+
+
+def margin_report_counts(rows: list[dict]) -> dict[str, int]:
+    """Return the report-only margin counts written to ``convert_summary``."""
+    return {
+        "top_margin_lt_0.6P_at_P22.3": count_shallow_top_margin(rows),
+        "truncated_rows_skipped_margin_qa": count_truncated_margin_qa_skips(rows),
+    }
 
 
 def write_csv(path: Path, rows: list[dict], cols: list[str]) -> None:
@@ -663,6 +693,33 @@ def selftest(kit: Path, period: float) -> int:
         count_shallow_top_margin(rows_shallow),
     ]
     results["top_margin_p22_3_shallow_qa"] = [i["code"] for i in iss3]
+    # apex 2 samples above the box bottom: top 4.45 P and bottom 0.10 P, so both
+    # margin WARNs fire unless the box carries the truncated flag
+    margin_codes = {"top_margin_outside_0.6-1.5P", "bottom_outside_3-9P"}
+    task_deep = json.loads(json.dumps(task))
+    deep_y_px = px[3] - 2 * sy
+    task_deep["annotations"][0]["result"][1]["value"]["y"] = deep_y_px / H * 100
+    task_deep_trunc = json.loads(json.dumps(task_deep))
+    task_deep_trunc["annotations"][0]["result"].append(
+        mk("a1", "choices", "flag", {"choices": ["truncated"]})
+    )
+    rows_deep, _, iss_deep = convert(
+        [task_deep], cfg, cfg_sha, {w["window_id"]: w}, "main", period
+    )
+    rows_trunc, _, iss_trunc = convert(
+        [task_deep_trunc], cfg, cfg_sha, {w["window_id"]: w}, "main", period
+    )
+    results["margin_warn_untruncated_qa"] = sorted(
+        {i["code"] for i in iss_deep} & margin_codes
+    )
+    results["margin_warn_truncated_qa"] = sorted(
+        {i["code"] for i in iss_trunc} & margin_codes
+    )
+    results["margin_warn_truncated_row_qa"] = rows_trunc[0]["qa"]
+    results["truncated_rows_skipped_margin_qa_untruncated_vs_truncated"] = [
+        margin_report_counts(rows_deep)["truncated_rows_skipped_margin_qa"],
+        margin_report_counts(rows_trunc)["truncated_rows_skipped_margin_qa"],
+    ]
     ok = (
         bad == 0
         and results["synthetic_export_l0_match"]
@@ -671,6 +728,11 @@ def selftest(kit: Path, period: float) -> int:
         and "certainty_missing" in results["qa_error_cases"]
         and results["top_margin_p22_3_count_20_vs_13_samples"] == [0, 1]
         and results["top_margin_p22_3_shallow_qa"] == []
+        and results["margin_warn_untruncated_qa"] == sorted(margin_codes)
+        and results["margin_warn_truncated_qa"] == []
+        and not margin_codes & set(rows_trunc[0]["qa"].split(";"))
+        and results["truncated_rows_skipped_margin_qa_untruncated_vs_truncated"]
+        == [0, 1]
     )
     print(json.dumps({"status": "ok" if ok else "fail", **results}, ensure_ascii=False))
     return 0 if ok else 1
@@ -730,7 +792,7 @@ def main() -> int:
         "warnings": sum(i["level"] == "WARN" for i in issues),
         "period_samples": args.period,
         "period_is_m36_fixed": args.period == PERIOD_FIXED,
-        "top_margin_lt_0.6P_at_P22.3": count_shallow_top_margin(rows),
+        **margin_report_counts(rows),
         "render_config_sha256": cfg_sha,
     }
     (out / f"convert_summary{suffix}.json").write_text(

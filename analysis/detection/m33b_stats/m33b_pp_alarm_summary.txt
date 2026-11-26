@@ -1,0 +1,271 @@
+reps=3000 seed=20261114 designs={"50": {"n": 52, "n_pipes": 18, "alloc": [1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 2, 1, 1, 1]}, "100": {"n": 101, "n_pipes": 35, "alloc": [2, 4, 2, 1, 2, 2, 3, 1, 1, 3, 1, 2, 1, 5, 2, 3]}, "150": {"n": 153, "n_pipes": 53, "alloc": [2, 1, 3, 2, 3, 4, 2, 5, 2, 4, 5, 3, 3, 6, 3, 5]}, "190": {"n": 192, "n_pipes": 67, "alloc": [3, 4, 3, 5, 5, 7, 6, 8, 1, 2, 3, 5, 5, 5, 4, 1]}}
+selfcheck={"null_zero_action_alarm": 0.0, "all_lost_mean_dR_pp(expect -20)": -20.168019801980204, "all_lost_alarm(expect ~1)": 0.9895, "mean_dR_pp(expect -4.0)": -4.037920792079208}
+
+== P(alarm) key=abs1|m0_ge25 var=base h=0.9 (loss only); bal1/bal2 = balanced gross 1/2 %p (true delta 0)
+n  R0   P(info25) | bal1  bal2 |   -0.5     -1   -1.5     -2     -3     -5   -7.5    -10 | MDE80
+50  0.02 0.02 | 0.018   -   |  0.018  0.024  0.020    unr    unr    unr    unr    unr | unreached(max 0.02 at 1.5)
+50  0.05 0.147 | 0.057 0.092 |  0.053  0.090  0.113  0.124  0.141    unr    unr    unr | unreached(max 0.14 at 3)
+50  0.10 0.462 | 0.126 0.188 |  0.085  0.156  0.221  0.268  0.350  0.431  0.460    unr | unreached(max 0.46 at 7.5)
+50  0.20 0.853 | 0.159 0.247 |  0.113  0.219  0.303  0.368  0.491  0.655  0.782  0.818 | 8.77
+50  0.40 0.998 | 0.176 0.260 |  0.109  0.201  0.289  0.359  0.472  0.663  0.802  0.868 | 7.46
+100 0.02 0.094 | 0.056   -   |  0.051  0.088  0.092    unr    unr    unr    unr    unr | unreached(max 0.09 at 1.5)
+100 0.05 0.435 | 0.133 0.180 |  0.114  0.227  0.280  0.331  0.412    unr    unr    unr | unreached(max 0.41 at 3)
+100 0.10 0.81 | 0.181 0.245 |  0.157  0.274  0.388  0.479  0.606  0.747  0.807    unr | 7.22
+100 0.20 0.985 | 0.203 0.263 |  0.166  0.282  0.392  0.484  0.639  0.804  0.926  0.968 | 4.95
+100 0.40 1.0 | 0.197 0.283 |  0.160  0.263  0.372  0.448  0.586  0.762  0.887  0.939 | 5.76
+150 0.02 0.21 | 0.101   -   |  0.097  0.176  0.206    unr    unr    unr    unr    unr | unreached(max 0.21 at 1.5)
+150 0.05 0.647 | 0.170 0.218 |  0.167  0.317  0.428  0.519  0.613    unr    unr    unr | unreached(max 0.61 at 3)
+150 0.10 0.938 | 0.196 0.260 |  0.193  0.340  0.473  0.570  0.743  0.885  0.934    unr | 3.80
+150 0.20 0.998 | 0.201 0.278 |  0.188  0.348  0.438  0.553  0.710  0.875  0.960  0.990 | 4.09
+150 0.40 1.0 | 0.215 0.286 |  0.177  0.323  0.439  0.524  0.671  0.835  0.921  0.965 | 4.58
+190 0.02 0.289 | 0.105   -   |  0.125  0.235  0.278    unr    unr    unr    unr    unr | unreached(max 0.28 at 1.5)
+190 0.05 0.723 | 0.168 0.217 |  0.178  0.340  0.465  0.555  0.672    unr    unr    unr | unreached(max 0.67 at 3)
+190 0.10 0.952 | 0.191 0.262 |  0.182  0.323  0.466  0.590  0.754  0.894  0.946    unr | 3.66
+190 0.20 0.999 | 0.208 0.268 |  0.184  0.339  0.455  0.552  0.702  0.870  0.962  0.983 | 4.17
+190 0.40 1.0 | 0.205 0.262 |  0.185  0.308  0.437  0.526  0.651  0.811  0.923  0.966 | 4.86
+
+== P(alarm) key=abs1|none var=base h=0.9 (loss only); bal1/bal2 = balanced gross 1/2 %p (true delta 0)
+n  R0   P(info25) | bal1  bal2 |   -0.5     -1   -1.5     -2     -3     -5   -7.5    -10 | MDE80
+50  0.02 0.02 | 0.169   -   |  0.170  0.302  0.394    unr    unr    unr    unr    unr | unreached(max 0.39 at 1.5)
+50  0.05 0.147 | 0.177 0.256 |  0.150  0.288  0.383  0.463  0.621    unr    unr    unr | unreached(max 0.62 at 3)
+50  0.10 0.462 | 0.190 0.266 |  0.129  0.247  0.339  0.446  0.582  0.772  0.918    unr | 5.48
+50  0.20 0.853 | 0.168 0.265 |  0.124  0.235  0.325  0.399  0.531  0.726  0.864  0.933 | 6.34
+50  0.40 0.998 | 0.176 0.260 |  0.109  0.201  0.290  0.359  0.472  0.664  0.804  0.869 | 7.43
+100 0.02 0.094 | 0.156   -   |  0.177  0.321  0.447    unr    unr    unr    unr    unr | unreached(max 0.45 at 1.5)
+100 0.05 0.435 | 0.180 0.246 |  0.161  0.316  0.434  0.538  0.723    unr    unr    unr | unreached(max 0.72 at 3)
+100 0.10 0.81 | 0.192 0.260 |  0.163  0.298  0.422  0.515  0.664  0.859  0.962    unr | 4.40
+100 0.20 0.985 | 0.203 0.263 |  0.167  0.283  0.392  0.486  0.641  0.811  0.931  0.976 | 4.87
+100 0.40 1.0 | 0.197 0.283 |  0.160  0.263  0.372  0.448  0.586  0.762  0.887  0.939 | 5.76
+150 0.02 0.21 | 0.159   -   |  0.175  0.368  0.526    unr    unr    unr    unr    unr | unreached(max 0.53 at 1.5)
+150 0.05 0.647 | 0.186 0.239 |  0.188  0.360  0.506  0.635  0.799    unr    unr    unr | unreached(max 0.80 at 3)
+150 0.10 0.938 | 0.197 0.263 |  0.194  0.344  0.480  0.581  0.756  0.917  0.981    unr | 3.54
+150 0.20 0.998 | 0.201 0.278 |  0.188  0.348  0.438  0.553  0.710  0.876  0.960  0.992 | 4.09
+150 0.40 1.0 | 0.215 0.286 |  0.177  0.323  0.439  0.524  0.671  0.835  0.921  0.965 | 4.58
+190 0.02 0.289 | 0.137   -   |  0.175  0.376  0.521    unr    unr    unr    unr    unr | unreached(max 0.52 at 1.5)
+190 0.05 0.723 | 0.175 0.229 |  0.188  0.363  0.503  0.615  0.784    unr    unr    unr | unreached(max 0.78 at 3)
+190 0.10 0.952 | 0.192 0.263 |  0.183  0.324  0.470  0.595  0.760  0.910  0.980    unr | 3.53
+190 0.20 0.999 | 0.208 0.268 |  0.184  0.339  0.455  0.552  0.702  0.870  0.963  0.983 | 4.17
+190 0.40 1.0 | 0.205 0.262 |  0.185  0.308  0.437  0.526  0.651  0.811  0.923  0.966 | 4.86
+
+== P(alarm) key=rel10|m0_ge25 var=base h=0.9 (loss only); bal1/bal2 = balanced gross 1/2 %p (true delta 0)
+n  R0   P(info25) | bal1  bal2 |   -0.5     -1   -1.5     -2     -3     -5   -7.5    -10 | MDE80
+50  0.02 0.02 | 0.018   -   |  0.018  0.024  0.020    unr    unr    unr    unr    unr | unreached(max 0.02 at 1.5)
+50  0.05 0.147 | 0.051 0.089 |  0.051  0.085  0.107  0.120  0.138    unr    unr    unr | unreached(max 0.14 at 3)
+50  0.10 0.462 | 0.114 0.166 |  0.072  0.136  0.198  0.250  0.334  0.420  0.459    unr | unreached(max 0.46 at 7.5)
+50  0.20 0.853 | 0.113 0.182 |  0.079  0.172  0.236  0.294  0.422  0.595  0.743  0.801 | 9.94
+50  0.40 0.998 | 0.076 0.123 |  0.048  0.107  0.152  0.208  0.296  0.470  0.641  0.749 | unreached(max 0.75 at 10)
+100 0.02 0.094 | 0.061   -   |  0.057  0.094  0.093    unr    unr    unr    unr    unr | unreached(max 0.09 at 1.5)
+100 0.05 0.435 | 0.148 0.196 |  0.133  0.250  0.302  0.350  0.421    unr    unr    unr | unreached(max 0.42 at 3)
+100 0.10 0.81 | 0.173 0.244 |  0.152  0.274  0.391  0.484  0.623  0.754  0.809    unr | 7.09
+100 0.20 0.985 | 0.129 0.190 |  0.091  0.194  0.285  0.374  0.529  0.743  0.893  0.961 | 5.94
+100 0.40 1.0 | 0.048 0.111 |  0.035  0.077  0.130  0.189  0.301  0.488  0.685  0.814 | 9.73
+150 0.02 0.21 | 0.125   -   |  0.129  0.192  0.210    unr    unr    unr    unr    unr | unreached(max 0.21 at 1.5)
+150 0.05 0.647 | 0.213 0.253 |  0.217  0.378  0.483  0.558  0.629    unr    unr    unr | unreached(max 0.63 at 3)
+150 0.10 0.938 | 0.191 0.258 |  0.187  0.329  0.475  0.589  0.764  0.898  0.937    unr | 3.53
+150 0.20 0.998 | 0.108 0.180 |  0.078  0.193  0.286  0.378  0.566  0.794  0.930  0.983 | 5.11
+150 0.40 1.0 | 0.046 0.096 |  0.023  0.070  0.120  0.173  0.296  0.512  0.711  0.835 | 9.30
+190 0.02 0.289 | 0.150   -   |  0.178  0.269  0.287    unr    unr    unr    unr    unr | unreached(max 0.29 at 1.5)
+190 0.05 0.723 | 0.232 0.273 |  0.240  0.439  0.562  0.631  0.706    unr    unr    unr | unreached(max 0.71 at 3)
+190 0.10 0.952 | 0.195 0.273 |  0.172  0.331  0.466  0.613  0.786  0.917  0.950    unr | 3.22
+190 0.20 0.999 | 0.116 0.181 |  0.078  0.187  0.279  0.373  0.548  0.778  0.935  0.977 | 5.36
+190 0.40 1.0 | 0.045 0.083 |  0.022  0.059  0.105  0.166  0.284  0.475  0.700  0.824 | 9.51
+
+== P(alarm) key=gt_lost3|none var=base h=0.9 (loss only); bal1/bal2 = balanced gross 1/2 %p (true delta 0)
+n  R0   P(info25) | bal1  bal2 |   -0.5     -1   -1.5     -2     -3     -5   -7.5    -10 | MDE80
+50  0.02 0.02 | 0.173   -   |  0.107  0.181  0.237    unr    unr    unr    unr    unr | unreached(max 0.24 at 1.5)
+50  0.05 0.147 | 0.168 0.317 |  0.100  0.190  0.270  0.320  0.436    unr    unr    unr | unreached(max 0.44 at 3)
+50  0.10 0.462 | 0.182 0.321 |  0.092  0.181  0.253  0.334  0.447  0.624  0.776    unr | unreached(max 0.78 at 7.5)
+50  0.20 0.853 | 0.166 0.321 |  0.097  0.188  0.252  0.329  0.437  0.607  0.770  0.858 | 8.35
+50  0.40 0.998 | 0.179 0.300 |  0.092  0.174  0.248  0.316  0.421  0.603  0.745  0.819 | 9.37
+100 0.02 0.094 | 0.290   -   |  0.179  0.304  0.396    unr    unr    unr    unr    unr | unreached(max 0.40 at 1.5)
+100 0.05 0.435 | 0.293 0.505 |  0.171  0.312  0.415  0.489  0.658    unr    unr    unr | unreached(max 0.66 at 3)
+100 0.10 0.81 | 0.308 0.497 |  0.169  0.296  0.407  0.492  0.634  0.806  0.917    unr | 4.93
+100 0.20 0.985 | 0.293 0.477 |  0.171  0.292  0.399  0.485  0.627  0.791  0.900  0.960 | 5.20
+100 0.40 1.0 | 0.271 0.447 |  0.167  0.271  0.379  0.453  0.590  0.762  0.880  0.933 | 5.80
+150 0.02 0.21 | 0.406   -   |  0.226  0.395  0.529    unr    unr    unr    unr    unr | unreached(max 0.53 at 1.5)
+150 0.05 0.647 | 0.401 0.627 |  0.239  0.404  0.528  0.642  0.777    unr    unr    unr | unreached(max 0.78 at 3)
+150 0.10 0.938 | 0.392 0.605 |  0.236  0.391  0.524  0.607  0.763  0.901  0.965    unr | 3.53
+150 0.20 0.998 | 0.373 0.600 |  0.226  0.391  0.487  0.592  0.735  0.882  0.954  0.986 | 3.89
+150 0.40 1.0 | 0.362 0.573 |  0.206  0.353  0.482  0.568  0.702  0.856  0.931  0.967 | 4.27
+190 0.02 0.289 | 0.457   -   |  0.260  0.448  0.566    unr    unr    unr    unr    unr | unreached(max 0.57 at 1.5)
+190 0.05 0.723 | 0.459 0.667 |  0.270  0.440  0.577  0.660  0.798    unr    unr    unr | unreached(max 0.80 at 3)
+190 0.10 0.952 | 0.446 0.668 |  0.262  0.415  0.547  0.676  0.796  0.912  0.975    unr | 3.06
+190 0.20 0.999 | 0.420 0.647 |  0.248  0.418  0.554  0.638  0.757  0.897  0.967  0.985 | 3.61
+190 0.40 1.0 | 0.386 0.590 |  0.235  0.377  0.523  0.595  0.718  0.852  0.950  0.976 | 4.22
+
+== P(alarm) key=abs1|gt10_trip3 var=base h=0.9 (loss only); bal1/bal2 = balanced gross 1/2 %p (true delta 0)
+n  R0   P(info25) | bal1  bal2 |   -0.5     -1   -1.5     -2     -3     -5   -7.5    -10 | MDE80
+50  0.02 0.02 | 0.018   -   |  0.015  0.019  0.023    unr    unr    unr    unr    unr | unreached(max 0.02 at 1.5)
+50  0.05 0.147 | 0.058 0.094 |  0.056  0.091  0.131  0.136  0.158    unr    unr    unr | unreached(max 0.16 at 3)
+50  0.10 0.462 | 0.133 0.190 |  0.092  0.165  0.242  0.298  0.385  0.462  0.509    unr | unreached(max 0.51 at 7.5)
+50  0.20 0.853 | 0.162 0.251 |  0.117  0.226  0.308  0.377  0.502  0.675  0.802  0.841 | 7.47
+50  0.40 0.998 | 0.176 0.260 |  0.109  0.201  0.289  0.359  0.472  0.664  0.802  0.867 | 7.46
+100 0.02 0.094 | 0.059   -   |  0.063  0.108  0.122    unr    unr    unr    unr    unr | unreached(max 0.12 at 1.5)
+100 0.05 0.435 | 0.139 0.186 |  0.127  0.252  0.324  0.389  0.495    unr    unr    unr | unreached(max 0.49 at 3)
+100 0.10 0.81 | 0.185 0.248 |  0.158  0.288  0.401  0.494  0.634  0.791  0.863    unr | 5.31
+100 0.20 0.985 | 0.203 0.263 |  0.166  0.283  0.392  0.485  0.641  0.807  0.929  0.972 | 4.92
+100 0.40 1.0 | 0.197 0.283 |  0.160  0.263  0.372  0.448  0.586  0.762  0.887  0.939 | 5.76
+150 0.02 0.21 | 0.108   -   |  0.111  0.223  0.282    unr    unr    unr    unr    unr | unreached(max 0.28 at 1.5)
+150 0.05 0.647 | 0.175 0.224 |  0.173  0.333  0.462  0.572  0.695    unr    unr    unr | unreached(max 0.69 at 3)
+150 0.10 0.938 | 0.196 0.259 |  0.194  0.343  0.478  0.577  0.750  0.905  0.962    unr | 3.64
+150 0.20 0.998 | 0.201 0.278 |  0.188  0.348  0.438  0.553  0.710  0.876  0.960  0.991 | 4.09
+150 0.40 1.0 | 0.215 0.286 |  0.177  0.323  0.439  0.524  0.671  0.835  0.921  0.965 | 4.58
+190 0.02 0.289 | 0.108   -   |  0.141  0.282  0.367    unr    unr    unr    unr    unr | unreached(max 0.37 at 1.5)
+190 0.05 0.723 | 0.172 0.220 |  0.182  0.353  0.484  0.584  0.736    unr    unr    unr | unreached(max 0.74 at 3)
+190 0.10 0.952 | 0.192 0.262 |  0.183  0.324  0.468  0.594  0.757  0.905  0.967    unr | 3.58
+190 0.20 0.999 | 0.208 0.268 |  0.184  0.339  0.455  0.552  0.702  0.870  0.963  0.983 | 4.17
+190 0.40 1.0 | 0.205 0.262 |  0.185  0.308  0.437  0.526  0.651  0.811  0.923  0.966 | 4.86
+
+== Sensitivity abs1|m0_ge25: MDE80 (%p) by var scenario / h
+base         loss_only_h0.9  n=50  R0=0.05 MDE80=unreached(max 0.14 at 3) P(-0.5)=0.053 P(-2)=0.12433333333333334 P(bal1)=0.057 sd_dR(-2)=2.7393280794309236
+base         loss_only_h0.9  n=50  R0=0.20 MDE80=    8.77 P(-0.5)=0.113 P(-2)=0.36833333333333335 P(bal1)=0.15933333333333333 sd_dR(-2)=3.2604313856471236
+base         loss_only_h0.9  n=190 R0=0.05 MDE80=unreached(max 0.67 at 3) P(-0.5)=0.178 P(-2)=0.555 P(bal1)=0.168 sd_dR(-2)=1.965771850623
+base         loss_only_h0.9  n=190 R0=0.20 MDE80=    4.17 P(-0.5)=0.18366666666666667 P(-2)=0.5516666666666666 P(bal1)=0.20833333333333334 sd_dR(-2)=2.4394496888999364
+base         loss_only_h0.5  n=50  R0=0.05 MDE80=unreached(max 0.15 at 2) P(-0.5)=0.06533333333333333 P(-2)=0.15066666666666667 P(bal1)=0.057 sd_dR(-2)=2.2061735707912002
+base         loss_only_h0.5  n=50  R0=0.20 MDE80=    5.52 P(-0.5)=0.153 P(-2)=0.4836666666666667 P(bal1)=0.15933333333333333 sd_dR(-2)=2.5012514126315497
+base         loss_only_h0.5  n=190 R0=0.05 MDE80=unreached(max 0.65 at 2) P(-0.5)=0.16366666666666665 P(-2)=0.6516666666666666 P(bal1)=0.168 sd_dR(-2)=1.6001424256029546
+base         loss_only_h0.5  n=190 R0=0.20 MDE80=    3.06 P(-0.5)=0.178 P(-2)=0.6273333333333333 P(bal1)=0.20833333333333334 sd_dR(-2)=1.9468931642138594
+weak_road    loss_only_h0.9  n=50  R0=0.05 MDE80=unreached(max 0.13 at 3) P(-0.5)=0.04733333333333333 P(-2)=0.111 P(bal1)=0.061 sd_dR(-2)=2.419088125779895
+weak_road    loss_only_h0.9  n=50  R0=0.20 MDE80=    6.84 P(-0.5)=0.12333333333333334 P(-2)=0.38366666666666666 P(bal1)=0.17333333333333334 sd_dR(-2)=2.999827342719502
+weak_road    loss_only_h0.9  n=190 R0=0.05 MDE80=    2.87 P(-0.5)=0.19566666666666666 P(-2)=0.661 P(bal1)=0.18733333333333332 sd_dR(-2)=1.5370101876960363
+weak_road    loss_only_h0.9  n=190 R0=0.20 MDE80=    3.77 P(-0.5)=0.204 P(-2)=0.576 P(bal1)=0.19466666666666665 sd_dR(-2)=2.176106084660305
+strong_road  loss_only_h0.9  n=50  R0=0.05 MDE80=unreached(max 0.18 at 3) P(-0.5)=0.059333333333333335 P(-2)=0.14566666666666667 P(bal1)=0.08433333333333333 sd_dR(-2)=3.2192999487098612
+strong_road  loss_only_h0.9  n=50  R0=0.20 MDE80=unreached(max 0.76 at 10) P(-0.5)=0.112 P(-2)=0.35333333333333333 P(bal1)=0.16766666666666666 sd_dR(-2)=3.504046686165828
+strong_road  loss_only_h0.9  n=190 R0=0.05 MDE80=unreached(max 0.55 at 3) P(-0.5)=0.15266666666666667 P(-2)=0.44366666666666665 P(bal1)=0.15 sd_dR(-2)=2.5447218827604567
+strong_road  loss_only_h0.9  n=190 R0=0.20 MDE80=    4.75 P(-0.5)=0.17366666666666666 P(-2)=0.493 P(bal1)=0.17733333333333334 sd_dR(-2)=2.9063032975001395
+loose_lines  loss_only_h0.9  n=50  R0=0.05 MDE80=unreached(max 0.14 at 3) P(-0.5)=0.04533333333333334 P(-2)=0.115 P(bal1)=0.06366666666666666 sd_dR(-2)=2.4032812019885834
+loose_lines  loss_only_h0.9  n=50  R0=0.20 MDE80=    7.19 P(-0.5)=0.13533333333333333 P(-2)=0.41533333333333333 P(bal1)=0.18266666666666667 sd_dR(-2)=3.032938299265778
+loose_lines  loss_only_h0.9  n=190 R0=0.05 MDE80=unreached(max 0.70 at 3) P(-0.5)=0.16833333333333333 P(-2)=0.5656666666666667 P(bal1)=0.15533333333333332 sd_dR(-2)=1.945634650614765
+loose_lines  loss_only_h0.9  n=190 R0=0.20 MDE80=    4.05 P(-0.5)=0.17133333333333334 P(-2)=0.54 P(bal1)=0.19433333333333333 sd_dR(-2)=2.462522027851593
+
+== P(info) variants, base, delta=-2 cell (info does not depend on delta)
+n=50  R0=0.02 m0_ge25=0.024 m0_ge50=0.000 m0_ge25_trip3=0.022 gt10_trip3=0.026 none=1.000
+n=50  R0=0.05 m0_ge25=0.145 m0_ge50=0.013 m0_ge25_trip3=0.142 gt10_trip3=0.158 none=1.000
+n=50  R0=0.10 m0_ge25=0.462 m0_ge50=0.106 m0_ge25_trip3=0.459 gt10_trip3=0.496 none=1.000
+n=50  R0=0.20 m0_ge25=0.857 m0_ge50=0.494 m0_ge25_trip3=0.856 gt10_trip3=0.878 none=1.000
+n=50  R0=0.40 m0_ge25=0.995 m0_ge50=0.957 m0_ge25_trip3=0.995 gt10_trip3=0.997 none=1.000
+n=100 R0=0.02 m0_ge25=0.097 m0_ge50=0.011 m0_ge25_trip3=0.093 gt10_trip3=0.132 none=1.000
+n=100 R0=0.05 m0_ge25=0.450 m0_ge50=0.109 m0_ge25_trip3=0.445 gt10_trip3=0.538 none=1.000
+n=100 R0=0.10 m0_ge25=0.798 m0_ge50=0.441 m0_ge25_trip3=0.797 gt10_trip3=0.869 none=1.000
+n=100 R0=0.20 m0_ge25=0.982 m0_ge50=0.894 m0_ge25_trip3=0.982 gt10_trip3=0.993 none=1.000
+n=100 R0=0.40 m0_ge25=1.000 m0_ge50=0.998 m0_ge25_trip3=1.000 gt10_trip3=1.000 none=1.000
+n=150 R0=0.02 m0_ge25=0.216 m0_ge50=0.031 m0_ge25_trip3=0.211 gt10_trip3=0.300 none=1.000
+n=150 R0=0.05 m0_ge25=0.632 m0_ge50=0.272 m0_ge25_trip3=0.630 gt10_trip3=0.748 none=1.000
+n=150 R0=0.10 m0_ge25=0.934 m0_ge50=0.707 m0_ge25_trip3=0.934 gt10_trip3=0.965 none=1.000
+n=150 R0=0.20 m0_ge25=0.999 m0_ge50=0.976 m0_ge25_trip3=0.999 gt10_trip3=0.999 none=1.000
+n=150 R0=0.40 m0_ge25=1.000 m0_ge50=1.000 m0_ge25_trip3=1.000 gt10_trip3=1.000 none=1.000
+n=190 R0=0.02 m0_ge25=0.281 m0_ge50=0.068 m0_ge25_trip3=0.277 gt10_trip3=0.384 none=1.000
+n=190 R0=0.05 m0_ge25=0.733 m0_ge50=0.400 m0_ge25_trip3=0.731 gt10_trip3=0.835 none=1.000
+n=190 R0=0.10 m0_ge25=0.959 m0_ge50=0.807 m0_ge25_trip3=0.959 gt10_trip3=0.981 none=1.000
+n=190 R0=0.20 m0_ge25=0.999 m0_ge50=0.986 m0_ge25_trip3=0.999 gt10_trip3=1.000 none=1.000
+n=190 R0=0.40 m0_ge25=1.000 m0_ge50=1.000 m0_ge25_trip3=1.000 gt10_trip3=1.000 none=1.000
+
+== CI coverage (nominal 0.95) cov_reps=800 n_boot=1500
+-- var=base n=52 R0=0.05 mean_est=0.0514
+   wilson_gt_fold_naive       superpop=0.409 roadcond=0.530 width=4.93pp
+   boot_gt_foldcommon         superpop=0.580 roadcond=0.671 width=7.47pp
+   boot_triplet_unstrat       superpop=0.689 roadcond=0.767 width=11.18pp
+   boot_triplet_strat_road    superpop=0.639 roadcond=0.724 width=9.76pp
+   boot_road_4                superpop=0.665 roadcond=0.723 width=11.14pp
+   robust_t_triplet_df15      superpop=0.693 roadcond=0.770 width=13.12pp
+   robust_t_road_df3          superpop=0.726 roadcond=0.804 width=20.97pp
+   loro_range                 superpop=0.436 roadcond=0.507 width=5.43pp
+-- var=base n=52 R0=0.2 mean_est=0.1934
+   wilson_gt_fold_naive       superpop=0.352 roadcond=0.519 width=9.10pp
+   boot_gt_foldcommon         superpop=0.608 roadcond=0.776 width=16.28pp
+   boot_triplet_unstrat       superpop=0.814 roadcond=0.917 width=26.21pp
+   boot_triplet_strat_road    superpop=0.735 roadcond=0.855 width=21.68pp
+   boot_road_4                superpop=0.765 roadcond=0.854 width=27.70pp
+   robust_t_triplet_df15      superpop=0.826 roadcond=0.925 width=29.63pp
+   robust_t_road_df3          superpop=0.869 roadcond=0.938 width=51.84pp
+   loro_range                 superpop=0.500 roadcond=0.625 width=13.61pp
+-- var=base n=192 R0=0.05 mean_est=0.0515
+   wilson_gt_fold_naive       superpop=0.325 roadcond=0.524 width=2.64pp
+   boot_gt_foldcommon         superpop=0.489 roadcond=0.744 width=4.42pp
+   boot_triplet_unstrat       superpop=0.715 roadcond=0.885 width=7.39pp
+   boot_triplet_strat_road    superpop=0.630 roadcond=0.833 width=6.09pp
+   boot_road_4                superpop=0.703 roadcond=0.848 width=8.77pp
+   robust_t_triplet_df15      superpop=0.739 roadcond=0.892 width=8.36pp
+   robust_t_road_df3          superpop=0.834 roadcond=0.926 width=16.20pp
+   loro_range                 superpop=0.453 roadcond=0.632 width=4.40pp
+-- var=base n=192 R0=0.2 mean_est=0.2036
+   wilson_gt_fold_naive       superpop=0.256 roadcond=0.505 width=4.93pp
+   boot_gt_foldcommon         superpop=0.435 roadcond=0.799 width=8.97pp
+   boot_triplet_unstrat       superpop=0.698 roadcond=0.960 width=16.83pp
+   boot_triplet_strat_road    superpop=0.574 roadcond=0.904 width=12.86pp
+   boot_road_4                superpop=0.756 roadcond=0.932 width=23.08pp
+   robust_t_triplet_df15      superpop=0.743 roadcond=0.968 width=18.97pp
+   robust_t_road_df3          superpop=0.876 roadcond=0.974 width=42.11pp
+   loro_range                 superpop=0.512 roadcond=0.769 width=11.59pp
+-- var=weak_road n=52 R0=0.05 mean_est=0.0468
+   wilson_gt_fold_naive       superpop=0.440 roadcond=0.500 width=4.83pp
+   boot_gt_foldcommon         superpop=0.640 roadcond=0.629 width=7.31pp
+   boot_triplet_unstrat       superpop=0.729 roadcond=0.728 width=10.92pp
+   boot_triplet_strat_road    superpop=0.685 roadcond=0.701 width=9.66pp
+   boot_road_4                superpop=0.682 roadcond=0.679 width=9.80pp
+   robust_t_triplet_df15      superpop=0.726 roadcond=0.734 width=12.86pp
+   robust_t_road_df3          superpop=0.752 roadcond=0.766 width=18.61pp
+   loro_range                 superpop=0.436 roadcond=0.472 width=4.80pp
+-- var=weak_road n=52 R0=0.2 mean_est=0.2010
+   wilson_gt_fold_naive       superpop=0.432 roadcond=0.479 width=9.39pp
+   boot_gt_foldcommon         superpop=0.708 roadcond=0.741 width=16.90pp
+   boot_triplet_unstrat       superpop=0.868 roadcond=0.902 width=26.64pp
+   boot_triplet_strat_road    superpop=0.829 roadcond=0.846 width=24.00pp
+   boot_road_4                superpop=0.757 roadcond=0.792 width=22.83pp
+   robust_t_triplet_df15      superpop=0.884 roadcond=0.910 width=30.31pp
+   robust_t_road_df3          superpop=0.897 roadcond=0.910 width=42.00pp
+   loro_range                 superpop=0.490 roadcond=0.515 width=11.05pp
+-- var=weak_road n=192 R0=0.05 mean_est=0.0473
+   wilson_gt_fold_naive       superpop=0.461 roadcond=0.527 width=2.62pp
+   boot_gt_foldcommon         superpop=0.654 roadcond=0.723 width=4.41pp
+   boot_triplet_unstrat       superpop=0.811 roadcond=0.866 width=6.87pp
+   boot_triplet_strat_road    superpop=0.772 roadcond=0.828 width=6.14pp
+   boot_road_4                superpop=0.728 roadcond=0.767 width=6.27pp
+   robust_t_triplet_df15      superpop=0.833 roadcond=0.882 width=7.75pp
+   robust_t_road_df3          superpop=0.860 roadcond=0.896 width=11.20pp
+   loro_range                 superpop=0.468 roadcond=0.492 width=3.05pp
+-- var=weak_road n=192 R0=0.2 mean_est=0.1995
+   wilson_gt_fold_naive       superpop=0.389 roadcond=0.509 width=4.99pp
+   boot_gt_foldcommon         superpop=0.640 roadcond=0.774 width=9.13pp
+   boot_triplet_unstrat       superpop=0.846 roadcond=0.935 width=14.76pp
+   boot_triplet_strat_road    superpop=0.794 roadcond=0.901 width=13.00pp
+   boot_road_4                superpop=0.784 roadcond=0.836 width=14.95pp
+   robust_t_triplet_df15      superpop=0.874 roadcond=0.953 width=16.61pp
+   robust_t_road_df3          superpop=0.895 roadcond=0.936 width=26.16pp
+   loro_range                 superpop=0.507 roadcond=0.608 width=7.18pp
+-- var=strong_road n=52 R0=0.05 mean_est=0.0519
+   wilson_gt_fold_naive       superpop=0.301 roadcond=0.627 width=4.77pp
+   boot_gt_foldcommon         superpop=0.472 roadcond=0.675 width=7.08pp
+   boot_triplet_unstrat       superpop=0.594 roadcond=0.734 width=10.70pp
+   boot_triplet_strat_road    superpop=0.514 roadcond=0.677 width=8.64pp
+   boot_road_4                superpop=0.606 roadcond=0.719 width=12.11pp
+   robust_t_triplet_df15      superpop=0.601 roadcond=0.736 width=12.56pp
+   robust_t_road_df3          superpop=0.669 roadcond=0.775 width=23.77pp
+   loro_range                 superpop=0.420 roadcond=0.549 width=6.07pp
+-- var=strong_road n=52 R0=0.2 mean_est=0.1982
+   wilson_gt_fold_naive       superpop=0.280 roadcond=0.589 width=8.91pp
+   boot_gt_foldcommon         superpop=0.479 roadcond=0.799 width=15.54pp
+   boot_triplet_unstrat       superpop=0.703 roadcond=0.927 width=25.27pp
+   boot_triplet_strat_road    superpop=0.569 roadcond=0.863 width=19.23pp
+   boot_road_4                superpop=0.740 roadcond=0.897 width=31.96pp
+   robust_t_triplet_df15      superpop=0.723 roadcond=0.930 width=28.58pp
+   robust_t_road_df3          superpop=0.848 roadcond=0.940 width=60.63pp
+   loro_range                 superpop=0.445 roadcond=0.710 width=15.96pp
+-- var=strong_road n=192 R0=0.05 mean_est=0.0501
+   wilson_gt_fold_naive       superpop=0.210 roadcond=0.579 width=2.44pp
+   boot_gt_foldcommon         superpop=0.325 roadcond=0.756 width=3.91pp
+   boot_triplet_unstrat       superpop=0.524 roadcond=0.881 width=7.44pp
+   boot_triplet_strat_road    superpop=0.427 roadcond=0.828 width=5.34pp
+   boot_road_4                superpop=0.619 roadcond=0.871 width=10.88pp
+   robust_t_triplet_df15      superpop=0.564 roadcond=0.886 width=8.46pp
+   robust_t_road_df3          superpop=0.701 roadcond=0.929 width=20.55pp
+   loro_range                 superpop=0.424 roadcond=0.696 width=5.54pp
+-- var=strong_road n=192 R0=0.2 mean_est=0.1978
+   wilson_gt_fold_naive       superpop=0.168 roadcond=0.574 width=4.70pp
+   boot_gt_foldcommon         superpop=0.284 roadcond=0.826 width=8.36pp
+   boot_triplet_unstrat       superpop=0.517 roadcond=0.970 width=17.90pp
+   boot_triplet_strat_road    superpop=0.369 roadcond=0.907 width=11.58pp
+   boot_road_4                superpop=0.715 roadcond=0.971 width=30.40pp
+   robust_t_triplet_df15      superpop=0.584 roadcond=0.975 width=20.51pp
+   robust_t_road_df3          superpop=0.828 roadcond=0.989 width=55.64pp
+   loro_range                 superpop=0.468 roadcond=0.864 width=15.37pp

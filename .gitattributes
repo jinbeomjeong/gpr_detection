@@ -6,6 +6,7 @@
 # sha로 인용하는 증거 사본은 바이트 그대로(줄바꿈 변환 없음)
 docs/processing/evidence/** -text
 analysis/processing/m33_e3x_judgment_recheck*.json -text
+analysis/detection/m33b_stats/** -text
 
 # 바이너리
 *.png binary

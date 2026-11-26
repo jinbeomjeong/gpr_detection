@@ -62,7 +62,7 @@ conda run -n gpr-dev python -I analysis/data/gprsd_m34_export_to_l0.py --export 
 
 3. 산출(`data/labels/gprsd_m34/export_<bundle>/`): `labels_l0*.csv`(계획 §5-4 열 + `flags`·`qa`, 변환기가 더하는 열 `bundle`·`apex_trace_f`·`apex_sample_f`(꼭짓점 소수 좌표)·`annotation_id`(Label Studio 주석 번호)), `windows_status*.csv`(`window_complete`·메모), `qa_report*.csv`, `convert_summary*.json`.
 4. 내보내기에 `predictions`가 하나라도 있으면 변환이 멈춘다. QA의 `ERROR`는 사용자에게 되묻는다(`apex_outside_box`, `no_apex`, `certainty_missing` 등), `WARN`은 보고용이다.
-5. 위 여유·아래 길이 검사의 P는 **20.0 샘플**이다(M3-6 종료, [`m36_gprsd_scale.md`](../../docs/processing/m36_gprsd_scale.md) §13; M3-3b 주 경로와 같음). `< 0.6 P` 경고는 동결 전 재그리기 목록이 된다. `convert_summary`에는 P 22.3 기준 `< 0.6 P` 건수(`top_margin_lt_0.6P_at_P22.3`)를 보고 전용으로 함께 적는다. 변환기 기본값이 20.0이라 `--period`는 따로 줄 필요가 없다. 위·아래 여유 WARN은 `truncated` 박스에도 찍히므로, 재그리기 목록을 만들 때는 `labels_l0.csv`의 `flags`에 `truncated`가 있는 행을 거른다(규약 §3-4·§3-6: 잘린 박스는 고치지 않는다).
+5. 위 여유·아래 길이 검사의 P는 **20.0 샘플**이다(M3-6 종료, [`m36_gprsd_scale.md`](../../docs/processing/m36_gprsd_scale.md) §13; M3-3b 주 경로와 같음). `< 0.6 P` 경고는 동결 전 재그리기 목록이 된다. `convert_summary`에는 P 22.3 기준 `< 0.6 P` 건수(`top_margin_lt_0.6P_at_P22.3`)를 보고 전용으로 함께 적는다. 변환기 기본값이 20.0이라 `--period`는 따로 줄 필요가 없다. 변환기는 `flags`에 `truncated`가 있는 `pipe_hyperbola` 행에 위·아래 여유 WARN(apex 중심 편차 WARN 포함)을 내지 않으므로, QA의 위 여유 WARN 목록을 그대로 재그리기 목록으로 쓴다(규약 §3-4·§3-6: 잘린 박스는 고치지 않는다). 이렇게 여유 검사를 건너뛴 apex 있는 `truncated` 행 수는 `convert_summary`의 `truncated_rows_skipped_margin_qa`에 정보용으로 적는다.
 6. 변환기 자체 시험: `conda run -n gpr-dev python -I analysis/data/gprsd_m34_export_to_l0.py --selftest`
    (합성 박스 200개 L0↔보기 px↔Label Studio 퍼센트 왕복 정확 일치, `predictions` 중단, QA 오류 사례).
 
