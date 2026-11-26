@@ -3,7 +3,7 @@
 - 작성: gpr-processing-expert, 2026-11-26
 - 근거 계획: `docs/processing/m36_gprsd_plan.md`. v0.1과 §11 사용자 결정 Q1–Q10을 커밋 e5e92e9로 확정했고, 판정 기준 §4-5(C1–C6)는 이 진단 전에 고정됐다.
 - 외부 근거(D6): `docs/research/gprsd_source_specs.md`(web-research-expert).
-- 판: v1.1(2026-11-26, 변경 이력 §15). 결과 json 공개 범위: D2 두 파일은 요약 통계만 저장소에 두고, 산란체 단위 표(`diffractors`)와 픽(`picks`)은 로컬 전체 파일 `data/derived/m36_gprsd/`(git 제외)에만 둔다(GPR-SD 라이선스 미상, 사용자 결정 2026-11-26).
+- 판: v1.2(2026-11-26, 변경 이력 §15. v1.2는 원본 .mat 점검 §16 추가). 결과 json 공개 범위: D2 두 파일은 요약 통계만 저장소에 두고, 산란체 단위 표(`diffractors`)와 픽(`picks`)은 로컬 전체 파일 `data/derived/m36_gprsd/`(git 제외)에만 둔다(GPR-SD 라이선스 미상, 사용자 결정 2026-11-26).
 - 실행 조건
   - conda `gpr-dev`, CPU 1프로세스, BLAS 1스레드, GPU는 쓰지 않았다.
   - 난수 시드는 20261126이다. RANSAC, bootstrap, 합성 잡음에만 썼다.
@@ -26,6 +26,7 @@
 | C5 | $\Delta x$ | **문서값, 미검증** | 3 cm는 저장소 문서에만 있다(같은 연구실 논문은 2 cm). D4에서 줄눈 주기를 검출하지 못했다 |
 | C6 | L1 결과 | **작성 완료**(§6 표) | $P$ 20이면 내용 높이 96 px(r0은 36–38 px)다 |
 
+- (v1.2) 원본 .mat 점검(§16): 12파일 모두 변수 `P` 하나뿐이고(321 × N double), 시간축·dt·영점 필드가 없다. 가공본 npy는 `P`의 float32 변환과 비트 단위로 같다. **C1–C6 판정과 §13 사용자 결정은 바뀌지 않는다.**
 - M3-6a(검출 축척)는 계획 §4-5 규칙상 닫히지 않는다. C1이 미결이기 때문이다.
 - 그래서 규칙대로 **"r0(측정 51) 유지를 기본으로 하고 Q2를 다시 묻는다"**(§9 확인 필요 질문 1).
 
@@ -208,6 +209,7 @@ v = 2δz/dt이고, 비교 범위는 0.08–0.13 m/ns다.
 - D6 요청 (a) 원본 .mat
   - 로컬 가공본에는 .mat가 **없다**. `00_원본참고`에는 Introduce.txt, Mark.xlsx, README.md만 있다.
   - 가공 스크립트 `06_scripts/build_gprsd_package.py`는 `loadmat(...)['P']`만 읽는다(78행). 다른 변수가 있는지는 확인할 수 없다(§10 사용자 조치).
+  - (v1.2) 원 저장소 클론에서 .mat를 꺼내 확인했다. 다른 변수는 없다(§16).
 - 참고 산술(가정)
   - SIR-30 Auto 기본값은 시간창의 10 %를 직접 결합파 위에 둔다(D6 [6]).
   - 380 샘플 원기록에서 앞 59 샘플을 잘랐다면(B-front) 직접 결합파는 약 38 − 59 = **−21 샘플**에 있다.
@@ -436,8 +438,9 @@ v = 2δz/dt이고, 비교 범위는 0.08–0.13 m/ns다.
 ## 10. 사용자 조치 필요
 
 - 원본 .mat(D6 요청 (a)): 로컬 가공본에는 .mat가 없다.
-  - (2026-11-26 갱신) 저장소 `github.com/ubriustc/GPR_data`를 `C:\workspace\ubriustc_gpr_data`에 클론했다(커밋 88a9540, 분할 zip 33개, 649 MB). `mat\` 추출(별도 새 폴더)과 변수 점검만 남았다.
+  - (2026-11-26 갱신) 저장소 `github.com/ubriustc/GPR_data`를 `C:\workspace\ubriustc_gpr_data`에 클론했다(커밋 88a9540, 분할 zip 33개, 649 MB). `mat\` 추출(별도 새 폴더)과 변수 점검은 **완료**(§16).
   - 그러면 `data_inspect.py <mat>`로 시간축·dt·헤더 변수가 있는지 확인할 수 있다(gpr-processing-expert 또는 curator가 수행).
+  - (v1.2 완료) 추출·점검 결과는 §16이다. `P` 외 변수가 없어 이 경로로는 영점·dt를 정할 수 없다. 남은 외부 경로는 Zhou 2018 본문과 제공처 문의다.
 - 가능하면 Zhou 2018 TGRS 본문 PDF를 구해 주세요. 장비·샘플·영점 처리 정보가 있을 수 있다.
 
 ## 11. 핸드오프
@@ -476,7 +479,7 @@ EM 문서 검토(gprMax 없음): 사용자 결정 §13을 뒤집을 근거 없�
 - 깊이 불확도는 대칭 폭이 아니라 **한쪽 편향**으로 적는다: meta 0 기준 깊이는 참값보다 얕게만 나올 수 있다. δz 0.012에서 0 … +0.30 m(Auto 10 %), 최대 +0.53 m(Surface 5 %), Tx–Rx 간격이 크면 약 +0.67 m.
 - E2: 51 샘플·14.6 샘플은 트리거에 시간이 고정된 장비 성분(반사 반송파 아님). 반사 반송파 19–22 샘플은 200 MHz 지면결합 안테나와 맞음(A/B 구분 불가). M3-3b 고정 P 20.0을 지지.
 - E3: 자동 픽 δz 0.020–0.030은 위쪽 한쪽 편향(비스듬한 선형체·유한 크기·영점)으로 설명됨. 이동 초점 0.0146은 타당하나 위쪽에 가까운 추정. δz 0.012 잠정 유지.
-- 결정적 외부 정보는 원본 .mat 헤더와 Zhou 2018 본문이다(§10).
+- 결정적 외부 정보는 원본 .mat 헤더와 Zhou 2018 본문이다(§10). (.mat 헤더 경로는 §16에서 정보 없음으로 소진, 남은 것은 Zhou 2018 본문·제공처 문의)
 
 ## 15. 변경 이력
 
@@ -484,3 +487,112 @@ EM 문서 검토(gprMax 없음): 사용자 결정 §13을 뒤집을 근거 없�
 |---|---|---|
 | 2026-11-26 | v1.0 | 본 진단 D0–D5 결과, §13 사용자 결정, §14 EM 판정 반영 |
 | 2026-11-26 | v1.1 | 커밋 전 정리(integrity 지적): §4 C2-3 τz 결합 수치 정정(+16 % → 엄격 QC −24.7 % … +19.1 %, 계획 QC −18.0 % … +17.2 %, `D2s.dz_at_tau_z`), §0·§4 C3·§11·§13-2 깊이 불확도에 §14 한쪽 편향 참조, §4 C3 표에 "영점 후보 아님(EM E1-b)" 표시, §3-3 탈락 목록에 RANSAC 실패 7 추가(합 4,893), 머리말 "(아직 커밋 안 됨)" 삭제, D2 json 공개/전체 분할(§1, 값 불변) |
+| 2026-11-26 | v1.2 | 원본 .mat 점검 §16 추가(변수 `P` 하나, 321 샘플, 가공본과 비트 동일, 시간축·dt·영점 필드 없음). §0·§3-4·§10에 §16 참조 줄. C1–C6 판정·§13 사용자 결정 변화 없음 |
+
+---
+
+## 16. 원본 .mat 점검(2026-11-26)
+
+### 16-1. 수행한 작업
+
+- 입력: 원 저장소 클론 `C:\workspace\ubriustc_gpr_data`(github.com/ubriustc/GPR_data, 커밋 `88a9540efc49f36362d5b89a1bc7fe701d5ada98`). 분할 zip `GPR-SD.zip.001`–`.033`(33조각, 680,128,689 B)과 `Introduce.txt`·`Mark.xlsx`·`README.md`가 있다.
+- 추출
+  - 7-Zip이 없어 Python `zipfile`로 풀었다. 조각을 번호순으로 이어 붙인 임시 zip은 scratchpad 하위 폴더에 두었다(sha256 `c0387a48531018bb3e57398d65b0b1ab6d3d59234003ad29f9b8e8ce63884bae`).
+  - `testzip` 오류 0, 경로 탈출 항목 0(거부 0)이다. 결과는 새 폴더 `C:\workspace\ubriustc_gpr_data_extracted\`에 두었다(저장소 밖, 커밋 안 함).
+  - 받은 파일 안의 코드는 실행하지 않았다(zip 안에는 .mat만 있다).
+  - 스크립트: `analysis/processing/m36_gprsd_mat_extract.py`
+- 변수 점검: `~/.claude/tools/pyinspect/data_inspect.py <mat> --out <scratch>.json --format json`(python-dev `-I -B`)을 12회 돌렸다. 모두 종료 0, 노드 2·잎 1이다.
+- 가공본 대조와 공개 요약: `conda run -n gpr-dev python -I analysis/processing/m36_gprsd_mat_inspect.py <추출 폴더> <05_radargrams_npy> <추출 보고 json> <data_inspect 보고 폴더>` → `analysis/processing/m36_gprsd_mat_inspect.json`
+  - 이 파일에는 변수 목록, 형상, MAT 헤더 스칼라, 파일 sha256, 전체 배열 일치 여부만 넣었다. 진폭 값, 좌표, 표식 위치는 넣지 않았다.
+- M3-4 라벨 창 블라인드(계획 Q8)
+  - 대조는 전체 배열 일치(`np.array_equal`)와 형상·해시만 썼다.
+  - 영상·꼭짓점·창 단위 값은 보지 않았다.
+  - 열 단위 검사는 전체 0 열 수 하나만 셌다(값 출력 없음).
+
+### 16-2. 추출 결과
+
+| 파일 | 크기 (B) | `P` 형상 | 생성 시각(MAT 헤더, 2023-02-13) |
+|---|---|---|---|
+| AsphaltRoad1_1.mat | 67,804,299 | 321 × 27,504 | 10:26:13 |
+| AsphaltRoad1_2.mat | 67,718,343 | 321 × 27,469 | 10:26:33 |
+| AsphaltRoad1_3.mat | 67,775,701 | 321 × 27,492 | 10:26:56 |
+| AsphaltRoad2_1.mat | 68,110,176 | 321 × 27,628 | 10:28:20 |
+| AsphaltRoad2_2.mat | 68,025,838 | 321 × 27,593 | 10:28:39 |
+| AsphaltRoad2_3.mat | 68,068,694 | 321 × 27,610 | 10:29:00 |
+| CementRoad1_1.mat | 67,837,713 | 321 × 27,519 | 10:23:05 |
+| CementRoad1_2.mat | 67,798,130 | 321 × 27,503 | 10:23:35 |
+| CementRoad1_3.mat | 67,571,338 | 321 × 27,411 | 10:24:25 |
+| CementRoad2_1.mat | 23,202,215 | 321 × 9,411 | 10:25:00 |
+| CementRoad2_2.mat | 23,138,023 | 321 × 9,385 | 10:25:23 |
+| CementRoad2_3.mat | 23,076,433 | 321 × 9,360 | 10:25:46 |
+
+- 합계는 680,126,903 B이고 zip 안에서 압축 없이(stored) 저장돼 있다. 파일별 sha256은 요약 json의 `source.zip_entries`에 있다.
+- 클론의 `Introduce.txt`·`Mark.xlsx`는 가공본 `00_원본참고`와 sha256이 같다. `README.md`는 줄 끝(CRLF/LF)만 다르고 내용은 같다.
+- `Mark.xlsx`의 글자 칸에는 도로·구간·유형 이름과 "Note: For underground cavities, some of the cavities contain water." 한 줄만 있다. 축척이나 영점 정보는 없다.
+
+### 16-3. .mat 변수 표(12파일 공통)
+
+| 항목 | 값 | 출처 키(`m36_gprsd_mat_inspect.json`) |
+|---|---|---|
+| 형식 | MAT v5(헤더 "MATLAB 5.0 MAT-file, Platform: PCWIN64"), 리틀 엔디언(`IM`), 버전 워드 256, subsystem 오프셋 0 | `lines.*.mat_structure` |
+| 최상위 요소 | `miCOMPRESSED` 1개 → `miMATRIX` 이름 `P`. 요소 순회가 파일 끝과 정확히 맞는다(숨은 요소 없음) | `elements`, `walk_covers_file` |
+| 변수 | **`P` 하나**(class double, 321 × N). `__globals__`는 비어 있다 | `whosmat`, `loadmat_keys`, `loadmat_globals_empty` |
+| 샘플 수 | **321**(12/12). 380은 어느 파일에도 없다 | `summary.n_samples_set` |
+| 시간축·dt·시간창·트레이스 간격·영점(Signal Position)·장비 헤더 | **없음** | `summary.has_time_axis_or_header_fields` = false |
+| 값 상태 | NaN·inf 0, 전체 0 행 0, 전체 0 열 0 | `P_all_finite`, `P_rows_all_zero`, `P_cols_all_zero` |
+
+- 12파일의 생성 시각이 2023-02-13 10:23–10:29, 약 6분 안에 몰려 있다. 저장소 업로드(2023-02-20)보다 1주 앞이다. 한 MATLAB 작업에서 `P`만 내보낸 것으로 보인다(추정). 처리 도구(MATGPR)의 작업 변수(시간축, 영점 조정 위치 등)는 함께 저장되지 않았다.
+
+### 16-4. 가공본과의 관계
+
+| 항목 | 결과 |
+|---|---|
+| 형상 | 12/12 같음(321 × N, N 9,360–27,628) |
+| 값 | 12/12에서 `np.load(npy) == P.astype(float32)`가 **비트 단위로 같다**. float64 기준 최대 상대 차 \|npy − P\| / max\|P\| ≤ 5.6e-8(float32 반올림) |
+| npy json | `n_samples` 321, `source_file` `mat/<측선>.mat`(12/12) |
+
+- **321은 공개 원본에서 이미 321이다.** 가공본 생성(`build_gprsd_package.py`)은 샘플을 자르지 않았다. 380과 321의 차(59 샘플)가 생겼다면 제공처가 공개 전에 만든 것이다.
+- 따라서 D0–D5의 모든 진단(npy 기반)은 원본에 그대로 적용된다. 재실행할 필요가 없다.
+
+### 16-5. 문서와 파일의 불일치(보고 전용)
+
+- README·Introduce.txt는 "Each mat … contains three GPR B-scan images collected in parallel", "The samples per trace are 380, and the time window is 97ns"라고 쓴다.
+- 실제 파일은 다르다.
+  - 한 .mat에 영상이 하나뿐이다. 도로마다 `_1`·`_2`·`_3`의 3파일로 나뉘어 있다.
+  - 샘플 수는 321이다.
+- 즉 README는 두 곳에서 공개 파일과 맞지 않는다. 이 문장은 2023-02-20 커밋 `04ea5e7`부터 바뀌지 않았다(저장소 git 이력).
+- 해석(가정, 판정에 쓰지 않음)
+  - README가 내보내기 이전 상태(원 기록이나 3채널 묶음)를 기술한 것이라면, "380 샘플 / 97 ns"는 한 상태를 함께 기술한 값이다. 이 읽기는 B(dt 0.2553)와 맞는다.
+  - 그러나 같은 문단이 파일 구조도 틀리게 적었다. 문서 자체의 신뢰도가 낮으므로 A/B 어느 쪽에도 가중하지 않는다.
+
+### 16-6. C1–C6 영향
+
+| ID | v1.1 상태 | v1.2 | 이유 |
+|---|---|---|---|
+| C1 반송파 $P$ | 미결(규칙), 추정기 19.3–22.3 샘플 | **변화 없음** | 자료가 비트 동일. $P$는 샘플 단위라 dt와 무관하다 |
+| C2 $\delta_z$ | 잠정 0.012 | **변화 없음** | 자료 동일. 새 외부 축척 없음 |
+| C3 영점 $\tau_z$ | 미결, `zero_unverified`, 한쪽 편향(§14) | **변화 없음** | 영점 조정 위치·시간축 변수가 없다. EM [`m36_gprsd_em_review.md`](m36_gprsd_em_review.md)가 결정적 정보로 꼽은 "원본 .mat 헤더"는 **정보 없음으로 소진**됐다 |
+| C4 εr, dt A/B | 미결, 둘 다 보고 | **변화 없음(둘 다 보고)** | 새 사실: 59 샘플 차는 공개 전에 생겼다(가공본 무관). 절단 위치(앞/뒤)와 원 샘플 수 근거는 .mat에 없다. README 불일치는 §16-5대로 가중하지 않는다 |
+| C5 $\Delta x$ | 문서값 3 cm, 미검증 | **변화 없음** | 트레이스 간격 변수 없음 |
+| C6 L1 | §6 표 | **변화 없음** | 입력 자료 동일 |
+
+- **§13 사용자 결정(M3-3b 주 경로 $P$ 20.0 샘플, $\delta_z$ 0.012 잠정)을 뒤집을 근거는 없다.**
+- json 필드 이름 `dt_ns_hypB_380`과 B-front/B-back 가설은 그대로 둔다.
+
+### 16-7. EM 재검토 필요 여부
+
+- **불필요.** E1–E3 판정의 입력(자료와 외부 정보)이 바뀌지 않았다.
+- EM 검토 §6의 "결정적 정보는 원본 .mat 헤더와 Zhou 2018 본문" 중 앞쪽은 이번 점검으로 "헤더 정보 없음"으로 닫혔다. EM 문서에 이 사실을 한 줄 적을지는 EM이 정한다.
+- 남은 외부 경로
+  1. Zhou 2018 TGRS 본문(장비, 샘플 수, 영점 처리)
+  2. 제공처 문의(원 기록 샘플 수, MATGPR Signal Position, 앞/뒤 절단 여부)
+- 둘 중 하나가 오면 E1-c(영점)와 C4를 다시 본다.
+
+### 16-8. 공개 범위
+
+- 원본 .mat, 추출 폴더, 분할 zip은 저장소에 넣지 않는다.
+- 저장소에는 다음 세 파일만 둔다.
+  - `analysis/processing/m36_gprsd_mat_inspect.json`: 변수 목록·형상·헤더 스칼라·sha256·일치 여부만 담고, 진폭·좌표는 없다.
+  - `analysis/processing/m36_gprsd_mat_inspect.py`
+  - `analysis/processing/m36_gprsd_mat_extract.py`
+- 추출 보고와 data_inspect 보고(scratch)는 요약 json에 필요한 항목을 옮긴 뒤 지웠다.

@@ -1,0 +1,1045 @@
+{
+ "source": {
+  "repo": "github.com/ubriustc/GPR_data",
+  "commit": "88a9540efc49f36362d5b89a1bc7fe701d5ada98",
+  "zip_parts": 33,
+  "zip_parts_total_bytes": 680128689,
+  "joined_zip_sha256": "c0387a48531018bb3e57398d65b0b1ab6d3d59234003ad29f9b8e8ce63884bae",
+  "zip_testzip_first_bad": null,
+  "zip_entries": [
+   {
+    "name": "AsphaltRoad1_1.mat",
+    "file_size": 67804299,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     26,
+     16
+    ],
+    "sha256": "69e4f8d6b8d928db248e007d19aaf0a3dc6663dca16bf2b5d76593df7bbd02ef"
+   },
+   {
+    "name": "AsphaltRoad1_2.mat",
+    "file_size": 67718343,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     26,
+     36
+    ],
+    "sha256": "0bd1bb35ca880e6321b54f631beb49b2a6ef8db82812f4eef348d34b9b4501d1"
+   },
+   {
+    "name": "AsphaltRoad1_3.mat",
+    "file_size": 67775701,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     26,
+     58
+    ],
+    "sha256": "477f3a6d178891b2f6651e4d6d132f1a35029042f34012c03c314e0862662cc0"
+   },
+   {
+    "name": "AsphaltRoad2_1.mat",
+    "file_size": 68110176,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     28,
+     22
+    ],
+    "sha256": "f86a180d69eb63242ac308510155530af9189fb56cf7a48494725caf29c1bc9c"
+   },
+   {
+    "name": "AsphaltRoad2_2.mat",
+    "file_size": 68025838,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     28,
+     42
+    ],
+    "sha256": "1d3ed7d17c1c0a973773949c7913f891a201c67df842ff67f69731337416efcd"
+   },
+   {
+    "name": "AsphaltRoad2_3.mat",
+    "file_size": 68068694,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     29,
+     2
+    ],
+    "sha256": "0356051ed6cc82c2b9560c01517a266791eb4390902d1a39ddba9cbf7eda73ad"
+   },
+   {
+    "name": "CementRoad1_1.mat",
+    "file_size": 67837713,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     23,
+     8
+    ],
+    "sha256": "450e2d960a1f96f3bffffd6b137ed1f102c87e82dea96c1bd9271dca5bd45554"
+   },
+   {
+    "name": "CementRoad1_2.mat",
+    "file_size": 67798130,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     23,
+     38
+    ],
+    "sha256": "e4f940067506c0a30ac803cca3d6048d17a226fba7b026cc2d996b22c8c18db3"
+   },
+   {
+    "name": "CementRoad1_3.mat",
+    "file_size": 67571338,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     24,
+     28
+    ],
+    "sha256": "460be971b955c56e18c7754080354a4ac647989e235f8f7cb50a88bf20fd2727"
+   },
+   {
+    "name": "CementRoad2_1.mat",
+    "file_size": 23202215,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     25,
+     2
+    ],
+    "sha256": "4ede35096c4081bea5948223b1b2863f6c3274e88d8aabbc0a52ddbe85334b04"
+   },
+   {
+    "name": "CementRoad2_2.mat",
+    "file_size": 23138023,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     25,
+     26
+    ],
+    "sha256": "3adb46ba057a57c1f396482556af0b13a2aecd392dd068fbc6a3d788ba187ba5"
+   },
+   {
+    "name": "CementRoad2_3.mat",
+    "file_size": 23076433,
+    "stored_uncompressed": true,
+    "zip_date_time": [
+     2023,
+     2,
+     13,
+     10,
+     25,
+     48
+    ],
+    "sha256": "fff900ac51b3d9ba21821c4dbe343fe9d38360e0b82e9af95aa95c1c08e3d1d4"
+   }
+  ],
+  "zip_rejected_entries": 0,
+  "other_repo_files": [
+   "Introduce.txt",
+   "Mark.xlsx",
+   "README.md"
+  ],
+  "note": "extracted outside the repo; .mat files are not committed"
+ },
+ "lines": {
+  "AsphaltRoad1_1": {
+   "mat_size": 67804299,
+   "mat_sha256": "69e4f8d6b8d928db248e007d19aaf0a3dc6663dca16bf2b5d76593df7bbd02ef",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27504
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:26:13 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 67804163,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27504
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27504
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27504
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 5.571582738571147e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/AsphaltRoad1_1.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27504
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "AsphaltRoad1_2": {
+   "mat_size": 67718343,
+   "mat_sha256": "0bd1bb35ca880e6321b54f631beb49b2a6ef8db82812f4eef348d34b9b4501d1",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27469
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:26:33 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 67718207,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27469
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27469
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27469
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 4.713964718906846e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/AsphaltRoad1_2.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27469
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "AsphaltRoad1_3": {
+   "mat_size": 67775701,
+   "mat_sha256": "477f3a6d178891b2f6651e4d6d132f1a35029042f34012c03c314e0862662cc0",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27492
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:26:56 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 67775565,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27492
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27492
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27492
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 5.4304547753848815e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/AsphaltRoad1_3.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27492
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "AsphaltRoad2_1": {
+   "mat_size": 68110176,
+   "mat_sha256": "f86a180d69eb63242ac308510155530af9189fb56cf7a48494725caf29c1bc9c",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27628
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:28:20 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 68110040,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27628
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27628
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27628
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 5.200291428897331e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/AsphaltRoad2_1.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27628
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "AsphaltRoad2_2": {
+   "mat_size": 68025838,
+   "mat_sha256": "1d3ed7d17c1c0a973773949c7913f891a201c67df842ff67f69731337416efcd",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27593
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:28:39 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 68025702,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27593
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27593
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27593
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 4.657252629035164e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/AsphaltRoad2_2.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27593
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "AsphaltRoad2_3": {
+   "mat_size": 68068694,
+   "mat_sha256": "0356051ed6cc82c2b9560c01517a266791eb4390902d1a39ddba9cbf7eda73ad",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27610
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:29:00 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 68068558,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27610
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27610
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27610
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 4.9732320039641626e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/AsphaltRoad2_3.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27610
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "CementRoad1_1": {
+   "mat_size": 67837713,
+   "mat_sha256": "450e2d960a1f96f3bffffd6b137ed1f102c87e82dea96c1bd9271dca5bd45554",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27519
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:23:05 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 67837577,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27519
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27519
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27519
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 4.47077460892454e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/CementRoad1_1.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27519
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "CementRoad1_2": {
+   "mat_size": 67798130,
+   "mat_sha256": "e4f940067506c0a30ac803cca3d6048d17a226fba7b026cc2d996b22c8c18db3",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27503
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:23:35 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 67797994,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27503
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27503
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27503
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 5.238001407854001e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/CementRoad1_2.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27503
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "CementRoad1_3": {
+   "mat_size": 67571338,
+   "mat_sha256": "460be971b955c56e18c7754080354a4ac647989e235f8f7cb50a88bf20fd2727",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      27411
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:24:25 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 67571202,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       27411
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    27411
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    27411
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 3.064130785196898e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/CementRoad1_3.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      27411
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "CementRoad2_1": {
+   "mat_size": 23202215,
+   "mat_sha256": "4ede35096c4081bea5948223b1b2863f6c3274e88d8aabbc0a52ddbe85334b04",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      9411
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:25:00 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 23202079,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       9411
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    9411
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    9411
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 4.1170010382781535e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/CementRoad2_1.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      9411
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "CementRoad2_2": {
+   "mat_size": 23138023,
+   "mat_sha256": "3adb46ba057a57c1f396482556af0b13a2aecd392dd068fbc6a3d788ba187ba5",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      9385
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:25:23 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 23137887,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       9385
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    9385
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    9385
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 5.354026180375312e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/CementRoad2_2.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      9385
+     ],
+     "dtype": "double"
+    }
+   ]
+  },
+  "CementRoad2_3": {
+   "mat_size": 23076433,
+   "mat_sha256": "fff900ac51b3d9ba21821c4dbe343fe9d38360e0b82e9af95aa95c1c08e3d1d4",
+   "whosmat": [
+    {
+     "name": "P",
+     "shape": [
+      321,
+      9360
+     ],
+     "class": "double"
+    }
+   ],
+   "mat_structure": {
+    "header_text": "MATLAB 5.0 MAT-file, Platform: PCWIN64, Created on: Mon Feb 13 10:25:46 2023",
+    "subsys_data_offset_zero": true,
+    "version_word": 256,
+    "endian": "IM",
+    "elements": [
+     {
+      "type": "miCOMPRESSED",
+      "nbytes": 23076297,
+      "inner": "miMATRIX",
+      "name": "P",
+      "dims": [
+       321,
+       9360
+      ],
+      "class": "double"
+     }
+    ],
+    "walk_covers_file": true
+   },
+   "loadmat_keys": [
+    "P",
+    "__globals__",
+    "__header__",
+    "__version__"
+   ],
+   "loadmat_version": "1.0",
+   "loadmat_globals_empty": true,
+   "P_shape": [
+    321,
+    9360
+   ],
+   "P_dtype": "float64",
+   "P_all_finite": true,
+   "P_rows_all_zero": 0,
+   "P_cols_all_zero": 0,
+   "npy_shape": [
+    321,
+    9360
+   ],
+   "npy_dtype": "float32",
+   "shape_equal": true,
+   "npy_equals_P_cast_float32_exact": true,
+   "max_abs_diff_over_max_abs_P": 3.86443332786378e-08,
+   "npy_json_n_samples": 321,
+   "npy_json_source_file": "mat/CementRoad2_3.mat",
+   "data_inspect_variables": [
+    {
+     "path": "/P",
+     "shape": [
+      321,
+      9360
+     ],
+     "dtype": "double"
+    }
+   ]
+  }
+ },
+ "summary": {
+  "n_mat": 12,
+  "variables_union": [
+   "P"
+  ],
+  "n_samples_set": [
+   321
+  ],
+  "n_lines_npy_equal_exact": 12,
+  "max_rel_diff_all": 5.571582738571147e-08,
+  "has_time_axis_or_header_fields": false,
+  "mat_created_range": [
+   "Mon Feb 13 10:23:05 2023",
+   "Mon Feb 13 10:29:00 2023"
+  ]
+ }
+}

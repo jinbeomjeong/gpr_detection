@@ -79,7 +79,8 @@ annotations_creators:
 ## Dataset Creation
 
 - **출처**: GPR-SD (GPR Subsurface Diagnosis), 중국과학기술대(USTC) Huanhuan Chen 연구실, GitHub 공개 2023-02. 원본 .mat은 분할 압축 `GPR-SD.zip.001`–`.033`을 이어 풀어 얻는다.
-- **원본 저장소 클론**: `C:\workspace\ubriustc_gpr_data`(분할 zip 33개 + `Introduce.txt`·`Mark.xlsx`·`README.md`, 커밋 88a9540, 649 MB, 아직 미추출).
+- **원본 저장소 클론**: `C:\workspace\ubriustc_gpr_data`(분할 zip 33개 + `Introduce.txt`·`Mark.xlsx`·`README.md`, 커밋 88a9540, 649 MB, 추출 완료 `C:\workspace\ubriustc_gpr_data_extracted\`(저장소 밖, 2026-11-26)).
+- **원본 .mat 점검(2026-11-26)**: 추출 `C:\workspace\ubriustc_gpr_data_extracted\`(저장소 밖). .mat 12개는 변수 `P` 하나(321 × N double)뿐이고 시간축·dt·시간창·트레이스 간격·영점 필드가 없다. 가공본 npy와 비트 동일(float32). 저장소 README의 "380 샘플"·"mat 하나에 영상 3개"는 공개 파일과 다르다(321 샘플, 영상 1개). 근거: [`m36_gprsd_scale.md`](../../processing/m36_gprsd_scale.md) §16, `analysis/processing/m36_gprsd_mat_inspect.json`.
 - **라벨링**: 원 저자가 표식을 "대략 표시(roughly marked)"했다. 쌍곡선 꼭짓점과 비교하면 +-50–100 트레이스 오차가 있고, 표식 1개 근처에 관로 쌍곡선 2개가 있는 경우도 있다. 원본 표에 측선 구분이 없어 한 표식이 같은 도로의 3측선 모두에 적용되는 것으로 본다(측선마다 트레이스 수가 최대 108개 달라 정렬은 근사).
 - **가공(받은 가공본)**: .mat → npy/png, 위치표 CSV 정리(도로 이름 통일, 오타 정정 `losse`→`loose` 2건, 구간 불일치 표시), 표식 주변 +-150트레이스 창 이미지 생성(박스 라벨 작업용).
 
