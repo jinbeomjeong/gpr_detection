@@ -9,3 +9,4 @@
 - [Band shallow-row suppression](band-shallow-row-suppression.md) — pipe_band misses y1 < ~37 px; px-tied (R-b), learned negative from AIHub top rows; hyperbola unaffected
 - [Recount CSV rounding](recount-csv-rounding.md) — runner CSV score 4 dp/box 2 dp: count printed 0.25 as conf>0.25, boundary flips; synthetic Y0 apex hits only 3/100
 
+- [AIHub tpipe box habit](aihub-tpipe-box-habit.md) — top ~0.5 P above apex lobe, 1 box/crop, wings cut ~3 P; per-box apex pickers fail in clutter → use box-aligned profiles; GPR-SD flat 14.6 stripes ≠ P

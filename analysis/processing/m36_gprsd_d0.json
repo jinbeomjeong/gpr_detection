@@ -1,0 +1,316 @@
+{
+ "tool": "~/.claude/tools/pyinspect/data_inspect.py --expect (python-dev -I -B)",
+ "n_lines": 12,
+ "n_findings": 0,
+ "all_shape_match_json": true,
+ "unique_values": {
+  "dtype": [
+   "\"float32\""
+  ],
+  "dt_ns_hypA_321": [
+   "0.3022"
+  ],
+  "dt_ns_hypB_380": [
+   "0.2553"
+  ],
+  "trace_dx_m": [
+   "0.03"
+  ],
+  "depth_per_sample_m_rough": [
+   "0.012"
+  ],
+  "time_window_doc_ns": [
+   "97.0"
+  ]
+ },
+ "lines": [
+  {
+   "file_id": "AsphaltRoad1_1",
+   "shape": [
+    321,
+    27504
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -53823.6,
+   "max": 68415.2,
+   "n_samples_json": 321,
+   "n_traces_json": 27504,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "AsphaltRoad1_2",
+   "shape": [
+    321,
+    27469
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -64662.5,
+   "max": 79673.7,
+   "n_samples_json": 321,
+   "n_traces_json": 27469,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "AsphaltRoad1_3",
+   "shape": [
+    321,
+    27492
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -71152.8,
+   "max": 71814.8,
+   "n_samples_json": 321,
+   "n_traces_json": 27492,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "AsphaltRoad2_1",
+   "shape": [
+    321,
+    27628
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -17198.2,
+   "max": 14048.8,
+   "n_samples_json": 321,
+   "n_traces_json": 27628,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "AsphaltRoad2_2",
+   "shape": [
+    321,
+    27593
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -20941.8,
+   "max": 17205.1,
+   "n_samples_json": 321,
+   "n_traces_json": 27593,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "AsphaltRoad2_3",
+   "shape": [
+    321,
+    27610
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -19124.1,
+   "max": 17059.8,
+   "n_samples_json": 321,
+   "n_traces_json": 27610,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "CementRoad1_1",
+   "shape": [
+    321,
+    27519
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -117436.7,
+   "max": 134897.7,
+   "n_samples_json": 321,
+   "n_traces_json": 27519,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "CementRoad1_2",
+   "shape": [
+    321,
+    27503
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -127657.3,
+   "max": 141662.8,
+   "n_samples_json": 321,
+   "n_traces_json": 27503,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "CementRoad1_3",
+   "shape": [
+    321,
+    27411
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -102986.4,
+   "max": 127433.7,
+   "n_samples_json": 321,
+   "n_traces_json": 27411,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "CementRoad2_1",
+   "shape": [
+    321,
+    9411
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -20360.5,
+   "max": 23717.2,
+   "n_samples_json": 321,
+   "n_traces_json": 9411,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "CementRoad2_2",
+   "shape": [
+    321,
+    9385
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -29194.8,
+   "max": 35285.6,
+   "n_samples_json": 321,
+   "n_traces_json": 9385,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  },
+  {
+   "file_id": "CementRoad2_3",
+   "shape": [
+    321,
+    9360
+   ],
+   "dtype": "float32",
+   "nan": 0,
+   "inf": 0,
+   "min": -19731.0,
+   "max": 25128.3,
+   "n_samples_json": 321,
+   "n_traces_json": 9360,
+   "shape_matches_json": true,
+   "dt_ns_hypA_321": 0.3022,
+   "dt_ns_hypB_380": 0.2553,
+   "trace_dx_m": 0.03,
+   "depth_per_sample_m_rough": 0.012,
+   "time_window_doc_ns": 97.0,
+   "findings": [],
+   "npy_notes": [
+    "stored in Fortran (column-major) order"
+   ]
+  }
+ ]
+}

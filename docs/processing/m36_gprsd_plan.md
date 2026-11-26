@@ -67,7 +67,7 @@
 계획의 근거로만 쓴다. M3-6 판정 수치는 §4의 본 진단에서 다시 낸다.
 
 - 스크립트·출력
-  - `analysis/processing/m36_gprsd_pilot.py` → `m36_gprsd_pilot.json`
+  - `analysis/processing/m36_gprsd_pilot.py` → `m36_gprsd_pilot.json`(공개 요약. 표식 창별 표 `windows`는 로컬 전체 파일 `data/derived/m36_gprsd/m36_gprsd_pilot.json`에만 있다, 2026-11-26 분할)
   - `analysis/processing/m36_gprsd_pilot_meantrace.py` → `m36_gprsd_pilot_meantrace.json`
 - 실행 조건: gpr-dev, CPU 1프로세스, BLAS 1스레드, 난수 없음.
 - **공개 사항**: 이 파일럿은 관로 표식창(라벨 대상 창)을 썼다.
@@ -264,7 +264,7 @@ $$s_y=\frac{P}{P^*},\qquad s_x=s_y\,\frac{\delta_z}{\Delta x}$$
 
 - 라벨 지침(curator 작성, 박스 규약은 cv-detection-expert 승인)
   1. 창 안의 **모든** 관로 쌍곡선을 그린다(표식 근처만이 아니다).
-  2. 박스 규약은 AIHub tpipe 라벨과 맞춘다. 위 끝은 꼭짓점 주엽 위 끝에서 ≥ 0.6 P 위([DI] §10 (a) 요구), 아래 끝·폭은 cv가 AIHub 라벨에서 잰 규약을 따른다.
+  2. 박스 규약은 AIHub tpipe 라벨과 맞춘다. 위 끝은 꼭짓점(첫 강한 엽 봉우리)보다 ≥ 0.6 P 위([DI] §7 (a) 원문 기준; 2026-11-26 문구 정정 — 이전 문구 "주엽 위 끝에서"는 봉우리 − 1.2 P로 읽혀 [DI]와 어긋났다, cv 박스 규약 [`m34_gprsd_box_convention.md`](../experiments/m34_gprsd_box_convention.md) §2-2), 아래 끝·폭은 cv가 AIHub 라벨에서 잰 규약을 따른다.
   3. 꼭짓점 점은 박스 규약과 무관한 기준이다. M3-3b 보조 지표와 후속 깊이 평가에 쓴다.
   4. 고립 점 잡음(영상의 점 모양 스파이크), 공동·이완층으로 보이는 것, 애매한 쌍곡선은 `ignore`로 한다.
   5. 측선과 평행한 관(수평 띠)은 `pipe_band`로 한다(드물 것으로 예상).
@@ -405,6 +405,8 @@ $$s_y=\frac{P}{P^*},\qquad s_x=s_y\,\frac{\delta_z}{\Delta x}$$
 | 날짜 | 판 | 내용 |
 |---|---|---|
 | 2026-11-26 | v0.1 | 초안. 파일럿 2건(§2) 공개, Q1–Q10 |
+| 2026-11-26 | v0.1(문구 정정) | §5-3 박스 위 끝 문구 정정([DI] §7 (a) 원문 기준). 판정 기준 §4-5는 바뀌지 않음 |
+| 2026-11-26 | v0.1(공개 범위) | §2 파일럿 json의 표식 창 위치(`windows`)를 공개본에서 빼고 로컬 전체 파일로 옮김(값 불변, 사용자 결정) |
 
 
 ## 11. 사용자 결정 (2026-11-26, 본 진단 전)

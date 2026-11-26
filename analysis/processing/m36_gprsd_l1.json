@@ -1,0 +1,1211 @@
+{
+ "diagnostic": "D5",
+ "p_target_px": 6.0,
+ "tile_px": 256,
+ "dx_m": 0.03,
+ "scenarios": {
+  "S1": {
+   "P_samples": 20.0,
+   "dz_m": 0.012
+  },
+  "S2": {
+   "P_samples": 20.0,
+   "dz_m": 0.0146
+  },
+  "S3": {
+   "P_samples": 20.48,
+   "dz_m": 0.0305
+  },
+  "S4": {
+   "P_samples": 22.26,
+   "dz_m": 0.0203
+  }
+ },
+ "lines": [
+  {
+   "file_id": "AsphaltRoad1_1",
+   "n_traces": 27504,
+   "r0": {
+    "P_samples": 51.2,
+    "dz_m": 0.012,
+    "s_y": 8.5333,
+    "s_x": 3.4133,
+    "H_c_px": 38,
+    "W_1_px": 8058,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 123,
+    "a0.6m_box_width_px": 11.7,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20628,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 320,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 16955,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 262,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7926,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10956,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "AsphaltRoad1_2",
+   "n_traces": 27469,
+   "r0": {
+    "P_samples": 51.848,
+    "dz_m": 0.012,
+    "s_y": 8.6414,
+    "s_x": 3.4565,
+    "H_c_px": 37,
+    "W_1_px": 7947,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 122,
+    "a0.6m_box_width_px": 11.6,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20602,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 319,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 16933,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 262,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7916,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10942,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 168,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "AsphaltRoad1_3",
+   "n_traces": 27492,
+   "r0": {
+    "P_samples": 52.513,
+    "dz_m": 0.012,
+    "s_y": 8.7521,
+    "s_x": 3.5009,
+    "H_c_px": 37,
+    "W_1_px": 7853,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 120,
+    "a0.6m_box_width_px": 11.4,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20619,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 320,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 16947,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 262,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7922,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10951,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "AsphaltRoad2_1",
+   "n_traces": 27628,
+   "r0": {
+    "P_samples": 51.2,
+    "dz_m": 0.012,
+    "s_y": 8.5333,
+    "s_x": 3.4133,
+    "H_c_px": 38,
+    "W_1_px": 8094,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 124,
+    "a0.6m_box_width_px": 11.7,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20721,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 321,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 17031,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 264,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7961,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 122,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 11005,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "AsphaltRoad2_2",
+   "n_traces": 27593,
+   "r0": {
+    "P_samples": 51.848,
+    "dz_m": 0.012,
+    "s_y": 8.6414,
+    "s_x": 3.4565,
+    "H_c_px": 37,
+    "W_1_px": 7983,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 122,
+    "a0.6m_box_width_px": 11.6,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20695,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 321,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 17009,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 263,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7951,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 122,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10991,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "AsphaltRoad2_3",
+   "n_traces": 27610,
+   "r0": {
+    "P_samples": 51.848,
+    "dz_m": 0.012,
+    "s_y": 8.6414,
+    "s_x": 3.4565,
+    "H_c_px": 37,
+    "W_1_px": 7988,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 122,
+    "a0.6m_box_width_px": 11.6,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20707,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 321,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 17020,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 263,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7956,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 122,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10998,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "CementRoad1_1",
+   "n_traces": 27519,
+   "r0": {
+    "P_samples": 51.2,
+    "dz_m": 0.012,
+    "s_y": 8.5333,
+    "s_x": 3.4133,
+    "H_c_px": 38,
+    "W_1_px": 8062,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 123,
+    "a0.6m_box_width_px": 11.7,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20639,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 320,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 16964,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 263,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7930,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10962,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "CementRoad1_2",
+   "n_traces": 27503,
+   "r0": {
+    "P_samples": 51.2,
+    "dz_m": 0.012,
+    "s_y": 8.5333,
+    "s_x": 3.4133,
+    "H_c_px": 38,
+    "W_1_px": 8058,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 123,
+    "a0.6m_box_width_px": 11.7,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20627,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 320,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 16954,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 262,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7925,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10955,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 169,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "CementRoad1_3",
+   "n_traces": 27411,
+   "r0": {
+    "P_samples": 51.848,
+    "dz_m": 0.012,
+    "s_y": 8.6414,
+    "s_x": 3.4565,
+    "H_c_px": 37,
+    "W_1_px": 7930,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.6,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 20558,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 319,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 16897,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 262,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 7899,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 121,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 10919,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 168,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "CementRoad2_1",
+   "n_traces": 9411,
+   "r0": {
+    "P_samples": 51.2,
+    "dz_m": 0.012,
+    "s_y": 8.5333,
+    "s_x": 3.4133,
+    "H_c_px": 38,
+    "W_1_px": 2757,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 41,
+    "a0.6m_box_width_px": 11.7,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 7058,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 108,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 5801,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 88,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 2712,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 40,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 3749,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 56,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "CementRoad2_2",
+   "n_traces": 9385,
+   "r0": {
+    "P_samples": 53.195,
+    "dz_m": 0.012,
+    "s_y": 8.8658,
+    "s_x": 3.5463,
+    "H_c_px": 36,
+    "W_1_px": 2646,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 39,
+    "a0.6m_box_width_px": 11.3,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 7039,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 107,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 5785,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 88,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 2704,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 40,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 3738,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 56,
+    "a0.6m_box_width_px": 15.9
+   }
+  },
+  {
+   "file_id": "CementRoad2_3",
+   "n_traces": 9360,
+   "r0": {
+    "P_samples": 53.195,
+    "dz_m": 0.012,
+    "s_y": 8.8658,
+    "s_x": 3.5463,
+    "H_c_px": 36,
+    "W_1_px": 2639,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 39,
+    "a0.6m_box_width_px": 11.3,
+    "period_source": "measured"
+   },
+   "S1": {
+    "P_samples": 20.0,
+    "dz_m": 0.012,
+    "s_y": 3.3333,
+    "s_x": 1.3333,
+    "H_c_px": 96,
+    "W_1_px": 7020,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 107,
+    "a0.6m_box_width_px": 30.0
+   },
+   "S2": {
+    "P_samples": 20.0,
+    "dz_m": 0.0146,
+    "s_y": 3.3333,
+    "s_x": 1.6222,
+    "H_c_px": 96,
+    "W_1_px": 5770,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 88,
+    "a0.6m_box_width_px": 24.7
+   },
+   "S3": {
+    "P_samples": 20.48,
+    "dz_m": 0.0305,
+    "s_y": 3.4133,
+    "s_x": 3.4702,
+    "H_c_px": 94,
+    "W_1_px": 2697,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 40,
+    "a0.6m_box_width_px": 11.5
+   },
+   "S4": {
+    "P_samples": 22.26,
+    "dz_m": 0.0203,
+    "s_y": 3.71,
+    "s_x": 2.5104,
+    "H_c_px": 87,
+    "W_1_px": 3728,
+    "compression": 1.0,
+    "overlap_px": 192,
+    "overlap_phys_px": 64,
+    "period_capped": false,
+    "n_tiles": 56,
+    "a0.6m_box_width_px": 15.9
+   }
+  }
+ ],
+ "r0_measured_period": {
+  "n": 12,
+  "p10": 51.2,
+  "p25": 51.2,
+  "p50": 51.848,
+  "p75": 52.014,
+  "p90": 53.127,
+  "min": 51.2,
+  "max": 53.195
+ },
+ "H_c": {
+  "r0": [
+   36,
+   37,
+   38
+  ],
+  "S1": [
+   96
+  ],
+  "S2": [
+   96
+  ],
+  "S3": [
+   94
+  ],
+  "S4": [
+   87
+  ]
+ },
+ "s_x": {
+  "r0": {
+   "n": 12,
+   "p10": 3.4133,
+   "p25": 3.4133,
+   "p50": 3.4565,
+   "p75": 3.4676,
+   "p90": 3.5418,
+   "min": 3.4133,
+   "max": 3.5463
+  },
+  "S1": {
+   "n": 12,
+   "p10": 1.3333,
+   "p25": 1.3333,
+   "p50": 1.3333,
+   "p75": 1.3333,
+   "p90": 1.3333,
+   "min": 1.3333,
+   "max": 1.3333
+  },
+  "S2": {
+   "n": 12,
+   "p10": 1.6222,
+   "p25": 1.6222,
+   "p50": 1.6222,
+   "p75": 1.6222,
+   "p90": 1.6222,
+   "min": 1.6222,
+   "max": 1.6222
+  },
+  "S3": {
+   "n": 12,
+   "p10": 3.4702,
+   "p25": 3.4702,
+   "p50": 3.4702,
+   "p75": 3.4702,
+   "p90": 3.4702,
+   "min": 3.4702,
+   "max": 3.4702
+  },
+  "S4": {
+   "n": 12,
+   "p10": 2.5104,
+   "p25": 2.5104,
+   "p50": 2.5104,
+   "p75": 2.5104,
+   "p90": 2.5104,
+   "min": 2.5104,
+   "max": 2.5104
+  }
+ },
+ "n_tiles_total": {
+  "r0": 1219,
+  "S1": 3203,
+  "S2": 2627,
+  "S3": 1212,
+  "S4": 1687
+ },
+ "a0.6m_box_width_px": {
+  "r0": {
+   "n": 12,
+   "p10": 11.3,
+   "p25": 11.6,
+   "p50": 11.6,
+   "p75": 11.7,
+   "p90": 11.7,
+   "min": 11.3,
+   "max": 11.7
+  },
+  "S1": {
+   "n": 12,
+   "p10": 30.0,
+   "p25": 30.0,
+   "p50": 30.0,
+   "p75": 30.0,
+   "p90": 30.0,
+   "min": 30.0,
+   "max": 30.0
+  },
+  "S2": {
+   "n": 12,
+   "p10": 24.7,
+   "p25": 24.7,
+   "p50": 24.7,
+   "p75": 24.7,
+   "p90": 24.7,
+   "min": 24.7,
+   "max": 24.7
+  },
+  "S3": {
+   "n": 12,
+   "p10": 11.5,
+   "p25": 11.5,
+   "p50": 11.5,
+   "p75": 11.5,
+   "p90": 11.5,
+   "min": 11.5,
+   "max": 11.5
+  },
+  "S4": {
+   "n": 12,
+   "p10": 15.9,
+   "p25": 15.9,
+   "p50": 15.9,
+   "p75": 15.9,
+   "p90": 15.9,
+   "min": 15.9,
+   "max": 15.9
+  }
+ },
+ "hyperbola_width_periods": {
+  "r0_(P_51.2,dz_0.012)": {
+   "analytic_a_m": {
+    "0.35": 1.14,
+    "0.6": 1.95,
+    "0.8": 2.6
+   },
+   "d2_tracked_full_width_P": {
+    "n": 96,
+    "p10": 1.61,
+    "p25": 1.75,
+    "p50": 2.0,
+    "p75": 2.21,
+    "p90": 2.54,
+    "min": 1.42,
+    "max": 3.66
+   },
+   "d2_tracked_2x_min_half_width_P": {
+    "n": 96,
+    "p10": 1.46,
+    "p25": 1.54,
+    "p50": 1.66,
+    "p75": 1.86,
+    "p90": 2.0,
+    "min": 1.46,
+    "max": 3.32
+   }
+  },
+  "S1": {
+   "analytic_a_m": {
+    "0.35": 2.92,
+    "0.6": 5.0,
+    "0.8": 6.67
+   },
+   "d2_tracked_full_width_P": {
+    "n": 96,
+    "p10": 4.12,
+    "p25": 4.47,
+    "p50": 5.12,
+    "p75": 5.66,
+    "p90": 6.5,
+    "min": 3.62,
+    "max": 9.38
+   },
+   "d2_tracked_2x_min_half_width_P": {
+    "n": 96,
+    "p10": 3.75,
+    "p25": 3.94,
+    "p50": 4.25,
+    "p75": 4.75,
+    "p90": 5.12,
+    "min": 3.75,
+    "max": 8.5
+   }
+  },
+  "S2": {
+   "analytic_a_m": {
+    "0.35": 2.4,
+    "0.6": 4.11,
+    "0.8": 5.48
+   },
+   "d2_tracked_full_width_P": {
+    "n": 96,
+    "p10": 3.39,
+    "p25": 3.67,
+    "p50": 4.21,
+    "p75": 4.65,
+    "p90": 5.34,
+    "min": 2.98,
+    "max": 7.71
+   },
+   "d2_tracked_2x_min_half_width_P": {
+    "n": 96,
+    "p10": 3.08,
+    "p25": 3.24,
+    "p50": 3.49,
+    "p75": 3.9,
+    "p90": 4.21,
+    "min": 3.08,
+    "max": 6.99
+   }
+  },
+  "S3": {
+   "analytic_a_m": {
+    "0.35": 1.12,
+    "0.6": 1.92,
+    "0.8": 2.56
+   },
+   "d2_tracked_full_width_P": {
+    "n": 96,
+    "p10": 1.58,
+    "p25": 1.72,
+    "p50": 1.97,
+    "p75": 2.17,
+    "p90": 2.5,
+    "min": 1.39,
+    "max": 3.6
+   },
+   "d2_tracked_2x_min_half_width_P": {
+    "n": 96,
+    "p10": 1.44,
+    "p25": 1.51,
+    "p50": 1.63,
+    "p75": 1.83,
+    "p90": 1.97,
+    "min": 1.44,
+    "max": 3.27
+   }
+  },
+  "S4": {
+   "analytic_a_m": {
+    "0.35": 1.55,
+    "0.6": 2.66,
+    "0.8": 3.54
+   },
+   "d2_tracked_full_width_P": {
+    "n": 96,
+    "p10": 2.19,
+    "p25": 2.37,
+    "p50": 2.72,
+    "p75": 3.0,
+    "p90": 3.45,
+    "min": 1.93,
+    "max": 4.98
+   },
+   "d2_tracked_2x_min_half_width_P": {
+    "n": 96,
+    "p10": 1.99,
+    "p25": 2.09,
+    "p50": 2.26,
+    "p75": 2.52,
+    "p90": 2.72,
+    "min": 1.99,
+    "max": 4.51
+   }
+  }
+ },
+ "aihub_tpipe_width_periods": {
+  "p50": 11.4,
+  "p10_p90_approx": [
+   9.1,
+   14.3
+  ],
+  "source": "spec_detection_image_v1 s2-3 (37-58 px / 4.06 px)"
+ }
+}

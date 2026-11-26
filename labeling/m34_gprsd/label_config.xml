@@ -1,0 +1,34 @@
+<!-- M3-4 GPR-SD pipe labelling (Label Studio 1.23.2). Window centre = a marked pipe position; no mark line is drawn. -->
+<!-- Class order is fixed by category: 0 pipe_hyperbola, 1 pipe_band, 2 ignore (3 = apex keypoint, separate tag). No predictions are imported. -->
+<View>
+  <Header value="창 $order / $total  |  측선 $file_id  |  창 중심 = 표식 위치(표식선은 그리지 않음)"/>
+  <Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false"
+         brightnessControl="true" contrastControl="true" defaultZoom="fit"/>
+
+  <RectangleLabels name="label" toName="image" strokeWidth="2" opacity="0.15" fillOpacity="0.1">
+    <Label value="pipe_hyperbola" category="0" background="#3b82f6" hotkey="1"/>
+    <Label value="pipe_band" category="1" background="#e11d48" hotkey="2"/>
+    <Label value="ignore" category="2" background="#9ca3af" hotkey="3"/>
+  </RectangleLabels>
+
+  <KeyPointLabels name="apex" toName="image" strokeWidth="3" opacity="0.9">
+    <Label value="apex" background="#facc15" hotkey="4"/>
+  </KeyPointLabels>
+
+  <Choices name="certainty" toName="image" perRegion="true" choice="single" showInline="true"
+           whenTagName="label" whenLabelValue="pipe_hyperbola,pipe_band">
+    <Choice value="certain" hotkey="c"/>
+    <Choice value="probable" hotkey="p"/>
+  </Choices>
+  <Choices name="flag" toName="image" perRegion="true" choice="multiple" showInline="true"
+           whenTagName="label" whenLabelValue="pipe_hyperbola,pipe_band">
+    <Choice value="truncated" hotkey="t"/>
+    <Choice value="merged_pair" hotkey="m"/>
+  </Choices>
+
+  <Choices name="window_complete" toName="image" choice="single" showInline="true" required="true">
+    <Choice value="yes" hotkey="y"/>
+    <Choice value="no" hotkey="n"/>
+  </Choices>
+  <TextArea name="note" toName="image" rows="2" placeholder="창 메모(선택)" editable="true"/>
+</View>

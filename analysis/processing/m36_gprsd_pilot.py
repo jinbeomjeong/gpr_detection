@@ -10,7 +10,9 @@ Purpose: give the M3-6 plan concrete numbers before committing to diagnostics.
   4. PNG renders of a few mark windows (to scratchpad, for visual inspection only).
 
 Inputs (read-only): GPR-SD 05_radargrams_npy, 01_메타데이터/marks.csv.
-Output: analysis/processing/m36_gprsd_pilot.json (+ PNGs to the folder given by argv[1] if any).
+Output: analysis/processing/m36_gprsd_pilot.json public (no "windows" = pipe-mark window positions)
+  + data/derived/m36_gprsd/m36_gprsd_pilot.json full (git-ignored; split 2026-11-26, user decision)
+  (+ PNGs to the folder given by argv[1] if any).
 No random numbers. Units: samples and traces (dt-free); ns only via hypotheses A/B where stated.
 """
 
@@ -21,7 +23,10 @@ from pathlib import Path
 
 import numpy as np
 
-SD = Path(r"C:\workspace\GPR_Data\GPR-SD_중국USTC_도로GPR_가공본_261016")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from m36_gprsd_common import write_json_split  # noqa: E402
+
+SD =Path(r"C:\workspace\GPR_Data\GPR-SD_중국USTC_도로GPR_가공본_261016")
 OUT = Path(r"C:\workspace\gpr_detection\analysis\processing\m36_gprsd_pilot.json")
 DT_A, DT_B = 97.0 / 321, 97.0 / 380
 HALF = 300  # traces on each side of a mark
@@ -145,8 +150,8 @@ def main():
                                for k in ("peak_period", "centroid_period")},
            "windows": rows, "lines": lines,
            "note": "exploratory; stored (MATGPR-processed) amplitude, no further filtering; periods in samples"}
-    OUT.write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(json.dumps({"status": "ok", "n_windows": len(rows), "out": str(OUT)}))
+    pub, full = write_json_split(OUT.name, out)  # same serialisation as before (indent=1)
+    print(json.dumps({"status": "ok", "n_windows": len(rows), "out": str(pub), "out_full": str(full)}))
 
 
 if __name__ == "__main__":
