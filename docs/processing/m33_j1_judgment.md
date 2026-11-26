@@ -245,6 +245,7 @@ $N_{g,s}=388-N_{g,-s}$, $n_{\text{pass},s}=35-n_{\text{pass},-s}$로 verdict jso
   - PP를 켜지 않은 경우의 운용 구성 값(PP 전 보고값)도 35/388로 같다(§4).
 - 판정 대상 구성은 R2 러너가 적용한 PP다. `src/gpr_detection/pipeline.py` blob `dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1`, `PPConfig` `eb2796ddfaa9611e5030342c4ed66b00c91ff2ed6a6698ee5979b9afe080602f`(S3 = {a, b, d})다.
 - 마감 때 운용 기본값을 PP 켬(S3)으로 바꾸면, 그 설정이 같은 함수에서 이 구성과 **비트 단위로 같은 결과**를 내야 J1 결론이 운용 구성으로 이어진다.
+  - (2026-11-26 마감 덧붙임) M3-3 마감에서 `src` 기본값을 S3로 바꿨다(`pipeline.DEFAULT_PP_SET`, `pipeline.py` blob `cbc7b847…`; 바뀐 줄은 모듈 설명·상수·`detect_line` 기본값과 설명뿐, `apply_pp`·`PP_SETS` 불변). 새 기본 `detect_line`이 R2 러너의 명시 S3 경로와 같은 함수에서 비트 단위로 같음을 `tests/test_pp_default.py`로 확인했다(`PPConfig` `eb2796dd…` 단언, 합성 fixture). 마감 판정서 [`m33_closing_judgment.md`](../experiments/m33_closing_judgment.md) §4-2.
 - 참고: fold 0 J1 입력에서 PP의 효과는 0이었다(§4). 그래서 J1 결론 자체는 PP 켬·끔과 무관하다. 다른 클래스·다른 데이터에서는 그렇지 않을 수 있으므로 위 비트 동일 조건은 그대로 둔다.
 
 ## 9. 보고 전용 권고 (판정 규칙 밖)

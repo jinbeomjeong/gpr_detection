@@ -40,6 +40,7 @@ from gpr_detection.pipeline import (
     apply_pp,
 )
 from gpr_detection.preprocess.to_image import ImageGridMap
+from m33_close_blob import accept_close_pipeline_blob
 
 CLASS_NAMES = ("pipe_hyperbola", "pipe_band", "cavity", "manhole")
 METRIC_WORDS = re.compile(r"recall|hit|m4|agree|ap50|inclusion", re.IGNORECASE)
@@ -99,6 +100,7 @@ def offline_r2(monkeypatch, helpers, tmp_path_factory):
     c0b.write_text(json.dumps({"selection": selection}), encoding="utf-8")
     monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_JSON", c0b)
     monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_SHA256", inputs.sha256_file(c0b))
+    accept_close_pipeline_blob(monkeypatch)
     monkeypatch.setattr(m33_inputs, "R2_LINES_SHA256_LF", inputs.sha256_file_lf(lines))
     monkeypatch.setattr(m33_inputs, "assert_r0_identity", lambda: {"stub": "r0"})
     monkeypatch.setattr(inputs, "assert_list_hashes", lambda: {})

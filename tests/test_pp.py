@@ -1,6 +1,8 @@
 """M3-3 boundary post-processing PP (``docs/experiments/m33_pp_spec.md`` v0.2.3 §5).
 
-1. ``pp_mode`` off is bit-identical (fixture line; opt-in: the r0 11 lines).
+1. ``pp_mode`` off (``S0``, named since the M3-3 close made S3 the default)
+   is bit-identical (fixture line; opt-in: the r0 11 lines). The operational
+   default itself is pinned in ``tests/test_pp_default.py``.
 2. The category is exclusive (a > b > d) and equals M3-2 ``m4_category``.
 3. PP-b clips to ``y_bot``, removes below 1 ``P_ell``, keeps boxes within +-e.
 4. PP-d is off on a failed zero and switches at ``y_z + 0.5 P_ell``.
@@ -150,10 +152,6 @@ def test_1_pp_off_is_the_pre_pp_path_bit_for_bit(monkeypatch):
     boxes = _boundary_boxes()
     _use_fixture(monkeypatch, image)
 
-    default = detect_line(
-        object(),  # type: ignore[arg-type]
-        VisiblePartDetector(image, boxes),
-    )
     off = detect_line(
         object(),  # type: ignore[arg-type]
         VisiblePartDetector(image, boxes),
@@ -164,8 +162,8 @@ def test_1_pp_off_is_the_pre_pp_path_bit_for_bit(monkeypatch):
     )
     reference = line_boxes_to_grid(merged, image)
 
-    assert default.boxes == off.boxes == tuple(reference)
-    assert default.pp_outcomes == () and default.pp_config is None
+    assert off.boxes == tuple(reference)
+    assert off.pp_outcomes == () and off.pp_config is None
     content = content_rows_for(image, given_zero(63.2, 1.0))
     outcomes = apply_pp(merged, content, PP_SETS[PPSetId.S0])
     assert all(o.output is o.original and o.action is PPAction.NONE for o in outcomes)
@@ -187,11 +185,10 @@ def test_1_pp_off_is_identical_on_the_r0_eleven_lines():
         if not root.exists():
             pytest.skip(f"dataset root missing: {candidate.dataset}")
         radargram = candidate.load(root)
-        default = detect_line(radargram, TileStatisticsDetector())
         off = detect_line(radargram, TileStatisticsDetector(), pp_mode=PPSetId.S0)
         image = make_detection_image(radargram)
         merged = merge_line_boxes(detect_tiles(image, TileStatisticsDetector()), image)
-        assert default.boxes == off.boxes == tuple(line_boxes_to_grid(merged, image))
+        assert off.boxes == tuple(line_boxes_to_grid(merged, image))
         on = detect_line(radargram, TileStatisticsDetector(), pp_mode=PPSetId.S5)
         assert len(on.pp_outcomes) == len(merged), candidate.name
 

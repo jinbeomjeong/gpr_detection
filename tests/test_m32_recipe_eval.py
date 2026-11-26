@@ -36,6 +36,7 @@ from gpr_detection.detect.base import (
 from gpr_detection.eval import inject
 from gpr_detection.io.classes import DetectionClass
 from gpr_detection.pipeline import PP_SETS, PPSetId
+from m33_close_blob import accept_close_pipeline_blob, working_tree_pipeline_blob
 
 CLASS_NAMES = ("pipe_hyperbola", "pipe_band", "cavity", "manhole")
 HYPERBOLA_SCORE = 0.6
@@ -503,6 +504,7 @@ def sealed_c0b(monkeypatch, tmp_path_factory) -> Path:
 def offline_run(monkeypatch, line, sealed_c0b):
     """Stage inputs replaced by the synthetic line and the fake detector."""
     detector = FakeBatchDetector()
+    accept_close_pipeline_blob(monkeypatch)
     monkeypatch.setattr(inputs, "assert_list_hashes", lambda: {"lists": "x"})
     monkeypatch.setattr(inputs, "uninjected_lines", lambda: [line.ref])
     monkeypatch.setattr(inputs, "known_apexes", lambda: [])
@@ -1011,6 +1013,15 @@ def test_sealed_pp_reads_the_rule_list_from_the_set_id(sealed_c0b) -> None:
     assert record["pp_set_id"] == "S3" and record["rules"] == ["a", "b", "d"]
     assert record["pp_config_sha256"] == m33_inputs.C0B_PP_CONFIG_SHA256
     assert all(record["checks"].values())
+
+
+def test_sealed_pp_still_refuses_the_working_tree_pipeline(sealed_c0b) -> None:
+    """M3-3 close: without the test stand-in the runners refuse this tree."""
+    blobs = {m33_inputs.PIPELINE_PATH: working_tree_pipeline_blob()}
+    assert m33_inputs.C0A_PIPELINE_BLOB == "dd5e7bcba4397efd732e7bf3ca1c5c92fb2404a1"
+    assert blobs[m33_inputs.PIPELINE_PATH] != m33_inputs.C0A_PIPELINE_BLOB
+    with pytest.raises(inputs.InputError, match="pipeline_blob_is_c0a"):
+        m33_inputs.assert_sealed_pp(blobs)
 
 
 def test_text_inputs_are_asserted_on_their_lf_sha(tmp_path) -> None:

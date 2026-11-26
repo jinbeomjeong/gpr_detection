@@ -439,7 +439,7 @@ DEFAULT_MERGE_CONFIG = MergeConfig()
 | `physics_veto` | `(a: LineBox, b: LineBox, image: DetectionImage, config: MergeConfig) -> bool` | §5-3 V1·V2. $\Delta x$는 `image.dx_m`, $\sigma_x$·$\sigma_y$는 `image.grid_map`, $\delta_z$·$P_\text{line}$는 `image.depth_m_per_sample`·`image.period_samples`에서 얻는다 |
 | `merge_line_boxes` | `(boxes: Sequence[LineBox], image: DetectionImage, config: MergeConfig = DEFAULT_MERGE_CONFIG) -> tuple[LineBox, ...]` | §5-3 전부. 출력 순서는 (class_id, box.x1, box.y1, tile_index) |
 | `line_boxes_to_grid` | `(boxes: Sequence[LineBox], image: DetectionImage) -> list[tuple[LineBox, GridBox]]` | 기존 `image_box_to_grid_box(box, image.grid_map)`. 바깥쪽 반올림은 **여기서 한 번만**. `None`이면 버린다 |
-| `detect_line` | `(radargram: Radargram, detector: Detector, image_config: DetectionImageConfig = ..., merge_config: MergeConfig = ...) -> LineDetections` | `make_detection_image` → `detect_tiles` → `merge_line_boxes` → `line_boxes_to_grid` |
+| `detect_line` | `(radargram: Radargram, detector: Detector, image_config: DetectionImageConfig = ..., merge_config: MergeConfig = ..., *, pp_mode: PPSetId = DEFAULT_PP_SET) -> LineDetections`(2026-11-26 덧붙임: `pp_mode`는 키워드 전용 M3-3 PP, 마감부터 기본 S3, 끄려면 `PPSetId.S0`; 흐름은 `merge_line_boxes` 뒤 `apply_pp`를 거쳐 `line_boxes_to_grid`) | `make_detection_image` → `detect_tiles` → `merge_line_boxes` → `line_boxes_to_grid` |
 
 `LineDetections = (image: DetectionImage, boxes: tuple[tuple[LineBox, GridBox], ...], tile_seam_box: int)`이다. `tile_seam_box`는 병합 뒤에도 `tile_truncated`인 출력 박스 수다([CV] 감시 지표 이름). 짝 있는 잘림이 모두 병합됐으면 0이고, 짝 없는 잘림(T8c)만 센다. 기존 함수(`model_box_to_image_box`, `image_box_to_grid_box`, `detections_to_grid_boxes`)는 그대로 둔다. 단일 영상 경로(AIHub·모로코)는 지금처럼 쓴다.
 

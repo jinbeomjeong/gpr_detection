@@ -23,8 +23,10 @@ M3-1 (spec_detection_image_v1 sections 5-6) adds the scaled-input path:
 
 M3-3 X1 (``docs/experiments/m33_pp_spec.md`` v0.2.3 sections 1-3) adds the
 boundary false-positive post-processing (PP) between the merge and the L0
-rounding: :func:`apply_pp` on merged line boxes, off by default
-(``detect_line(pp_mode=PPSetId.S0)``).
+rounding: :func:`apply_pp` on merged line boxes. Since the M3-3 close the
+operational default is on with the C0b set S3 = {a, b, d}
+(:data:`DEFAULT_PP_SET`, user decision 2026-11-16 after the P4/P5 judgment);
+``detect_line(pp_mode=PPSetId.S0)`` turns PP off.
 """
 
 import hashlib
@@ -699,6 +701,14 @@ PP_SETS: dict[PPSetId, PPConfig] = {
 }
 """S0 (off) and the nested sequence S1 ⊂ ... ⊂ S5 of spec section 3."""
 
+DEFAULT_PP_SET = PPSetId.S3
+"""Operational PP set of :func:`detect_line`: the C0b selection S3 = {a, b, d}.
+
+Its ``PPConfig.sha256()`` is the sealed ``eb2796dd...`` the J1 judgment ran
+with (``docs/processing/m33_j1_judgment.md`` section 8); turned on at the M3-3
+close by user decision 2026-11-16. ``PPSetId.S0`` is the off switch.
+"""
+
 
 def pp_sets_sha256() -> str:
     """One hash over the ``sha256`` of every set S0-S5, in order."""
@@ -915,7 +925,7 @@ def detect_line(
     image_config: DetectionImageConfig = DEFAULT_DETECTION_IMAGE_CONFIG,
     merge_config: MergeConfig = DEFAULT_MERGE_CONFIG,
     *,
-    pp_mode: PPSetId = PPSetId.S0,
+    pp_mode: PPSetId = DEFAULT_PP_SET,
 ) -> LineDetections:
     """Detect on one scaled radargram: image -> tiles -> merge -> (PP) -> L0.
 
@@ -925,7 +935,8 @@ def detect_line(
         image_config: Detection-image recipe.
         merge_config: Tile-merge settings.
         pp_mode: PP set applied to the merged boxes (spec m33_pp_spec section
-            1); ``S0`` (default) is off and leaves the output unchanged.
+            1); the default :data:`DEFAULT_PP_SET` (S3) is the operational
+            set, ``PPSetId.S0`` is off and returns the merged boxes unchanged.
     """
     image = make_detection_image(radargram, image_config)
     tile_boxes = detect_tiles(image, detector, merge_config.edge_px)

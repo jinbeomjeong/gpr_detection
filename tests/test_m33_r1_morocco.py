@@ -29,6 +29,7 @@ from gpr_detection.detect.base import (
     PixelBox,
 )
 from gpr_detection.pipeline import PP_SETS, PPSetId
+from m33_close_blob import accept_close_pipeline_blob
 
 METRIC_WORDS = re.compile(r"ap50|recall|precision|p5", re.IGNORECASE)
 FINAL_KEYS = {"status", "out_dir", "n_images", "elapsed_s"}
@@ -396,6 +397,7 @@ def offline_r1(monkeypatch, tmp_path_factory):
     c0b.write_text(json.dumps({"selection": selection}), encoding="utf-8")
     monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_JSON", c0b)
     monkeypatch.setattr(m33_inputs, "C0B_D0_GATE_SHA256", inputs.sha256_file(c0b))
+    accept_close_pipeline_blob(monkeypatch)
     images = [
         _image("U_1_aug_1", "utilities", [[0.15, 0.15, 0.47, 0.47]], [0]),
         _image("I_1_aug_1", "intact", [], []),

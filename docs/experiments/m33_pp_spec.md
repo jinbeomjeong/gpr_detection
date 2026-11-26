@@ -4,7 +4,7 @@
 - 이 문서는 **J1 판정 감사 대상**이다(QA (b)). 봉인 순서는 [PLAN] §4 표다: S0 → **C0a**(이 문서 §6 고정 항목, D0 전) → D0 → **C0b**(D0 결과·선택 집합) → C1 → …
 - 물리 기준($t_z$, $y_\text{bot}$, $P_ell$)은 gpr-processing-expert가 X2로 검토했다. 그 의견을 반영해 v0.2로 올렸고, v0.2.1은 표기 정리다(규칙 불변).
 - 구현은 python-expert가 한다.
-  - 위치: `src/gpr_detection/pipeline.py`의 병합 뒤 단계(`pp_mode`, 기본 꺼짐), 상수는 `PPConfig`에 둔다.
+  - 위치: `src/gpr_detection/pipeline.py`의 병합 뒤 단계(`pp_mode`, 기본 꺼짐 — C0a 당시. M3-3 마감 2026-11-26에 운용 기본값을 S3로 바꿈(`pipeline.DEFAULT_PP_SET`), 끄려면 `pp_mode=PPSetId.S0`. 꺼짐 비트 동일성 시험은 `tests/test_pp.py` test_1이 S0 명시로 유지, 기본값 = R2 명시 S3 비트 동일은 `tests/test_pp_default.py`), 상수는 `PPConfig`에 둔다.
   - 시험: `tests/test_pp.py`.
   - D0 실행기: `analysis/detection/m33_d0_gate.py`.
 
@@ -38,7 +38,7 @@
 - 자르기(b)는 $y_2$만 바꾼다. $x$, 점수, 클래스, `n_tiles_seen`, 플래그는 유지한다. 출력 박스에는 `pp_action` 필드(`none`·`removed_a`·`clipped_b`·`removed_b`·`removed_d`·`removed_c`)를 단다.
 - PP는 병합 결과에만 작용한다. 병합(R2·V1·V2·띠 중재)은 다시 돌리지 않는다.
 - 결정성: 입력 박스 순서와 무관하다(박스별 독립 규칙).
-- `pp_mode` 기본값은 꺼짐이고, 꺼짐 출력은 지금과 비트 단위로 같아야 한다(시험).
+- `pp_mode` 기본값은 꺼짐이고(C0a 당시; M3-3 마감 2026-11-26부터 기본 S3), 꺼짐 출력은 지금과 비트 단위로 같아야 한다(시험; 마감 뒤에는 `pp_mode=PPSetId.S0` 명시로 유지, `tests/test_pp.py` test_1).
 
 ## 3. 포함 순서열과 선택 규칙
 
@@ -153,7 +153,7 @@ $$S_1=\{a\}\subset S_2=\{a,d\}\subset S_3=\{a,b,d\}\subset S_4=\{a,b,d,c(0.35)\}
 ## 5. 시험 (python-expert, `tests/test_pp.py`)
 
 1. `pp_mode` 꺼짐은 비트 단위로 같다. 저장된 M3-2 결과 파일은 열지 않는다(블라인드). 다음 둘로 확인한다.
-   - (1a) [SP] §9 r0 11측선 원자료 + 결정적 가짜 검출기로 `pp_mode` 기본·S0·PP 없는 경로(`detect_tiles` → `merge_line_boxes` → `line_boxes_to_grid`)의 출력이 같다(opt-in `-m realdata`). 실제 가중치를 쓰지 않는 것은 C1 전에 판정 도메인(4TU 등) 검출 결과를 만들지 않기 위함이다.
+   - (1a) [SP] §9 r0 11측선 원자료 + 결정적 가짜 검출기로 `pp_mode` 기본(C0a 당시 꺼짐; 마감 뒤 기본은 S3라 비교에서 빼고 S0 명시만)·S0·PP 없는 경로(`detect_tiles` → `merge_line_boxes` → `line_boxes_to_grid`)의 출력이 같다(opt-in `-m realdata`). 실제 가중치를 쓰지 않는 것은 C1 전에 판정 도메인(4TU 등) 검출 결과를 만들지 않기 위함이다.
    - (1b) HEAD a0dc987(PP 도입 전) 코드와 작업 트리 코드가 **11측선 전부**에서 같은 가짜 검출기로 같은 병합 박스·L0 박스를 낸다. 비교 스크립트·출력 sha를 C0a 시험 통과 기록에 넣는다.
    - C0a 시험 통과 기록에는 `-m realdata`를 포함한 실행(건너뜀 0)을 적는다.
 2. 범주 배타성: 한 박스는 a·b·d 중 하나이고, `m4_category`와 같다.

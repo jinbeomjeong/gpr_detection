@@ -25,6 +25,7 @@ from gpr_detection.io.radargram import GridBox
 from gpr_detection.pipeline import (
     LineBox,
     MergeConfig,
+    PPSetId,
     detect_line,
     detect_tiles,
     grid_box_to_image_box,
@@ -263,7 +264,7 @@ def test_t8c_unpaired_truncated_box_is_kept_and_counted(monkeypatch) -> None:
     detector = VisiblePartDetector(
         image, [(HYPERBOLA, 0.9, PixelBox(230, 30, 290, 60))], only_tiles={0}
     )
-    detections = detect_line(object(), detector)
+    detections = detect_line(object(), detector, pp_mode=PPSetId.S0)
     ((merged, _),) = detections.boxes
     assert merged.tile_truncated is True
     assert merged.box == PixelBox(230, 30, 256, 60)
@@ -606,7 +607,7 @@ def test_t8m_end_to_end_fake_detector(monkeypatch) -> None:
     _use_image(monkeypatch, image)
     detector = VisiblePartDetector(image, [(HYPERBOLA, 0.9, r) for r in rectangles])
 
-    detections = detect_line(object(), detector)
+    detections = detect_line(object(), detector, pp_mode=PPSetId.S0)
 
     assert detections.tile_seam_box == 0
     assert len(detections.boxes) == len(rectangles)
@@ -642,7 +643,9 @@ def test_t8n_single_tile_equals_unmerged(monkeypatch, width_px: int) -> None:
     boxes.append((HYPERBOLA, 0.5, boxes[0][2]))  # same-tile duplicate is not merged
     _use_image(monkeypatch, image)
 
-    detections = detect_line(object(), VisiblePartDetector(image, boxes))
+    detections = detect_line(
+        object(), VisiblePartDetector(image, boxes), pp_mode=PPSetId.S0
+    )
     unmerged = detect_tiles(image, VisiblePartDetector(image, boxes))
     unmerged.sort(key=pipeline._output_order)
     reference = line_boxes_to_grid(unmerged, image)

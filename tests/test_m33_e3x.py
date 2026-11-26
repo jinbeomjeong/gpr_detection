@@ -1346,7 +1346,8 @@ def test_offline_plan_realizations_records_and_judge(offline, capsys):
     assert agreement["same"] == 0 and agreement["only_e3x"] > 0
 
 
-def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_path):
+def _run_injected_offline(offline, monkeypatch, tmp_path) -> SimpleNamespace:
+    """Plan, seal record and injected stage of the offline fixture."""
     assert e3x.run_plan(offline.settings, 0.0, offline.context)[0] == "ok"
     plan_dir = offline.settings.stage_dir
     monkeypatch.setattr(e3x, "SEALED_PLAN_DIR", plan_dir)
@@ -1373,6 +1374,16 @@ def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_pa
     monkeypatch.setattr(e3x, "attach_nms_counter", e3x.WarningCounter)
     status, counts = e3x.run_injected(settings, 0.0, offline.context)
     assert status == "ok" and counts.n_inferences > 0
+    return SimpleNamespace(settings=settings, plan_dir=plan_dir, record=record)
+
+
+JUDGE_BLOBS = {"analysis/detection/m33_e3x.py": "blob"}
+"""``git_blobs`` stand-in: the offline seal record's code blobs."""
+
+
+def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_path):
+    stage = _run_injected_offline(offline, monkeypatch, tmp_path)
+    settings, plan_dir, record = stage.settings, stage.plan_dir, stage.record
     summary = json.loads((settings.stage_dir / "summary.json").read_text("utf-8"))
     assert summary["judgment"]["judgeable"] and not summary["defects"].get("zero_test")
     progress = json.loads((settings.stage_dir / "progress.json").read_text("utf-8"))
@@ -1403,6 +1414,14 @@ def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_pa
     assert set(document["hypotheses"]) == set(judge.HYPOTHESES)
     assert document["constants"]["CI_LEVEL"] == 1 - 0.05 / 6
     assert not document["n_boot_is_sealed"]
+    rd = document["report_only"]["R-d"]
+    assert rd["rd_baseline"] is None
+    assert rd["rd_baseline_reason"] == judge.BaselineSkip.SUMMARY_MISSING
+    identity = document["identity"]
+    assert identity["code_blobs"] == JUDGE_BLOBS
+    assert identity["started_at"] <= identity["finished_at"]
+    assert identity["uninjected_run_id"] is None
+    assert identity["uninjected_summary_sha256"] is None
     assert (tmp_path / "judgment" / "units_HB1.csv").is_file()
     with pytest.raises(inputs.InputError):
         judge.run(args)  # the output folder exists
@@ -1424,6 +1443,186 @@ def test_offline_seal2_injected_stage_and_judge_run(offline, monkeypatch, tmp_pa
 
 def replace_namespace(namespace: SimpleNamespace, **changes) -> SimpleNamespace:
     return SimpleNamespace(**{**vars(namespace), **changes})
+
+
+def _write_uninjected(
+    folder: Path,
+    run_identity: dict,
+    status: str = "ok",
+    judgment: dict | None = None,
+) -> dict:
+    """An un-injected stage folder: header-only records and a summary."""
+    folder.mkdir(parents=True, exist_ok=True)
+    records = folder / judge.UNINJECTED_RECORDS
+    records.write_text(",".join(e3x.UNINJECTED_COLUMNS) + "\n", encoding="utf-8")
+    summary = {
+        "stage": "uninjected001",
+        "status": status,
+        "judgment": {"judgeable": True} if judgment is None else judgment,
+        "run_identity": run_identity,
+        "outputs_sha256": {records.name: inputs.sha256_file(records)},
+    }
+    (folder / "summary.json").write_text(json.dumps(summary), encoding="utf-8")
+    return summary
+
+
+def _rewrite_summary(folder: Path, **changes) -> None:
+    path = folder / "summary.json"
+    summary = json.loads(path.read_text(encoding="utf-8"))
+    path.write_text(json.dumps({**summary, **changes}), encoding="utf-8")
+
+
+def test_judge_uninjected_baseline_needs_ok_judgeable_and_unchanged_outputs(
+    tmp_path,
+):
+    skip = judge.BaselineSkip
+    missing = judge.read_uninjected_baseline(tmp_path / "absent")
+    assert (missing.rows, missing.skip_reason) == (None, skip.SUMMARY_MISSING)
+    assert set(missing.identity.values()) == {None}
+
+    folder = tmp_path / "uninjected001"
+    _write_uninjected(folder, {"run_id": "u-run"})
+    used = judge.read_uninjected_baseline(folder)
+    assert (used.rows, used.skip_reason) == ([], None)
+    assert used.identity == {
+        "uninjected_run_id": "u-run",
+        "uninjected_summary_sha256": inputs.sha256_file(folder / "summary.json"),
+        "uninjected_status": "ok",
+        "uninjected_judgeable": True,
+    }
+
+    # A run that is not ok is refused on its summary alone: the changed
+    # records file is never hashed, so the reason stays the status.
+    (folder / judge.UNINJECTED_RECORDS).write_text("changed\n", encoding="utf-8")
+    _rewrite_summary(folder, status=e3x.STATUS_DEFECT)
+    defect = judge.read_uninjected_baseline(folder)
+    assert (defect.rows, defect.skip_reason) == (None, skip.STATUS_NOT_OK)
+    assert defect.identity["uninjected_status"] == e3x.STATUS_DEFECT
+
+    cases = {
+        skip.NOT_JUDGEABLE: [{"judgment": {"judgeable": False}}, {"judgment": {}}],
+        skip.RECORDS_NOT_IN_OUTPUTS: [{"outputs_sha256": {}}],
+        skip.OUTPUT_CHANGED: [{}],
+    }
+    for reason, variants in cases.items():
+        for changes in variants:
+            _write_uninjected(tmp_path / "case", {"run_id": "u-run"})
+            (tmp_path / "case" / judge.UNINJECTED_RECORDS).write_text(
+                "changed\n", encoding="utf-8"
+            )
+            _rewrite_summary(tmp_path / "case", **changes)
+            result = judge.read_uninjected_baseline(tmp_path / "case")
+            assert (result.rows, result.skip_reason) == (None, reason), changes
+    _write_uninjected(tmp_path / "gone", {"run_id": "u-run"})
+    (tmp_path / "gone" / judge.UNINJECTED_RECORDS).unlink()
+    gone = judge.read_uninjected_baseline(tmp_path / "gone")
+    assert (gone.rows, gone.skip_reason) == (None, skip.OUTPUT_MISSING)
+
+
+def _band_units(rows_px: dict[str, tuple[float, ...]]) -> dict[tuple, float]:
+    """Long-arm flat units: each row's value is ``row_px / 100``."""
+    units = {}
+    for pid, rows in rows_px.items():
+        for row_px in rows:
+            for snr in judge.JUDGED_SNR:
+                for polarity in place.inject.POLARITIES:
+                    unit = (pid, row_px, *judge.BAND_FLAT, float(snr), polarity)
+                    units[unit] = row_px / 100
+    return units
+
+
+def test_judge_hb1b_positions_need_all_four_rows():
+    rows_px = {
+        "all_rows": (28.0, 47.0, 68.0, 90.0),
+        "no_28": (47.0, 68.0, 90.0),
+        "no_90": (28.0, 47.0, 68.0),
+    }
+    positions = {
+        pid: judge.BandPosition(pid, inputs.DATASET_4TU, "c1", "M03", False, {})
+        for pid in rows_px
+    }
+    units = _band_units(rows_px)
+    hb1b = judge.hb_rows("HB1b", units, positions)
+    assert [r.position_id for r in hb1b] == ["all_rows"]
+    in_range = (0.47 + 0.68) / 2
+    assert hb1b[0].difference == pytest.approx(in_range - 0.90)
+    assert hb1b[0].floor_value == pytest.approx((in_range + 0.90) / 2)
+    hb1 = judge.hb_rows("HB1", units, positions)
+    assert [r.position_id for r in hb1] == ["all_rows", "no_90"]
+
+
+def test_judge_main_identity_times_and_rd_baseline(
+    offline, monkeypatch, tmp_path, capsys
+):
+    stage = _run_injected_offline(offline, monkeypatch, tmp_path)
+    monkeypatch.setattr(judge.m33_inputs, "git_blobs", lambda paths: JUDGE_BLOBS)
+    monkeypatch.setattr(judge, "N_BOOT", 40)
+    injected_summary = json.loads(
+        (stage.settings.stage_dir / "summary.json").read_text("utf-8")
+    )
+    run_identity = {**injected_summary["run_identity"], "run_id": "u-run"}
+    uninjected = tmp_path / "uninjected001"
+    _write_uninjected(uninjected, run_identity)
+    # A fake clock: each local_now() is one tick later, and the bootstrap
+    # takes a tick of its own, so the start must come before it.
+    ticks = iter(range(1000))
+    monkeypatch.setattr(judge.common, "local_now", lambda: f"T{next(ticks):03d}")
+    bootstrap_ticks = []
+    judge_hypotheses = judge.judge_hypotheses
+
+    def tracked_judge_hypotheses(*args, **kwargs):
+        bootstrap_ticks.append(judge.common.local_now())
+        return judge_hypotheses(*args, **kwargs)
+
+    monkeypatch.setattr(judge, "judge_hypotheses", tracked_judge_hypotheses)
+    elsewhere = tmp_path / "cwd"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)  # every input path is joined to its folder
+
+    def judge_main(out: Path) -> dict:
+        argv = [
+            "--injected",
+            str(stage.settings.stage_dir),
+            "--uninjected",
+            str(uninjected),
+            "--plan",
+            str(stage.plan_dir),
+            "--seal-record",
+            str(stage.record),
+            "--out",
+            str(out),
+        ]
+        assert judge.main(argv) == 0
+        final = json.loads(capsys.readouterr().out.splitlines()[-1])
+        assert set(final) == {"status", "out_dir", "n_hypotheses", "elapsed_s"}
+        assert final["status"] == "ok"
+        return json.loads((out / "judgment.json").read_text(encoding="utf-8"))
+
+    document = judge_main(tmp_path / "judgment")
+    identity = document["identity"]
+    assert identity["started_at"] == "T000"
+    assert identity["started_at"] < bootstrap_ticks[0] < identity["finished_at"]
+    assert identity["code_blobs"] == JUDGE_BLOBS
+    assert identity["uninjected_run_id"] == "u-run"
+    assert identity["uninjected_summary_sha256"] == inputs.sha256_file(
+        uninjected / "summary.json"
+    )
+    assert (identity["uninjected_status"], identity["uninjected_judgeable"]) == (
+        "ok",
+        True,
+    )
+    rd = document["report_only"]["R-d"]
+    assert "rd_baseline" not in rd and rd["rd_baseline_reason"] is None
+    assert "baseline" in rd["band"]
+
+    # Not ok: the judgment still runs, without the baseline and with the reason.
+    _rewrite_summary(uninjected, status=e3x.STATUS_DEFECT)
+    document = judge_main(tmp_path / "judgment_defect")
+    rd = document["report_only"]["R-d"]
+    assert rd["rd_baseline"] is None
+    assert rd["rd_baseline_reason"] == judge.BaselineSkip.STATUS_NOT_OK
+    assert "baseline" not in rd["band"]
+    assert document["identity"]["uninjected_status"] == e3x.STATUS_DEFECT
 
 
 def test_first_try_outputs_are_refused(offline, tmp_path, capsys):

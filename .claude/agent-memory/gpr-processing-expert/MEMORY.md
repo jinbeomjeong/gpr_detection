@@ -11,5 +11,5 @@
 - [Pseudo-band detection facts](pseudo-band-detection-facts.md) — R3 band recall low = placement (length, L1 row >= 37 px / depth) not SNR/matching/class; period-change confound; conf>0.25-only logging
 - [Injection design levers](injection-design-facts.md) — pure-translation band shift, shift limit = model filter (90 px 8P 0.13-0.26 vs 12P 0.7), CPU-bound cost, AGC kills amp texture, r_edge per line, Satterthwaite CI for few IDS zones
 - [Fractional shift / texture facts](fractional-shift-texture-facts.md) — even-n Nyquist loss r_N sin^2(pi d) identity, line-grid columns not DFT band-limited, flat-normalised texture = bend+tilt with taper extrapolation, 2-line precheck misses
-- [E3x judgment facts](e3x-judgment-facts.md) — near-identical paired arms -> CI far below simulated MDE, M* floor drops strongest-cut models, pandas cluster_id float trap, judge draw order reproducible
+- [E3x judgment facts](e3x-judgment-facts.md) — near-identical paired arms -> CI far below simulated MDE, M* floor drops strongest-cut models, pandas cluster_id float trap, judge draw reproducible only via sealed judge's draw form (not rule text)
 - [4TU 평가 기준선·실패 패턴](fourtu-eval-baseline-and-failure-pattern.md) — 기준선 A≈0.95, 얕은 실패 짝 = 남는 얕은 사건+자기 추정 없는 정답, 깊이 묶기 합침, L1 동률 133–148, (a) εr 몫 상한, J1 검출 후보 병목=수율·지지 측선

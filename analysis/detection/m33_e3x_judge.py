@@ -26,9 +26,20 @@ Pipeline (plan §3-2, §3-3)
 
 Inputs asserted (exit 2 otherwise): the injected ``summary.json`` is ``ok``
 and judgeable; its record files have the recorded sha; the seal-2 record
-matches the current code blobs, ``src`` tree and plan tables. The
-un-injected 0.001 records are used when present (R-d baseline), else
-``report_only.rd_baseline`` is ``null``.
+matches the current code blobs (``e3x.code_paths``, the ``src`` files
+included, per file) and plan tables. The un-injected 0.001 records are the
+R-d baseline only when that run's ``summary.json`` is ``ok`` and judgeable
+and its ``outputs_sha256`` (which must list ``uninjected001_records.csv``)
+matches the files; otherwise ``report_only.R-d.rd_baseline`` is ``null``
+and ``report_only.R-d.rd_baseline_reason`` names the first failed check
+(:class:`BaselineSkip`). This never refuses the judgment (plan §5 failure
+table, uninjected001 row). The record files of a run that is not ``ok`` or
+not judgeable are not opened.
+
+``identity``: ``started_at`` is taken at :func:`main` entry and
+``finished_at`` when the document is complete; it carries the judge's own
+``code_blobs``, the injected and un-injected ``run_id``, ``summary.json``
+sha256, and the un-injected ``status`` and ``judgeable``.
 
 v0.5 (plan §5-1, §5-4, A-4): the inputs are the retry folders
 ``runs/eval/m33/e3x_retry/injected`` and ``e3x_retry/uninjected001`` and the
@@ -1067,7 +1078,10 @@ def hb_rows(
         if name == "HB1":
             other = band_arm(units, pid, 28.0)
         elif name == "HB1b":
-            other = band_arm(units, pid, 90.0)
+            # Plan §3-2 table: HB1b positions have all four rows (28, 47, 68,
+            # 90 px), so 28 px is required although it is not in the difference.
+            has_28 = band_arm(units, pid, 28.0) is not None
+            other = band_arm(units, pid, 90.0) if has_28 else None
         else:
             other = _mean_or_none(
                 band_arm(units, pid, 47.0, place.SHORT_ARM),
@@ -1979,9 +1993,99 @@ def assert_run_identities(
         raise inputs.InputError("un-injected run is not of the given seal record")
 
 
-def read_inputs(
-    injected: Path, record: Path, plan_dir: Path
-) -> tuple[dict, list, list]:
+UNINJECTED_RECORDS = "uninjected001_records.csv"
+
+
+class BaselineSkip(StrEnum):
+    """Why the un-injected run is not the R-d baseline (``rd_baseline_reason``)."""
+
+    SUMMARY_MISSING = "summary_missing"
+    STATUS_NOT_OK = "status_not_ok"
+    NOT_JUDGEABLE = "not_judgeable"
+    RECORDS_NOT_IN_OUTPUTS = "records_not_in_outputs_sha256"
+    OUTPUT_MISSING = "output_file_missing"
+    OUTPUT_CHANGED = "output_sha256_differs"
+
+
+@dataclass(frozen=True)
+class UninjectedBaseline:
+    """The un-injected 0.001 records when they may serve as the R-d baseline.
+
+    ``rows`` is ``None`` exactly when ``skip_reason`` is set. ``identity``
+    holds the run's ``run_id``, ``summary.json`` sha256, ``status`` and
+    ``judgeable`` (``None`` for what the summary does not have).
+    """
+
+    rows: list[dict[str, str]] | None
+    skip_reason: BaselineSkip | None
+    identity: dict
+
+
+def _uninjected_identity(summary_path: Path | None, summary: Mapping) -> dict:
+    return {
+        "uninjected_run_id": (summary.get("run_identity") or {}).get("run_id"),
+        "uninjected_summary_sha256": (
+            inputs.sha256_file(summary_path) if summary_path is not None else None
+        ),
+        "uninjected_status": summary.get("status"),
+        "uninjected_judgeable": (summary.get("judgment") or {}).get("judgeable"),
+    }
+
+
+def _baseline_skip_reason(
+    uninjected_dir: Path, summary: Mapping
+) -> BaselineSkip | None:
+    # A run that did not finish ok is never opened past its summary (plan §5
+    # failure table: "그 폴더는 열지 않고 남긴다"), so status and judgeable
+    # are checked before any record file is hashed.
+    if summary.get("status") != e3x.STATUS_OK:
+        return BaselineSkip.STATUS_NOT_OK
+    if (summary.get("judgment") or {}).get("judgeable") is not True:
+        return BaselineSkip.NOT_JUDGEABLE
+    recorded = summary.get("outputs_sha256") or {}
+    if UNINJECTED_RECORDS not in recorded:
+        return BaselineSkip.RECORDS_NOT_IN_OUTPUTS
+    for name, expected in recorded.items():
+        path = uninjected_dir / name
+        if not path.is_file():
+            return BaselineSkip.OUTPUT_MISSING
+        if inputs.sha256_file(path) != expected:
+            return BaselineSkip.OUTPUT_CHANGED
+    return None
+
+
+def read_uninjected_baseline(uninjected_dir: Path) -> UninjectedBaseline:
+    """The R-d baseline: only an ``ok``, judgeable run with unchanged outputs.
+
+    Any other un-injected run leaves the baseline ``null`` with the reason;
+    the judged hypotheses do not use it, so nothing is refused here (plan
+    §5 failure table, uninjected001 row). The seal identity of a present
+    run is asserted before, by :func:`assert_run_identities`.
+    """
+    summary_path = uninjected_dir / "summary.json"
+    if not summary_path.is_file():
+        identity = _uninjected_identity(None, {})
+        return UninjectedBaseline(None, BaselineSkip.SUMMARY_MISSING, identity)
+    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    identity = _uninjected_identity(summary_path, summary)
+    reason = _baseline_skip_reason(uninjected_dir, summary)
+    if reason is not None:
+        return UninjectedBaseline(None, reason, identity)
+    rows = inputs.read_csv(uninjected_dir / UNINJECTED_RECORDS)
+    return UninjectedBaseline(rows, None, identity)
+
+
+@dataclass(frozen=True)
+class InjectedInputs:
+    """The asserted injected run and the code blobs the judge ran with."""
+
+    summary: dict
+    hyperbola: list
+    band: list
+    code_blobs: dict[str, str | None]
+
+
+def read_inputs(injected: Path, record: Path, plan_dir: Path) -> InjectedInputs:
     """Assert the injected summary, its files and the seal-2 record.
 
     Raises:
@@ -2014,7 +2118,7 @@ def read_inputs(
         raise inputs.InputError("injected run code blobs differ from the seal-2 record")
     hyperbola = inputs.read_csv(injected / "hyperbola_records.csv")
     band = inputs.read_csv(injected / "band_records.csv")
-    return summary, hyperbola, band
+    return InjectedInputs(summary, hyperbola, band, blobs)
 
 
 UNIT_COLUMNS = (
@@ -2043,19 +2147,47 @@ def write_units(out_dir: Path, tables: Mapping[str, Sequence]) -> dict[str, str]
     return hashes
 
 
-def run(args: argparse.Namespace) -> dict:
-    """Judge the injected run; returns the ``judgment.json`` document."""
+def _judge_identity(
+    args: argparse.Namespace,
+    started_at: str,
+    injected: InjectedInputs,
+    baseline: UninjectedBaseline,
+) -> dict:
+    """The ``identity`` block; ``finished_at`` is filled when the run ends."""
+    return {
+        **common.new_run_identity(),
+        "started_at": started_at,
+        "code_blobs": injected.code_blobs,
+        "injected_run_id": injected.summary["run_identity"]["run_id"],
+        "injected_summary_sha256": inputs.sha256_file(args.injected / "summary.json"),
+        **baseline.identity,
+        "seal_record_sha256_lf": inputs.sha256_file_lf(args.seal_record),
+    }
+
+
+def run(args: argparse.Namespace, started_at: str | None = None) -> dict:
+    """Judge the injected run; returns the ``judgment.json`` document.
+
+    Args:
+        args: The parsed CLI arguments (tests may add ``n_boot``).
+        started_at: Local start time taken at :func:`main` entry; ``None``
+            takes it now (direct calls).
+    """
+    if started_at is None:
+        started_at = common.local_now()
     out_dir: Path = args.out
     assert_retry_paths(args.injected, args.uninjected, out_dir)
     if out_dir.exists() and any(out_dir.iterdir()):
         raise inputs.InputError(f"output exists: {out_dir}")
-    summary, hyperbola, band = read_inputs(args.injected, args.seal_record, args.plan)
+    injected = read_inputs(args.injected, args.seal_record, args.plan)
+    summary, hyperbola, band = injected.summary, injected.hyperbola, injected.band
     assert_run_identities(summary, args.uninjected, args.seal_record)
+    uninjected = read_uninjected_baseline(args.uninjected)
+    if uninjected.skip_reason is not None:
+        logger.warning("no R-d baseline: %s", uninjected.skip_reason.value)
+    identity = _judge_identity(args, started_at, injected, uninjected)
     planned = planned_band_counts(args.plan)
-    baseline = None
-    baseline_path = args.uninjected / "uninjected001_records.csv"
-    if (args.uninjected / "summary.json").is_file() and baseline_path.is_file():
-        baseline = inputs.read_csv(baseline_path)
+    baseline = uninjected.rows
     data = load_data(hyperbola, band, planned)
     n_boot = getattr(args, "n_boot", N_BOOT)  # the CLI has no option: always B
     bootstrap = Bootstrap(BOOT_SEED, n_boot)
@@ -2063,6 +2195,8 @@ def run(args: argparse.Namespace) -> dict:
     m_star = results["HH1"]["m_star"]
     report = report_band(data, bootstrap)
     report["R-d"] = report_best_scores(data, baseline)
+    skip_reason = uninjected.skip_reason
+    report["R-d"]["rd_baseline_reason"] = skip_reason.value if skip_reason else None
     report["R-e"] = {
         **report_hyperbola(data, m_star, bootstrap),
         **report_sensitivity(data, m_star, bootstrap),
@@ -2123,19 +2257,16 @@ def run(args: argparse.Namespace) -> dict:
         "report_only": report,
         "units_sha256": unit_hashes,
         "planned_band_positions": planned,
-        "identity": {
-            **common.new_run_identity(),
-            "injected_run_id": summary["run_identity"]["run_id"],
-            "injected_summary_sha256": inputs.sha256_file(
-                args.injected / "summary.json"
-            ),
-            "seal_record_sha256_lf": inputs.sha256_file_lf(args.seal_record),
-        },
+        "identity": {**identity, "finished_at": common.local_now()},
     }
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     """CLI entry; returns the exit code (module docstring)."""
+    # Taken first so that identity.started_at is the real start; the identity
+    # block itself is completed inside run() after the inputs are asserted.
+    started = time.time()
+    started_at = common.local_now()
     logging.basicConfig(stream=sys.stderr, level=logging.INFO, format="%(message)s")
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--injected", type=Path, default=DEFAULT_INJECTED)
@@ -2144,10 +2275,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--seal-record", type=Path, default=e3x.SEAL2_RECORD)
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = parser.parse_args(argv)
-    started = time.time()
     status, n_hypotheses = "error", 0
     try:
-        document = run(args)
+        document = run(args, started_at)
         common.write_json(args.out / "judgment.json", document)
         status, n_hypotheses = "ok", len(document["hypotheses"])
     except inputs.InputError as error:

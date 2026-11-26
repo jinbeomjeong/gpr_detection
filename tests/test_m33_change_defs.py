@@ -33,6 +33,7 @@ from gpr_detection.eval import inject
 from gpr_detection.pipeline import PP_SETS, PPSetId
 from gpr_detection.preprocess.filters import prepare_fitting_branch
 from gpr_detection.preprocess.timezero import ZeroResult, find_time_zero
+from m33_close_blob import accept_close_pipeline_blob
 
 REPO = Path(__file__).resolve().parents[1]
 P = 25.0
@@ -225,6 +226,9 @@ def _patch_offline(patch: pytest.MonkeyPatch, tmp: Path) -> None:
         c0b.write_text(json.dumps({"selection": selection}), encoding="utf-8")
     patch.setattr(m33_inputs, "C0B_D0_GATE_JSON", c0b)
     patch.setattr(m33_inputs, "C0B_D0_GATE_SHA256", inputs.sha256_file(c0b))
+    close_blob = accept_close_pipeline_blob(patch)
+    close_c1_blobs = report.C1_CODE_BLOBS | {m33_inputs.PIPELINE_PATH: close_blob}
+    patch.setattr(report, "C1_CODE_BLOBS", close_c1_blobs)
     patch.setattr(m33_inputs, "assert_r0_identity", lambda: {"stub": "r0"})
     patch.setattr(inputs, "assert_list_hashes", lambda: {})
     patch.setattr(inputs, "background_lines", lambda: [ref])
