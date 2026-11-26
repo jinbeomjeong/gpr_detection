@@ -1,0 +1,5 @@
+{"steps": [
+  {"id": "e3x-precheck-r1",
+   "cwd": "C:\\workspace\\gpr_detection",
+   "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x.py --precheck --workers 4 --precheck-dir runs/eval/m33/e3x_precheck_r1"}
+]}
