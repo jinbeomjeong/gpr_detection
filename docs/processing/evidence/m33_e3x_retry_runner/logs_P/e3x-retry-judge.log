@@ -1,0 +1,3 @@
+[start] e3x-retry-judge 2026-11-26T13:48:35 mask=0xFFFF priority=Normal
+{"status": "ok", "out_dir": "C:\\workspace\\gpr_detection\\runs\\eval\\m33\\e3x_retry\\judgment", "n_hypotheses": 6, "elapsed_s": 28.8}
+[end] e3x-retry-judge exit=0 wall_s=33

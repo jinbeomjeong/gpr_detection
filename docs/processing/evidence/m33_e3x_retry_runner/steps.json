@@ -1,0 +1,11 @@
+{"steps": [
+  {"id": "e3x-retry-uninj001",
+   "cwd": "C:\\workspace\\gpr_detection",
+   "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x.py --stage uninjected001 --out-root runs/eval/m33/e3x_retry"},
+  {"id": "e3x-retry-injected-w5",
+   "cwd": "C:\\workspace\\gpr_detection",
+   "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x.py --stage injected --workers 5 --out-root runs/eval/m33/e3x_retry"},
+  {"id": "e3x-retry-judge",
+   "cwd": "C:\\workspace\\gpr_detection",
+   "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x_judge.py"}
+]}

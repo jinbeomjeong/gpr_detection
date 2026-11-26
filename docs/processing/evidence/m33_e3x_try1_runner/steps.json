@@ -1,0 +1,11 @@
+{"steps": [
+ {"id": "e3x-uninjected001",
+  "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x.py --stage uninjected001",
+  "cwd": "C:\\workspace\\gpr_detection"},
+ {"id": "e3x-injected",
+  "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x.py --stage injected --workers 5",
+  "cwd": "C:\\workspace\\gpr_detection"},
+ {"id": "e3x-judge",
+  "cmd": "C:\\ProgramData\\miniforge3\\condabin\\conda.bat run --no-capture-output -n gpr-dev python -I -B analysis/detection/m33_e3x_judge.py",
+  "cwd": "C:\\workspace\\gpr_detection"}
+]}
